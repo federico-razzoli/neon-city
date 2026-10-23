@@ -1,12 +1,12 @@
-import {PubLife} from './pub-life.js?v=characters-5';
+import {PubLife,PubConversation} from './pub-life.js?v=characters-6';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {sprite,outfit} from './sprites.js?v=characters-5';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight, characterHeight} from './world.js?v=characters-5';
-import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=characters-5';
+import {sprite,outfit} from './sprites.js?v=characters-6';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight, characterHeight, pubLines} from './world.js?v=characters-6';
+import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=characters-6';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-5';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-6';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
 import {orderSurfaces} from './surface-order.js';
@@ -16,7 +16,7 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu');
-let insidePub=false,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null;
+let insidePub=false,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const nearPubDoor=()=>insidePub?facingPubExit(player):facingPubDoor(player,pubBuildings());
 function usePubDoor(){
@@ -33,7 +33,7 @@ function usePubChair(){
   if(playerSeat){
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
-    playerSeat=null;eye=1.65;
+    playerSeat=null;eye=1.65;pubTalk=null;
   }else{
     const chair=facingPubChair(player,pubPatrons,pubLife?.walker?.chair);
     if(!chair)return false;
@@ -41,7 +41,9 @@ function usePubChair(){
     playerSeat={tableIndex:chair.tableIndex,seat:chair.seat,standing:{x:player.x,z:player.z},angle,pitch:0};
     player.x=chair.x+chair.w/2;player.z=chair.z+chair.d/2;player.angle=angle;
     eye=1.5;
-    greet=pubPatrons[chair.tableIndex]?.[1-chair.seat]!=null;
+    const partner=pubPatrons[chair.tableIndex]?.[1-chair.seat];
+    greet=partner!=null;
+    pubTalk=greet?new PubConversation(pubLines(partner)):null;
   }
   keys.clear();shiftKeys.clear();startSpaceHeld=true;notice=greet?2.5:0;steps=0;
   if(greet)noticeText='HI THERE!';
@@ -343,6 +345,8 @@ function tick(now){
     const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(insidePub){
       pubLife?.update(dt,pubPatrons,playerSeat,player);
+      const line=pubTalk?.update(dt);
+      if(line){notice=2.5;noticeText=line;}
       const bumpedPerson=!playerSeat&&moveInPub(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,pubLife?.walker);
       if(bumpedPerson){notice=2.5;noticeText='HEY! WATCH OUT!';}
       document.querySelector('#message').textContent=notice?noticeText:'';

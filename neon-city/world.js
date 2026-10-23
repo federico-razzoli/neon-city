@@ -1,8 +1,15 @@
 export const PEDESTRIAN_TYPES=12;
 // Optional per-character traits; characters without an entry use the defaults.
-const CHARACTER_TRAITS={4:{height:1.68},9:{goesToPub:false},10:{height:1.78}};
+const CHARACTER_TRAITS={
+  4:{height:1.68},
+  5:{lines:['THIS BEER SUCKS.','THIS PUB SUCKS.','LIFE SUCKS.','THIS CONVERSATION SUCKS.']},
+  9:{goesToPub:false},
+  10:{height:1.78}
+};
 export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;
 export const characterHeight=type=>CHARACTER_TRAITS[type]?.height??1.85;
+// What a character says, in order, while the player shares their pub table.
+export const pubLines=type=>CHARACTER_TRAITS[type]?.lines??[];
 export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
 export const BLOCK = 64;
 // Each river occupies two rows; their centres are ten blocks apart.

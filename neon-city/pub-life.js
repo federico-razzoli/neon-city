@@ -1,5 +1,5 @@
-import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-5';
-import {PUB_TYPES} from './world.js?v=characters-5';
+import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-6';
+import {PUB_TYPES} from './world.js?v=characters-6';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 const sameSeat=(a,b)=>a&&b&&a.tableIndex===b.tableIndex&&a.seat===b.seat;
@@ -71,5 +71,22 @@ export class PubLife{
       this.walker={...start,type:patrons[chair.tableIndex][chair.seat],variant:patrons[chair.tableIndex].variants?.[chair.seat]??0,route,walkTime:0,facingX:0,facingZ:-1};
       patrons[chair.tableIndex][chair.seat]=null;
     }
+  }
+}
+// Table talk after the greeting: one line every 3–5 seconds, looping until the player stands.
+export class PubConversation{
+  constructor(lines,random=Math.random){
+    this.lines=lines;this.random=random;this.index=0;this.wait=this.delay();
+  }
+  delay(){return 3+this.random()*2;}
+  // Returns the line that is due now, if any.
+  update(dt){
+    if(!this.lines.length)return null;
+    this.wait-=dt;
+    if(this.wait>0)return null;
+    this.wait=this.delay();
+    const line=this.lines[this.index];
+    this.index=(this.index+1)%this.lines.length;
+    return line;
   }
 }

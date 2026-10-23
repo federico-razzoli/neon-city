@@ -612,8 +612,9 @@ test('game input replays manhole feedback on separate presses and held Space wit
   };
   const pubInterior=await import('../neon-city/pub-interior.js');
   const {pubName}=await import('../neon-city/pub.js');
-  const {PubLife}=await import('../neon-city/pub-life.js');
-  const sandbox={...pubInterior,PubLife,pubName,CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const {PubLife,PubConversation}=await import('../neon-city/pub-life.js');
+  const {pubLines}=await import('../neon-city/world.js');
+  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,traffic:()=>[],
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -722,12 +723,22 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.ok(sandbox.game.seat);
   assert.equal(element('#message').textContent,'','empty table has no greeting or standing prompt');
   events.keyup(key);events.keydown(key);
+  // A partner with lines talks after the greeting and falls silent when the player stands.
+  city.chunks.get('0,0').buildings[0].pubPatrons[0][1]=5;
+  player.x=4;player.z=.9;player.angle=0;events.keyup(key);events.keydown(key);
+  let ms=22400;tick(ms);
+  assert.equal(element('#message').textContent,'HI THERE!');
+  const heard=[];
+  for(let i=0;i<600;i++){tick(ms+=20);const text=element('#message').textContent;if(text&&text!==heard.at(-1))heard.push(text);}
+  assert.deepEqual(heard.slice(0,3),['HI THERE!','THIS BEER SUCKS.','THIS PUB SUCKS.']);
+  events.keyup(key);events.keydown(key);assert.equal(sandbox.game.seat,null);
+  for(let i=0;i<600;i++){tick(ms+=20);if(i>=150)assert.equal(element('#message').textContent,'','no more lines after standing');}
   player.x=9;player.z=1.8;
   const streetMoves=moves;
   events.keyup(key);player.angle=Math.PI;
-  tick(22340);assert.equal(element('#message').textContent,'');
+  tick(ms+=20);assert.equal(element('#message').textContent,'');
   assert.equal(moves,streetMoves,'interior does not run outdoor movement');
-  events.keydown(key);tick(22360);
+  events.keydown(key);tick(ms+=20);
   assert.equal(player.x,21);assert.equal(player.z,-7);
   assert.equal(player.angle,Math.PI,'exit faces away from the pub');
   assert.equal(sounds,7,'door use never lifts a manhole');
@@ -1104,6 +1115,8 @@ test('Muslim woman wears a hijab and long abaya, and never appears in pubs',asyn
   for(let i=0;i<1000;i++){
     const value=i/1000;
     for(const seats of createPubPatrons(()=>value))for(const type of seats)if(type!=null)seen.add(type);
+    // Walkers plan routes, so a coarser sweep keeps this fast while still reaching every type.
+    if(i%10)continue;
     const life=new PubLife(()=>value);life.arrival=0;life.departure=60;
     life.update(.1,PUB.tables.map(()=>[null,null]),null);
     if(life.walker)seen.add(life.walker.type);
@@ -1174,6 +1187,27 @@ test('old-style robot has an antenna, glowing eyes and pincers, with a wind-up k
   const legs=boxes.filter(b=>b.x>=chair.x&&b.x<chair.x+chair.w);
   assert.equal(legs.filter(b=>b.color==='#9aa0a8').length,4,'metal thighs and shins');
   assert.equal(legs.filter(b=>b.color==='#585e68').length,2,'block feet');
+});
+
+test('table partners say their lines in order every 3 to 5 seconds, looping',async()=>{
+  const {PubConversation}=await import('../neon-city/pub-life.js');
+  const {pubLines}=await import('../neon-city/world.js');
+  const lines=pubLines(5);
+  assert.deepEqual(lines,['THIS BEER SUCKS.','THIS PUB SUCKS.','LIFE SUCKS.','THIS CONVERSATION SUCKS.']);
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(type!==5)assert.deepEqual(pubLines(type),[],'no lines by default');
+  const values=[0,1,.5,.25,.75,0,1,.5,.1],random=()=>values.shift()??.5;
+  const talk=new PubConversation(lines,random),said=[],gaps=[];
+  let since=0;
+  for(let i=0;i<4000;i++){
+    since+=.01;
+    const line=talk.update(.01);
+    if(line){said.push(line);gaps.push(since);since=0;}
+  }
+  assert.deepEqual(said.slice(0,9),[...lines,...lines,lines[0]],'restarts after the last line');
+  for(const gap of gaps)assert.ok(gap>=3-1e-9&&gap<=5+.011,`gap ${gap} within 3–5 s`);
+  assert.ok(Math.abs(gaps[0]-3)<.011&&Math.abs(gaps[1]-5)<.011,'each gap is randomised separately');
+  const quiet=new PubConversation([]);
+  for(let i=0;i<100;i++)assert.equal(quiet.update(1),null,'characters without lines stay silent');
 });
 
 test('pub walkers wait for standing or seated players without admitting another walker',async()=>{
