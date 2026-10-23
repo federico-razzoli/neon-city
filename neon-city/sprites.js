@@ -1,3 +1,4 @@
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447'];
 const sprites=[];
 export function sprite(type,frame,back=false){
   const key=`${type}:${frame}:${back}`;if(sprites[key])return sprites[key];
@@ -12,7 +13,7 @@ export function sprite(type,frame,back=false){
     rect(skin,3,23,3,9);rect(skin,21,23,3,9);
     rect('#f4eff2',7,32,6,12+stride);rect('#f4eff2',15,32,5,12-stride);
     rect('#d2c7d5',11,33,2,10+stride);rect('#d2c7d5',15,33,1,10-stride);
-    rect('#463447',5,44+stride,8,3);rect('#463447',15,44-stride,8,3);
+    rect(SHOE_COLORS[type],5,44+stride,8,3);rect(SHOE_COLORS[type],15,44-stride,8,3);
     if(back){
       rect('#ed68ac',8,5,10,8);rect('#c85897',8,11,10,2);
       rect('#ca6098',6,18,14,1);rect('#ca6098',12,20,1,11);
@@ -36,14 +37,14 @@ export function sprite(type,frame,back=false){
     rect(shirt,6,16,14,15);rect(skin,4,21,3,11);rect(skin,20,21,3,11);
     if(dark){
       rect('#394866',8,31,5,12+stride);rect('#394866',14,31,5,12-stride);
-      rect('#e3d8dc',6,43+stride,7,3);rect('#e3d8dc',14,43-stride,7,3);
+      rect(SHOE_COLORS[type],6,43+stride,7,3);rect(SHOE_COLORS[type],14,43-stride,7,3);
     }else{
       // Short black skirt and chunky black boots.
       rect(skin,8,33,5,10+stride);rect(skin,14,33,5,10-stride);
       rect('#15141d',7,29,13,6);rect('#15141d',6,33,15,2);
       rect('#35323f',7,29,13,1);rect('#b9acbc',12,29,2,1);
-      rect('#12121a',8,39+stride,5,6);rect('#12121a',14,39-stride,5,6);
-      rect('#12121a',6,43+stride,7,3);rect('#12121a',14,43-stride,7,3);
+      rect(SHOE_COLORS[type],8,39+stride,5,6);rect(SHOE_COLORS[type],14,39-stride,5,6);
+      rect(SHOE_COLORS[type],6,43+stride,7,3);rect(SHOE_COLORS[type],14,43-stride,7,3);
       rect('#363340',9,40+stride,2,1);rect('#363340',16,40-stride,2,1);
     }
     if(dark){
@@ -71,7 +72,7 @@ export function sprite(type,frame,back=false){
     rect('#392d2c',8,2,10,5);rect(skin,8,7,10,8);
     rect(skin,5,16,16,16);rect(skin,2,18,3,14);rect(skin,21,18,3,13);
     rect('#303344',7,32,6,12+stride);rect('#303344',15,32,5,12-stride);
-    rect('#191725',5,44+stride,8,3);rect('#191725',15,44-stride,8,3);
+    rect(SHOE_COLORS[type],5,44+stride,8,3);rect(SHOE_COLORS[type],15,44-stride,8,3);
     for(const x of [2,21]){rect(ink,x,20,3,2);rect(ink,x+1,23,1,4);rect(ink,x,27,3,1);}
     if(back){
       rect('#392d2c',8,5,10,7);rect(ink,9,19,8,2);rect(ink,12,18,2,10);
@@ -88,9 +89,9 @@ export function sprite(type,frame,back=false){
   }
   if(type===1){ // Adult clubgoer: big hair, magenta minidress, solid-colour tights and heels.
     rect('#b96d40',7,1,11,16);rect(skin,9,5,7,8);rect('#f7bd5b',7,1,11,5);rect('#ef4c99',8,15,10,15);rect(skin,5,16,3,15);rect(skin,18,16,3,15);rect('#ec849a',8,30,4,13+stride);rect('#ec849a',14,30,4,13-stride);
-    rect('#170f28',7,43+stride,6,2);rect('#170f28',14,43-stride,7,2);rect('#170f28',8,45+stride,1,2);rect('#170f28',15,45-stride,1,2);
+    rect(SHOE_COLORS[type],7,43+stride,6,2);rect(SHOE_COLORS[type],14,43-stride,7,2);rect(SHOE_COLORS[type],8,45+stride,1,2);rect(SHOE_COLORS[type],15,45-stride,1,2);
   }else{
-    rect(type===2?'#171422':'#503e43',8,2,10,6);rect(skin,8,6,10,8);rect(type===2?'#1e1e2b':'#67bac5',5,15,16,17);rect(type===2?'#b2b0aa':'#efb9c4',10,16,6,14);rect(skin,3,19,3,13);rect(skin,21,19,3,13);rect('#21283f',7,32,6,12+stride);rect('#21283f',15,32,5,12-stride);rect('#b8a7ac',5,44+stride,8,3);rect('#b8a7ac',15,44-stride,8,3);
+    rect(type===2?'#171422':'#503e43',8,2,10,6);rect(skin,8,6,10,8);rect(type===2?'#1e1e2b':'#67bac5',5,15,16,17);rect(type===2?'#b2b0aa':'#efb9c4',10,16,6,14);rect(skin,3,19,3,13);rect(skin,21,19,3,13);rect('#21283f',7,32,6,12+stride);rect('#21283f',15,32,5,12-stride);rect(SHOE_COLORS[type],5,44+stride,8,3);rect(SHOE_COLORS[type],15,44-stride,8,3);
     if(type===0){rect('#101225',7,7,12,3);rect('#99dfeb',8,7,3,1);}else{rect('#d7b352',10,17,1,6);rect('#d7b352',15,17,1,6);rect('#d7b352',11,23,4,1);rect('#281e26',10,12,7,2);}
   }
   if(back){

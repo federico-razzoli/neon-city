@@ -1,13 +1,52 @@
+import {SHOE_COLORS} from './sprites.js';
+
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
   walls:[{x:17.8,z:0,w:.4,d:6},{x:17.8,z:10,w:.4,d:8}],
   bar:{x:0,z:13,w:15,d:1.7},
+  staffDoor:{x:16.4,z:18},
+  toiletDoor:{x:24.5,z:18},
   shelves:{x:2,z:17.25,w:13,d:.65},
   chandeliers:[{x:9,z:6},{x:9,z:11},{x:24,z:5},{x:24,z:13}],
-  bartender:{x:9,z:15.5,radius:.4},
+  bartender:{x:9,z:15.5,radius:.53},
   tables:[{x:4,z:4,radius:1.6},{x:14,z:4,radius:1.6},{x:4,z:9,radius:1.6},
     {x:22,z:3.5,radius:1.6},{x:27,z:3.5,radius:1.6},{x:24.5,z:9,radius:1.6},
     {x:22,z:14.5,radius:1.6},{x:27,z:14.5,radius:1.6}]};
+export const pubChairs=()=>PUB.tables.flatMap((table,tableIndex)=>[-1,1].map((side,seat)=>({
+  x:table.x-.4,z:table.z+side*(table.radius+.45)-.4,w:.8,d:.8,side,tableIndex,seat
+})));
+export function facingPubChair(player,patrons=[],reserved){
+  let nearest=null,distance=1.5;
+  for(const chair of pubChairs()){
+    if(patrons[chair.tableIndex]?.[chair.seat]!=null||(reserved?.tableIndex===chair.tableIndex&&reserved?.seat===chair.seat))continue;
+    const dx=chair.x+chair.w/2-player.x,dz=chair.z+chair.d/2-player.z;
+    const gap=Math.hypot(dx,dz);
+    if(gap>distance)continue;
+    // Include the chair's width in the viewing cone. Up close, its edges
+    // remain usable even when its centre moves away from the crosshair.
+    const radius=Math.hypot(chair.w,chair.d)/2;
+    const halfAngle=.45+Math.asin(Math.min(1,radius/Math.max(gap,.001)));
+    if(gap>radius&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(halfAngle))continue;
+    // Do not reach through a dividing wall or a table to sit down.
+    let blocked=false;
+    for(let t=.1;t<1;t+=.1){
+      const x=player.x+dx*t,z=player.z+dz*t;
+      if(PUB.walls.some(b=>x>b.x&&x<b.x+b.w&&z>b.z&&z<b.z+b.d)||PUB.tables.some(b=>Math.hypot(x-b.x,z-b.z)<b.radius)){blocked=true;break;}
+    }
+    if(!blocked){nearest=chair;distance=gap;}
+  }
+  return nearest;
+}
+export function createPubPatrons(random=Math.random){
+  return PUB.tables.map(()=>{
+    // 10% empty, 45% solo, 45% paired.
+    const roll=random(),count=roll<.1?0:roll<.55?1:2,seats=[null,null];
+    const first=random()<.5?0:1;
+    for(let i=0;i<count;i++)seats[(first+i)%2]=Math.floor(random()*7);
+    seats.beerSides=[random()<.5?-1:1,random()<.5?-1:1];
+    return seats;
+  });
+}
 function facing(player,target,halfWidth){
   const dz=target.z-player.z,forwardZ=Math.cos(player.angle);
   // Aim at the whole doorway, rather than a shrinking cone around its centre.
@@ -26,17 +65,39 @@ export function facingPubDoor(player,buildings){
   });
 }
 export const facingPubExit=player=>player.z>PUB.door.z&&facing(player,PUB.door,.7);
-export function moveInPub(player,dx,dz){
-  const radius=.3,obstacles=[...PUB.walls,PUB.bar,PUB.shelves];
-  const clear=(x,z)=>x>=radius&&x<=PUB.width-radius&&z>=radius&&z<=PUB.depth-radius&&!obstacles.some(b=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius)&&![...PUB.tables,PUB.bartender].some(b=>Math.hypot(x-b.x,z-b.z)<b.radius+radius);
+export const facingStaffDoor=player=>player.z<PUB.staffDoor.z&&facing(player,PUB.staffDoor,.7);
+export const facingToiletDoor=player=>player.z<PUB.toiletDoor.z&&facing(player,PUB.toiletDoor,.7);
+export function pubPersonBlocks(start,end,person){
+  if(!person)return false;
+  const clearance=.85,dx=end.x-start.x,dz=end.z-start.z;
+  const distance=Math.hypot(start.x-person.x,start.z-person.z);
+  // Allow someone already touching to move away rather than become trapped.
+  if(distance<clearance&&(start.x-person.x)*dx+(start.z-person.z)*dz>=0&&Math.hypot(end.x-person.x,end.z-person.z)>distance)return false;
+  const length=dx*dx+dz*dz,t=length?Math.max(0,Math.min(1,((person.x-start.x)*dx+(person.z-start.z)*dz)/length)):0;
+  return Math.hypot(start.x+dx*t-person.x,start.z+dz*t-person.z)<clearance;
+}
+export function moveInPub(player,dx,dz,patrons=[],walker){
+  const radius=.3,obstacles=[...PUB.walls,PUB.bar,PUB.shelves],chairs=pubChairs();
+  let bumpedPerson=false;
+  const overlaps=(x,z,b)=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius;
+  const clear=(x,z)=>{
+    if(pubPersonBlocks(player,{x,z},walker)){bumpedPerson=true;return false;}
+    if(x<radius||x>PUB.width-radius||z<radius||z>PUB.depth-radius)return false;
+    if(obstacles.some(b=>overlaps(x,z,b))||PUB.tables.some(b=>Math.hypot(x-b.x,z-b.z)<b.radius+radius))return false;
+    const hitChairs=chairs.filter(b=>overlaps(x,z,b));
+    const hitBartender=Math.hypot(x-PUB.bartender.x,z-PUB.bartender.z)<PUB.bartender.radius+radius;
+    if(hitBartender||hitChairs.some(b=>patrons[b.tableIndex]?.[b.seat]!=null))bumpedPerson=true;
+    return !hitBartender&&!hitChairs.length;
+  };
   // Substeps keep running and diagonal motion from crossing furniture or walls.
   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
   for(let i=0;i<count;i++){
-    if(clear(player.x+dx/count,player.z))player.x+=dx/count;
-    if(clear(player.x,player.z+dz/count))player.z+=dz/count;
+    if(dx&&clear(player.x+dx/count,player.z))player.x+=dx/count;
+    if(dz&&clear(player.x,player.z+dz/count))player.z+=dz/count;
   }
+  return bumpedPerson;
 }
-export function drawPubInterior({face,quad,box}){
+export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1}){
   for(let x=0;x<PUB.width;x+=2)for(let z=0;z<PUB.depth;z+=2){
     quad(x,0,z,2,2,'#70513c');
     quad(x,PUB.height,z,2,2,'#31262a');
@@ -60,6 +121,32 @@ export function drawPubInterior({face,quad,box}){
     if(x===9.45&&y===1)color='#e9c47e';
     face([{x,y,z:0},{x:right,y,z:0},{x:right,y:top,z:0},{x,y:top,z:0}],color);
   }
+  // Matching closed doors share the rear wall and compact, smoothed signs.
+  for(const [staff,words] of [[PUB.staffDoor,['STAFF','ONLY']],[PUB.toiletDoor,['TOILET']]]){
+  box(staff.x-.78,0,staff.z-.035,1.56,3,.035,'#a08057');
+  box(staff.x-.7,0,staff.z-.06,1.4,2.9,.025,'#49332d');
+  box(staff.x+.48,1.05,staff.z-.12,.12,.18,.06,'#d9b671');
+  box(staff.x-.25,2.065,staff.z-.08,.5,.32,.02,'#24232b');
+  const lettering={
+    S:['01111','10000','10000','01110','00001','00001','11110'],
+    T:['11111','00100','00100','00100','00100','00100','00100'],
+    A:['01110','10001','10001','11111','10001','10001','10001'],
+    F:['11111','10000','10000','11110','10000','10000','10000'],
+    O:['01110','10001','10001','10001','10001','10001','01110'],
+    N:['10001','11001','11001','10101','10011','10011','10001'],
+    L:['10000','10000','10000','10000','10000','10000','11111'],
+    Y:['10001','10001','01010','00100','00100','00100','00100'],
+    I:['11111','00100','00100','00100','00100','00100','11111'],
+    E:['11111','10000','10000','11110','10000','10000','11111']
+  };
+  for(const [line,word] of words.entries()){
+    const size=word.length>5?.0125:.0145,left=staff.x-(word.length*6-1)*size/2;
+    for(const [letter,char] of [...word].entries())for(let row=0;row<7;row++)for(let col=0;col<5;col++)if(lettering[char][row][col]==='1'){
+      const x=left+(letter*6+col)*size,y=(words.length===1?2.27:2.336)-line*.133-row*size,z=staff.z-.085;
+      face([{x,y,z},{x:x+size,y,z},{x:x+size,y:y-size,z},{x,y:y-size,z}],'#eee0bb',null,true);
+    }
+  }
+  }
   // Faceted cylinders give glasses, bottles and tables actual round silhouettes.
   const cylinder=(x,y,z,r,h,color,top=color,rTop=r)=>{
     const n=16,ring=(i,yy,rr)=>({x:x+Math.cos(i*2*Math.PI/n)*rr,y:yy,z:z+Math.sin(i*2*Math.PI/n)*rr});
@@ -82,13 +169,47 @@ export function drawPubInterior({face,quad,box}){
     cylinder(x,y+.27,z,.13,.045,'#eee0b0');
     box(x-.08,y+.03,z-.1,.025,.19,.02,'#e7cca0');
   };
-  for(const b of PUB.tables){
+  for(const [tableIndex,b] of PUB.tables.entries()){
     cylinder(b.x,0,b.z,.65,.12,'#3c2a21');
     cylinder(b.x,.12,b.z,.18,.8,'#674531','#876443');
     cylinder(b.x,.92,b.z,b.radius,.17,'#755133','#b78b5c');
-    // Fine concentric edging and a pair of drinks on each polished tabletop.
+    // Drinks belong to occupied seats; an empty table stays clear.
     cylinder(b.x,1.09,b.z,b.radius-.08,.012,'#a7794e');
-    pint(b.x-.55,1.102,b.z-.3);bottle(b.x+.5,1.102,b.z+.3,1);
+    for(let seat=0;seat<2;seat++)if(patrons[tableIndex]?.[seat]!=null){
+      // Pick once per seat so glasses never jump sides while looking around.
+      const seats=patrons[tableIndex];
+      seats.beerSides??=[Math.random()<.5?-1:1,Math.random()<.5?-1:1];
+      pint(b.x+seats.beerSides[seat]*.65,1.102,b.z+(seat===0?-1:1)*(b.radius-.45));
+    }
+  }
+  for(const chair of pubChairs()){
+    const {x,z,w,d,side,tableIndex,seat}=chair;
+    for(const dx of [.06,w-.14])for(const dz of [.06,d-.14])box(x+dx,0,z+dz,.08,.6,.08,'#51382b');
+    box(x,.55,z,w,.12,d,'#805b3b','#a47a4e');
+    const backZ=z+(side<0?0:d-.08);
+    for(const dx of [.04,w-.12])box(x+dx,.6,backZ,.08,.75,.08,'#67472e');
+    box(x+.04,1.05,backZ,w-.08,.22,.08,'#805b3b');
+    const type=patrons[tableIndex]?.[seat];
+    if(type!=null){
+      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2'][type];
+      for(const dx of [.15,.48]){
+        box(x+dx,.52,z+.2,.17,.17,.55,trousers);
+        box(x+dx,.12,z+(side<0?.57:.06),.17,.46,.17,trousers);
+        if(type===3){
+          // The punk's street outfit has tall black shafts and chunky soles.
+          const bootZ=z+(side<0?.57:.06);
+          box(x+dx-.01,.12,bootZ-.01,.19,.27,.19,SHOE_COLORS[type]);
+          box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,SHOE_COLORS[type]);
+          box(x+dx+.035,.17,bootZ-.016,.035,.16,.012,'#363340');
+        }else if(type===1){
+          // Match the street outfit's raised sole and narrow heel at the rear.
+          const shoeZ=z+(side<0?.55:-.06);
+          box(x+dx-.025,.10,shoeZ,.22,.06,.3,SHOE_COLORS[type]);
+          box(x+dx+.015,.04,shoeZ+(side<0?0:.25),.04,.06,.05,SHOE_COLORS[type]);
+        }else box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,SHOE_COLORS[type]);
+      }
+      seatedPatron({x:x+w/2,z:z+d/2,type,side});
+    }
   }
   const b=PUB.bar;
   box(b.x,0,b.z,b.w,1.15,b.d,'#61412e');
@@ -120,20 +241,77 @@ export function drawPubInterior({face,quad,box}){
     cylinder(x,2.02,13.4,.065,.2,'#312a2a','#6a513a');
   }
   pint(7.1,1.3,13.35);
-  // Bartender in a cream shirt, waistcoat and apron, standing behind the counter.
+  // Four regulars behind the bar: chosen once when this pub is first entered.
   const {x,z}=PUB.bartender;
-  for(const dx of [-.16,.08])box(x+dx,0,z-.1,.16,.82,.22,'#282731');
-  box(x-.28,.8,z-.17,.56,.57,.34,'#ece0c2');
-  box(x-.23,.83,z-.195,.46,.48,.04,'#43333a');
-  box(x-.22,.55,z-.22,.44,.45,.035,'#c2b79c');
-  cylinder(x,1.37,z,.09,.12,'#bd8864');
-  cylinder(x,1.49,z,.19,.34,'#c08e6c','#d7a781');
-  cylinder(x,1.79,z,.2,.1,'#43332c');
-  for(const dx of [-.08,.07])box(x+dx,1.67,z-.185,.035,.025,.025,'#2a282a');
-  box(x-.025,1.57,z-.22,.055,.09,.07,'#d7a781');
-  for(const dx of [-.39,.26]){
-    box(x+dx,.98,z-.14,.13,.36,.23,'#e4d9b7');
-    box(x+dx,.98,z-.37,.13,.12,.27,'#c08e6c');
+  const staffScale=4/3;
+  const staffBox=(px,py,pz,w,h,d,...colors)=>box(x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,w*staffScale,h*staffScale,d*staffScale,...colors);
+  const staffCylinder=(px,py,pz,r,h,color,top=color,rTop=r)=>cylinder(x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,r*staffScale,h*staffScale,color,top,rTop*staffScale);
+  const staffFace=(points,...args)=>face(points.map(p=>({x:x+(p.x-x)*staffScale,y:p.y*staffScale,z:z+(p.z-z)*staffScale})),...args);
+  const nurse=bartenderType===3,large=bartenderType===2;
+  const skin=bartenderType===0?'#94624e':nurse?'#f4bdab':'#e2aa8c';
+  const hair=bartenderType===0?'#201e26':nurse?'#ee7c9e':large?'#88553d':'#49352c';
+  const width=large?.86:.56,depth=large?.5:.34,head=large?.23:.19;
+  const shirt=nurse?'#f29bb7':large?'#729083':'#eee5cf';
+  for(const dx of [-.16,.08])staffBox(x+dx,0,z-.1,.16,.82,.22,nurse?'#f5eee5':'#282731');
+  staffBox(x-width/2,.8,z-depth/2,width,.57,depth,shirt);
+  if(nurse||large){
+    staffBox(x-width/2,.48,z-depth/2,width,.38,depth,shirt);
+    staffBox(x-width*.34,.52,z-depth/2-.025,width*.68,.73,.03,'#f5eee5');
+    staffBox(x-width/2,1.05,z-depth/2-.04,width,.07,.04,'#fff4df');
+  }else{
+    staffBox(x-.23,.83,z-.195,.46,.48,.04,'#25232b');
+    // White shirt front, pointed collar, black bow tie and brass vest buttons.
+    staffBox(x-.085,1.02,z-.24,.17,.33,.04,'#fff4df');
+    for(const side of [-1,1])staffBox(x+side*.08-.045,1.27,z-.29,.09,.07,.04,'#24232b');
+    for(const y of [.92,1.04,1.16])staffBox(x+.11,y,z-.24,.025,.025,.03,'#cfad6b');
+  }
+  staffCylinder(x,1.37,z,.09,.12,skin);
+  staffCylinder(x,1.49,z,head,.34,skin,skin);
+  staffCylinder(x,1.79,z,head+.01,.1,hair);
+  for(const dx of [-.08,.07]){
+    staffBox(x+dx,1.67,z-head-.01,.035,.04,.025,nurse?'#467b98':'#2a282a');
+    if(nurse)staffBox(x+dx-.008,1.705,z-head-.015,.05,.012,.025,'#663e50');
+  }
+  staffBox(x-.025,1.57,z-head-.04,.055,.09,.07,skin);
+  staffBox(x-.045,1.535,z-head-.015,.09,.018,.025,nurse?'#bf627d':'#9f6658');
+  for(const side of [-1,1]){
+    const armX=x+side*(width/2+.065)-.065;
+    staffBox(armX,.98,z-.14,.13,.36,.23,shirt);
+    staffBox(armX,.98,z-.37,.13,.12,.27,skin);
+  }
+  if(large){
+    staffCylinder(x,1.76,z+.15,.22,.22,hair);
+    for(const side of [-1,1])staffCylinder(x+side*.22,1.49,z,.055,.07,'#d8ba6e');
+  }
+  if(nurse){
+    // Pink hair wraps the rear half of the head down to the nape.
+    for(let i=0;i<12;i++){
+      const point=(angle,y)=>({x:x+Math.cos(angle)*(head+.025),y,z:z+Math.sin(angle)*(head+.025)});
+      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      staffFace([point(a,1.48),point(b,1.48),point(b,1.84),point(a,1.84)],hair);
+    }
+    // A red-and-white Poké Ball rests on the countertop only for Nurse Joy.
+    const ball={x:x+.8,y:1.48,z:13.55,r:.18};
+    const latitudes=[-Math.PI/2,-1.2,-.9,-.6,-.3,-.09,.09,.3,.6,.9,1.2,Math.PI/2];
+    const spherePoint=(latitude,angle)=>({x:ball.x+ball.r*Math.cos(latitude)*Math.cos(angle),y:ball.y+ball.r*Math.sin(latitude),z:ball.z+ball.r*Math.cos(latitude)*Math.sin(angle)});
+    for(let j=0;j<latitudes.length-1;j++)for(let i=0;i<24;i++){
+      const low=latitudes[j],high=latitudes[j+1],a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      const color=low===-.09?'#25232b':low>=.09?'#d94650':'#eee9df';
+      face([spherePoint(low,a),spherePoint(low,b),spherePoint(high,b),spherePoint(high,a)],color);
+    }
+    const button=(r,offset,color)=>face(Array.from({length:20},(_,i)=>({x:ball.x+Math.cos(i*Math.PI/10)*r,y:ball.y+Math.sin(i*Math.PI/10)*r,z:ball.z-ball.r-offset})),color);
+    button(.06,.004,'#25232b');button(.04,.008,'#f8f2df');button(.023,.012,'#d3d4ce');
+    // Nurse Joy's pink side loops, swept fringe, white cap and pink uniform.
+    for(const side of [-1,1]){
+      staffCylinder(x+side*.27,1.55,z+.04,.13,.28,hair,'#ffa1bc');
+      staffCylinder(x+side*.3,1.5,z+.06,.09,.09,hair);
+    }
+    staffBox(x-.19,1.76,z-.2,.15,.1,.08,hair);
+    staffBox(x+.02,1.8,z-.19,.17,.06,.06,hair);
+    staffBox(x-.22,1.88,z-.12,.44,.2,.19,'#fff3e4');
+    staffBox(x-.025,1.92,z-.132,.05,.12,.02,'#e16b88');
+    staffBox(x-.06,1.955,z-.135,.12,.045,.02,'#e16b88');
+    staffBox(x-.08,1.28,z-depth/2-.03,.16,.08,.04,'#fff3e4');
   }
   // Suspended antique brass chandeliers, each with six curved candle arms.
   const rod=(a,b,r,color)=>{

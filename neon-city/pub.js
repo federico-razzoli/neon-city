@@ -1,3 +1,12 @@
+export const PUB_NAMES=["THE CLANSMAN","HARRY'S PUB","PUBLIC HOUSE","JOIN TABLES","THE LEPRECHAUN","OLD RIVER","APACHE PUB"];
+export function pubName(building){
+  // A pseudorandom choice per address stays consistent across walls and visits.
+  let hash=2166136261;
+  for(const char of `pub:${building.x},${building.z}`)hash=Math.imul(hash^char.charCodeAt(0),16777619);
+  hash^=hash>>>16;hash=Math.imul(hash,0x85ebca6b);hash^=hash>>>13;
+  return PUB_NAMES[(hash>>>0)%PUB_NAMES.length];
+}
+
 export function drawPub(g,height,building,side){
   // Stable occupants per address and wall, including after texture regeneration.
   let seed=2166136261;

@@ -506,14 +506,16 @@ test('game input replays manhole feedback on separate presses and held Space wit
     return elements.get(id);
   };
   const pubInterior=await import('../neon-city/pub-interior.js');
-  const sandbox={...pubInterior,CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const {pubName}=await import('../neon-city/pub.js');
+  const {PubLife}=await import('../neon-city/pub-life.js');
+  const sandbox={...pubInterior,PubLife,pubName,CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,traffic:()=>[],
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
   const key={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -548,6 +550,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   events.keydown({key:'ArrowUp',code:'ArrowUp',preventDefault(){}});
   events.keydown(key);
   assert.equal(element('#pub-menu').open,true);
+  assert.equal(element('#pub-menu .menu-eyebrow').textContent,`${pubName(city.chunks.get('0,0').buildings[0])} · DRINKS`);
   const previousMoves=moves,previousAngle=player.angle;
   events.keydown({...key,repeat:true});
   assert.equal(element('#pub-menu').open,true,'holding Space keeps the menu open');
@@ -564,17 +567,62 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(player.angle,previousAngle,'turn input while reading is discarded');
   assert.ok(moves>previousMoves,'normal world updates resume');
   events.keyup(key);
+  city.chunks.get('0,0').buildings[0].pubPatrons=[[null,0]];
   player.x=21;player.z=-7;player.angle=0;
   events.keydown(key);tick(6200);
   assert.equal(player.x,9);assert.equal(player.z,1.8);
   assert.match(element('#location').textContent,/BAR ROOM/);
   events.keydown({...key,repeat:true});tick(6220);
   assert.equal(player.z,1.8,'held entry press does not exit');
+  events.keyup(key);
+  player.x=4;player.z=.9;player.angle=0;
+  events.keydown(key);tick(6240);
+  assert.equal(player.x,4);assert.ok(Math.abs(player.z-1.95)<1e-9);
+  assert.equal(player.angle,0,'sitting faces the opposite seat');
+  assert.equal(element('#message').textContent,'HI THERE!');
+  const seatedZ=player.z;
+  for(const movement of ['ArrowUp','ArrowDown','w','s','a','d']){
+    events.keydown({key:movement,preventDefault(){}});tick(6260);
+    assert.equal(player.x,4);assert.equal(player.z,seatedZ,'seated movement is locked');
+    events.keyup({key:movement});
+  }
+  events.keydown({key:'ArrowRight',preventDefault(){}});
+  for(let i=0;i<100;i++)tick(6300+i*40);
+  assert.equal(player.angle,Math.PI/4);
+  assert.equal(element('#message').textContent,'','greeting expires without a standing prompt');
+  events.keyup({key:'ArrowRight'});events.keydown({key:'ArrowLeft',preventDefault(){}});
+  for(let i=0;i<100;i++)tick(10300+i*40);
+  assert.equal(player.angle,-Math.PI/4);
+  events.keyup({key:'ArrowLeft'});
+  events.keydown({key:'ArrowUp',preventDefault(){}});
+  for(let i=0;i<100;i++)tick(14300+i*40);
+  assert.equal(sandbox.game.seat.pitch,Math.PI/2,'up stops directly overhead');
+  assert.equal(player.x,4);assert.equal(player.z,seatedZ);
+  const overhead=sandbox.game.camera({x:player.x,y:3.5,z:player.z});
+  assert.ok(Math.abs(overhead.y)<1e-9&&Math.abs(overhead.z-2)<1e-9,'overhead point is centered in the pitched view');
+  events.keyup({key:'ArrowUp'});events.keydown({key:'ArrowDown',preventDefault(){}});
+  for(let i=0;i<100;i++)tick(18300+i*40);
+  assert.equal(sandbox.game.seat.pitch,0,'down stops at the original view');
+  events.keyup({key:'ArrowDown'});
+  events.keydown({key:'ArrowUp',preventDefault(){}});tick(22300);
+  assert.ok(sandbox.game.seat.pitch>0);
+  events.keyup({key:'ArrowUp'});
+  events.keydown({...key,repeat:true});assert.equal(player.z,seatedZ);
+  events.keyup(key);events.keydown(key);
+  assert.equal(player.x,4);assert.equal(player.z,.9,'standing returns to a clear position');
+  assert.equal(sandbox.game.seat,null);
+  assert.equal(sandbox.game.camera({x:player.x,y:1.65,z:player.z+2}).y,0,'standing resets pitch');
+  city.chunks.get('0,0').buildings[0].pubPatrons[0][1]=null;
+  player.angle=0;events.keyup(key);events.keydown(key);tick(22320);
+  assert.ok(sandbox.game.seat);
+  assert.equal(element('#message').textContent,'','empty table has no greeting or standing prompt');
+  events.keyup(key);events.keydown(key);
+  player.x=9;player.z=1.8;
   const streetMoves=moves;
   events.keyup(key);player.angle=Math.PI;
-  tick(6240);assert.equal(element('#message').textContent,'');
+  tick(22340);assert.equal(element('#message').textContent,'');
   assert.equal(moves,streetMoves,'interior does not run outdoor movement');
-  events.keydown(key);tick(6260);
+  events.keydown(key);tick(22360);
   assert.equal(player.x,21);assert.equal(player.z,-7);
   assert.equal(player.angle,Math.PI,'exit faces away from the pub');
   assert.equal(sounds,7,'door use never lifts a manhole');
@@ -698,4 +746,176 @@ test('bar meets the left wall, retains right access and fits its front panels',a
   const first=panels[0],last=panels.at(-1);
   assert.ok(Math.abs((first.x-PUB.bar.x)-(PUB.bar.x+PUB.bar.w-last.x-last.w))<1e-9,'matching end margins');
   for(const p of panels)assert.ok(p.x>=PUB.bar.x&&p.x+p.w<=PUB.bar.x+PUB.bar.w,'panels stay within the bar');
+});
+
+test('pub seats zero to two patrons per table with exactly one beer per occupied chair',async()=>{
+  const {PUB,createPubPatrons,pubChairs,drawPubInterior,moveInPub}=await import('../neon-city/pub-interior.js');
+  const chairs=pubChairs();assert.equal(chairs.length,PUB.tables.length*2);
+  for(const chair of chairs){
+    const p={x:chair.x+chair.w/2,z:chair.z-.5};moveInPub(p,0,.8);
+    assert.ok(p.z<=chair.z-.3+1e-8,'chairs block movement even when empty');
+  }
+  for(const [random,count] of [[()=>0,0],[()=>.099,0],[()=>.1,1],[()=>.5,1],[()=>.55,2],[()=>.99,2]]){
+    const patrons=createPubPatrons(random);
+    for(const seats of patrons){assert.equal(seats.length,2);assert.equal(seats.filter(p=>p!=null).length,count);}
+    const people=[],beerFoam=[];
+    drawPubInterior({patrons,seatedPatron:p=>people.push(p),box(){},quad(){},face(vertices,color){
+      if(color==='#eee0b0'&&vertices.every(v=>Math.abs(v.y-1.417)<1e-8))beerFoam.push(vertices);
+    }});
+    assert.equal(people.length,PUB.tables.length*count);
+    assert.equal(beerFoam.length,people.length,'one glass per seated patron, no beer on empty tables');
+    assert.ok(people.every(p=>Number.isInteger(p.type)&&p.type>=0&&p.type<7));
+  }
+});
+
+test('pub collisions report seated patrons and bartender but not empty furniture or standing still',async()=>{
+  const {PUB,pubChairs,moveInPub}=await import('../neon-city/pub-interior.js');
+  const chair=pubChairs()[0],patrons=PUB.tables.map(()=>[null,null]);patrons[0][0]=0;
+  const start=()=>({x:chair.x-.5,z:chair.z+.4});
+  assert.equal(moveInPub(start(),1,0,patrons),true,'occupied chair reports a person');
+  assert.equal(moveInPub(start(),1,0),false,'empty chair is silent');
+  assert.equal(moveInPub(start(),0,0,patrons),false,'no movement is not a bump');
+  const b=PUB.bartender,p={x:b.x-1,z:b.z};
+  assert.equal(moveInPub(p,2,0,patrons),true);
+  assert.ok(p.x<=b.x-b.radius-.3+1e-8,'bartender stays solid');
+  assert.equal(moveInPub({x:8,z:12},0,2,patrons),false,'bar blocks approach before bartender');
+});
+
+test('staff door is reachable beside shelves, stays solid and requires facing it nearby',async()=>{
+  const {PUB,facingStaffDoor,moveInPub}=await import('../neon-city/pub-interior.js');
+  const p={x:PUB.staffDoor.x,z:12,angle:0};
+  assert.equal(facingStaffDoor(p),false);
+  moveInPub(p,0,4);assert.ok(p.z>15.9,'right passage reaches staff door');
+  assert.equal(facingStaffDoor(p),true);
+  moveInPub(p,0,5);assert.ok(p.z<=17.7+1e-8,'door remains solid');
+  assert.equal(facingStaffDoor(p),true,'works close to door');
+  assert.equal(facingStaffDoor({...p,angle:Math.PI}),false);
+  assert.equal(facingStaffDoor({...p,x:14}),false,'shelves are not the door');
+});
+
+test('small sign strokes retain coverage between pixels and respect foreground occlusion',async()=>{
+  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
+  let frame;const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>frame=f},8,8);
+  const rect=(x,w,z,smooth,color)=>({color,smooth,ps:[{x,y:0},{x:x+w,y:0},{x:x+w,y:8},{x,y:8}],vs:Array.from({length:4},()=>({z}))});
+  for(const x of [2,2.25,2.5,2.75]){
+    const ink=rect(x,.25,2,true,'#ffffff');
+    renderer.render([ink],'#000000');
+    assert.ok(frame.data.some((v,i)=>i%4!==3&&v>0),'thin letter survives subpixel movement');
+    renderer.render([ink,rect(0,8,1,false,'#000000')],'#000000');
+    assert.ok(frame.data.every((v,i)=>i%4===3||v===0),'foreground still hides lettering');
+  }
+});
+
+test('toilet door is reachable between lounge tables and requires looking at it',async()=>{
+  const {PUB,facingToiletDoor,moveInPub}=await import('../neon-city/pub-interior.js');
+  const p={x:PUB.toiletDoor.x,z:12,angle:0};
+  assert.equal(facingToiletDoor(p),false);
+  moveInPub(p,0,4);assert.ok(p.z>15.9);
+  assert.equal(facingToiletDoor(p),true);
+  moveInPub(p,0,5);assert.ok(p.z<=17.7+1e-8);
+  assert.equal(facingToiletDoor(p),true);
+  assert.equal(facingToiletDoor({...p,angle:Math.PI}),false);
+  assert.equal(facingToiletDoor({...p,x:PUB.staffDoor.x}),false);
+});
+
+ test('pub names use the requested list and stay consistent per address',async()=>{
+  const {PUB_NAMES,pubName}=await import('../neon-city/pub.js');
+  assert.deepEqual(PUB_NAMES,["THE CLANSMAN","HARRY'S PUB","PUBLIC HOUSE","JOIN TABLES","THE LEPRECHAUN","OLD RIVER","APACHE PUB"]);
+  const seen=new Set();
+  for(let x=-20;x<=20;x++)for(let z=-20;z<=20;z++){
+    const building={x:x*64+14,z:z*64+14};
+    const name=pubName(building);
+    assert.ok(PUB_NAMES.includes(name));
+    assert.equal(pubName({...building,seed:999}),name);
+    seen.add(name);
+  }
+  assert.equal(seen.size,PUB_NAMES.length);
+});
+
+test('only nearby empty chairs in the viewing direction can be used',async()=>{
+  const {pubChairs,facingPubChair}=await import('../neon-city/pub-interior.js');
+  for(const chair of pubChairs()){
+    const player={x:chair.x+1.4,z:chair.z+.4,angle:-Math.PI/2};
+    assert.deepEqual(facingPubChair(player),chair);
+    assert.equal(facingPubChair({...player,angle:player.angle+Math.PI}),null);
+    assert.notDeepEqual(facingPubChair({...player,x:player.x+3}),chair);
+    const patrons=[];patrons[chair.tableIndex]=[];patrons[chair.tableIndex][chair.seat]=0;
+    assert.notDeepEqual(facingPubChair(player,patrons),chair,'occupied chair cannot be selected');
+  }
+});
+
+test('approaching the edge of a chair keeps it available for sitting',async()=>{
+  const {pubChairs,facingPubChair}=await import('../neon-city/pub-interior.js');
+  const chair=pubChairs()[0],x=chair.x+chair.w/2,z=chair.z+chair.d/2;
+  // Walk towards one edge while looking straight ahead, rather than tracking
+  // the centre as its angle grows at close range.
+  for(const distance of [1.4,1,.8,.7]){
+    assert.deepEqual(facingPubChair({x:x+.35,z:z-distance,angle:0}),chair);
+  }
+  assert.deepEqual(facingPubChair({x,z,angle:0}),chair,'no minimum-distance dead zone');
+});
+
+test('pub walkers can route from the entrance to every chair and back',async()=>{
+  const {pubRoute}=await import('../neon-city/pub-life.js');
+  const {PUB,pubChairs}=await import('../neon-city/pub-interior.js');
+  const entry={x:PUB.door.x,z:.4};
+  for(const chair of pubChairs()){
+    const seat={x:chair.x+.4,z:chair.z+.4};
+    assert.ok(pubRoute(entry,seat,chair),`arrival at ${chair.tableIndex}:${chair.seat}`);
+    assert.ok(pubRoute(seat,entry,chair),`departure at ${chair.tableIndex}:${chair.seat}`);
+  }
+});
+
+test('pub arrivals reserve seats, serialize walkers and leave full pubs',async()=>{
+  const {PubLife}=await import('../neon-city/pub-life.js');
+  const {PUB,pubChairs,facingPubChair}=await import('../neon-city/pub-interior.js');
+  const patrons=PUB.tables.map(()=>[null,null]),life=new PubLife(()=>0);
+  const playerSeat={tableIndex:0,seat:0};
+  life.update(29,patrons,playerSeat);assert.equal(life.walker,null);
+  life.update(1,patrons,playerSeat);
+  const walker=life.walker;assert.ok(walker);assert.equal(walker.chair.seat,1);
+  const chair=walker.chair;
+  assert.notDeepEqual(facingPubChair({x:chair.x+1.4,z:chair.z+.4,angle:-Math.PI/2},patrons,chair),chair);
+  life.update(.1,patrons,playerSeat);assert.equal(life.walker,walker,'no simultaneous departure');
+  for(let i=0;i<1000&&life.walker;i++)life.update(.1,patrons,playerSeat);
+  assert.equal(life.walker,null);assert.equal(patrons[0][1],0);assert.equal(patrons[0][0],null);
+  life.arrival=60;life.departure=0;life.update(.1,patrons,playerSeat);
+  assert.equal(life.walker,null,'player table is protected');
+  life.departure=0;life.update(.1,patrons,null);
+  assert.ok(life.walker);assert.equal(patrons[0][1],null);
+  for(let i=0;i<1000&&life.walker;i++)life.update(.1,patrons,null);
+  assert.equal(life.walker,null);
+  const full=PUB.tables.map(()=>[0,1]);life.arrival=0;life.departure=60;
+  life.update(.1,full,null);assert.ok(life.walker);assert.equal(life.walker.chair,undefined);
+  for(let i=0;i<100&&life.walker;i++)life.update(.1,full,null);
+  assert.equal(life.walker,null);assert.ok(full.every(seats=>seats[0]===0&&seats[1]===1));
+  assert.equal(new PubLife(()=>1).arrival,60);
+});
+
+test('pub walkers wait for standing or seated players without admitting another walker',async()=>{
+  const {PubLife}=await import('../neon-city/pub-life.js');
+  const {PUB,moveInPub,pubPersonBlocks}=await import('../neon-city/pub-interior.js');
+  for(const seat of [null,{tableIndex:0,seat:0}]){
+    const patrons=PUB.tables.map(()=>[0,null]),life=new PubLife(()=>0);
+    const walker={x:9,z:2,type:1,route:[{x:9,z:6}],walkTime:0};
+    life.walker=walker;
+    const player={x:9,z:4};
+    life.update(10,patrons,seat,player);
+    assert.equal(life.walker,walker);
+    assert.ok(walker.z<=3.15&&walker.z>3,'stops at personal clearance');
+    const stopped={x:walker.x,z:walker.z,walkTime:walker.walkTime},before=JSON.stringify(patrons);
+    for(let i=0;i<120;i++)life.update(1,patrons,seat,player);
+    assert.equal(life.walker,walker,'expired timers cannot start another walker');
+    assert.equal(JSON.stringify(patrons),before,'nobody stands up or arrives while blocked');
+    assert.deepEqual({x:walker.x,z:walker.z,walkTime:walker.walkTime},stopped,'walking animation freezes too');
+    player.x=12;life.update(10,patrons,seat,player);
+    assert.equal(life.walker,null,'walker completes after the player clears the path');
+  }
+  const player={x:9,z:4},walker={x:9,z:2};
+  assert.equal(moveInPub(player,0,-4,[],walker),true);
+  assert.ok(player.z>=2.85,'player cannot walk through the stopped patron either');
+  assert.equal(pubPersonBlocks({x:9,z:2},{x:9,z:8},{x:9,z:4}),true,'large steps cannot tunnel through player');
+  const life=new PubLife(()=>0);life.arrival=0;life.departure=60;
+  life.update(.1,[],null,{x:PUB.door.x,z:.4});
+  assert.equal(life.walker,null,'arrival waits if player occupies entrance');
 });

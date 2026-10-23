@@ -1,10 +1,11 @@
+import {PubLife} from './pub-life.js';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite} from './sprites.js?v=pedestrians-7';
 import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=manholes-1';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
-import {drawPub} from './pub.js?v=seating-1';
-import {PUB,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js';
+import {drawPub,pubName} from './pub.js?v=names-1';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
 import {drawWallTexture} from './perspective.js';
@@ -13,25 +14,47 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu');
-let insidePub=false,streetPosition=null;
+let insidePub=false,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const nearPubDoor=()=>insidePub?facingPubExit(player):facingPubDoor(player,pubBuildings());
 function usePubDoor(){
-  if(!nearPubDoor())return false;
+  const door=nearPubDoor();
+  if(!door)return false;
   if(insidePub){Object.assign(player,streetPosition);insidePub=false;}
-  else{streetPosition={...player,angle:player.angle+Math.PI};Object.assign(player,PUB.spawn);insidePub=true;}
+  else{pubLife=door.pubLife??=new PubLife();currentPubName=pubName(door);bartenderType=door.bartenderType??=Math.floor(Math.random()*4);pubPatrons=door.pubPatrons??=createPubPatrons();streetPosition={...player,angle:player.angle+Math.PI};Object.assign(player,PUB.spawn);insidePub=true;}
   keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=0;shake=0;steps=0;arcadeAmbience.mute();
   return true;
 }
-const nearPubMenu=()=>!insidePub&&facingPubMenu(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings));
+function usePubChair(){
+  if(!insidePub)return false;
+  let greet=false;
+  if(playerSeat){
+    // Return to the clear position from which the player sat down.
+    player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
+    playerSeat=null;eye=1.65;
+  }else{
+    const chair=facingPubChair(player,pubPatrons,pubLife?.walker?.chair);
+    if(!chair)return false;
+    const angle=chair.side<0?0:Math.PI;
+    playerSeat={tableIndex:chair.tableIndex,seat:chair.seat,standing:{x:player.x,z:player.z},angle,pitch:0};
+    player.x=chair.x+chair.w/2;player.z=chair.z+chair.d/2;player.angle=angle;
+    eye=1.5;
+    greet=pubPatrons[chair.tableIndex]?.[1-chair.seat]!=null;
+  }
+  keys.clear();shiftKeys.clear();startSpaceHeld=true;notice=greet?2.5:0;steps=0;
+  if(greet)noticeText='HI THERE!';
+  return true;
+}
+const nearPubMenu=()=>!insidePub&&pubBuildings().find(b=>facingPubMenu(player,[b]));
 function togglePubMenu(){
   keys.clear();shiftKeys.clear();coverPressed=false;
   if(pubMenu.open){pubMenu.close();startSpaceHeld=true;canvas.focus();}
-  else{pubMenu.showModal();arcadeAmbience.mute();document.querySelector('#pace').hidden=true;}
+  else{const pub=nearPubMenu();if(!pub)return;document.querySelector('#pub-menu .menu-eyebrow').textContent=`${pubName(pub)} · DRINKS`;pubMenu.showModal();arcadeAmbience.mute();document.querySelector('#pace').hidden=true;}
 }
 pubMenu.addEventListener('cancel',e=>e.preventDefault());
 const city=new City(),player={x:10,z:4,angle:.12},keys=new Set(),shiftKeys=new Set();
-const W=640,H=360,F=355,eye=1.65,horizon=164;
+const W=640,H=360,F=355,horizon=164;
+let eye=1.65;
 // Generate a fixed sky around the entire world, rather than wrapping the screen.
 const starColors=['#211e33','#27233a','#2d2840','#332d46'];
 const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevation:.1+Math.random()*.35,color:starColors[Math.floor(Math.random()*starColors.length)]}));
@@ -67,16 +90,20 @@ function playOuch(){
 }
 
 
-function camera(v){const dx=v.x-player.x,dz=v.z-player.z,c=Math.cos(player.angle),s=Math.sin(player.angle);return {x:dx*c-dz*s,y:v.y-eye,z:dx*s+dz*c,u:v.u||0,v:v.v||0};}
+function camera(v){
+  const dx=v.x-player.x,dz=v.z-player.z,c=Math.cos(player.angle),s=Math.sin(player.angle);
+  const y=v.y-eye,z=dx*s+dz*c,pitch=playerSeat?.pitch??0,cp=Math.cos(pitch),sp=Math.sin(pitch);
+  return {x:dx*c-dz*s,y:y*cp-z*sp,z:z*cp+y*sp,u:v.u||0,v:v.v||0};
+}
 function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
 function clip(vertices){const out=[];for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],ai=a.z>=.15,bi=b.z>=.15;if(ai)out.push(a);if(ai!==bi){const t=(.15-a.z)/(b.z-a.z),v={};for(const k of ['x','y','z','u','v'])v[k]=a[k]+(b[k]-a[k])*t;out.push(v);}}return out;}
-function face(vertices,color,texture=null){
+function face(vertices,color,texture=null,smooth=false){
   const vs=vertices.map(camera),depth=vs.reduce((s,p)=>s+p.z,0)/vs.length;
   if(depth>150||vs.every(p=>p.z<.15))return;
   const clipped=clip(vs);if(clipped.length<3)return;
   const ps=clipped.map(project);
   if(ps.every(p=>p.x<0)||ps.every(p=>p.x>W)||ps.every(p=>p.y<0)||ps.every(p=>p.y>H))return;
-  queue.push({ps,vs:clipped,depth,color,texture});
+  queue.push({ps,vs:clipped,depth,color,texture,smooth});
 }
 function quad(x,y,z,w,d,color){face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);}
 function box(x,y,z,w,h,d,color,roof=color){
@@ -98,7 +125,7 @@ function wallTexture(b,side){
   for(let x=8;x<160;x+=50){g.fillStyle='#253046';g.fillRect(x,c.height-28,37,26);g.fillStyle='#121525';g.fillRect(x+2,c.height-26,33,22);g.fillStyle=b.neon;g.globalAlpha=.3;g.fillRect(x+3,c.height-25,31,2);g.globalAlpha=1;}
   if(b.sign==='ARCADE')drawArcade(g,c.height,b,side);
   if(b.sign==='NEON PUB')drawPub(g,c.height,b,side);
-  g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
+  g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign==='NEON PUB'?pubName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
   // The vertical hotel sign must fit entirely below the roofline.
   if(b.sign==='HOTEL'&&c.height>=137){g.fillStyle='#160c24';g.fillRect(132,c.height-137,24,72);g.fillStyle=b.neon;g.font='bold 12px monospace';for(let i=0;i<5;i++)g.fillText('HOTEL'[i],144,c.height-124+i*13);}
   b.textures[side]=c;return c;
@@ -163,11 +190,37 @@ function manhole(m){
     quad(m.x-length/2,.093,m.z+offset-.025,length,.05,'#161923');
   }
 }
+const seatedPixels=new Map();
+function seatedPatron(p,walking=false){
+  const back=walking?pedestrianShowsBack(p,player):(player.z-p.z)*p.side>0;
+  const frame=walking?Math.floor(p.walkTime*6)%4:1,rows=walking?48:32,key=`${p.type}:${back}:${frame}:${rows}`;
+  if(!seatedPixels.has(key)){
+    // Reuse the pedestrians' actual heads, hair, clothing and accessories.
+    const data=sprite(p.type,frame,back).getContext('2d').getImageData(0,0,24,rows).data,runs=[];
+    for(let y=0;y<rows;y++)for(let x=0;x<24;){
+      const offset=(y*24+x)*4;
+      if(!data[offset+3]){x++;continue;}
+      const color='#'+Array.from(data.slice(offset,offset+3),v=>v.toString(16).padStart(2,'0')).join('');
+      let end=x+1;
+      while(end<24&&[0,1,2,3].every(c=>data[(y*24+end)*4+c]===data[offset+c]))end++;
+      runs.push({x,y,end,color});x=end;
+    }
+    seatedPixels.set(key,runs);
+  }
+  // Standing patrons use the pub's larger scale, with their feet on the floor.
+  const scale=walking?.05:.0375,headHeight=walking?48*scale:1.87;
+  for(const run of seatedPixels.get(key)){
+    const left=(run.x-12)*scale,right=(run.end-12)*scale,top=headHeight-run.y*scale,bottom=top-scale;
+    const point=(offset,y)=>({x:p.x+Math.cos(player.angle)*offset,y,z:p.z-Math.sin(player.angle)*offset});
+    face([point(left,bottom),point(right,bottom),point(right,top),point(left,top)],run.color);
+  }
+}
 let interiorRenderer;
 function render(){
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub);
   if(insidePub){
-    queue=[];drawPubInterior({face,quad,box});
+    queue=[];drawPubInterior({face,quad,box,patrons:pubPatrons,seatedPatron,bartenderType});
+    if(pubLife?.walker)seatedPatron(pubLife.walker,true);
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue);return;
   }
@@ -213,7 +266,7 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
-  if(k===' '&&!e.repeat){if(usePubDoor())return;if(insidePub)return;if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(usePubChair())return;if(usePubDoor())return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingToiletDoor(player)){notice=2.5;noticeText="SOMEONE'S IN!";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -230,14 +283,21 @@ function tick(now){
   const dt=Math.min((now-last)/1000,.04);last=now;
   if(running&&!pubMenu.open){
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
-    const pace=keys.has('Shift')?3:1;
+    const pace=!playerSeat&&keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;
     player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.65*pace;
+    if(playerSeat){
+      player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
+      const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
+      playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+tilt*dt*1.65));
+    }
     const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(insidePub){
-      moveInPub(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
-      document.querySelector('#message').textContent='';
-      document.querySelector('#location').textContent=player.x<18?'NEON PUB / BAR ROOM':'NEON PUB / LOUNGE';
+      pubLife?.update(dt,pubPatrons,playerSeat,player);
+      const bumpedPerson=!playerSeat&&moveInPub(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,pubLife?.walker);
+      if(bumpedPerson){notice=2.5;noticeText='HEY! WATCH OUT!';}
+      document.querySelector('#message').textContent=notice?noticeText:'';
+      document.querySelector('#location').textContent=`${currentPubName} / ${player.x<18?'BAR ROOM':'LOUNGE'}`;
     }else{
     const people=city.pedestrians(time-dt);
     const bumpedPedestrian=city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people);
