@@ -499,13 +499,14 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {readFile}=await import('node:fs/promises');
   const {runInNewContext}=await import('node:vm');
   const {CoverAttempt}=await import('../neon-city/manholes.js');
-  const events={},elements=new Map();let sounds=0;
+  const {facingPubMenu}=await import('../neon-city/pub-menu.js');
+  const events={},elements=new Map();let sounds=0,moves=0;
   const element=id=>{
-    if(!elements.has(id))elements.set(id,{textContent:'',focus(){},getContext:()=>({}),addEventListener(name,fn){events[id+name]=fn;}});
+    if(!elements.has(id))elements.set(id,{textContent:'',open:false,showModal(){this.open=true;},close(){this.open=false;},focus(){},getContext:()=>({}),addEventListener(name,fn){events[id+name]=fn;}});
     return elements.get(id);
   };
-  const sandbox={CoverAttempt,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
-    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){}},
+  const sandbox={CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,traffic:()=>[],
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
@@ -540,6 +541,28 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(sounds,6,'resume does not trigger the cover');
   events.keyup(key);events.keydown(key);tick(6120);
   assert.equal(sounds,7,'next Space press interacts normally');
+  events.keyup(key);
+  city.chunks.get('0,0').buildings=[{x:12,z:-5,w:18,d:18,j:0,sign:'NEON PUB'}];
+  player.x=10;player.z=4;player.angle=Math.PI/2;
+  events.keydown({key:'ArrowUp',code:'ArrowUp',preventDefault(){}});
+  events.keydown(key);
+  assert.equal(element('#pub-menu').open,true);
+  const previousMoves=moves,previousAngle=player.angle;
+  events.keydown({...key,repeat:true});
+  assert.equal(element('#pub-menu').open,true,'holding Space keeps the menu open');
+  events.keydown({key:'ArrowRight',code:'ArrowRight',preventDefault(){}});
+  events.keydown({key:'Escape',code:'Escape',preventDefault(){}});
+  tick(6140);tick(6160);
+  assert.equal(moves,previousMoves,'menu freezes world updates and movement');
+  assert.equal(player.angle,previousAngle);
+  assert.equal(sounds,7,'menu does not lift a nearby cover');
+  events.keyup(key);events.keydown(key);
+  assert.equal(element('#pub-menu').open,false);
+  events.keydown({...key,repeat:true});tick(6180);
+  assert.equal(sounds,7,'closing Space does not lift a cover');
+  assert.equal(player.angle,previousAngle,'turn input while reading is discarded');
+  assert.ok(moves>previousMoves,'normal world updates resume');
+  events.keyup(key);
 });
 
 test('Ursa Major has a fixed seven-star pattern that follows camera rotation',async()=>{
@@ -556,5 +579,27 @@ test('Ursa Major has a fixed seven-star pattern that follows camera rotation',as
     const fullTurn=projectSky(star,-.49+2*Math.PI,640,355,164);
     assert.ok(Math.abs(fullTurn.x-initial.x)<1e-9);
     assert.ok(Math.abs(fullTurn.y-initial.y)<1e-9);
+  }
+});
+
+test('pub menus require proximity and facing a menu wall, never the door',async()=>{
+  const {facingPubMenu}=await import('../neon-city/pub-menu.js');
+  for(const j of [0,1]){
+    const b={x:14,z:14,w:18,d:18,j,sign:'NEON PUB'};
+    const views=[
+      {x:23,z:12,angle:0},
+      {x:23,z:34,angle:Math.PI},
+      {x:12,z:23,angle:Math.PI/2},
+      {x:34,z:23,angle:-Math.PI/2},
+    ];
+    for(const [side,p] of views.entries()){
+      assert.equal(facingPubMenu(p,[b]),side!==(j===1?1:0));
+      assert.equal(facingPubMenu({...p,angle:p.angle+Math.PI},[b]),false);
+      assert.equal(facingPubMenu({...p,angle:p.angle+.5},[b]),false);
+      assert.equal(facingPubMenu(p,[{...b,sign:'ARCADE'}]),false);
+    }
+    assert.equal(facingPubMenu({x:9,z:23,angle:Math.PI/2},[b]),false);
+    assert.equal(facingPubMenu({x:16,z:23,angle:-Math.PI/2},[b]),false);
+    assert.equal(facingPubMenu({x:12,z:18,angle:Math.PI/2},[b]),false);
   }
 });

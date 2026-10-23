@@ -1,14 +1,23 @@
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite} from './sprites.js?v=pedestrians-7';
 import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=manholes-1';
-import {drawArcade,arcadeVolume,ArcadeAmbience} from './arcade.js?v=pinball-3';
+import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub} from './pub.js?v=seating-1';
+import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
 import {drawWallTexture} from './perspective.js';
 import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
+const pubMenu=document.querySelector('#pub-menu');
+const nearPubMenu=()=>facingPubMenu(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings));
+function togglePubMenu(){
+  keys.clear();shiftKeys.clear();coverPressed=false;
+  if(pubMenu.open){pubMenu.close();startSpaceHeld=true;canvas.focus();}
+  else{pubMenu.showModal();arcadeAmbience.mute();document.querySelector('#pace').hidden=true;}
+}
+pubMenu.addEventListener('cancel',e=>e.preventDefault());
 const city=new City(),player={x:10,z:4,angle:.12},keys=new Set(),shiftKeys=new Set();
 const W=640,H=360,F=355,eye=1.65,horizon=164;
 // Generate a fixed sky around the entire world, rather than wrapping the screen.
@@ -76,7 +85,7 @@ function wallTexture(b,side){
   for(let x=8;x<160;x+=50){g.fillStyle='#253046';g.fillRect(x,c.height-28,37,26);g.fillStyle='#121525';g.fillRect(x+2,c.height-26,33,22);g.fillStyle=b.neon;g.globalAlpha=.3;g.fillRect(x+3,c.height-25,31,2);g.globalAlpha=1;}
   if(b.sign==='ARCADE')drawArcade(g,c.height,b,side);
   if(b.sign==='NEON PUB')drawPub(g,c.height,b,side);
-  g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign,80,c.height-48,146);g.shadowBlur=0;
+  g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
   // The vertical hotel sign must fit entirely below the roofline.
   if(b.sign==='HOTEL'&&c.height>=137){g.fillStyle='#160c24';g.fillRect(132,c.height-137,24,72);g.fillStyle=b.neon;g.font='bold 12px monospace';for(let i=0;i<5;i++)g.fillText('HOTEL'[i],144,c.height-124+i*13);}
   b.textures[side]=c;return c;
@@ -171,11 +180,11 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){startSpaceHeld=false;running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+function pause(){if(pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function play(){if(pubMenu.open)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
-window.addEventListener('keydown',e=>{const k=e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
+window.addEventListener('keydown',e=>{const k=e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
 if(k===' '&&!running){
   e.preventDefault();
   if(!e.repeat){play();startSpaceHeld=true;}
@@ -184,22 +193,22 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
-  if(k===' '&&!e.repeat){coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
-window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' ')startSpaceHeld=false;keys.delete(e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running)syncShift(e);});
+window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' ')startSpaceHeld=false;keys.delete(e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open)syncShift(e);});
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 for(const button of document.querySelectorAll('[data-key]')){
-  button.addEventListener('pointerdown',e=>{if(!running)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
+  button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
 function tick(now){
   const dt=Math.min((now-last)/1000,.04);last=now;
-  if(running){
+  if(running&&!pubMenu.open){
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     const pace=keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;
@@ -226,7 +235,7 @@ function tick(now){
     }
     coverPressed=false;
     city.advancePedestrians(dt,player,time);
-    document.querySelector('#message').textContent=notice?noticeText:'';
+    document.querySelector('#message').textContent=nearPubMenu()?'SPACE — READ DRINKS MENU':notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
   }
   if(running||!painted){render();painted=true;}

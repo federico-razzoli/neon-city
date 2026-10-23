@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b0818">
   <title>Neon City — an endless night</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=pub-menu-1">
 </head>
 <body>
   <main id="game">
@@ -14,11 +14,25 @@
     <header><div class="brand">NEON<span>CITY</span><small>AN ENDLESS NIGHT / 1987</small></div><span id="pace" hidden>RUNNING ×3</span><button id="pause" aria-label="Pause game">Ⅱ</button></header>
     <footer><span id="location">MIDNIGHT DISTRICT</span><span id="hint">↑ ↓ WALK &nbsp; ← → TURN &nbsp; A D SIDESTEP &nbsp; SHIFT RUN</span><span class="clock">02:17 AM</span></footer>
     <div id="message" role="status"></div>
+    <dialog id="pub-menu" aria-labelledby="pub-menu-title">
+      <p class="menu-eyebrow">NEON PUB · DRINKS</p>
+      <h2 id="pub-menu-title">On the menu</h2>
+      <p class="menu-serving">Beer &amp; cider by the pint</p>
+      <dl>
+        <div><dt>House Lager</dt><dd>£2.00</dd></div>
+        <div><dt>Amber Ale</dt><dd>£2.20</dd></div>
+        <div><dt>Dark Stout</dt><dd>£2.40</dd></div>
+        <div><dt>Wheat Beer</dt><dd>£2.30</dd></div>
+        <div><dt>Orchard Cider</dt><dd>£2.10</dd></div>
+        <div><dt>Grog <small>rum, lime &amp; spice · mug</small></dt><dd>£3.00</dd></div>
+      </dl>
+      <p class="menu-close">Press SPACE to put the menu away</p>
+    </dialog>
     <section id="overlay">
       <div class="intro"><p class="eyebrow">NO DESTINATION. JUST THE NIGHT.</p><h1>NEON<br><span>CITY</span></h1><p id="description">A city that never ends.<br>Follow the lights. Get lost in 1987.</p><button id="start">STEP INTO THE NIGHT <span>→</span></button><p class="controls">Press SPACE to start / resume<br>↑ ↓ walk &nbsp; ← → turn &nbsp; A D sidestep &nbsp; SHIFT run &nbsp; SPACE lift cover<br>Stay on the sidewalk. Traffic doesn't stop.</p><p class="fine">No missions. No doors. No dying.</p></div>
     </section>
     <nav id="touch" aria-label="Movement controls"><button data-key="ArrowLeft" aria-label="Turn left">↶</button><div><button data-key="ArrowUp" aria-label="Walk forward">↑</button><button data-key="ArrowDown" aria-label="Walk backward">↓</button></div><button data-key="ArrowRight" aria-label="Turn right">↷</button></nav>
   </main>
-  <script type="module" src="game.js?v=pub-seating-1"></script>
+  <script type="module" src="game.js?v=pub-menu-1"></script>
 </body>
 </html>

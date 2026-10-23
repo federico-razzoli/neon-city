@@ -1,3 +1,11 @@
+export function arcadeName(building){
+  // Use the address so the sign survives texture and chunk regeneration.
+  let hash=2166136261;
+  for(const char of `name:${building.x},${building.z}`)hash=Math.imul(hash^char.charCodeAt(0),16777619);
+  hash^=hash>>>16;hash=Math.imul(hash,0x85ebca6b);hash^=hash>>>13;
+  return ['ARCADIA','ARCANOID','ARCADE X','COOL GAMES'][(hash>>>0)%4];
+}
+
 export function arcadeVolume(player,buildings){
   let nearest=Infinity;
   for(const b of buildings){
