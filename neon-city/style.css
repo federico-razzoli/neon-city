@@ -3,3 +3,6 @@
 #pace{color:#6effed;font-size:12px;font-weight:bold;letter-spacing:1px;background:#100b25c0;padding:8px;border:1px solid #6effed66}
 
 #pub-menu{width:min(440px,90vw);max-height:92dvh;overflow:auto;padding:clamp(16px,4vh,32px);border:7px ridge #a18460;background:#242a27;color:#f1e2bd;box-shadow:0 18px 70px #000b;font-family:Georgia,serif}#pub-menu::backdrop{background:#080710b8}#pub-menu h2{text-align:center;font-size:clamp(25px,5vh,36px);font-weight:normal;margin:10px 0}#pub-menu .menu-eyebrow{text-align:center;letter-spacing:3px;font:11px 'Courier New',monospace;color:#cfb580}#pub-menu .menu-serving{text-align:center;font-style:italic;font-size:13px;color:#c4bea7}#pub-menu dl{margin:20px 0}#pub-menu dl div{display:flex;justify-content:space-between;gap:16px;border-bottom:1px dotted #777b66;padding:10px 0;font-size:18px}#pub-menu dd{margin:0;white-space:nowrap}#pub-menu small{display:block;font-size:11px;margin-top:4px;color:#c4bea7}#pub-menu .menu-close{text-align:center;font:12px 'Courier New',monospace;color:#dfc68f;margin-bottom:0}@media(max-height:530px){#pub-menu dl{margin:10px 0}#pub-menu dl div{padding:5px 0;font-size:16px}#pub-menu h2{margin:5px 0}#pub-menu .menu-serving{margin:5px 0}}
+
+/* Uniform pub dusk: the resume overlay tint at a brighter-than-midpoint opacity. */
+.scanlines.pub-shade{background:rgba(9,7,21,.55);box-shadow:none}

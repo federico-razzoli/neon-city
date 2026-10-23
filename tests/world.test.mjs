@@ -572,7 +572,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(player.z,1.8,'held entry press does not exit');
   const streetMoves=moves;
   events.keyup(key);player.angle=Math.PI;
-  tick(6240);assert.match(element('#message').textContent,/EXIT PUB/);
+  tick(6240);assert.equal(element('#message').textContent,'');
   assert.equal(moves,streetMoves,'interior does not run outdoor movement');
   events.keydown(key);tick(6260);
   assert.equal(player.x,21);assert.equal(player.z,-7);
@@ -693,7 +693,7 @@ test('bar meets the left wall, retains right access and fits its front panels',a
   const right={x:16,z:12};moveInPub(right,0,4);
   assert.ok(right.z>15.9,'right passage still reaches behind the bar');
   const panels=[];
-  drawPubInterior({face(){},quad(){},box(x,y,z,w,h,d,color){if(color==='#6b492d')panels.push({x,w});}});
+  drawPubInterior({face(){},quad(){},box(x,y,z,w,h,d,color){if(y===.15&&z===PUB.bar.z-.015&&d===.035)panels.push({x,w});}});
   assert.ok(panels.length>0);
   const first=panels[0],last=panels.at(-1);
   assert.ok(Math.abs((first.x-PUB.bar.x)-(PUB.bar.x+PUB.bar.w-last.x-last.w))<1e-9,'matching end margins');

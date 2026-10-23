@@ -165,6 +165,7 @@ function manhole(m){
 }
 let interiorRenderer;
 function render(){
+  document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub);
   if(insidePub){
     queue=[];drawPubInterior({face,quad,box});
     interiorRenderer??=new DepthRenderer(ctx,W,H);
@@ -235,7 +236,7 @@ function tick(now){
     const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(insidePub){
       moveInPub(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
-      document.querySelector('#message').textContent=nearPubDoor()?'SPACE — EXIT PUB':'';
+      document.querySelector('#message').textContent='';
       document.querySelector('#location').textContent=player.x<18?'NEON PUB / BAR ROOM':'NEON PUB / LOUNGE';
     }else{
     const people=city.pedestrians(time-dt);
@@ -259,7 +260,7 @@ function tick(now){
     }
     coverPressed=false;
     city.advancePedestrians(dt,player,time);
-    document.querySelector('#message').textContent=nearPubDoor()?'SPACE — ENTER PUB':nearPubMenu()?'SPACE — READ DRINKS MENU':notice?noticeText:'';
+    document.querySelector('#message').textContent=nearPubMenu()?'SPACE — READ DRINKS MENU':notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
     }
   }
