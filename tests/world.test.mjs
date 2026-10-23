@@ -500,6 +500,35 @@ test('all pedestrian types have distinct cached front/back sprites and walking f
   }finally{globalThis.document=previous;}
 });
 
+test('the Black teen girl has three outfits that change only shirt and shoe colours',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite,outfit,TEEN_OUTFITS}=await import('../neon-city/sprites.js');
+    assert.equal(TEEN_OUTFITS.length,3);
+    assert.deepEqual([0,.2,.34,.5,.67,.99].map(v=>outfit(4,v)),[0,0,1,1,2,2]);
+    for(let type=0;type<PEDESTRIAN_TYPES;type++)if(type!==4)assert.equal(sprite(type,0,false,.9),sprite(type,0,false),'other characters ignore variant');
+    for(const back of [false,true])for(let frame=0;frame<4;frame++){
+      const looks=TEEN_OUTFITS.map((_,i)=>sprite(4,frame,back,(i+.5)/TEEN_OUTFITS.length).pixels);
+      assert.equal(sprite(4,frame,back,0),sprite(4,frame,back),'variant 0 is the original outfit');
+      const allowed=new Set(TEEN_OUTFITS.flatMap(o=>Object.values(o)));
+      for(const [i,pixels] of looks.entries()){
+        assert.deepEqual([...pixels.keys()].sort(),[...looks[0].keys()].sort(),'same silhouette');
+        assert.ok([...pixels.values()].includes(TEEN_OUTFITS[i].shirt));
+        assert.ok([...pixels.values()].includes(TEEN_OUTFITS[i].shoes));
+        for(const [pixel,color] of pixels)if(color!==looks[0].get(pixel))assert.ok(allowed.has(color),'only outfit colours differ');
+      }
+      assert.equal(new Set(looks.map(p=>JSON.stringify([...p]))).size,3,'outfits look distinct');
+    }
+  }finally{globalThis.document=previous;}
+});
+
 test('blocks have zero to three stable, separated manholes entirely on sidewalks',()=>{
   const city=new City(42),counts=new Set(),sides=new Set();
   for(let x=-6;x<=6;x++)for(let z=-6;z<=6;z++){
@@ -964,6 +993,37 @@ test('pub arrivals reserve seats, serialize walkers and leave full pubs',async()
   for(let i=0;i<100&&life.walker;i++)life.update(.1,full,null);
   assert.equal(life.walker,null);assert.ok(full.every(seats=>seats[0]===0&&seats[1]===1));
   assert.equal(new PubLife(()=>1).arrival,60);
+});
+
+test('pub patrons keep their outfit variant when seated, arriving and leaving',async()=>{
+  const {PubLife}=await import('../neon-city/pub-life.js');
+  const {PUB,pubChairs,createPubPatrons,drawPubInterior}=await import('../neon-city/pub-interior.js');
+  const {SHOE_COLORS,TEEN_OUTFITS}=await import('../neon-city/sprites.js');
+  assert.ok(createPubPatrons(()=>.7).every(seats=>seats.variants.every(v=>v===.7)));
+  const seated=variants=>{
+    const patrons=PUB.tables.map(()=>[null,null]);patrons[0]=Object.assign([4,null],variants&&{variants});
+    const people=[],colors=new Set();
+    drawPubInterior({patrons,seatedPatron:p=>people.push(p),box:(...args)=>colors.add(args[6]),quad(){},face(){}});
+    return {people,colors};
+  };
+  const teal=seated([.5,0]);
+  assert.equal(teal.people[0].variant,.5);
+  assert.ok(teal.colors.has(TEEN_OUTFITS[1].shoes),'seated shoes match the outfit');
+  assert.ok(!teal.colors.has(SHOE_COLORS[4]));
+  const plain=seated();
+  assert.equal(plain.people[0].variant,0,'seats without variants keep the original outfit');
+  assert.ok(plain.colors.has(SHOE_COLORS[4]));
+
+  const chair=pubChairs()[0],centre={x:chair.x+chair.w/2,z:chair.z+chair.d/2};
+  const patrons=PUB.tables.map(()=>[null,null]),life=new PubLife(()=>0);
+  life.walker={...centre,type:4,variant:.9,chair,route:[centre],walkTime:0,facingX:0,facingZ:1};
+  life.update(.1,patrons,null);
+  assert.equal(life.walker,null);
+  assert.equal(patrons[chair.tableIndex][chair.seat],4);
+  assert.equal(patrons[chair.tableIndex].variants[chair.seat],.9,'arrival stores the variant');
+  life.arrival=60;life.departure=0;life.update(.1,patrons,null);
+  assert.equal(life.walker.type,4);
+  assert.equal(life.walker.variant,.9,'departure carries the variant');
 });
 
 test('pub walkers wait for standing or seated players without admitting another walker',async()=>{

@@ -1,4 +1,4 @@
-import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js';
+import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-1';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 const sameSeat=(a,b)=>a&&b&&a.tableIndex===b.tableIndex&&a.seat===b.seat;
@@ -46,7 +46,7 @@ export class PubLife{
         if(d<=move)w.route.shift();
       }
       if(!w.route.length){
-        if(w.chair){patrons[w.chair.tableIndex]??=[null,null];patrons[w.chair.tableIndex][w.chair.seat]=w.type;}
+        if(w.chair){const seats=patrons[w.chair.tableIndex]??=[null,null];seats[w.chair.seat]=w.type;(seats.variants??=[0,0])[w.chair.seat]=w.variant;}
         this.walker=null;
       }
       return;
@@ -58,7 +58,7 @@ export class PubLife{
       const free=chairs.filter(c=>patrons[c.tableIndex]?.[c.seat]==null&&!sameSeat(c,playerSeat));
       const chair=free[Math.floor(this.random()*free.length)];
       const route=chair?pubRoute(entrance,center(chair),chair):[{x:entrance.x,z:1},entrance];
-      if(route)this.walker={...entrance,type:Math.floor(this.random()*7),chair,route,walkTime:0,facingX:0,facingZ:1};
+      if(route)this.walker={...entrance,type:Math.floor(this.random()*7),variant:this.random(),chair,route,walkTime:0,facingX:0,facingZ:1};
     }else if(this.departure<=0){
       this.departure=this.delay();
       const occupied=chairs.filter(c=>patrons[c.tableIndex]?.[c.seat]!=null&&c.tableIndex!==playerSeat?.tableIndex);
@@ -67,7 +67,7 @@ export class PubLife{
       if(pubPersonBlocks(center(chair),center(chair),player))return;
       const start=center(chair),route=pubRoute(start,entrance,chair);
       if(!route)return;
-      this.walker={...start,type:patrons[chair.tableIndex][chair.seat],route,walkTime:0,facingX:0,facingZ:-1};
+      this.walker={...start,type:patrons[chair.tableIndex][chair.seat],variant:patrons[chair.tableIndex].variants?.[chair.seat]??0,route,walkTime:0,facingX:0,facingZ:-1};
       patrons[chair.tableIndex][chair.seat]=null;
     }
   }

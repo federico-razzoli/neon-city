@@ -1,7 +1,15 @@
 export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447'];
+// The Black teen girl's outfits: shirt, chest print, back panel and shoes.
+export const TEEN_OUTFITS=[
+  {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
+  {shirt:'#3fb6a8',print:'#d9fff4',panel:'#2c8a80',shoes:'#f05b7a'},
+  {shirt:'#9a5fd6',print:'#f0d8ff',panel:'#7442ab',shoes:'#f2d16b'}
+];
+// Only she varies; variant 0 keeps the original outfit.
+export const outfit=(type,variant=0)=>type===4?Math.min(TEEN_OUTFITS.length-1,Math.floor(variant*TEEN_OUTFITS.length)):0;
 const sprites=[];
-export function sprite(type,frame,back=false){
-  const key=`${type}:${frame}:${back}`;if(sprites[key])return sprites[key];
+export function sprite(type,frame,back=false,variant=0){
+  const look=outfit(type,variant),key=`${type}:${frame}:${back}:${look}`;if(sprites[key])return sprites[key];
   const c=document.createElement('canvas');c.width=24;c.height=48;const g=c.getContext('2d');
   const rect=(color,x,y,w,h)=>{g.fillStyle=color;g.fillRect(x,y,w,h);};
   const stride=[-2,0,2,0][frame],skin=type===2?'#94624e':'#e2a282';
@@ -31,13 +39,13 @@ export function sprite(type,frame,back=false){
   }
   if(type===3||type===4){
     // Teen outfits share the same four-frame walk cycle.
-    const dark=type===4,skin=dark?'#875235':'#e2a282';
-    const hair=dark?'#211923':'#fa4eb1',shirt=dark?'#e5b447':'#292438';
+    const dark=type===4,skin=dark?'#875235':'#e2a282',clothes=TEEN_OUTFITS[look];
+    const hair=dark?'#211923':'#fa4eb1',shirt=dark?clothes.shirt:'#292438';
     rect(hair,7,3,11,12);rect(skin,9,7,7,8);
     rect(shirt,6,16,14,15);rect(skin,4,21,3,11);rect(skin,20,21,3,11);
     if(dark){
       rect('#394866',8,31,5,12+stride);rect('#394866',14,31,5,12-stride);
-      rect(SHOE_COLORS[type],6,43+stride,7,3);rect(SHOE_COLORS[type],14,43-stride,7,3);
+      rect(clothes.shoes,6,43+stride,7,3);rect(clothes.shoes,14,43-stride,7,3);
     }else{
       // Short black skirt and chunky black boots.
       rect(skin,8,33,5,10+stride);rect(skin,14,33,5,10-stride);
@@ -58,10 +66,10 @@ export function sprite(type,frame,back=false){
     }
     if(back){
       rect(hair,8,7,10,8);
-      rect(dark?'#c89235':'#a54b92',10,20,6,5);
+      rect(dark?clothes.panel:'#a54b92',10,20,6,5);
     }else{
       rect('#241c2c',10,10,1,1);rect('#241c2c',14,10,1,1);
-      rect(dark?'#fff0c0':'#ec91c9',11,20,4,4);
+      rect(dark?clothes.print:'#ec91c9',11,20,4,4);
       if(!dark)rect(hair,8,6,6,3);
     }
     sprites[key]=c;return c;

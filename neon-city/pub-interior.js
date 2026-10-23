@@ -1,4 +1,4 @@
-import {SHOE_COLORS} from './sprites.js';
+import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-1';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
@@ -44,6 +44,8 @@ export function createPubPatrons(random=Math.random){
     const first=random()<.5?0:1;
     for(let i=0;i<count;i++)seats[(first+i)%2]=Math.floor(random()*7);
     seats.beerSides=[random()<.5?-1:1,random()<.5?-1:1];
+    // Outfit variants follow patrons between the street sprite and their seat.
+    seats.variants=[random(),random()];
     return seats;
   });
 }
@@ -189,8 +191,9 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     const backZ=z+(side<0?0:d-.08);
     for(const dx of [.04,w-.12])box(x+dx,.6,backZ,.08,.75,.08,'#67472e');
     box(x+.04,1.05,backZ,w-.08,.22,.08,'#805b3b');
-    const type=patrons[tableIndex]?.[seat];
+    const type=patrons[tableIndex]?.[seat],variant=patrons[tableIndex]?.variants?.[seat]??0;
     if(type!=null){
+      const shoes=type===4?TEEN_OUTFITS[outfit(type,variant)].shoes:SHOE_COLORS[type];
       const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2'][type];
       for(const dx of [.15,.48]){
         box(x+dx,.52,z+.2,.17,.17,.55,trousers);
@@ -206,9 +209,9 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
           const shoeZ=z+(side<0?.55:-.06);
           box(x+dx-.025,.10,shoeZ,.22,.06,.3,SHOE_COLORS[type]);
           box(x+dx+.015,.04,shoeZ+(side<0?0:.25),.04,.06,.05,SHOE_COLORS[type]);
-        }else box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,SHOE_COLORS[type]);
+        }else box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,shoes);
       }
-      seatedPatron({x:x+w/2,z:z+d/2,type,side});
+      seatedPatron({x:x+w/2,z:z+d/2,type,variant,side});
     }
   }
   const b=PUB.bar;
