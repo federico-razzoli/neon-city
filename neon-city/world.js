@@ -2,7 +2,7 @@ export const BLOCK = 64;
 export const LOAD_RADIUS = 2;
 export const KEEP_RADIUS = 3;
 export const PEDESTRIAN_MIN_SPEED = .9;
-export const PEDESTRIAN_MAX_SPEED = PEDESTRIAN_MIN_SPEED * 1.5;
+export const PEDESTRIAN_MAX_SPEED = PEDESTRIAN_MIN_SPEED * 2;
 export const PERSON_CLEARANCE = .85; // Player radius plus pedestrian radius.
 export const mod = (n, d) => ((n % d) + d) % d;
 function crossesPerson(a,b,person) {
@@ -109,11 +109,19 @@ export class City {
     }
   }
   move(p,dx,dz,people=[]) {
+    let bumpedPedestrian=false;
     const reach=Math.hypot(dx,dz)+PERSON_CLEARANCE;
     const nearby=people.filter(person=>Math.hypot(person.x-p.x,person.z-p.z)<=reach);
-    const blocked=(x,z)=>this.solid(x,z)||nearby.some(person=>crossesPerson(p,{x,z},person));
+    const blocked=(x,z)=>{
+      if(this.solid(x,z))return true;
+      if((x!==p.x||z!==p.z)&&nearby.some(person=>crossesPerson(p,{x,z},person))){
+        bumpedPedestrian=true;return true;
+      }
+      return false;
+    };
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.3));
     for(let i=0;i<steps;i++){if(!blocked(p.x+dx/steps,p.z))p.x+=dx/steps;if(!blocked(p.x,p.z+dz/steps))p.z+=dz/steps;}
+    return bumpedPedestrian;
   }
 }
 export function pedestrian(chunk,p,time) {

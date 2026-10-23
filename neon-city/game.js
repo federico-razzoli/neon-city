@@ -1,4 +1,4 @@
-import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=pedestrian-facing-1';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=speeds-2';
 import {projectSky} from './sky.js';
 import {HornWarning,playHorn} from './horn.js';
 
@@ -10,6 +10,7 @@ const W=640,H=360,F=355,eye=1.65,horizon=164;
 const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevation:.1+Math.random()*.35}));
 const moon={bearing:.33,elevation:.31};
 let running=false,time=0,last=0,queue=[],shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
+let noticeText='';
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 ctx.imageSmoothingEnabled=false;
 
@@ -200,7 +201,8 @@ function tick(now){
     player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.65*pace;
     const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     const people=city.pedestrians(time-dt);
-    city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people);
+    const bumpedPedestrian=city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people);
+    if(bumpedPedestrian){notice=2.5;noticeText='HEY! WATCH OUT!';}
     if(forward||side)steps+=dt*10*pace;
     city.update(player.x,player.z);
     const cars=[...city.chunks.values()].flatMap(chunk=>traffic(chunk,time));
@@ -208,12 +210,12 @@ function tick(now){
     collision: if(!hitCooldown)for(const c of cars){
       if(Math.abs(player.x-c.x)<(c.axis?2.8:1.5)&&Math.abs(player.z-c.z)<(c.axis?1.5:2.8)){
         const side=c.axis?(player.z>=c.z?1:-1):(player.x>=c.x?1:-1);
-        city.move(player,c.axis?c.dir*2.5:side*7,c.axis?side*7:c.dir*2.5,people);shake=7;notice=2.5;hitCooldown=1.5;playOuch();
+        city.move(player,c.axis?c.dir*2.5:side*7,c.axis?side*7:c.dir*2.5,people);shake=7;notice=2.5;noticeText='HEY! WATCH THE TRAFFIC.';hitCooldown=1.5;playOuch();
         break collision;
       }
     }
     city.advancePedestrians(dt,player,time);
-    document.querySelector('#message').textContent=notice?'HEY! WATCH THE TRAFFIC.':'';
+    document.querySelector('#message').textContent=notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
   }
   if(running||!painted){render();painted=true;}

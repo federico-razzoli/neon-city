@@ -134,7 +134,7 @@ test('a player blocking the sidestep makes pedestrians wait, then yield when cle
 });
 
 
-test('individual pedestrian speeds stay within 1–1.5x and do not depend on appearance',()=>{
+test('individual pedestrian speeds stay within 1–2x and do not depend on appearance',()=>{
   const city=new City(42);city.update(0,0);
   const byType=[new Set(),new Set(),new Set()];
   for(const chunk of city.chunks.values())for(const p of chunk.people){
@@ -144,7 +144,7 @@ test('individual pedestrian speeds stay within 1–1.5x and do not depend on app
     const changed=pedestrian(chunk,{...p,type:(p.type+1)%3,variant:.123,walkTime:2},0);
     assert.equal(original.x,changed.x);assert.equal(original.z,changed.z);
   }
-  assert.equal(PEDESTRIAN_MAX_SPEED/PEDESTRIAN_MIN_SPEED,1.5);
+  assert.equal(PEDESTRIAN_MAX_SPEED/PEDESTRIAN_MIN_SPEED,2);
   assert.ok(byType.every(speeds=>speeds.size>10));
   const people=[...city.chunks.values()].flatMap(chunk=>chunk.people),speeds=people.map(p=>p.speed);
   for(let i=1;i<=100;i++)city.advancePedestrians(.04,{x:0,z:0},i*.04);
@@ -221,4 +221,18 @@ test('pedestrian front and back follow walking direction on every side of the bl
   const before=pedestrian(chunk,{phase:41.9,speed:1,walkTime:0},0);
   const after=pedestrian(chunk,{phase:41.9,speed:1,walkTime:.2},0);
   assert.equal(before.facingX,1);assert.equal(after.facingZ,1);
+});
+
+test('movement reports pedestrian bumps but not idle, clear movement or building collisions',()=>{
+  const city=new City(1),npc={x:11,z:20};
+  for(const distance of [.1,.348,20]){
+    const player={x:11,z:19.1};
+    assert.equal(city.move(player,0,distance,[npc]),true);
+    assert.ok(Math.hypot(player.x-npc.x,player.z-npc.z)>=PERSON_CLEARANCE);
+    assert.equal(city.move(player,0,0,[npc]),false);
+    assert.equal(city.move(player,0,-.2,[npc]),false);
+  }
+  assert.equal(city.move({x:11,z:10},0,.1,[npc]),false);
+  assert.equal(city.move({x:13,z:20},2,0,[]),false);
+  assert.equal(city.move({x:10.5,z:19.2},.1,.2,[npc]),true,'sliding contact also reports a bump');
 });
