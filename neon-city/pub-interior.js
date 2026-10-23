@@ -1,5 +1,5 @@
-import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-7';
-import {PUB_TYPES} from './world.js?v=characters-7';
+import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-8';
+import {PUB_TYPES} from './world.js?v=characters-8';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},

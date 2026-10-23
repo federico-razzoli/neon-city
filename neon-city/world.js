@@ -1,7 +1,14 @@
 export const PEDESTRIAN_TYPES=12;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
-  4:{height:1.68},
+  4:{height:1.68,lines:[
+    'MY DAD SENT ME TO THE PUB AGAIN.',
+    "I DON'T WANT TO GET DRUNK. I WANT TO STUDY MATH.",
+    'MY DAD SAYS THAT GETTING DRUNK IS MORE EDUCATIONAL THAN STUDYING.',
+    'MY DAD IS A BLOCKHEAD.',
+    'BY THE WAY, I LOVE TALKING TO YOU.',
+    'SOMETIMES I REALLY FEEL ALONE.'
+  ]},
   5:{lines:['THIS BEER SUCKS.','THIS PUB SUCKS.','LIFE SUCKS.','THIS CONVERSATION SUCKS.']},
   9:{goesToPub:false},
   10:{height:1.78},

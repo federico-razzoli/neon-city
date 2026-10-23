@@ -1199,7 +1199,12 @@ test('table partners say their lines in order every 3 to 5 seconds, looping',asy
   assert.equal(robot[0],'I WAS CREATED BY AN ADVANCED ALIEN CIVILISATION.');
   assert.equal(robot[3],"I'M STUDYING LADYBUGS, INSTEAD. THEY'RE MORE INTERESTING.");
   assert.deepEqual(robot.slice(-2),['I ADMIRE LADYBUGS.','I REALLY DO.']);
-  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(type!==5&&type!==11)assert.deepEqual(pubLines(type),[],'no lines by default');
+  const teen=pubLines(4);
+  assert.equal(teen.length,6);
+  assert.equal(teen[0],'MY DAD SENT ME TO THE PUB AGAIN.');
+  assert.equal(teen[1],"I DON'T WANT TO GET DRUNK. I WANT TO STUDY MATH.");
+  assert.equal(teen.at(-1),'SOMETIMES I REALLY FEEL ALONE.');
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![4,5,11].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
   const values=[0,1,.5,.25,.75,0,1,.5,.1],random=()=>values.shift()??.5;
   const talk=new PubConversation(lines,random),said=[],gaps=[];
   let since=0;
