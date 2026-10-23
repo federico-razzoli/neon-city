@@ -1,4 +1,4 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
@@ -162,6 +162,35 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#2a1a22',11,9,1,1);rect('#2a1a22',14,9,1,1);rect('#9c5a50',12,11,2,1);
       rect(trim,12,19,2,25);
     }
+    sprites[key]=c;return c;
+  }
+  if(type===10){
+    // Sikh man: saffron turban, full beard, steel kara, bomber jacket, jeans and white sneakers.
+    const skin='#a8714f',turban='#e08a2c',fold='#b86a1e',beard='#1d1719',jacket='#5d6b45',rib='#46523a';
+    rect(skin,8,7,10,8);rect(skin,7,9,1,2);rect(skin,18,9,1,2);
+    // The turban's lower edge dips to a point above the brow and rises toward the ears.
+    rect(turban,7,1,12,6);rect(turban,8,0,10,2);rect(turban,10,7,6,1);rect(turban,12,8,2,1);
+    rect(jacket,5,16,16,16);rect(jacket,3,17,3,12);rect(jacket,20,17,3,12);
+    rect(rib,3,29,3,1);rect(rib,20,29,3,1);rect(rib,5,30,16,2);
+    rect(skin,3,30,3,2);rect(skin,20,30,3,2);
+    rect('#2f3e5e',7,32,5,12+stride);rect('#2f3e5e',14,32,5,12-stride);
+    rect(SHOE_COLORS[type],6,44+stride,7,3);rect(SHOE_COLORS[type],14,44-stride,7,3);
+    rect('#8a8494',6,46+stride,7,1);rect('#8a8494',14,46-stride,7,1);
+    if(back){
+      rect(turban,7,1,12,9);rect(fold,8,3,6,1);rect(fold,12,4,6,1);rect(fold,8,6,5,1);rect(fold,13,7,5,1);
+      // Uncut hair is tied up under the turban and shows at the nape, above a short neck.
+      rect(beard,8,10,10,4);rect(skin,10,14,6,2);
+      rect(rib,8,16,10,1);
+    }else{
+      // Layers cross diagonally from each temple and meet at the centre.
+      for(const [dx,y] of [[0,5],[2,4],[4,3]]){rect(fold,8+dx,y,2,1);rect(fold,16-dx,y,2,1);}
+      rect(fold,10,2,6,1);rect(fold,12,7,2,1);
+      rect(beard,8,11,10,5);rect(beard,10,11,6,1);rect('#7a4a3c',11,12,4,1);
+      rect('#20161a',10,9,1,1);rect('#20161a',15,9,1,1);
+      rect('#9a9aa6',10,16,6,14);rect(rib,9,16,1,14);rect(rib,16,16,1,14);
+    }
+    // The kara stays on his right wrist: viewer's left from the front, right from behind.
+    rect('#c9ccd4',back?20:3,30,3,1);
     sprites[key]=c;return c;
   }
   if(type===1){ // Adult clubgoer: big hair, magenta minidress, solid-colour tights and heels.

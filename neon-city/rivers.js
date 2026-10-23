@@ -1,4 +1,4 @@
-import {BLOCK,WATER_LEVEL,bridgeHeight,mod} from './world.js?v=characters-3';
+import {BLOCK,WATER_LEVEL,bridgeHeight,mod} from './world.js?v=characters-4';
 
 // Each chunk owns half of a river, including its share of each bridge.
 export function drawRiverTerrain(chunk,{quad},time){

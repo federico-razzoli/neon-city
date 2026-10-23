@@ -1,12 +1,12 @@
-import {PubLife} from './pub-life.js?v=characters-3';
+import {PubLife} from './pub-life.js?v=characters-4';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {sprite,outfit} from './sprites.js?v=characters-3';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight} from './world.js?v=characters-3';
-import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=characters-3';
+import {sprite,outfit} from './sprites.js?v=characters-4';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight, characterHeight} from './world.js?v=characters-4';
+import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=characters-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-3';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-4';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
 import {orderSurfaces} from './surface-order.js';
@@ -158,7 +158,7 @@ function drawFace(f){
   if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
 }
 function person(p){
-  const v=camera({x:p.x,y:groundHeight(p.x,p.z),z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=(p.type===4?1.68:1.85)*F/v.z,width=height/2;
+  const v=camera({x:p.x,y:groundHeight(p.x,p.z),z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=characterHeight(p.type)*F/v.z,width=height/2;
   if(pos.x+width<0||pos.x-width>W)return;
   queue.push({depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }
