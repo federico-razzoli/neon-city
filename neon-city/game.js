@@ -1,4 +1,5 @@
-import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=unstuck-3';
+import {sprite} from './sprites.js?v=pedestrians-7';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=pedestrians-7';
 import {drawArcade,arcadeVolume,ArcadeAmbience} from './arcade.js?v=effects-1';
 import {projectSky} from './sky.js';
 import {drawWallTexture} from './perspective.js';
@@ -97,40 +98,8 @@ function drawFace(f){
   const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
   if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
 }
-const sprites=[];
-function sprite(type,frame,back=false){
-  const key=(back?12:0)+type*4+frame;if(sprites[key])return sprites[key];
-  const c=document.createElement('canvas');c.width=24;c.height=48;const g=c.getContext('2d');
-  const rect=(color,x,y,w,h)=>{g.fillStyle=color;g.fillRect(x,y,w,h);};
-  const stride=[-2,0,2,0][frame],skin=type===2?'#94624e':'#e2a282';
-  if(type===1){ // Adult clubgoer: big hair, magenta minidress, fishnets and heels.
-    rect('#b96d40',7,1,11,16);rect(skin,9,5,7,8);rect('#f7bd5b',7,1,11,5);rect('#ef4c99',8,15,10,15);rect(skin,5,16,3,15);rect(skin,18,16,3,15);rect('#ec849a',8,30,4,13+stride);rect('#ec849a',14,30,4,13-stride);
-    for(let y=31;y<43;y+=3)for(let x=8;x<18;x++)if(x<12||x>=14)if((x+y)%2)rect('#43283e',x,y,1,1);
-    rect('#170f28',7,43+stride,6,2);rect('#170f28',14,43-stride,7,2);rect('#170f28',8,45+stride,1,2);rect('#170f28',15,45-stride,1,2);
-  }else{
-    rect(type===2?'#171422':'#503e43',8,2,10,6);rect(skin,8,6,10,8);rect(type===2?'#1e1e2b':'#67bac5',5,15,16,17);rect(type===2?'#b2b0aa':'#efb9c4',10,16,6,14);rect(skin,3,19,3,13);rect(skin,21,19,3,13);rect('#21283f',7,32,6,12+stride);rect('#21283f',15,32,5,12-stride);rect('#b8a7ac',5,44+stride,8,3);rect('#b8a7ac',15,44-stride,8,3);
-    if(type===0){rect('#101225',7,7,12,3);rect('#99dfeb',8,7,3,1);}else{rect('#d7b352',10,17,1,6);rect('#d7b352',15,17,1,6);rect('#d7b352',11,23,4,1);rect('#281e26',10,12,7,2);}
-  }
-  if(back){
-    if(type===1){
-      // Long hair covers the face and shoulders from behind.
-      rect('#b96d40',7,1,11,18);rect('#f7bd5b',8,2,3,14);rect('#905235',16,6,2,13);
-      rect('#b72e76',12,20,1,10);rect('#ff79b5',8,28,10,2);
-    }else{
-      // Back of the head and a closed jacket: no face, glasses, shirt or chain.
-      rect(type===2?'#171422':'#503e43',8,2,10,11);
-      rect(skin,10,13,6,2);
-      rect(type===2?'#1e1e2b':'#67bac5',5,15,16,17);
-      rect(type===2?'#414052':'#438d9b',6,18,14,1);
-      rect(type===2?'#11121e':'#438d9b',12,20,1,11);
-      rect('#687080',7,34,4,2);rect('#687080',16,34,3,2);
-      rect('#655e70',5,44+stride,8,3);rect('#655e70',15,44-stride,8,3);
-    }
-  }
-  sprites[key]=c;return c;
-}
 function person(p){
-  const v=camera({x:p.x,y:0,z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=1.85*F/v.z,width=height/2;
+  const v=camera({x:p.x,y:0,z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=(p.type===4?1.68:1.85)*F/v.z,width=height/2;
   if(pos.x+width<0||pos.x-width>W)return;
   queue.push({depth:v.z,draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player)),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }

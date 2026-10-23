@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {City,pedestrian,traffic,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
+import {City,pedestrian,traffic,PEDESTRIAN_TYPES,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
 
 test('nearby blocks are retained; forgotten blocks regenerate; memory is bounded',()=>{
   const c=new City(42);c.update(0,0);const original=c.chunks.get('0,0');assert.equal(c.chunks.size,25);
@@ -13,7 +13,7 @@ test('solid buildings stop walking and high-speed knockback, including negative 
   for(const origin of [0,-64]){const p={x:origin+10,z:origin+20};c.move(p,100,0);assert.ok(p.x<origin+14);assert.ok(!c.solid(p.x,p.z));c.move(p,0,20);assert.ok(p.z>origin+39);}
 });
 test('pedestrian loops remain on sidewalks',()=>{
-  const c=new City(3);c.update(-64,-64);for(const chunk of c.chunks.values())for(const p of chunk.people)for(const t of [0,100,9999]){const pos=pedestrian(chunk,p,t);assert.ok(!c.solid(pos.x,pos.z));assert.ok(pos.type>=0&&pos.type<=2);}
+  const c=new City(3);c.update(-64,-64);for(const chunk of c.chunks.values())for(const p of chunk.people)for(const t of [0,100,9999]){const pos=pedestrian(chunk,p,t);assert.ok(!c.solid(pos.x,pos.z));assert.ok(pos.type>=0&&pos.type<PEDESTRIAN_TYPES);}
 });
 test('traffic moves, stays in roads and continues in neighboring blocks',()=>{
   const a=traffic({x:0,z:0},10),b=traffic({x:0,z:1},10),next=traffic({x:0,z:0},10.1);
@@ -143,12 +143,12 @@ test('a blocked sidestep on a straight sidewalk triggers the turnaround fallback
 
 test('individual pedestrian speeds stay within 1–2x and do not depend on appearance',()=>{
   const city=new City(42);city.update(0,0);
-  const byType=[new Set(),new Set(),new Set()];
+  const byType=Array.from({length:PEDESTRIAN_TYPES},()=>new Set());
   for(const chunk of city.chunks.values())for(const p of chunk.people){
     assert.ok(p.speed>=PEDESTRIAN_MIN_SPEED&&p.speed<=PEDESTRIAN_MAX_SPEED);
     byType[p.type].add(p.speed);
     const original=pedestrian(chunk,{...p,walkTime:2},0);
-    const changed=pedestrian(chunk,{...p,type:(p.type+1)%3,variant:.123,walkTime:2},0);
+    const changed=pedestrian(chunk,{...p,type:(p.type+1)%PEDESTRIAN_TYPES,variant:.123,walkTime:2},0);
     assert.equal(original.x,changed.x);assert.equal(original.z,changed.z);
   }
   assert.equal(PEDESTRIAN_MAX_SPEED/PEDESTRIAN_MIN_SPEED,2);
@@ -369,4 +369,35 @@ test('wall texture lines follow perspective through left and right turns and nea
       }
     }
   }
+});
+
+test('all pedestrian types have distinct cached front/back sprites and walking frames',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      assert.ok([x,y,w,h].every(Number.isFinite));
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite}=await import('../neon-city/sprites.js');
+    const canvases=new Set(),pictures=new Set();
+    for(let type=0;type<PEDESTRIAN_TYPES;type++)for(const back of [false,true]){
+      for(let frame=0;frame<4;frame++){
+        const canvas=sprite(type,frame,back);
+        assert.equal(sprite(type,frame,back),canvas);
+        assert.ok(!canvases.has(canvas),'cache entries never collide');canvases.add(canvas);
+      }
+      const picture=JSON.stringify([...sprite(type,0,back).pixels].sort((a,b)=>a[0]-b[0]));
+      assert.ok(!pictures.has(picture),'each character and facing has a unique appearance');pictures.add(picture);
+      assert.notDeepEqual(sprite(type,0,back).pixels,sprite(type,2,back).pixels,'legs animate');
+    }
+    assert.equal(canvases.size,PEDESTRIAN_TYPES*8);
+    for(let frame=0;frame<4;frame++){
+      assert.equal(sprite(6,frame,false).pixels.get(12*24+6),'#f2d477','right-ear hoop faces viewer left');
+      assert.equal(sprite(6,frame,true).pixels.get(12*24+18),'#f2d477','right-ear hoop faces viewer right from behind');
+    }
+  }finally{globalThis.document=previous;}
 });

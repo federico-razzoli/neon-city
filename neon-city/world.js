@@ -1,3 +1,4 @@
+export const PEDESTRIAN_TYPES=7;
 export const BLOCK = 64;
 export const LOAD_RADIUS = 2;
 export const KEEP_RADIUS = 3;
@@ -32,7 +33,7 @@ export class City {
     }
     // Jitter separated slots so new pedestrians never spawn inside each other.
     // Assign speed once, using a separate random draw from appearance.
-    for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:Math.floor(r()*3),reverse:r()>.5,variant:r(),walkTime:0});
+    for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:Math.floor(r()*PEDESTRIAN_TYPES),reverse:r()>.5,variant:r(),walkTime:0});
     return { x, z, buildings, people };
   }
   solid(x,z, radius=.45) {
