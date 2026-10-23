@@ -505,7 +505,8 @@ test('game input replays manhole feedback on separate presses and held Space wit
     if(!elements.has(id))elements.set(id,{textContent:'',open:false,showModal(){this.open=true;},close(){this.open=false;},focus(){},getContext:()=>({}),addEventListener(name,fn){events[id+name]=fn;}});
     return elements.get(id);
   };
-  const sandbox={CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const pubInterior=await import('../neon-city/pub-interior.js');
+  const sandbox={...pubInterior,CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,traffic:()=>[],
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -563,6 +564,21 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(player.angle,previousAngle,'turn input while reading is discarded');
   assert.ok(moves>previousMoves,'normal world updates resume');
   events.keyup(key);
+  player.x=21;player.z=-7;player.angle=0;
+  events.keydown(key);tick(6200);
+  assert.equal(player.x,9);assert.equal(player.z,1.8);
+  assert.match(element('#location').textContent,/BAR ROOM/);
+  events.keydown({...key,repeat:true});tick(6220);
+  assert.equal(player.z,1.8,'held entry press does not exit');
+  const streetMoves=moves;
+  events.keyup(key);player.angle=Math.PI;
+  tick(6240);assert.match(element('#message').textContent,/EXIT PUB/);
+  assert.equal(moves,streetMoves,'interior does not run outdoor movement');
+  events.keydown(key);tick(6260);
+  assert.equal(player.x,21);assert.equal(player.z,-7);
+  assert.equal(player.angle,Math.PI,'exit faces away from the pub');
+  assert.equal(sounds,7,'door use never lifts a manhole');
+
 });
 
 test('Ursa Major has a fixed seven-star pattern that follows camera rotation',async()=>{
@@ -602,4 +618,84 @@ test('pub menus require proximity and facing a menu wall, never the door',async(
     assert.equal(facingPubMenu({x:16,z:23,angle:-Math.PI/2},[b]),false);
     assert.equal(facingPubMenu({x:12,z:18,angle:Math.PI/2},[b]),false);
   }
+});
+
+test('pub entrances require facing the correct exterior door',async()=>{
+  const {facingPubDoor,facingPubExit}=await import('../neon-city/pub-interior.js');
+  for(const j of [0,1]){
+    const b={sign:'NEON PUB',x:14,z:14,w:18,d:18,j};
+    const p={x:23,z:j?34:12,angle:j?Math.PI:0};
+    assert.equal(facingPubDoor(p,[b]),b);
+    assert.equal(facingPubDoor({...p,angle:p.angle+Math.PI},[b]),undefined);
+    assert.equal(facingPubDoor({...p,x:18},[b]),undefined);
+    assert.equal(facingPubDoor({...p,z:j?30:16},[b]),undefined);
+  }
+  assert.equal(facingPubExit({x:9,z:1.8,angle:Math.PI}),true);
+  assert.equal(facingPubExit({x:9,z:1.8,angle:0}),false);
+});
+
+test('pub furniture and walls block running while the passage connects both rooms',async()=>{
+  const {PUB,moveInPub}=await import('../neon-city/pub-interior.js');
+  const player={...PUB.spawn};
+  moveInPub(player,0,6.2);moveInPub(player,12,0);assert.ok(player.x>20,'right passage connects rooms');
+  moveInPub(player,-12,0);assert.ok(Math.abs(player.x-9)<1e-8,'passage works both ways');
+  for(const b of [PUB.bar,PUB.shelves,...PUB.walls]){
+    const p={x:b.x+b.w/2,z:b.z-1};moveInPub(p,0,5);
+    assert.ok(p.z<=b.z-.3+1e-8,'cannot tunnel through an obstacle');
+  }
+  for(const b of PUB.tables){
+    const p={x:b.x,z:b.z-b.radius-1};moveInPub(p,0,5);
+    assert.ok(p.z<=b.z-b.radius-.3+1e-8,'round tables block running');
+    const corner={x:b.x+b.radius*.85,z:b.z-b.radius-.4};
+    moveInPub(corner,0,.6);
+    assert.ok(corner.z>b.z-b.radius+.19,'rounded corner has no invisible square barrier');
+    const edge={x:b.x+b.radius+.31,z:b.z-1};moveInPub(edge,0,2);
+    assert.ok(edge.z>b.z+.9,'can walk around the curved edge');
+  }
+  moveInPub(player,-100,0);assert.ok(player.x>=.3);
+  moveInPub(player,0,-100);assert.ok(player.z>=.3);
+});
+
+test('interior depth rendering keeps overlapping details visible regardless of submission order',async()=>{
+  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
+  let frame;
+  const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>{frame=f;}},20,20);
+  const polygon=(color,depths)=>({color,ps:[{x:0,y:0},{x:20,y:0},{x:20,y:20},{x:0,y:20}],vs:depths.map(z=>({z}))});
+  const wall=polygon('#876b53',[10,2,2,10]);
+  const detail=polygon('#e9c47e',[4.1,4.1,4.1,4.1]);
+  renderer.render([wall,detail]);const first=Array.from(frame.data);
+  renderer.render([detail,wall]);assert.deepEqual(Array.from(frame.data),first);
+  const pixel=(x,y)=>Array.from(frame.data.slice((y*20+x)*4,(y*20+x)*4+3));
+  assert.deepEqual(pixel(2,10),[233,196,126],'near detail covers the far end of a slanted face');
+  assert.deepEqual(pixel(17,10),[135,107,83],'near end of slanted face covers the detail');
+  renderer.render([detail]);assert.deepEqual(pixel(17,10),[233,196,126],'depth clears between frames');
+});
+
+test('door interaction remains available when approaching off-centre on either side',async()=>{
+  const {facingPubDoor,facingPubExit}=await import('../neon-city/pub-interior.js');
+  for(const j of [0,1]){
+    const b={sign:'NEON PUB',x:14,z:14,w:18,d:18,j};
+    for(const offset of [-.6,.6])for(const distance of [2,1,.5,.3,.01]){
+      const p={x:23+offset,z:j?32+distance:14-distance,angle:j?Math.PI:0};
+      assert.equal(facingPubDoor(p,[b]),b,`exterior remains usable at ${distance}`);
+      assert.equal(facingPubExit({x:9+offset,z:distance,angle:Math.PI}),true,`interior remains usable at ${distance}`);
+    }
+  }
+  assert.equal(facingPubExit({x:9,z:4,angle:Math.PI}),false,'too far away');
+  assert.equal(facingPubExit({x:10.5,z:.3,angle:Math.PI}),false,'looking at adjacent wall');
+  assert.equal(facingPubExit({x:9.5,z:.3,angle:0}),false,'looking away');
+});
+
+test('bar meets the left wall, retains right access and fits its front panels',async()=>{
+  const {PUB,moveInPub,drawPubInterior}=await import('../neon-city/pub-interior.js');
+  const left={x:.31,z:12};moveInPub(left,0,4);
+  assert.ok(left.z<=PUB.bar.z-.3,'no passage along the left wall');
+  const right={x:16,z:12};moveInPub(right,0,4);
+  assert.ok(right.z>15.9,'right passage still reaches behind the bar');
+  const panels=[];
+  drawPubInterior({face(){},quad(){},box(x,y,z,w,h,d,color){if(color==='#6b492d')panels.push({x,w});}});
+  assert.ok(panels.length>0);
+  const first=panels[0],last=panels.at(-1);
+  assert.ok(Math.abs((first.x-PUB.bar.x)-(PUB.bar.x+PUB.bar.w-last.x-last.w))<1e-9,'matching end margins');
+  for(const p of panels)assert.ok(p.x>=PUB.bar.x&&p.x+p.w<=PUB.bar.x+PUB.bar.w,'panels stay within the bar');
 });

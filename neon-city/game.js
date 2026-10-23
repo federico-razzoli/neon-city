@@ -1,8 +1,10 @@
+import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite} from './sprites.js?v=pedestrians-7';
 import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=manholes-1';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub} from './pub.js?v=seating-1';
+import {PUB,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
 import {drawWallTexture} from './perspective.js';
@@ -11,7 +13,17 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu');
-const nearPubMenu=()=>facingPubMenu(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings));
+let insidePub=false,streetPosition=null;
+const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
+const nearPubDoor=()=>insidePub?facingPubExit(player):facingPubDoor(player,pubBuildings());
+function usePubDoor(){
+  if(!nearPubDoor())return false;
+  if(insidePub){Object.assign(player,streetPosition);insidePub=false;}
+  else{streetPosition={...player,angle:player.angle+Math.PI};Object.assign(player,PUB.spawn);insidePub=true;}
+  keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=0;shake=0;steps=0;arcadeAmbience.mute();
+  return true;
+}
+const nearPubMenu=()=>!insidePub&&facingPubMenu(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings));
 function togglePubMenu(){
   keys.clear();shiftKeys.clear();coverPressed=false;
   if(pubMenu.open){pubMenu.close();startSpaceHeld=true;canvas.focus();}
@@ -75,6 +87,7 @@ function box(x,y,z,w,h,d,color,roof=color){
   if(player.x<x)face([e,a,up(a),up(e)],color);
   if(player.x>x+w)face([b,c,up(c),up(b)],color);
   if(eye>y+h)face([up(a),up(b),up(c),up(e)],roof);
+  if(insidePub&&eye<y)face([e,c,b,a],color);
 }
 function wallTexture(b,side){
   b.textures??=[];if(b.textures[side])return b.textures[side];
@@ -150,7 +163,13 @@ function manhole(m){
     quad(m.x-length/2,.093,m.z+offset-.025,length,.05,'#161923');
   }
 }
+let interiorRenderer;
 function render(){
+  if(insidePub){
+    queue=[];drawPubInterior({face,quad,box});
+    interiorRenderer??=new DepthRenderer(ctx,W,H);
+    interiorRenderer.render(queue);return;
+  }
   ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);
   for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon);if(p){ctx.fillStyle=star.color;ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}}
   ctx.fillStyle='#3b344e';
@@ -193,7 +212,7 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
-  if(k===' '&&!e.repeat){if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(usePubDoor())return;if(insidePub)return;if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -214,6 +233,11 @@ function tick(now){
     document.querySelector('#pace').hidden=pace===1;
     player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.65*pace;
     const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
+    if(insidePub){
+      moveInPub(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
+      document.querySelector('#message').textContent=nearPubDoor()?'SPACE — EXIT PUB':'';
+      document.querySelector('#location').textContent=player.x<18?'NEON PUB / BAR ROOM':'NEON PUB / LOUNGE';
+    }else{
     const people=city.pedestrians(time-dt);
     const bumpedPedestrian=city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people);
     if(bumpedPedestrian){notice=2.5;noticeText='HEY! WATCH OUT!';}
@@ -235,8 +259,9 @@ function tick(now){
     }
     coverPressed=false;
     city.advancePedestrians(dt,player,time);
-    document.querySelector('#message').textContent=nearPubMenu()?'SPACE — READ DRINKS MENU':notice?noticeText:'';
+    document.querySelector('#message').textContent=nearPubDoor()?'SPACE — ENTER PUB':nearPubMenu()?'SPACE — READ DRINKS MENU':notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
+    }
   }
   if(running||!painted){render();painted=true;}
   requestAnimationFrame(tick);

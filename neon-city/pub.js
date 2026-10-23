@@ -52,7 +52,7 @@ export function drawPub(g,height,building,side){
     rect('#9b7954',x+28,4,2,31);
   }
   // Only the street-facing north/south facade gets an entrance.
-  // This is painted onto the solid building: it cannot open or be entered.
+  // SPACE at this entrance transports the player into the pub.
   if(side===(building.j===1?1:0)){
     rect('#a18460',68,2,24,37);rect('#4f3330',70,4,20,34);
     rect('#bd9760',73,7,14,18);rect('#423332',75,9,10,14);
