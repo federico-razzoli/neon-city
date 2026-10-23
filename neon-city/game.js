@@ -1,5 +1,6 @@
+import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite} from './sprites.js?v=pedestrians-7';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=pedestrians-7';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=manholes-1';
 import {drawArcade,arcadeVolume,ArcadeAmbience} from './arcade.js?v=effects-1';
 import {projectSky} from './sky.js';
 import {drawWallTexture} from './perspective.js';
@@ -13,12 +14,13 @@ const W=640,H=360,F=355,eye=1.65,horizon=164;
 const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevation:.1+Math.random()*.35}));
 const moon={bearing:.33,elevation:.31};
 let running=false,time=0,last=0,queue=[],shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
-let noticeText='';
+let noticeText='',coverPressed=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 ctx.imageSmoothingEnabled=false;
 
 let audioContext,ouchBuffer,ouchLoading;
 const hornWarning=new HornWarning();
+const coverAttempt=new CoverAttempt();
 const arcadeAmbience=new ArcadeAmbience();
 function enableSound(){
   try{
@@ -26,6 +28,7 @@ function enableSound(){
     if(!AudioContext)return;
     audioContext??=new AudioContext();
     audioContext.resume().catch(()=>{});
+    loadCoverGrunt(audioContext);
     ouchLoading??=fetch(new URL('./assets/ouch-short.wav',import.meta.url))
       .then(response=>{if(!response.ok)throw new Error('Sound unavailable');return response.arrayBuffer();})
       .then(data=>audioContext.decodeAudioData(data))
@@ -121,6 +124,20 @@ function street(chunk){
   for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
   quad(x+16,.08,z+9,12,3,'#57354f');quad(x+9,.08,z+35,3,10,'#294755');
 }
+function manhole(m){
+  // Flat circular iron covers, projected with the same camera as the pavement.
+  const disk=(radius,y,color)=>face(Array.from({length:16},(_,i)=>{
+    const angle=i*Math.PI/8;
+    return {x:m.x+Math.cos(angle)*radius,y,z:m.z+Math.sin(angle)*radius};
+  }),color);
+  disk(m.radius,.09,'#171923');
+  disk(m.radius-.08,.091,'#777482');
+  disk(m.radius-.14,.092,'#343541');
+  for(const offset of [-.25,0,.25]){
+    const length=2*Math.sqrt((m.radius-.2)**2-offset**2);
+    quad(m.x-length/2,.093,m.z+offset-.025,length,.05,'#161923');
+  }
+}
 function render(){
   ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24213a';
   for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon);if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}
@@ -130,6 +147,10 @@ function render(){
   const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=170);
   for(const chunk of visible)street(chunk);
   queue.sort((a,b)=>b.depth-a.depth);
+  for(const f of queue)drawFace(f);
+  // Ground details go over the pavement, before people and buildings.
+  queue=[];
+  for(const chunk of visible)for(const m of chunk.manholes)manhole(m);
   for(const f of queue)drawFace(f);
   queue=[];
   for(const chunk of visible){
@@ -142,16 +163,20 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();canvas.focus();last=performance.now();}
+function pause(){running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function play(){enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
-const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape']);
-window.addEventListener('keydown',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}if(running){e.preventDefault();keys.add(k);syncShift(e);}});
+const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
+window.addEventListener('keydown',e=>{const k=e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}if(running){
+  e.preventDefault();
+  if(k===' '&&!e.repeat){coverPressed=true;enableSound();}
+  keys.add(k);syncShift(e);
+}});
 function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
-window.addEventListener('keyup',e=>{keys.delete(e.key.length===1?e.key.toLowerCase():e.key);if(running)syncShift(e);});
+window.addEventListener('keyup',e=>{keys.delete(e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running)syncShift(e);});
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 for(const button of document.querySelectorAll('[data-key]')){
   button.addEventListener('pointerdown',e=>{if(!running)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
@@ -180,6 +205,11 @@ function tick(now){
         break collision;
       }
     }
+    if((coverPressed||keys.has(' '))&&coverAttempt.try(player,city.chunks.values(),time,!coverPressed)){
+      notice=2.5;noticeText="IT'S TOO HEAVY.";
+      playCoverGrunt(audioContext);
+    }
+    coverPressed=false;
     city.advancePedestrians(dt,player,time);
     document.querySelector('#message').textContent=notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;

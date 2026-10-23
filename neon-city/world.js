@@ -34,7 +34,17 @@ export class City {
     // Jitter separated slots so new pedestrians never spawn inside each other.
     // Assign speed once, using a separate random draw from appearance.
     for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:Math.floor(r()*PEDESTRIAN_TYPES),reverse:r()>.5,variant:r(),walkTime:0});
-    return { x, z, buildings, people };
+    const manholes=[],slots=Array.from({length:32},(_,i)=>i);
+    const count=Math.floor(r()*4);
+    for(let i=0;i<count;i++){
+      const slot=slots.splice(Math.floor(r()*slots.length),1)[0];
+      const side=Math.floor(slot/8),along=16+(slot%8)*4+r()*1.5;
+      const across=10+r()*2;
+      const lx=[along,64-across,along,across][side];
+      const lz=[across,along,64-across,along][side];
+      manholes.push({x:x*BLOCK+lx,z:z*BLOCK+lz,radius:.65});
+    }
+    return { x, z, buildings, people, manholes };
   }
   solid(x,z, radius=.45) {
     // All blocks share the same footprint, so collision works before a chunk is loaded.

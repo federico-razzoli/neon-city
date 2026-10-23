@@ -1,0 +1,38 @@
+export function onManhole(player,chunks){
+  for(const chunk of chunks)for(const cover of chunk.manholes){
+    if(Math.hypot(player.x-cover.x,player.z-cover.z)<=cover.radius+2.25)return true;
+  }
+  return false;
+}
+
+export class CoverAttempt {
+  constructor(){this.lastAttempt=-Infinity;}
+  try(player,chunks,now,repeat=false){
+    if(repeat&&now-this.lastAttempt<1.2)return false;
+    if(!onManhole(player,chunks))return false;
+    this.lastAttempt=now;
+    return true;
+  }
+}
+
+const buffers=new WeakMap();
+export function loadCoverGrunt(context){
+  if(!context)return Promise.resolve(null);
+  if(!buffers.has(context)){
+    const loading=fetch(new URL('./assets/effort-grunt.wav?v=lifting-3',import.meta.url))
+      .then(response=>{if(!response.ok)throw new Error('Grunt unavailable');return response.arrayBuffer();})
+      .then(data=>context.decodeAudioData(data))
+      .catch(()=>{buffers.delete(context);return null;});
+    buffers.set(context,loading);
+  }
+  return buffers.get(context);
+}
+
+export async function playCoverGrunt(context){
+  if(context?.state!=='running')return;
+  const buffer=await loadCoverGrunt(context);
+  if(!buffer||context.state!=='running')return;
+  const source=context.createBufferSource();source.buffer=buffer;
+  source.connect(context.destination);source.start();
+  source.onended=()=>source.disconnect();
+}

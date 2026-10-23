@@ -401,3 +401,107 @@ test('all pedestrian types have distinct cached front/back sprites and walking f
     }
   }finally{globalThis.document=previous;}
 });
+
+test('blocks have zero to three stable, separated manholes entirely on sidewalks',()=>{
+  const city=new City(42),counts=new Set(),sides=new Set();
+  for(let x=-6;x<=6;x++)for(let z=-6;z<=6;z++){
+    const block=city.generate(x,z);counts.add(block.manholes.length);
+    assert.ok(block.manholes.length<=3);
+    for(const [i,m] of block.manholes.entries()){
+      const lx=m.x-x*64,lz=m.z-z*64,r=m.radius;
+      assert.ok(lx-r>=8&&lx+r<=56&&lz-r>=8&&lz+r<=56,'cover stays within pavement');
+      assert.ok(lx+r<14||lx-r>49.8||lz+r<14||lz-r>49.8,'cover clears buildings');
+      sides.add(lz<14?0:lx>49.8?1:lz>49.8?2:3);
+      for(const other of block.manholes.slice(i+1))assert.ok(Math.hypot(m.x-other.x,m.z-other.z)>r+other.radius);
+    }
+  }
+  assert.deepEqual([...counts].sort(),[0,1,2,3]);assert.equal(sides.size,4);
+  city.update(0,0);
+  const covers=city.chunks.get('0,0').manholes,original=structuredClone(covers);
+  city.update(64,0);city.update(0,0);
+  assert.equal(city.chunks.get('0,0').manholes,covers);assert.deepEqual(covers,original);
+});
+
+test('manhole interaction tolerates standing near a cover, including negative coordinates',async()=>{
+  const {onManhole}=await import('../neon-city/manholes.js');
+  for(const origin of [-64,0,64]){
+    const cover={x:origin+11,z:origin+20,radius:.65};
+    const chunks=[{manholes:[]},{manholes:[cover]}];
+    assert.equal(onManhole(cover,chunks.values()),true);
+    assert.equal(onManhole({x:cover.x+.6,z:cover.z},chunks.values()),true);
+    assert.equal(onManhole({x:cover.x+2.85,z:cover.z},chunks.values()),true);
+    assert.equal(onManhole({x:cover.x+2.91,z:cover.z},chunks.values()),false);
+    assert.equal(onManhole({x:cover.x+.5,z:cover.z+.5},chunks.values()),true);
+    assert.equal(onManhole({x:cover.x+2.1,z:cover.z+2.1},chunks.values()),false);
+  }
+  assert.equal(onManhole({x:0,z:0},[]),false);
+});
+
+test('effort grunt loads once and creates fresh playback on every attempt',async()=>{
+  const {loadCoverGrunt,playCoverGrunt}=await import('../neon-city/manholes.js');
+  const {readFile}=await import('node:fs/promises');
+  const wav=await readFile(new URL('../neon-city/assets/effort-grunt.wav',import.meta.url));
+  assert.equal(wav.toString('ascii',0,4),'RIFF');
+  assert.equal(wav.readUInt16LE(22),1,'mono');
+  assert.ok(wav.length>10000&&wav.length<100000,'short recording');
+  const previous=globalThis.fetch;let loads=0,decodes=0,starts=0,disconnects=0;
+  const sources=[],buffer={};
+  globalThis.fetch=async()=>{loads++;return {ok:true,arrayBuffer:async()=>new ArrayBuffer(8)};};
+  const context={state:'running',destination:{},decodeAudioData:async()=>{decodes++;return buffer;},
+    createBufferSource(){const source={connect(){},start(){starts++;},disconnect(){disconnects++;}};sources.push(source);return source;}};
+  try{
+    await loadCoverGrunt(context);
+    await playCoverGrunt(context);await playCoverGrunt(context);await playCoverGrunt(context);
+    assert.equal(loads,1);assert.equal(decodes,1);assert.equal(starts,3);
+    for(const source of sources){assert.equal(source.buffer,buffer);source.onended();}
+    assert.equal(disconnects,3);
+    context.state='suspended';await playCoverGrunt(context);assert.equal(starts,3);
+  }finally{globalThis.fetch=previous;}
+});
+
+test('cover attempts work on repeated presses and held Space without relying on keyup',async()=>{
+  const {CoverAttempt}=await import('../neon-city/manholes.js');
+  const action=new CoverAttempt(),player={x:11,z:20},chunks=[{manholes:[{...player,radius:.65}]}];
+  assert.equal(action.try(player,chunks,0),true);
+  assert.equal(action.try(player,chunks,.2),true,'a new press always retries');
+  assert.equal(action.try(player,chunks,.3,true),false,'held key does not flood audio');
+  assert.equal(action.try(player,chunks,1.5,true),true,'holding Space retries');
+  assert.equal(action.try(player,chunks,2.8,true),true,'continued holding retries again');
+  assert.equal(action.try({x:20,z:20},chunks,4,true),false,'out of reach');
+  assert.equal(action.try(player,chunks,4.1,true),true,'walking back in range works while held');
+});
+
+test('game input replays manhole feedback on separate presses and held Space without repeat events',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {runInNewContext}=await import('node:vm');
+  const {CoverAttempt}=await import('../neon-city/manholes.js');
+  const events={},elements=new Map();let sounds=0;
+  const element=id=>{
+    if(!elements.has(id))elements.set(id,{textContent:'',focus(){},getContext:()=>({}),addEventListener(name,fn){events[id+name]=fn;}});
+    return elements.get(id);
+  };
+  const sandbox={CoverAttempt,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,traffic:()=>[],
+    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
+    window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
+    requestAnimationFrame(){},performance:{now:()=>0}};
+  const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
+  const {player,city,tick}=sandbox.game;
+  city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
+  events['#startclick']();
+  const key={key:' ',code:'Space',repeat:false,preventDefault(){}};
+  events.keydown(key);events.keyup(key);tick(20);
+  assert.equal(sounds,1);assert.equal(element('#message').textContent,"IT'S TOO HEAVY.");
+  events.keydown(key);events.keyup(key);tick(40);assert.equal(sounds,2,'second tap works even between frames');
+  events.keydown(key);tick(60);assert.equal(sounds,3);
+  for(let ms=80;ms<=3060;ms+=20)tick(ms);
+  assert.equal(sounds,5,'holding repeats with no more keyboard events');
+  events.keyup(key);
+  for(let ms=3080;ms<=6060;ms+=20)tick(ms);
+  assert.equal(sounds,5,'release stops repeats');
+  assert.equal(element('#message').textContent,'','notice expires normally');
+  events.keydown(key);tick(6080);assert.equal(sounds,6,'can retry after message expires');
+  assert.equal(element('#message').textContent,"IT'S TOO HEAVY.");
+});
