@@ -505,3 +505,20 @@ test('game input replays manhole feedback on separate presses and held Space wit
   events.keydown(key);tick(6080);assert.equal(sounds,6,'can retry after message expires');
   assert.equal(element('#message').textContent,"IT'S TOO HEAVY.");
 });
+
+test('Ursa Major has a fixed seven-star pattern that follows camera rotation',async()=>{
+  const {URSA_MAJOR,projectSky}=await import('../neon-city/sky.js');
+  assert.equal(URSA_MAJOR.length,7);
+  assert.equal(new Set(URSA_MAJOR.map(star=>star.name)).size,7);
+  assert.ok(Object.isFrozen(URSA_MAJOR)&&URSA_MAJOR.every(Object.isFrozen));
+  for(const star of URSA_MAJOR){
+    const initial=projectSky(star,-.49,640,355,164);
+    assert.ok(initial,'entire constellation is visible when facing it');
+    const turned=projectSky(star,-.39,640,355,164);
+    assert.ok(turned.x<initial.x);
+    assert.equal(projectSky(star,-.49+Math.PI,640,355,164),null);
+    const fullTurn=projectSky(star,-.49+2*Math.PI,640,355,164);
+    assert.ok(Math.abs(fullTurn.x-initial.x)<1e-9);
+    assert.ok(Math.abs(fullTurn.y-initial.y)<1e-9);
+  }
+});

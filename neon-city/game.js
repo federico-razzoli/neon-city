@@ -2,7 +2,7 @@ import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-
 import {sprite} from './sprites.js?v=pedestrians-7';
 import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=manholes-1';
 import {drawArcade,arcadeVolume,ArcadeAmbience} from './arcade.js?v=effects-1';
-import {projectSky} from './sky.js';
+import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
 import {drawWallTexture} from './perspective.js';
 import {HornWarning,playHorn} from './horn.js';
 
@@ -141,6 +141,11 @@ function manhole(m){
 function render(){
   ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24213a';
   for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon);if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}
+  ctx.fillStyle='#d3ccdf';
+  for(const star of URSA_MAJOR){
+    const p=projectSky(star,player.angle,W,F,horizon);
+    if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),2,2);
+  }
   const moonPosition=projectSky(moon,player.angle,W,F,horizon);
   if(moonPosition){ctx.fillStyle='#c4aacb';ctx.fillRect(moonPosition.x-6,moonPosition.y-6,13,13);}
   ctx.fillStyle='#252233';ctx.fillRect(0,horizon,W,H-horizon);queue=[];
