@@ -236,3 +236,56 @@ test('movement reports pedestrian bumps but not idle, clear movement or building
   assert.equal(city.move({x:13,z:20},2,0,[]),false);
   assert.equal(city.move({x:10.5,z:19.2},.1,.2,[npc]),true,'sliding contact also reports a bump');
 });
+
+test('arcade ambience fades with distance and only comes from arcade buildings',async()=>{
+  const {arcadeVolume}=await import('../neon-city/arcade.js');
+  const b={x:14,z:14,w:17.8,d:17.8,sign:'ARCADE'};
+  assert.equal(arcadeVolume({x:20,z:12},[b]),1);
+  assert.equal(arcadeVolume({x:20,z:7},[b]),.5);
+  assert.equal(arcadeVolume({x:20,z:2},[b]),0);
+  assert.equal(arcadeVolume({x:20,z:12},[{...b,sign:'HOTEL'}]),0);
+  assert.equal(arcadeVolume({x:20,z:12},[]),0);
+  assert.equal(arcadeVolume({x:20,z:12},[b,b]),1,'multiple arcades do not multiply volume');
+  const city=new City(1);
+  for(const [player,dx,dz] of [[{x:22,z:12},0,10],[{x:12,z:22},10,0],[{x:52,z:22},-10,0],[{x:22,z:52},0,-10]]){
+    city.move(player,dx,dz);
+    assert.equal(city.solid(player.x,player.z),false,'closed storefront cannot be entered');
+  }
+});
+
+test('arcade audio reuses one quiet loop and mutes on pause',async()=>{
+  const {ArcadeAmbience}=await import('../neon-city/arcade.js');
+  let starts=0,lastVolume,buffer;
+  const context={state:'running',sampleRate:8000,currentTime:0,destination:{},
+    createGain:()=>({gain:{value:0,setTargetAtTime:v=>{lastVolume=v;}},connect(){}}),
+    createBuffer:(_,length)=>{buffer=new Float32Array(length);return {getChannelData:()=>buffer};},
+    createBufferSource:()=>({connect(){},start(){starts++;}})};
+  const sound=new ArcadeAmbience();sound.update(context,0);assert.equal(starts,0);
+  sound.update(context,1);sound.update(context,.5);assert.equal(starts,1);assert.equal(lastVolume,.5);
+  assert.ok(buffer.some(x=>x!==0));assert.ok(buffer.every(x=>Number.isFinite(x)&&Math.abs(x)<.1));
+  sound.mute();assert.equal(lastVolume,0);
+  sound.update(context,1);assert.equal(starts,1);assert.equal(lastVolume,1);
+});
+
+test('arcade effects have 1–2 second durations and 3–6 second silent intervals',async()=>{
+  const {ArcadeEffectSchedule,arcadeEffectSamples}=await import('../neon-city/arcade.js');
+  for(const value of [0,.5,.999999]){
+    const schedule=new ArcadeEffectSchedule(()=>value),gap=3+value*3;
+    assert.equal(schedule.update(gap-.01,true),null);
+    const effect=schedule.update(.02,true);
+    assert.ok(effect.duration>=1&&effect.duration<=2);
+    assert.equal(effect.kind,['laser','crash','pinball'][Math.floor(value*3)]);
+    assert.equal(schedule.update(effect.duration+gap-.01,true),null);
+    assert.ok(schedule.update(.02,true));
+    schedule.update(100,false);assert.equal(schedule.update(.01,true),null,'re-entering does not immediately fire');
+    schedule.reset();assert.equal(schedule.update(.01,true),null,'pause resets the effect timer');
+  }
+  const sounds=['laser','crash','pinball'].map(kind=>arcadeEffectSamples(kind,1.5,8000));
+  for(const samples of sounds){
+    assert.equal(samples.length,12000);
+    assert.ok(samples.some(x=>Math.abs(x)>.03));
+    assert.ok(samples.every(x=>Number.isFinite(x)&&Math.abs(x)<.3));
+    assert.equal(samples[0],0);assert.ok(Math.abs(samples.at(-1))<.001);
+  }
+  assert.notDeepEqual(sounds[0],sounds[1]);assert.notDeepEqual(sounds[1],sounds[2]);
+});

@@ -67,6 +67,8 @@ Cross-origin embedding works without CORS configuration. Configure your hosting 
 
 The renderer uses Canvas 2D with projected polygons and sprite billboards; no GPU/WebGL dependency. It intentionally uses coarse geometry and a restricted night palette, inspired by early adventure games rather than realistic modern graphics.
 
+ARCADE storefronts have a permanently closed door and display windows showing lit arcade cabinets. Nearby arcades play a quiet mix of game melodies, coin pings and laser sounds; the sound fades out over 12 world units and mutes while paused. While nearby, random retro laser, car-crash and pinball effects play over the music for 1–2 seconds, with 3–6 seconds between effects.
+
 ## Checks
 
 If Node.js is installed, run `node --test tests/world.test.mjs`. Tests cover bounded world memory, local retention, regeneration, building collision, pedestrian routes, traffic continuity and car colours.

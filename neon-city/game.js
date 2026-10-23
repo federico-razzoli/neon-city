@@ -1,4 +1,5 @@
 import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=speeds-2';
+import {drawArcade,arcadeVolume,ArcadeAmbience} from './arcade.js?v=effects-1';
 import {projectSky} from './sky.js';
 import {HornWarning,playHorn} from './horn.js';
 
@@ -16,6 +17,7 @@ ctx.imageSmoothingEnabled=false;
 
 let audioContext,ouchBuffer,ouchLoading;
 const hornWarning=new HornWarning();
+const arcadeAmbience=new ArcadeAmbience();
 function enableSound(){
   try{
     const AudioContext=window.AudioContext||window.webkitAudioContext;
@@ -65,6 +67,7 @@ function wallTexture(b,side){
   for(let y=8;y<c.height-42;y+=26)for(let x=9;x<155;x+=25){const lit=mod(x*17+y*13+b.seed,11)>4;g.fillStyle=lit?(mod(x+y+b.seed,3)?'#777086':'#b2968b'):'#14172a';g.fillRect(x,y,12,15);g.fillStyle='#252238';g.fillRect(x+5,y,2,15);g.fillRect(x,y+7,12,2);}
   g.fillStyle='#0e101e';g.fillRect(0,c.height-39,160,39);g.fillStyle='#54415d';g.fillRect(0,c.height-40,160,2);
   for(let x=8;x<160;x+=50){g.fillStyle='#253046';g.fillRect(x,c.height-28,37,26);g.fillStyle='#121525';g.fillRect(x+2,c.height-26,33,22);g.fillStyle=b.neon;g.globalAlpha=.3;g.fillRect(x+3,c.height-25,31,2);g.globalAlpha=1;}
+  if(b.sign==='ARCADE')drawArcade(g,c.height);
   g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign,80,c.height-48,146);g.shadowBlur=0;
   // One conspicuous vertical hotel sign gives the street an old adventure-game silhouette.
   if(b.sign==='HOTEL'){g.fillStyle='#160c24';g.fillRect(132,c.height-137,24,72);g.fillStyle=b.neon;g.font='bold 12px monospace';for(let i=0;i<5;i++)g.fillText('HOTEL'[i],144,c.height-124+i*13);}
@@ -177,7 +180,7 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){running=false;keys.clear();shiftKeys.clear();document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape']);
@@ -205,6 +208,7 @@ function tick(now){
     if(bumpedPedestrian){notice=2.5;noticeText='HEY! WATCH OUT!';}
     if(forward||side)steps+=dt*10*pace;
     city.update(player.x,player.z);
+    arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
     const cars=[...city.chunks.values()].flatMap(chunk=>traffic(chunk,time));
     if(hornWarning.update(dt,player,cars))playHorn(audioContext);
     collision: if(!hitCooldown)for(const c of cars){
