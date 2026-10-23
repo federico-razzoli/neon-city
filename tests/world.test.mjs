@@ -43,20 +43,25 @@ test('player can slide around a pedestrian without entering a building',()=>{
   assert.ok(p.x>12);assert.ok(p.z>20);
 });
 
-test('NPC approaching a stationary player waits and resumes when the path clears',()=>{
-  const c=new City(1),npc={phase:8,speed:1,type:0,reverse:false,variant:0};
-  const chunk={x:0,z:0,people:[npc]};c.chunks.set('0,0',chunk);
-  const p={x:20,z:11};
-  for(let i=1;i<=200;i++){
-    c.advancePedestrians(.02,p,i*.02);
-    const pos=pedestrian(chunk,npc,i*.02);
-    assert.ok(Math.hypot(pos.x-p.x,pos.z-p.z)>=PERSON_CLEARANCE);
+test('a pedestrian blocked by the player turns around and walks away without teleporting',()=>{
+  for(const reverse of [false,true]){
+    const {city,people,chunk}=crowd([{phase:reverse?10:8,reverse}]);
+    const npc=people[0],player={x:20,z:11};
+    let turns=0,previousDirection=reverse;
+    for(let i=1;i<=200;i++){
+      const before=pedestrian(chunk,npc,0);
+      city.advancePedestrians(.02,player,i*.02);
+      const pos=pedestrian(chunk,npc,0);
+      assert.ok(Math.hypot(pos.x-player.x,pos.z-player.z)>=PERSON_CLEARANCE);
+      assert.ok(Math.hypot(pos.x-before.x,pos.z-before.z)<=.021);
+      if(npc.reverse!==previousDirection){turns++;previousDirection=npc.reverse;}
+    }
+    assert.equal(turns,1);
+    const before=pedestrian(chunk,npc,0);
+    city.advancePedestrians(.02,player,4.02);
+    const after=pedestrian(chunk,npc,0);
+    assert.ok(Math.hypot(after.x-player.x,after.z-player.z)>Math.hypot(before.x-player.x,before.z-player.z));
   }
-  const stopped=pedestrian(chunk,npc,4).x;
-  assert.ok(stopped<20);
-  p.z=9;
-  c.advancePedestrians(.02,p,4.02);
-  assert.ok(pedestrian(chunk,npc,4.02).x>stopped);
 });
 
 function crowd(specs){
@@ -91,7 +96,7 @@ test('opposing pedestrians step aside, pass, return and resume in either update 
     assert.ok(passing.walkTime>8,'other pedestrian passes');
   }
 });
-test('followers queue behind a player-blocked pedestrian, then resume',()=>{
+test('a queue blocked by the player unwinds safely without the player moving',()=>{
   for(const reverseOrder of [false,true]){
     const specs=[{phase:8},{phase:6,speed:1.2},{phase:4,speed:1.5}];
     if(reverseOrder)specs.reverse();
@@ -99,8 +104,8 @@ test('followers queue behind a player-blocked pedestrian, then resume',()=>{
     for(let i=1;i<=200;i++){city.advancePedestrians(.04,player,i*.04);separated(chunk);}
     const stopped=people.map(p=>p.walkTime);
     for(let i=201;i<=225;i++)city.advancePedestrians(.04,player,i*.04);
-    assert.deepEqual(people.map(p=>p.walkTime),stopped);
-    player.z=8;
+    assert.ok(people.every(p=>p.reverse),'all walkers turn away from the player');
+    assert.ok(people.some((p,i)=>p.walkTime>stopped[i]));
     for(let i=226;i<=275;i++){city.advancePedestrians(.04,player,i*.04);separated(chunk);}
     assert.ok(people.every((p,i)=>p.walkTime>stopped[i]));
   }
@@ -120,7 +125,7 @@ test('pedestrians stop around corners, and generated crowds start separated even
   for(const block of generated.chunks.values())separated(block);
 });
 
-test('a player blocking the sidestep makes pedestrians wait, then yield when clear',()=>{
+test('a blocked sidestep on a straight sidewalk triggers the turnaround fallback',()=>{
   const {city,people,chunk}=crowd([{phase:10},{phase:14,reverse:true}]);
   const player={x:22.4,z:9.9};
   for(let i=1;i<=150;i++){
@@ -128,6 +133,8 @@ test('a player blocking the sidestep makes pedestrians wait, then yield when cle
     for(const p of city.pedestrians(0))assert.ok(Math.hypot(p.x-player.x,p.z-player.z)>=PERSON_CLEARANCE);
   }
   assert.ok(people.every(p=>!p.yielding),'does not sidestep through the player');
+  assert.equal(people[0].reverse,people[1].reverse,'one turns around even away from corners');
+  assert.ok(people.every(p=>p.walkTime>2),'both move again without waiting for the player to leave');
   player.z=0;
   for(let i=151;i<=450;i++){city.advancePedestrians(.04,player,i*.04);separated(chunk);}
   assert.ok(people.every(p=>!p.yielding&&p.walkTime>5),'both resume after clearance');
@@ -288,4 +295,27 @@ test('arcade effects have 1–2 second durations and 3–6 second silent interva
     assert.equal(samples[0],0);assert.ok(Math.abs(samples.at(-1))<.001);
   }
   assert.notDeepEqual(sounds[0],sounds[1]);assert.notDeepEqual(sounds[1],sounds[2]);
+});
+
+test('corner deadlocks resolve by turning one pedestrian without teleporting',()=>{
+  for(const reverseOrder of [false,true])for(let corner=0;corner<4;corner++){
+    const specs=[{phase:41.35+42*corner},{phase:42.65+42*corner,reverse:true}];
+    if(reverseOrder)specs.reverse();
+    const {city,people,chunk}=crowd(specs),player={x:52.35,z:9.6};
+    for(let turn=0;turn<corner;turn++){const x=player.x;player.x=64-player.z;player.z=x;}
+    const directions=people.map(p=>p.reverse);
+    let turns=0;
+    for(let i=1;i<=250;i++){
+      const before=people.map(p=>pedestrian(chunk,p,0));
+      city.advancePedestrians(.04,player,i*.04);separated(chunk);
+      people.forEach((p,j)=>{
+        const after=pedestrian(chunk,p,0);
+        assert.ok(Math.hypot(after.x-before[j].x,after.z-before[j].z)<=.073,'no teleport on reversal');
+        assert.ok(Math.hypot(after.x-player.x,after.z-player.z)>=PERSON_CLEARANCE);
+        if(p.reverse!==directions[j]){turns++;directions[j]=p.reverse;}
+      });
+    }
+    assert.equal(turns,1,'only one pedestrian turns');
+    assert.ok(people.every(p=>p.walkTime>5),'both resume walking');
+  }
 });

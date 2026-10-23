@@ -99,6 +99,12 @@ export class City {
           for(const move of stop)if(!move.blocked){move.blocked=true;changed=true;}
         }
       }
+      // Detect a sustained pedestrian deadlock, including a stalled sidestep.
+      for(const move of moves){
+        const moving=!move.blocked&&Math.hypot(move.after.x-move.before.x,move.after.z-move.before.z)>1e-6;
+        move.p.stuckTime=moving?0:(move.p.stuckTime??0)+dt;
+        move.p.turnCooldown=Math.max(0,(move.p.turnCooldown??0)-dt);
+      }
       for(const move of moves)if(!move.blocked){
         const y=move.p.yielding;
         if(!y){if(!move.waitingForSideStep)move.p.walkTime+=dt;continue;}
@@ -106,6 +112,31 @@ export class City {
         if(y.stage==='out'&&y.offset===1.3)y.stage='wait';
         if(y.stage==='back'&&y.offset===0)delete move.p.yielding;
       }
+      const turnAround=p=>{
+        if(p.yielding||p.turnCooldown||p.stuckTime<1.5)return false;
+        const phase=mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),168);
+        const origin=pedestrian(chunk,p,time);
+        const next=pedestrian(chunk,{...p,phase,reverse:!p.reverse,walkTime:p.walkTime+.2},time);
+        if(this.solid(next.x,next.z)||crossesPerson(origin,next,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,next,pedestrian(chunk,q,time))))return false;
+        p.phase=phase;p.reverse=!p.reverse;p.stuckTime=0;p.turnCooldown=3;
+        return true;
+      };
+      for(let i=0;i<chunk.people.length;i++)for(let j=i+1;j<chunk.people.length;j++){
+        const a=chunk.people[i],b=chunk.people[j];
+        if(a.reverse===b.reverse||a.stuckTime<1.5||b.stuckTime<1.5||a.turnCooldown||b.turnCooldown)continue;
+        const pa=pedestrian(chunk,a,time),pb=pedestrian(chunk,b,time);
+        if(Math.hypot(pa.x-pb.x,pa.z-pb.z)>2.6)continue;
+        // Prefer the forward walker; never teleport someone out of a sidestep.
+        const candidates=a.reverse?[b,a]:[a,b];
+        for(const p of candidates){
+          if(!turnAround(p))continue;
+          a.stuckTime=b.stuckTime=0;a.turnCooldown=b.turnCooldown=3;
+          break;
+        }
+      }
+      // A player or a queue can block a single walker too; no opposing pair
+      // is required. The clearance check lets a queue unwind from its free end.
+      for(const move of moves)if(move.blocked)turnAround(move.p);
     }
   }
   move(p,dx,dz,people=[]) {
