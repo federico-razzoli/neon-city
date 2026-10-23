@@ -1147,6 +1147,35 @@ test('Sikh man wears a turban, beard and kara, and sits in jeans and sneakers',a
   assert.equal(legs.filter(b=>b.color==='#e6e2dc').length,2,'white sneakers');
 });
 
+test('old-style robot has an antenna, glowing eyes and pincers, with a wind-up key behind',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite}=await import('../neon-city/sprites.js');
+    for(const back of [false,true])for(let frame=0;frame<4;frame++){
+      const pixels=sprite(11,frame,back).pixels,colors=new Set(pixels.values());
+      assert.equal(pixels.get(12),'#ff5a4a','antenna tip');
+      for(const x of [2,5,20,23])assert.equal(pixels.get(32*24+x),'#6b717a','pincer prongs');
+      assert.equal(pixels.get(8*24+10)==='#ffcf4a',!back,'eyes glow only from the front');
+      assert.equal(colors.has('#c9a13a'),back,'wind-up key only from behind');
+      assert.ok(!['#e2a282','#94624e','#875235','#c68b68'].some(skin=>colors.has(skin)),'no skin, only metal');
+    }
+  }finally{globalThis.document=previous;}
+  const {PUB,pubChairs,drawPubInterior}=await import('../neon-city/pub-interior.js');
+  const chair=pubChairs().find(c=>c.tableIndex===0&&c.seat===0),patrons=PUB.tables.map(()=>[null,null]);patrons[0][0]=11;
+  const boxes=[];
+  drawPubInterior({patrons,box:(x,y,z,w,h,d,color)=>boxes.push({x,color}),quad(){},face(){}});
+  const legs=boxes.filter(b=>b.x>=chair.x&&b.x<chair.x+chair.w);
+  assert.equal(legs.filter(b=>b.color==='#9aa0a8').length,4,'metal thighs and shins');
+  assert.equal(legs.filter(b=>b.color==='#585e68').length,2,'block feet');
+});
+
 test('pub walkers wait for standing or seated players without admitting another walker',async()=>{
   const {PubLife}=await import('../neon-city/pub-life.js');
   const {PUB,moveInPub,pubPersonBlocks}=await import('../neon-city/pub-interior.js');

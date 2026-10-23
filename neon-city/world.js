@@ -1,4 +1,4 @@
-export const PEDESTRIAN_TYPES=11;
+export const PEDESTRIAN_TYPES=12;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={4:{height:1.68},9:{goesToPub:false},10:{height:1.78}};
 export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;

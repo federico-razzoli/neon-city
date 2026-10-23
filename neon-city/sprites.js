@@ -1,4 +1,4 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
@@ -191,6 +191,35 @@ export function sprite(type,frame,back=false,variant=0){
     }
     // The kara stays on his right wrist: viewer's left from the front, right from behind.
     rect('#c9ccd4',back?20:3,30,3,1);
+    sprites[key]=c;return c;
+  }
+  if(type===11){
+    // Old-style tin robot: boxy head, antenna, accordion arms, pincers and a wind-up key.
+    const metal='#9aa0a8',dark='#6b717a',light='#c4c9cf';
+    rect('#ff5a4a',11,0,3,2);rect(dark,12,2,1,2);
+    rect(metal,7,4,12,10);rect(light,7,4,12,1);rect(dark,6,7,1,4);rect(dark,19,7,1,4);
+    rect(dark,10,14,6,2);rect(metal,10,15,6,1);
+    rect(metal,5,16,16,16);rect(light,5,16,1,16);rect(dark,19,16,2,16);
+    for(const [x,y] of [[6,17],[18,17],[6,30],[18,30]])rect(dark,x,y,1,1);
+    for(const x of [3,21]){
+      rect(dark,x,17,2,12);for(let y=18;y<29;y+=3)rect(metal,x,y,2,1);
+    }
+    // Two-pronged pincers hang below each arm.
+    rect(dark,2,29,4,2);rect(dark,2,31,1,2);rect(dark,5,31,1,2);
+    rect(dark,20,29,4,2);rect(dark,20,31,1,2);rect(dark,23,31,1,2);
+    rect(metal,8,32,4,12+stride);rect(metal,14,32,4,12-stride);
+    rect(dark,8,37+stride,4,1);rect(dark,14,37-stride,4,1);
+    rect(SHOE_COLORS[type],6,44+stride,7,3);rect(SHOE_COLORS[type],14,44-stride,7,3);
+    if(back){
+      rect(dark,9,8,8,1);rect(dark,9,10,8,1);
+      rect(dark,10,20,6,6);rect('#c9a13a',9,21,8,2);rect('#c9a13a',12,23,2,2);
+    }else{
+      rect(dark,8,6,5,5);rect(dark,13,6,5,5);rect('#ffcf4a',9,7,3,3);rect('#ffcf4a',14,7,3,3);
+      rect('#fff3c0',9,7,1,1);rect('#fff3c0',14,7,1,1);
+      rect(dark,9,11,8,2);for(const x of [10,12,14])rect(light,x,11,1,2);
+      rect(dark,8,19,10,7);rect('#ff5a4a',9,20,2,2);rect('#5aff8a',12,20,2,2);rect('#ffcf4a',15,20,2,2);
+      rect(light,9,23,8,1);rect('#ff5a4a',13,23,1,1);
+    }
     sprites[key]=c;return c;
   }
   if(type===1){ // Adult clubgoer: big hair, magenta minidress, solid-colour tights and heels.
