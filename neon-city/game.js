@@ -232,7 +232,11 @@ function render(){
     if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);
   }
   const moonPosition=projectSky(moon,player.angle,W,F,horizon);
-  if(moonPosition){ctx.fillStyle='#c4aacb';ctx.fillRect(moonPosition.x-6,moonPosition.y-6,13,13);}
+  if(moonPosition){
+    ctx.fillStyle='#c4aacb';
+    const widths=[5,9,11,11,13,13,13,13,13,11,11,9,5];
+    widths.forEach((width,row)=>ctx.fillRect(moonPosition.x-(width-1)/2,moonPosition.y-6+row,width,1));
+  }
   ctx.fillStyle='#252233';ctx.fillRect(0,horizon,W,H-horizon);queue=[];
   const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=170);
   for(const chunk of visible)street(chunk);
