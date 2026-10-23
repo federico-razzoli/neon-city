@@ -1194,7 +1194,12 @@ test('table partners say their lines in order every 3 to 5 seconds, looping',asy
   const {pubLines}=await import('../neon-city/world.js');
   const lines=pubLines(5);
   assert.deepEqual(lines,['THIS BEER SUCKS.','THIS PUB SUCKS.','LIFE SUCKS.','THIS CONVERSATION SUCKS.']);
-  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(type!==5)assert.deepEqual(pubLines(type),[],'no lines by default');
+  const robot=pubLines(11);
+  assert.equal(robot.length,9);
+  assert.equal(robot[0],'I WAS CREATED BY AN ADVANCED ALIEN CIVILISATION.');
+  assert.equal(robot[3],"I'M STUDYING LADYBUGS, INSTEAD. THEY'RE MORE INTERESTING.");
+  assert.deepEqual(robot.slice(-2),['I ADMIRE LADYBUGS.','I REALLY DO.']);
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(type!==5&&type!==11)assert.deepEqual(pubLines(type),[],'no lines by default');
   const values=[0,1,.5,.25,.75,0,1,.5,.1],random=()=>values.shift()??.5;
   const talk=new PubConversation(lines,random),said=[],gaps=[];
   let since=0;
