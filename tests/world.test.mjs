@@ -1039,7 +1039,7 @@ test('smartly dressed man wears a tie and woman wears heels, standing and seated
   }};
   try{
     const {sprite,SHOE_COLORS}=await import('../neon-city/sprites.js');
-    assert.equal(PEDESTRIAN_TYPES,9);assert.equal(SHOE_COLORS.length,PEDESTRIAN_TYPES);
+    assert.equal(SHOE_COLORS.length,PEDESTRIAN_TYPES);
     for(let frame=0;frame<4;frame++){
       const man=sprite(7,frame,false).pixels,woman=sprite(8,frame,false).pixels;
       assert.equal(man.get(20*24+12),'#c03a48','tie down the shirt front');
@@ -1074,6 +1074,41 @@ test('smartly dressed man wears a tie and woman wears heels, standing and seated
   const heels=woman.filter(b=>b.color==='#151320');
   assert.equal(heels.length,4,'raised sole and slim heel on each foot');
   assert.ok(heels.some(b=>b.y>=.1)&&heels.some(b=>b.w<.05));
+});
+
+test('Muslim woman wears a hijab and long abaya, and never appears in pubs',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite}=await import('../neon-city/sprites.js');
+    for(const back of [false,true])for(let frame=0;frame<4;frame++){
+      const pixels=sprite(9,frame,back).pixels;
+      for(const [x,y] of [[12,2],[7,8],[18,8],[8,14],[17,14]])assert.equal(pixels.get(y*24+x),'#2f6170','hijab covers hair, ears and neck');
+      for(const x of [3,21])assert.equal(pixels.get(25*24+x),'#5a3d5c','long sleeves');
+      assert.ok([5,10,15,20].every(x=>['#5a3d5c','#47304a','#8a6a8c'].includes(pixels.get(43*24+x))),'abaya reaches the ankles');
+    }
+  }finally{globalThis.document=previous;}
+  const {goesToPub,PUB_TYPES}=await import('../neon-city/world.js');
+  assert.equal(goesToPub(9),false);
+  for(let type=0;type<9;type++)assert.equal(goesToPub(type),true,'characters default to going to the pub');
+  assert.deepEqual(PUB_TYPES,[0,1,2,3,4,5,6,7,8]);
+  const {PubLife}=await import('../neon-city/pub-life.js');
+  const {PUB,createPubPatrons}=await import('../neon-city/pub-interior.js');
+  const seen=new Set();
+  for(let i=0;i<1000;i++){
+    const value=i/1000;
+    for(const seats of createPubPatrons(()=>value))for(const type of seats)if(type!=null)seen.add(type);
+    const life=new PubLife(()=>value);life.arrival=0;life.departure=60;
+    life.update(.1,PUB.tables.map(()=>[null,null]),null);
+    if(life.walker)seen.add(life.walker.type);
+  }
+  assert.deepEqual([...seen].sort((a,b)=>a-b),PUB_TYPES,'every pub-going character appears, and only they do');
 });
 
 test('pub walkers wait for standing or seated players without admitting another walker',async()=>{

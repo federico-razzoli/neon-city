@@ -1,5 +1,5 @@
-import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-2';
-import {PEDESTRIAN_TYPES} from './world.js?v=characters-2';
+import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-3';
+import {PUB_TYPES} from './world.js?v=characters-3';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
@@ -43,7 +43,7 @@ export function createPubPatrons(random=Math.random){
     // 10% empty, 45% solo, 45% paired.
     const roll=random(),count=roll<.1?0:roll<.55?1:2,seats=[null,null];
     const first=random()<.5?0:1;
-    for(let i=0;i<count;i++)seats[(first+i)%2]=Math.floor(random()*PEDESTRIAN_TYPES);
+    for(let i=0;i<count;i++)seats[(first+i)%2]=PUB_TYPES[Math.floor(random()*PUB_TYPES.length)];
     seats.beerSides=[random()<.5?-1:1,random()<.5?-1:1];
     // Outfit variants follow patrons between the street sprite and their seat.
     seats.variants=[random(),random()];

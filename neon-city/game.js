@@ -1,12 +1,12 @@
-import {PubLife} from './pub-life.js?v=characters-2';
+import {PubLife} from './pub-life.js?v=characters-3';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {sprite,outfit} from './sprites.js?v=characters-2';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight} from './world.js?v=characters-2';
-import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=characters-2';
+import {sprite,outfit} from './sprites.js?v=characters-3';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight} from './world.js?v=characters-3';
+import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=characters-3';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-2';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-3';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
 import {orderSurfaces} from './surface-order.js';

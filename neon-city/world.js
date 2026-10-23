@@ -1,4 +1,8 @@
-export const PEDESTRIAN_TYPES=9;
+export const PEDESTRIAN_TYPES=10;
+// Optional per-character traits; characters without an entry use the defaults.
+const CHARACTER_TRAITS={9:{goesToPub:false}};
+export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;
+export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
 export const BLOCK = 64;
 // Each river occupies two rows; their centres are ten blocks apart.
 export const RIVER_ROWS = [-6, 4];

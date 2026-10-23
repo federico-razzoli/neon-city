@@ -1,4 +1,4 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
@@ -138,6 +138,29 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#efe2cf',10,15,6,2);rect('#efe2cf',11,17,4,3);rect('#efe2cf',12,20,2,2);rect('#e0c56e',12,17,2,1);
       rect(lapel,10,17,1,3);rect(lapel,15,17,1,3);rect(lapel,11,20,1,2);rect(lapel,14,20,1,2);
       rect('#d8b45a',12,24,2,1);
+    }
+    sprites[key]=c;return c;
+  }
+  if(type===9){
+    // Muslim woman: teal hijab framing the face and a long, loose plum abaya.
+    const skin='#c58c66',hijab='#2f6170',fold='#234b57',abaya='#5a3d5c',trim='#8a6a8c';
+    // Her flats go first so the long hem covers a lifted foot; a planted one stays at the hem.
+    rect(SHOE_COLORS[type],7,44+Math.min(0,stride),6,2);rect(SHOE_COLORS[type],14,44+Math.min(0,-stride),6,2);
+    rect(hijab,7,2,12,14);rect(hijab,6,15,14,4);
+    rect(abaya,5,19,16,11);rect(abaya,5,30,16,14);rect(abaya,4,36,18,8);
+    rect(abaya,3,18,3,12);rect(abaya,20,18,3,12);rect(trim,3,29,3,1);rect(trim,20,29,3,1);
+    rect(skin,3,30,3,2);rect(skin,20,30,3,2);
+    // The hem sways with each step.
+    rect('#47304a',9+stride/2,34,1,9);rect('#47304a',16-stride/2,34,1,9);
+    if(back){
+      // The scarf tapers to a soft point down her back.
+      rect(hijab,6,15,14,4);rect(hijab,7,19,12,2);rect(hijab,9,21,8,1);
+      rect(fold,12,4,1,17);rect(fold,9,9,1,10);rect(fold,16,9,1,10);
+    }else{
+      rect(skin,10,6,6,7);rect('#ded3c4',10,5,6,1);
+      rect(fold,9,6,1,8);rect(fold,16,6,1,8);rect(fold,10,13,6,1);
+      rect('#2a1a22',11,9,1,1);rect('#2a1a22',14,9,1,1);rect('#9c5a50',12,11,2,1);
+      rect(trim,12,19,2,25);
     }
     sprites[key]=c;return c;
   }

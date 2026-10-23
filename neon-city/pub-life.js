@@ -1,5 +1,5 @@
-import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-2';
-import {PEDESTRIAN_TYPES} from './world.js?v=characters-2';
+import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-3';
+import {PUB_TYPES} from './world.js?v=characters-3';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 const sameSeat=(a,b)=>a&&b&&a.tableIndex===b.tableIndex&&a.seat===b.seat;
@@ -59,7 +59,7 @@ export class PubLife{
       const free=chairs.filter(c=>patrons[c.tableIndex]?.[c.seat]==null&&!sameSeat(c,playerSeat));
       const chair=free[Math.floor(this.random()*free.length)];
       const route=chair?pubRoute(entrance,center(chair),chair):[{x:entrance.x,z:1},entrance];
-      if(route)this.walker={...entrance,type:Math.floor(this.random()*PEDESTRIAN_TYPES),variant:this.random(),chair,route,walkTime:0,facingX:0,facingZ:1};
+      if(route)this.walker={...entrance,type:PUB_TYPES[Math.floor(this.random()*PUB_TYPES.length)],variant:this.random(),chair,route,walkTime:0,facingX:0,facingZ:1};
     }else if(this.departure<=0){
       this.departure=this.delay();
       const occupied=chairs.filter(c=>patrons[c.tableIndex]?.[c.seat]!=null&&c.tableIndex!==playerSeat?.tableIndex);
