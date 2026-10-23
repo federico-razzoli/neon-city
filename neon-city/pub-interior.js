@@ -1,4 +1,5 @@
-import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-1';
+import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-2';
+import {PEDESTRIAN_TYPES} from './world.js?v=characters-2';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
@@ -42,7 +43,7 @@ export function createPubPatrons(random=Math.random){
     // 10% empty, 45% solo, 45% paired.
     const roll=random(),count=roll<.1?0:roll<.55?1:2,seats=[null,null];
     const first=random()<.5?0:1;
-    for(let i=0;i<count;i++)seats[(first+i)%2]=Math.floor(random()*7);
+    for(let i=0;i<count;i++)seats[(first+i)%2]=Math.floor(random()*PEDESTRIAN_TYPES);
     seats.beerSides=[random()<.5?-1:1,random()<.5?-1:1];
     // Outfit variants follow patrons between the street sprite and their seat.
     seats.variants=[random(),random()];
@@ -194,9 +195,12 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     const type=patrons[tableIndex]?.[seat],variant=patrons[tableIndex]?.variants?.[seat]??0;
     if(type!=null){
       const shoes=type===4?TEEN_OUTFITS[outfit(type,variant)].shoes:SHOE_COLORS[type];
-      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2'][type];
+      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80'][type];
+      // Her pencil skirt wraps both thighs and stops just short of the knees.
+      if(type===8)box(x+.13,.51,z+(side<0?.2:.33),.54,.2,.42,'#2a2638');
       for(const dx of [.15,.48]){
-        box(x+dx,.52,z+.2,.17,.17,.55,trousers);
+        if(type===8)box(x+dx,.52,z+(side<0?.62:.2),.17,.17,.13,trousers);
+        else box(x+dx,.52,z+.2,.17,.17,.55,trousers);
         box(x+dx,.12,z+(side<0?.57:.06),.17,.46,.17,trousers);
         if(type===3){
           // The punk's street outfit has tall black shafts and chunky soles.
@@ -204,11 +208,11 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
           box(x+dx-.01,.12,bootZ-.01,.19,.27,.19,SHOE_COLORS[type]);
           box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,SHOE_COLORS[type]);
           box(x+dx+.035,.17,bootZ-.016,.035,.16,.012,'#363340');
-        }else if(type===1){
+        }else if(type===1||type===8){
           // Match the street outfit's raised sole and narrow heel at the rear.
           const shoeZ=z+(side<0?.55:-.06);
-          box(x+dx-.025,.10,shoeZ,.22,.06,.3,SHOE_COLORS[type]);
-          box(x+dx+.015,.04,shoeZ+(side<0?0:.25),.04,.06,.05,SHOE_COLORS[type]);
+          box(x+dx-.025,.10,shoeZ,.22,.06,.3,shoes);
+          box(x+dx+.015,.04,shoeZ+(side<0?0:.25),.04,.06,.05,shoes);
         }else box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,shoes);
       }
       seatedPatron({x:x+w/2,z:z+d/2,type,variant,side});

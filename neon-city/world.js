@@ -1,4 +1,4 @@
-export const PEDESTRIAN_TYPES=7;
+export const PEDESTRIAN_TYPES=9;
 export const BLOCK = 64;
 // Each river occupies two rows; their centres are ten blocks apart.
 export const RIVER_ROWS = [-6, 4];

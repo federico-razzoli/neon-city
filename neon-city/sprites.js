@@ -1,4 +1,4 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
@@ -93,6 +93,52 @@ export function sprite(type,frame,back=false,variant=0){
     const bottleX=back?1:21;
     rect('#6e914d',bottleX+1,28,1,4);rect('#345b38',bottleX,31,3,8);
     rect('#e5cf8a',bottleX,34,3,3);rect('#c8b887',bottleX+1,28,1,1);
+    sprites[key]=c;return c;
+  }
+  if(type===7){
+    // Businessman: charcoal suit, white shirt, red tie and polished shoes.
+    const skin='#b97a57',hair='#231b20',suit='#3a3d4c',seam='#2c2e3a',shirt='#e8e6ea';
+    rect(hair,8,2,10,5);rect(skin,8,6,10,8);rect(skin,7,9,1,2);rect(skin,18,9,1,2);rect(skin,10,14,6,1);
+    rect(suit,5,15,16,17);rect(suit,3,16,3,13);rect(suit,20,16,3,13);
+    rect(shirt,3,29,3,1);rect(shirt,20,29,3,1);rect(skin,3,30,3,2);rect(skin,20,30,3,2);
+    rect(suit,7,32,5,12+stride);rect(suit,14,32,5,12-stride);
+    rect(seam,9,33,1,10+stride);rect(seam,16,33,1,10-stride);
+    rect(SHOE_COLORS[type],6,44+stride,7,3);rect(SHOE_COLORS[type],14,44-stride,7,3);
+    rect('#4a4658',7,44+stride,2,1);rect('#4a4658',15,44-stride,2,1);
+    if(back){
+      rect(hair,8,2,10,11);rect(shirt,10,14,6,1);
+      rect(seam,8,15,10,1);rect(seam,12,18,1,14);
+    }else{
+      rect('#3d3036',10,3,1,2);rect('#2a1e22',10,10,1,1);rect('#2a1e22',15,10,1,1);rect('#7a4a3c',11,12,4,1);
+      // Open V of shirt, with the tie running down to the jacket button.
+      rect(shirt,10,15,6,3);rect(shirt,11,18,4,3);rect(shirt,12,21,2,3);
+      rect('#8f2433',12,16,2,2);rect('#c03a48',12,18,2,6);
+      rect(seam,10,18,1,3);rect(seam,15,18,1,3);rect(seam,11,21,1,3);rect(seam,14,21,1,3);
+      rect('#1e2029',12,26,1,1);rect('#1e2029',12,29,1,1);rect(shirt,17,19,2,1);
+    }
+    sprites[key]=c;return c;
+  }
+  if(type===8){
+    // Businesswoman: burgundy blazer, charcoal pencil skirt, sheer tights and black heels.
+    const skin='#e8b496',hair='#3b2420',blazer='#7e2a45',lapel='#5e1f34',skirt='#2a2638';
+    rect(hair,7,2,12,11);rect(hair,8,1,10,2);rect(skin,9,5,8,8);rect(skin,11,13,4,2);
+    rect('#f1ece4',8,13,1,1);rect('#f1ece4',17,13,1,1);
+    rect(blazer,6,15,14,13);rect(blazer,7,28,12,1);rect(blazer,4,16,3,12);rect(blazer,19,16,3,12);
+    rect(skin,4,28,3,2);rect(skin,19,28,3,2);
+    rect(skirt,8,29,10,8);
+    rect('#d39c80',9,37,3,6+stride);rect('#d39c80',14,37,3,6-stride);
+    // Pointed pumps with a slim heel at the back, as on the clubgoer.
+    rect(SHOE_COLORS[type],8,43+stride,5,2);rect(SHOE_COLORS[type],14,43-stride,5,2);
+    rect(SHOE_COLORS[type],9,45+stride,1,2);rect(SHOE_COLORS[type],15,45-stride,1,2);
+    rect('#4a4458',9,43+stride,2,1);rect('#4a4458',15,43-stride,2,1);
+    if(back){
+      rect(hair,7,2,12,12);rect(lapel,12,18,1,11);rect('#1d1a28',12,33,1,4);
+    }else{
+      rect(hair,9,5,4,1);rect('#2a1a22',10,9,1,1);rect('#2a1a22',15,9,1,1);rect('#b5425a',12,11,3,1);
+      rect('#efe2cf',10,15,6,2);rect('#efe2cf',11,17,4,3);rect('#efe2cf',12,20,2,2);rect('#e0c56e',12,17,2,1);
+      rect(lapel,10,17,1,3);rect(lapel,15,17,1,3);rect(lapel,11,20,1,2);rect(lapel,14,20,1,2);
+      rect('#d8b45a',12,24,2,1);
+    }
     sprites[key]=c;return c;
   }
   if(type===1){ // Adult clubgoer: big hair, magenta minidress, solid-colour tights and heels.

@@ -242,7 +242,9 @@ test('a blocked sidestep on a straight sidewalk triggers the turnaround fallback
 test('individual pedestrian speeds stay within 1–2x and do not depend on appearance',()=>{
   const city=new City(42);city.update(0,0);
   const byType=Array.from({length:PEDESTRIAN_TYPES},()=>new Set());
-  for(const chunk of city.chunks.values())for(const p of chunk.people){
+  // Sample beyond the loaded 5×5 area so every character type has enough walkers.
+  const sample=[];for(let x=-4;x<=4;x++)for(let z=-3;z<=3;z++)sample.push(city.generate(x,z));
+  for(const chunk of sample)for(const p of chunk.people){
     assert.ok(p.speed>=PEDESTRIAN_MIN_SPEED&&p.speed<=PEDESTRIAN_MAX_SPEED);
     byType[p.type].add(p.speed);
     const original=pedestrian(chunk,{...p,walkTime:2},0);
@@ -867,7 +869,7 @@ test('pub seats zero to two patrons per table with exactly one beer per occupied
     }});
     assert.equal(people.length,PUB.tables.length*count);
     assert.equal(beerFoam.length,people.length,'one glass per seated patron, no beer on empty tables');
-    assert.ok(people.every(p=>Number.isInteger(p.type)&&p.type>=0&&p.type<7));
+    assert.ok(people.every(p=>Number.isInteger(p.type)&&p.type>=0&&p.type<PEDESTRIAN_TYPES));
   }
 });
 
@@ -1024,6 +1026,54 @@ test('pub patrons keep their outfit variant when seated, arriving and leaving',a
   life.arrival=60;life.departure=0;life.update(.1,patrons,null);
   assert.equal(life.walker.type,4);
   assert.equal(life.walker.variant,.9,'departure carries the variant');
+});
+
+test('smartly dressed man wears a tie and woman wears heels, standing and seated',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite,SHOE_COLORS}=await import('../neon-city/sprites.js');
+    assert.equal(PEDESTRIAN_TYPES,9);assert.equal(SHOE_COLORS.length,PEDESTRIAN_TYPES);
+    for(let frame=0;frame<4;frame++){
+      const man=sprite(7,frame,false).pixels,woman=sprite(8,frame,false).pixels;
+      assert.equal(man.get(20*24+12),'#c03a48','tie down the shirt front');
+      assert.ok(![...sprite(7,frame,true).pixels.values()].includes('#c03a48'),'no tie from behind');
+      const stride=[-2,0,2,0][frame];
+      for(const [legX,offset] of [[9,stride],[15,-stride]]){
+        const heelY=45+offset;
+        if(heelY<48)assert.equal(woman.get(heelY*24+legX),SHOE_COLORS[8],'slim heel');
+        assert.equal(woman.get(heelY*24+legX+2),undefined,'gap in front of the heel');
+      }
+    }
+  }finally{globalThis.document=previous;}
+  const {PUB,pubChairs,drawPubInterior}=await import('../neon-city/pub-interior.js');
+  const chair=pubChairs().find(c=>c.tableIndex===0&&c.seat===0);
+  const seatedBoxes=type=>{
+    const patrons=PUB.tables.map(()=>[null,null]);patrons[0][0]=type;
+    const boxes=[];
+    drawPubInterior({patrons,box:(x,y,z,w,h,d,color)=>boxes.push({x,y,z,w,h,d,color}),quad(){},face(){}});
+    // Leg geometry sits in front of the seat cushion, between its two side posts.
+    return boxes.filter(b=>b.x>=chair.x+.1&&b.x+b.w<=chair.x+chair.w-.1&&b.y<.75&&!['#805b3b','#51382b'].includes(b.color));
+  };
+  const front=chair.side<0?(b=>b.z+b.d):(b=>-b.z);
+  const man=seatedBoxes(7);
+  assert.equal(man.filter(b=>b.color==='#3a3d4c').length,4,'suit trousers on both thighs and shins');
+  assert.equal(man.filter(b=>b.color==='#121018').length,2,'one flat polished shoe per foot');
+  const woman=seatedBoxes(8);
+  const skirt=woman.filter(b=>b.color==='#2a2638'),knees=woman.filter(b=>b.color==='#d39c80'&&b.y>.5);
+  assert.equal(skirt.length,1);assert.equal(knees.length,2);
+  assert.ok(skirt[0].x<=chair.x+.15&&skirt[0].x+skirt[0].w>=chair.x+.65,'skirt wraps both thighs');
+  for(const knee of knees)assert.ok(front(knee)>front(skirt[0]),'knees show past the hem');
+  assert.equal(woman.filter(b=>b.color==='#d39c80'&&b.y<.5).length,2,'tights on both shins');
+  const heels=woman.filter(b=>b.color==='#151320');
+  assert.equal(heels.length,4,'raised sole and slim heel on each foot');
+  assert.ok(heels.some(b=>b.y>=.1)&&heels.some(b=>b.w<.05));
 });
 
 test('pub walkers wait for standing or seated players without admitting another walker',async()=>{
