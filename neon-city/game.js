@@ -1,4 +1,4 @@
-import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=unstuck-2';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=unstuck-3';
 import {drawArcade,arcadeVolume,ArcadeAmbience} from './arcade.js?v=effects-1';
 import {projectSky} from './sky.js';
 import {HornWarning,playHorn} from './horn.js';

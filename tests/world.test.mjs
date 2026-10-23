@@ -319,3 +319,26 @@ test('corner deadlocks resolve by turning one pedestrian without teleporting',()
     assert.ok(people.every(p=>p.walkTime>5),'both resume walking');
   }
 });
+
+test('stale same-direction sidesteps recover without teleporting or overlapping',()=>{
+  for(const stage of ['out','wait','back'])for(const reverseOrder of [false,true]){
+    const {city,people,chunk}=crowd([{phase:10},{phase:11.1}]);
+    const yielding=people[0],partner=people[1];
+    yielding.yielding={dx:0,dz:-1,offset:stage==='out'?.4:1.3,stage,partner,partnerTime:100,passDistance:2};
+    // The player prevents completion of either an outward or return step.
+    const player=stage==='out'?{x:21,z:9.7}:{x:21,z:11};
+    if(reverseOrder)people.reverse();
+    for(let i=1;i<=500;i++){
+      const before=people.map(p=>pedestrian(chunk,p,0));
+      city.advancePedestrians(.04,player,i*.04);separated(chunk);
+      people.forEach((p,j)=>{
+        const pos=pedestrian(chunk,p,0);
+        assert.ok(Math.hypot(pos.x-before[j].x,pos.z-before[j].z)<=.073,'recovery moves continuously');
+        assert.ok(Math.hypot(pos.x-player.x,pos.z-player.z)>=PERSON_CLEARANCE-1e-9);
+        assert.ok(!city.solid(pos.x,pos.z));
+      });
+    }
+    assert.equal(yielding.yielding,undefined,'returns from the sidestep');
+    assert.ok(yielding.walkTime>5,'resumes route progress');
+  }
+});

@@ -66,14 +66,30 @@ export class City {
         if(crossesPerson(origin,target,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,target,pedestrian(chunk,q,time))))continue;
         p.yielding={dx,dz,offset:0,stage:'out',partner,partnerTime:partner.walkTime,passDistance:gap+1.2};
       }
+      // Recover interrupted sidesteps too: their route clocks are deliberately
+      // frozen, so ordinary blocked-walker recovery cannot release them.
+      for(const p of chunk.people){
+        const y=p.yielding;
+        if(!y)continue;
+        if((p.stuckTime??0)>=1.5){
+          if(y.stage==='out')y.stage='back';
+          else if(y.stage==='wait'&&(!chunk.people.includes(y.partner)||y.partner.reverse===p.reverse||(y.partner.stuckTime??0)>=1.5))y.stage='back';
+          else if(y.stage==='back')y.stage='escape';
+        }
+        if(y.stage==='escape'){
+          const origin=pedestrian(chunk,p,time),target=pedestrian(chunk,{...p,yielding:undefined},time);
+          if(!crossesPerson(origin,target,player)&&!chunk.people.some(q=>q!==p&&crossesPerson(origin,target,pedestrian(chunk,q,time))))y.stage='back';
+        }
+        if(y.stage==='back'&&y.offset===0){delete p.yielding;p.stuckTime=0;}
+      }
       const moves=chunk.people.map(p=>{
         p.walkTime??=time-dt;
         const before=pedestrian(chunk,p,time);
         const y=p.yielding;
         const waitingForSideStep=chunk.people.some(q=>q.yielding?.partner===p&&q.yielding.stage==='out');
-        if(y?.stage==='wait'&&(y.partner.walkTime-y.partnerTime)*y.partner.speed>=y.passDistance)y.stage='back';
+        if(y?.stage==='wait'&&y.partner&&(y.partner.walkTime-y.partnerTime)*y.partner.speed>=y.passDistance)y.stage='back';
         const offset=y?(y.stage==='out'?Math.min(1.3,y.offset+dt*1.8):y.stage==='back'?Math.max(0,y.offset-dt*1.8):y.offset):0;
-        const after=pedestrian(chunk,{...p,walkTime:p.walkTime+(y||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
+        const after=pedestrian(chunk,{...p,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
         return {p,before,after,offset,waitingForSideStep,blocked:crossesPerson(before,after,player)||this.solid(after.x,after.z)};
       });
       // Resolve from one shared snapshot. Repeat so a stop propagates backwards
@@ -108,12 +124,13 @@ export class City {
       for(const move of moves)if(!move.blocked){
         const y=move.p.yielding;
         if(!y){if(!move.waitingForSideStep)move.p.walkTime+=dt;continue;}
+        if(y.stage==='escape')move.p.walkTime+=dt;
         y.offset=move.offset;
         if(y.stage==='out'&&y.offset===1.3)y.stage='wait';
         if(y.stage==='back'&&y.offset===0)delete move.p.yielding;
       }
       const turnAround=p=>{
-        if(p.yielding||p.turnCooldown||p.stuckTime<1.5)return false;
+        if((p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5)return false;
         const phase=mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),168);
         const origin=pedestrian(chunk,p,time);
         const next=pedestrian(chunk,{...p,phase,reverse:!p.reverse,walkTime:p.walkTime+.2},time);
@@ -136,7 +153,7 @@ export class City {
       }
       // A player or a queue can block a single walker too; no opposing pair
       // is required. The clearance check lets a queue unwind from its free end.
-      for(const move of moves)if(move.blocked)turnAround(move.p);
+      for(const move of moves)if(move.p.stuckTime>=1.5)turnAround(move.p);
     }
   }
   move(p,dx,dz,people=[]) {
