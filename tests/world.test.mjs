@@ -342,3 +342,31 @@ test('stale same-direction sidesteps recover without teleporting or overlapping'
     assert.ok(yielding.walkTime>5,'resumes route progress');
   }
 });
+
+test('wall texture lines follow perspective through left and right turns and near clipping',async()=>{
+  const {wallColumns}=await import('../neon-city/perspective.js');
+  const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
+  for(const angle of [-1,-.6,0,.6,1]){
+    const camera=(x,y)=>({x:x*Math.cos(angle)-8*Math.sin(angle),y,z:x*Math.sin(angle)+8*Math.cos(angle)});
+    const left=camera(-6,0),right=camera(6,0);
+    let lo=0,hi=1;
+    if(left.z<.15)lo=(.15-left.z)/(right.z-left.z);
+    if(right.z<.15)hi=(.15-left.z)/(right.z-left.z);
+    const vertex=(t,y,v)=>({x:left.x+(right.x-left.x)*t,y,z:left.z+(right.z-left.z)*t,u:160*t,v});
+    const vs=[vertex(lo,-1.65,200),vertex(hi,-1.65,200),vertex(hi,10,0),vertex(lo,10,0)];
+    const columns=[...wallColumns(vs.map(project),vs,640)];
+    assert.ok(columns.length>0);
+    for(const {x,top,bottom} of columns){
+      // Independently intersect a camera ray with the original wall plane.
+      const ray=(x+.5-320)/355;
+      const t=(ray*left.z-left.x)/((right.x-left.x)-ray*(right.z-left.z));
+      assert.ok(Math.abs(top.u-160*t)<1e-8,'texture columns use perspective-correct u');
+      assert.ok(Math.abs(bottom.u-top.u)<1e-8);
+      for(const fraction of [.1,.45,.8]){
+        const expected=project(vertex(t,10-11.65*fraction,200*fraction));
+        const actual=top.y+(bottom.y-top.y)*(200*fraction-top.v)/(bottom.v-top.v);
+        assert.ok(Math.abs(actual-expected.y)<1e-8,'horizontal texture lines stay straight');
+      }
+    }
+  }
+});

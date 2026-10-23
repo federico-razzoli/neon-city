@@ -1,6 +1,7 @@
 import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=unstuck-3';
 import {drawArcade,arcadeVolume,ArcadeAmbience} from './arcade.js?v=effects-1';
 import {projectSky} from './sky.js';
+import {drawWallTexture} from './perspective.js';
 import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
@@ -77,7 +78,7 @@ function building(b){
   const x=b.x,z=b.z,w=b.w,d=b.d,h=b.h;
   function wall(points,side){
     const tex=wallTexture(b,side);
-    // Narrow panels reduce affine texture distortion and improve depth ordering.
+    // Panels retain fine-grained depth ordering against cars and pedestrians.
     const lerp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
     for(let s=0;s<8;s++){
       const l=s/8,r=(s+1)/8;
@@ -90,17 +91,9 @@ function building(b){
   if(player.x<x)wall([{x,y:0,z:z+d},{x,y:0,z},{x,y:h,z},{x,y:h,z:z+d}],2);
   if(player.x>x+w)wall([{x:x+w,y:0,z},{x:x+w,y:0,z:z+d},{x:x+w,y:h,z:z+d},{x:x+w,y:h,z}],3);
 }
-function texturedTriangle(p,a,tex){
-  const [v0,v1,v2]=a,[p0,p1,p2]=p;
-  const u1=v1.u-v0.u,v1d=v1.v-v0.v,u2=v2.u-v0.u,v2d=v2.v-v0.v,det=u1*v2d-u2*v1d;
-  if(Math.abs(det)<.0001)return;
-  const x1=p1.x-p0.x,x2=p2.x-p0.x,y1=p1.y-p0.y,y2=p2.y-p0.y;
-  const aa=(x1*v2d-x2*v1d)/det,bb=(y1*v2d-y2*v1d)/det,cc=(x2*u1-x1*u2)/det,dd=(y2*u1-y1*u2)/det;
-  ctx.save();ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.closePath();ctx.clip();ctx.transform(aa,bb,cc,dd,p0.x-aa*v0.u-cc*v0.v,p0.y-bb*v0.u-dd*v0.v);ctx.drawImage(tex,0,0);ctx.restore();
-}
 function drawFace(f){
   ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();
-  if(f.texture)for(let i=1;i<f.ps.length-1;i++)texturedTriangle([f.ps[0],f.ps[i],f.ps[i+1]],[f.vs[0],f.vs[i],f.vs[i+1]],f.texture);
+  if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W);
   const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
   if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
 }
