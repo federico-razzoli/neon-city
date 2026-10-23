@@ -490,8 +490,12 @@ test('game input replays manhole feedback on separate presses and held Space wit
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
-  events['#startclick']();
   const key={key:' ',code:'Space',repeat:false,preventDefault(){}};
+  events.keydown(key);tick(0);
+  assert.equal(element('#overlay').hidden,true,'Space starts the game');
+  events.keydown({...key,repeat:true});tick(0);
+  assert.equal(sounds,0,'starting Space does not also lift a cover');
+  events.keyup(key);
   events.keydown(key);events.keyup(key);tick(20);
   assert.equal(sounds,1);assert.equal(element('#message').textContent,"IT'S TOO HEAVY.");
   events.keydown(key);events.keyup(key);tick(40);assert.equal(sounds,2,'second tap works even between frames');
@@ -504,6 +508,14 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(element('#message').textContent,'','notice expires normally');
   events.keydown(key);tick(6080);assert.equal(sounds,6,'can retry after message expires');
   assert.equal(element('#message').textContent,"IT'S TOO HEAVY.");
+  events.keyup(key);
+  events.keydown({key:'Escape',code:'Escape'});
+  assert.equal(element('#overlay').hidden,false);
+  events.keydown(key);tick(6100);
+  assert.equal(element('#overlay').hidden,true,'Space resumes after pausing');
+  assert.equal(sounds,6,'resume does not trigger the cover');
+  events.keyup(key);events.keydown(key);tick(6120);
+  assert.equal(sounds,7,'next Space press interacts normally');
 });
 
 test('Ursa Major has a fixed seven-star pattern that follows camera rotation',async()=>{

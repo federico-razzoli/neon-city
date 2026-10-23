@@ -11,10 +11,11 @@ const overlay=document.querySelector('#overlay'),start=document.querySelector('#
 const city=new City(),player={x:10,z:4,angle:.12},keys=new Set(),shiftKeys=new Set();
 const W=640,H=360,F=355,eye=1.65,horizon=164;
 // Generate a fixed sky around the entire world, rather than wrapping the screen.
-const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevation:.1+Math.random()*.35}));
+const starColors=['#211e33','#27233a','#2d2840','#332d46'];
+const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevation:.1+Math.random()*.35,color:starColors[Math.floor(Math.random()*starColors.length)]}));
 const moon={bearing:.33,elevation:.31};
 let running=false,time=0,last=0,queue=[],shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
-let noticeText='',coverPressed=false;
+let noticeText='',coverPressed=false,startSpaceHeld=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 ctx.imageSmoothingEnabled=false;
 
@@ -139,12 +140,12 @@ function manhole(m){
   }
 }
 function render(){
-  ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24213a';
-  for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon);if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}
-  ctx.fillStyle='#d3ccdf';
+  ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);
+  for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon);if(p){ctx.fillStyle=star.color;ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}}
+  ctx.fillStyle='#3b344e';
   for(const star of URSA_MAJOR){
     const p=projectSky(star,player.angle,W,F,horizon);
-    if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),2,2);
+    if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);
   }
   const moonPosition=projectSky(moon,player.angle,W,F,horizon);
   if(moonPosition){ctx.fillStyle='#c4aacb';ctx.fillRect(moonPosition.x-6,moonPosition.y-6,13,13);}
@@ -168,11 +169,18 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){startSpaceHeld=false;running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
-window.addEventListener('keydown',e=>{const k=e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}if(running){
+window.addEventListener('keydown',e=>{const k=e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
+if(k===' '&&!running){
+  e.preventDefault();
+  if(!e.repeat){play();startSpaceHeld=true;}
+  return;
+}
+if(k===' '&&startSpaceHeld){e.preventDefault();return;}
+if(running){
   e.preventDefault();
   if(k===' '&&!e.repeat){coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
@@ -181,7 +189,7 @@ function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
-window.addEventListener('keyup',e=>{keys.delete(e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running)syncShift(e);});
+window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' ')startSpaceHeld=false;keys.delete(e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running)syncShift(e);});
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 for(const button of document.querySelectorAll('[data-key]')){
   button.addEventListener('pointerdown',e=>{if(!running)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
