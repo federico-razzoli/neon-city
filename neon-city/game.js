@@ -2,12 +2,13 @@ import {PubLife} from './pub-life.js';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite} from './sprites.js?v=pedestrians-7';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=manholes-1';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=newspapers-1';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
+import {orderSurfaces} from './surface-order.js';
 import {drawWallTexture} from './perspective.js';
 import {HornWarning,playHorn} from './horn.js';
 
@@ -149,14 +150,14 @@ function building(b){
 }
 function drawFace(f){
   ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();
-  if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W);
+  if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth);
   const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
   if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
 }
 function person(p){
   const v=camera({x:p.x,y:0,z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=(p.type===4?1.68:1.85)*F/v.z,width=height/2;
   if(pos.x+width<0||pos.x-width>W)return;
-  queue.push({depth:v.z,draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player)),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
+  queue.push({depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player)),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }
 function car(c){
   const w=c.axis?4.7:2.1,d=c.axis?2.1:4.7,x=c.x-w/2,z=c.z-d/2;
@@ -165,6 +166,39 @@ function car(c){
   else{for(const side of [-1,1])for(const offset of [.8,3.5])box(c.x+side*1.05-.1,.12,z+offset,.2,.55,.7,'#10101b');}
   const frontX=c.x+(c.axis?c.dir*2.36:0),frontZ=c.z+(c.axis?0:c.dir*2.36);
   for(const side of [-1,1])box(frontX+(c.axis?-.04:side*.7-.2),.52,frontZ+(c.axis?side*.7-.2:-.04),c.axis?.08:.4,.2,c.axis?.4:.08,'#fff0b8');
+}
+let newspaperTexture;
+function newspaperMachine(m){
+  const firstFace=queue.length;
+  if(!newspaperTexture){
+    const c=document.createElement('canvas');c.width=160;c.height=224;
+    const g=c.getContext('2d');
+    g.fillStyle='#a93242';g.fillRect(0,0,160,224);
+    g.fillStyle='#eee1bd';g.fillRect(7,9,146,38);
+    g.fillStyle='#311d29';g.textAlign='center';g.font='bold 20px serif';g.fillText('DAILY BUGLE',80,35,140);
+    g.fillStyle='#501e30';g.fillRect(9,56,142,130);
+    g.fillStyle='#829395';g.fillRect(13,60,134,122);
+    g.fillStyle='#e2d8b9';g.fillRect(22,69,106,103);
+    g.fillStyle='#292636';g.font='bold 13px serif';g.fillText('DAILY BUGLE',75,85,100);
+    g.font='bold 10px monospace';g.fillText('CITY NEWS',75,101);
+    g.fillStyle='#626272';g.fillRect(29,109,43,31);
+    for(let y=110;y<161;y+=6){g.fillRect(79,y,40,2);if(y>143)g.fillRect(29,y,43,2);}
+    g.fillStyle='#e2d8b9';g.fillRect(133,98,8,36);
+    g.fillStyle='#beb9ac';g.fillRect(15,195,33,19);
+    g.fillStyle='#232231';g.fillRect(20,202,23,4);
+    g.fillStyle='#f1d6b5';g.font='bold 12px monospace';g.fillText('25¢',113,210);
+    newspaperTexture=c;
+  }
+  const scale=.85,top=.08+1.45*.9*scale,front=.45*scale+.001;
+  box(m.x-m.w/2,.08,m.z-m.d/2,m.w,1.45*.9*scale,m.d,'#862c3d','#c44c55');
+  // The cap overhangs the front and sides, with its back flush to the wall.
+  const dx=[0,0,-1,1][m.side],dz=[-1,1,0,0][m.side];
+  const capW=m.w+(m.side<2?.06:.054)*scale,capD=m.d+(m.side<2?.054:.06)*scale;
+  box(m.x+dx*.027*scale-capW/2,top,m.z+dz*.027*scale-capD/2,capW,.08*.9*scale,capD,'#ba4351','#d25b60');
+  // Front faces the street; texture follows the same perspective as buildings.
+  const point=(u,y)=>m.side<2?{x:m.x+(m.side===0?u:-u),y,z:m.z+dz*front}:{x:m.x+dx*front,y,z:m.z+(m.side===2?-u:u)};
+  face([point(-.5*scale,.08),point(.5*scale,.08),point(.5*scale,top),point(-.5*scale,top)].map((p,i)=>({...p,u:[0,160,160,0][i],v:[224,224,0,0][i]})),'#a93242',newspaperTexture);
+  for(let i=firstFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;}
 }
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
@@ -249,10 +283,11 @@ function render(){
   queue=[];
   for(const chunk of visible){
     for(const b of chunk.buildings)building(b);
+    for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
     for(const c of traffic(chunk,time))car(c);
   }
-  queue.sort((a,b)=>b.depth-a.depth);
+  queue=orderSurfaces(queue);
   ctx.save();if(!reduced)ctx.translate(shake?Math.sin(time*85)*shake:0,running?Math.sin(steps)*.65:0);
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);

@@ -434,8 +434,8 @@ test('blocks have zero to three stable, separated manholes entirely on sidewalks
     for(const [i,m] of block.manholes.entries()){
       const lx=m.x-x*64,lz=m.z-z*64,r=m.radius;
       assert.ok(lx-r>=8&&lx+r<=56&&lz-r>=8&&lz+r<=56,'cover stays within pavement');
-      assert.ok(lx+r<14||lx-r>49.8||lz+r<14||lz-r>49.8,'cover clears buildings');
-      sides.add(lz<14?0:lx>49.8?1:lz>49.8?2:3);
+      assert.ok(lx+r<14||lx-r>50||lz+r<14||lz-r>50,'cover clears buildings');
+      sides.add(lz<14?0:lx>50?1:lz>50?2:3);
       for(const other of block.manholes.slice(i+1))assert.ok(Math.hypot(m.x-other.x,m.z-other.z)>r+other.radius);
     }
   }
@@ -918,4 +918,71 @@ test('pub walkers wait for standing or seated players without admitting another 
   const life=new PubLife(()=>0);life.arrival=0;life.departure=60;
   life.update(.1,[],null,{x:PUB.door.x,z:.4});
   assert.equal(life.walker,null,'arrival waits if player occupies entrance');
+});
+
+test('newspaper machines vary by street, leave doors clear and block running',()=>{
+  const city=new City(381),counts=new Set(),sides=new Set();
+  for(let x=-4;x<=4;x++)for(let z=-4;z<=4;z++){
+    const chunk=city.generate(x,z);city.chunks.set(`${x},${z}`,chunk);
+    counts.add(chunk.newspaperMachines.length);
+    for(const m of chunk.newspaperMachines){
+      sides.add(m.side);
+      assert.equal(city.solid(m.x,m.z),true);
+      const along=m.side<2?m.x:m.z;
+      const [a,b]=[[0,2],[1,3],[0,1],[2,3]][m.side].map(i=>chunk.buildings[i]);
+      assert.notEqual(a.sign,b.sign,'machines only separate different venues');
+      const end=m.side<2?a.x+a.w:a.z+a.d,start=m.side<2?b.x:b.z;
+      assert.ok(Math.abs(along-(end+start)/2)<1e-8,'cabinet is centered on the shared seam');
+      // Pub/arcade frames extend closest to the edge: six of 160 texture pixels.
+      const halfCap=1.06*.85/2;
+      assert.ok(along-halfCap>end-(m.side<2?a.w:a.d)*6/160,'cap clears the left venue window frame');
+      assert.ok(along+halfCap<start+(m.side<2?b.w:b.d)*6/160,'cap clears the right venue window frame');
+      for(const b of chunk.buildings){
+        const center=m.side<2?b.x+b.w/2:b.z+b.d/2;
+        assert.ok(Math.abs(along-center)>3,'cabinet and player clearance stay outside doorway approaches');
+      }
+      const dx=[0,0,-1,1][m.side],dz=[-1,1,0,0][m.side];
+      assert.equal(m.side<2?m.d:m.w,.9*.85,'cabinet retains its reduced depth at the smaller scale');
+      const back=m.side<2?m.z-dz*m.d/2:m.x-dx*m.w/2;
+      const wall=(m.side<2?z:x)*64+(m.side===0||m.side===2?14:50);
+      assert.ok(Math.abs(back-wall)<1e-8,'back touches the building on every side');
+      const player={x:m.x+dx*3,z:m.z+dz*3};
+      assert.equal(city.move(player,-dx*6,-dz*6),false,'cabinet is not a pedestrian interaction');
+      assert.ok(Math.hypot(player.x-m.x,player.z-m.z)>=.9*.85/2+.45-1e-8,'running cannot tunnel through cabinet');
+      assert.equal(city.solid(m.x+dx*1.1,m.z+dz*1.1),false,'street-facing approach remains walkable');
+    }
+  }
+  assert.ok(counts.has(0)&&counts.size>1,'only some streets have machines');
+  assert.equal(sides.size,4);
+});
+
+test('machine surfaces use overlap depth so slanted walls cannot erase tops or labels',async()=>{
+  const {orderSurfaces}=await import('../neon-city/surface-order.js');
+  const panel=(name,left,right,depths,detail=false)=>({name,detail,depth:depths.reduce((a,b)=>a+b)/4,ps:[{x:left,y:0},{x:right,y:0},{x:right,y:10},{x:left,y:10}],vs:depths.map(z=>({z}))});
+  const wall=panel('wall',0,10,[20,2,2,20]);
+  const top=panel('top',0,2,[7,7,7,7],true);
+  const label=panel('label',0,2,[6.99,6.99,6.99,6.99],true);
+  const pedestrian=panel('pedestrian',0,2,[3,3,3,3]);
+  const foreground=panel('foreground',8,10,[3,3,3,3],true);
+  for(const input of [[wall,top,label,pedestrian,foreground],[foreground,pedestrian,label,top,wall]]){
+    const order=orderSurfaces(input).map(f=>f.name);
+    assert.ok(order.indexOf('wall')<order.indexOf('top'),'far portion of wall stays behind top');
+    assert.ok(order.indexOf('top')<order.indexOf('label'),'label remains above cabinet');
+    assert.ok(order.indexOf('label')<order.indexOf('pedestrian'),'nearby pedestrian still occludes cabinet');
+    assert.ok(order.indexOf('foreground')<order.indexOf('wall'),'near end of wall still occludes objects behind it');
+  }
+});
+
+
+test('adjacent venues share walls without gaps and collision matches the outer walls',()=>{
+  const city=new City(52);
+  for(const [x,z] of [[0,0],[-2,3],[4,-5]]){
+    const {buildings:b}=city.generate(x,z);
+    for(const [left,right] of [[b[0],b[2]],[b[1],b[3]]])assert.equal(left.x+left.w,right.x);
+    for(const [front,back] of [[b[0],b[1]],[b[2],b[3]]])assert.equal(front.z+front.d,back.z);
+    assert.equal(city.solid(x*64+49.99,z*64+30,0),true);
+    assert.equal(city.solid(x*64+30,z*64+49.99,0),true);
+    assert.equal(city.solid(x*64+50.01,z*64+30,0),false);
+    assert.equal(city.solid(x*64+30,z*64+50.01,0),false);
+  }
 });

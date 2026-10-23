@@ -29,7 +29,7 @@ export class City {
   generate(x, z) {
     const r = this.rng, buildings = [], people = [];
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
-      buildings.push({x: x * BLOCK + 14 + i * 18, z: z * BLOCK + 14 + j * 18, w:17.8, d:17.8, h:12 + Math.floor(r() * 8) * 3, color:['#24233c','#30233c','#1f303b','#38283c'][Math.floor(r()*4)], sign:signs[Math.floor(r()*signs.length)], neon:neon[Math.floor(r()*neon.length)], seed:Math.floor(r()*10000), i, j});
+      buildings.push({x: x * BLOCK + 14 + i * 18, z: z * BLOCK + 14 + j * 18, w:18, d:18, h:12 + Math.floor(r() * 8) * 3, color:['#24233c','#30233c','#1f303b','#38283c'][Math.floor(r()*4)], sign:signs[Math.floor(r()*signs.length)], neon:neon[Math.floor(r()*neon.length)], seed:Math.floor(r()*10000), i, j});
     }
     // Jitter separated slots so new pedestrians never spawn inside each other.
     // Assign speed once, using a separate random draw from appearance.
@@ -44,12 +44,24 @@ export class City {
       const lz=[across,along,64-across,along][side];
       manholes.push({x:x*BLOCK+lx,z:z*BLOCK+lz,radius:.65});
     }
-    return { x, z, buildings, people, manholes };
+    // Only the shared blank edges between unlike venues can host a cabinet.
+    // These seams leave the windows and central doors of both venues clear.
+    const newspaperMachines=[],neighbors=[[0,2],[1,3],[0,1],[2,3]];
+    for(let side=0;side<4;side++)if(r()<.07){
+      const [a,b]=neighbors[side].map(index=>buildings[index]);
+      if(a.sign===b.sign)continue;
+      const along=side<2?(a.x+a.w+b.x)/2:(a.z+a.d+b.z)/2;
+      const across=(side<2?a.z:a.x)+(side===0||side===2?-.9*.85/2:(side<2?a.d:a.w)+.9*.85/2);
+      newspaperMachines.push({x:side<2?along:across,z:side<2?across:along,side,w:(side<2?1:.9)*.85,d:(side<2?.9:1)*.85});
+    }
+    return { x, z, buildings, people, manholes, newspaperMachines };
   }
   solid(x,z, radius=.45) {
     // All blocks share the same footprint, so collision works before a chunk is loaded.
     const lx=mod(x,BLOCK),lz=mod(z,BLOCK);
-    return lx>14-radius && lx<49.8+radius && lz>14-radius && lz<49.8+radius;
+    if(lx>14-radius && lx<50+radius && lz>14-radius && lz<50+radius)return true;
+    const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
+    return (chunk?.newspaperMachines??[]).some(m=>Math.abs(x-m.x)<m.w/2+radius&&Math.abs(z-m.z)<m.d/2+radius);
   }
   pedestrians(time) {
     return [...this.chunks.values()].flatMap(chunk=>chunk.people.map(p=>pedestrian(chunk,p,time)));

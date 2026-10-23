@@ -20,15 +20,24 @@ export function* wallColumns(points,vertices,width){
   }
 }
 
-export function drawWallTexture(ctx,points,vertices,texture,width){
+export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false){
   ctx.save();
+  ctx.imageSmoothingEnabled=smooth;
   ctx.beginPath();
   points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
   ctx.closePath();ctx.clip();
-  for(const {x,top,bottom} of wallColumns(points,vertices,width)){
+  const columns=[...wallColumns(points,vertices,width)];
+  for(let i=0;i<columns.length;i++){
+    const {x,top,bottom}=columns[i];
     if(bottom.y<=top.y||bottom.v<=top.v)continue;
     const u=Math.max(0,Math.min(texture.width-1,top.u));
-    ctx.drawImage(texture,u,top.v,1,bottom.v-top.v,x,top.y,1,bottom.y-top.y);
+    // At oblique angles a screen column covers several texture columns.
+    // Filter that footprint rather than skipping letters between single texels.
+    const adjacent=columns[i+1]??columns[i-1];
+    const span=smooth&&adjacent?Math.max(1,Math.abs(adjacent.top.u-top.u)):1;
+    const left=smooth?Math.max(0,u-span/2):u;
+    const sampleWidth=Math.min(span,texture.width-left);
+    ctx.drawImage(texture,left,top.v,sampleWidth,bottom.v-top.v,x,top.y,1,bottom.y-top.y);
   }
   ctx.restore();
 }
