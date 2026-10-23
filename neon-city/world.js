@@ -119,7 +119,10 @@ export class City {
 export function pedestrian(chunk,p,time) {
   time=p.walkTime??time;
   const n=mod(p.phase+time*p.speed*(p.reverse?-1:1),168), side=Math.floor(n/42), t=n%42;
-  return {x:chunk.x*64+[11+t,53,53-t,11][side]+(p.yielding?p.yielding.dx*p.yielding.offset:0),z:chunk.z*64+[11,11+t,53,53-t][side]+(p.yielding?p.yielding.dz*p.yielding.offset:0),type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
+  return {x:chunk.x*64+[11+t,53,53-t,11][side]+(p.yielding?p.yielding.dx*p.yielding.offset:0),z:chunk.z*64+[11,11+t,53,53-t][side]+(p.yielding?p.yielding.dz*p.yielding.offset:0),facingX:[1,0,-1,0][side]*(p.reverse?-1:1),facingZ:[0,1,0,-1][side]*(p.reverse?-1:1),type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
+}
+export function pedestrianShowsBack(person,viewer) {
+  return (viewer.x-person.x)*person.facingX+(viewer.z-person.z)*person.facingZ<0;
 }
 export function traffic(chunk,time) {
   const cars=[];

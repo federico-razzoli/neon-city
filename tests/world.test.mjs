@@ -202,3 +202,23 @@ test('cars in the same lane have varied colours that persist across tile crossin
     }
   }
 });
+
+test('pedestrian front and back follow walking direction on every side of the block',async()=>{
+  const {pedestrianShowsBack}=await import('../neon-city/world.js');
+  const chunk={x:-1,z:2};
+  for(const reverse of [false,true])for(let side=0;side<4;side++){
+    const p={phase:side*42+10,speed:1,reverse,type:0,walkTime:0};
+    const pos=pedestrian(chunk,p,0),next=pedestrian(chunk,{...p,walkTime:.1},0);
+    assert.ok((next.x-pos.x)*pos.facingX+(next.z-pos.z)*pos.facingZ>0);
+    const front={x:pos.x+pos.facingX*5,z:pos.z+pos.facingZ*5};
+    const back={x:pos.x-pos.facingX*5,z:pos.z-pos.facingZ*5};
+    assert.equal(pedestrianShowsBack(pos,front),false);
+    assert.equal(pedestrianShowsBack(pos,back),true);
+    assert.deepEqual(pedestrian(chunk,p,100),pos,'waiting keeps the same facing');
+    const yielding=pedestrian(chunk,{...p,yielding:{dx:1,dz:0,offset:1.3}},0);
+    assert.equal(yielding.facingX,pos.facingX);assert.equal(yielding.facingZ,pos.facingZ);
+  }
+  const before=pedestrian(chunk,{phase:41.9,speed:1,walkTime:0},0);
+  const after=pedestrian(chunk,{phase:41.9,speed:1,walkTime:.2},0);
+  assert.equal(before.facingX,1);assert.equal(after.facingZ,1);
+});
