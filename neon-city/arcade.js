@@ -9,12 +9,32 @@ export function arcadeVolume(player,buildings){
   return Math.max(0,Math.min(1,(12-nearest)/10));
 }
 
-export function drawArcade(g,height){
+function arcadeLayout(building,side){
+  let hash=2166136261;
+  for(const char of `${building.x},${building.z}`)hash=Math.imul(hash^char.charCodeAt(0),16777619);
+  const random=()=>{
+    hash=hash+0x6D2B79F5|0;
+    let t=Math.imul(hash^hash>>>15,1|hash);
+    t^=t+Math.imul(t^t>>>7,61|t);
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+  // Shuffle distinct window pairs, then give each side its own pair.
+  const pairs=[[0,1],[0,2],[1,0],[1,2],[2,0],[2,1]];
+  for(let i=pairs.length-1;i>0;i--){
+    const j=Math.floor(random()*(i+1));
+    [pairs[i],pairs[j]]=[pairs[j],pairs[i]];
+  }
+  return pairs[side];
+}
+
+export function drawArcade(g,height,building={x:0,z:0},side=0){
+  const layout=arcadeLayout(building,side);
   const y=height-39;
   const rect=(colour,x,z,w,h)=>{g.fillStyle=colour;g.fillRect(x,y+z,w,h);};
   rect('#191329',0,0,160,39);
   // Glazed display windows reveal rows of cabinets and a chequered floor.
   for(const x of [6,96]){
+    const pinball=layout[x===6?0:1];
     rect('#72648b',x,3,58,33);rect('#090e25',x+2,5,54,29);
     rect('#3d2358',x+3,6,52,2);
     for(let row=0;row<3;row++)for(let col=0;col<13;col++){
@@ -22,6 +42,18 @@ export function drawArcade(g,height){
     }
     for(let i=0;i<3;i++){
       const cx=x+5+i*17,colour=['#ee47b8','#53ddea','#ffd166'][i];
+      if(i===pinball){
+        // Raised score backbox, a sloping playfield, bumpers, ball and flippers.
+        rect('#30233d',cx+1,10,11,10);rect(colour,cx+1,10,11,2);
+        rect('#101525',cx+2,13,9,5);rect('#ffe285',cx+3,14,2,2);rect('#ffe285',cx+7,14,3,2);
+        g.fillStyle=colour;g.beginPath();g.moveTo(cx+2,y+19);g.lineTo(cx+11,y+19);
+        g.lineTo(cx+13,y+27);g.lineTo(cx,y+27);g.closePath();g.fill();
+        rect('#163d48',cx+2,20,9,6);
+        rect('#ff678f',cx+3,21,2,2);rect('#ffe285',cx+7,22,2,2);
+        rect('#ffffff',cx+6,20,1,1);rect('#ecf5ff',cx+3,25,2,1);rect('#ecf5ff',cx+7,25,2,1);
+        rect('#30233d',cx,27,13,2);rect('#b5a6c4',cx+1,29,2,3);rect('#b5a6c4',cx+10,29,2,3);
+        continue;
+      }
       rect('#30233d',cx,10,13,21);rect(colour,cx+1,10,11,3);
       rect('#111827',cx+1,14,11,10);rect('#17394b',cx+2,15,9,7);
       // Distinct tiny game screens: invaders, a maze, and a racer.

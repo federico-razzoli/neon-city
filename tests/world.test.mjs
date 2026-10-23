@@ -1,5 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {drawArcade} from '../neon-city/arcade.js';
+
+test('arcade windows and sides vary while retaining their layout on redraw',()=>{
+  const render=(building,side)=>{
+    const positions=[];
+    const g={fillRect(){},beginPath(){},moveTo(x){positions.push(x);},lineTo(){},closePath(){},fill(){}};
+    drawArcade(g,160,building,side);
+    assert.equal(positions.length,2,'one pinball in each window');
+    return positions.map((x,i)=>(x-[13,103][i])/17);
+  };
+  const layouts=new Set();
+  for(let n=-30;n<30;n++){
+    const building={x:14+n*64,z:32-n*64};
+    const sides=Array.from({length:4},(_,side)=>render(building,side));
+    for(const pair of sides){
+      assert.ok(pair.every(slot=>Number.isInteger(slot)&&slot>=0&&slot<3));
+      assert.notEqual(pair[0],pair[1],'paired windows have different pinball positions');
+    }
+    assert.equal(new Set(sides.map(JSON.stringify)).size,4,'each side has a distinct pair');
+    for(const side of [3,1,0,2])assert.deepEqual(render({...building},side),sides[side]);
+    layouts.add(JSON.stringify(sides));
+  }
+  assert.ok(layouts.size>1,'different addresses vary');
+});
 import {City,pedestrian,traffic,PEDESTRIAN_TYPES,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
 
 test('nearby blocks are retained; forgotten blocks regenerate; memory is bounded',()=>{
