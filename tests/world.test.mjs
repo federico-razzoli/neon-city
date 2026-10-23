@@ -25,6 +25,80 @@ test('arcade windows and sides vary while retaining their layout on redraw',()=>
   assert.ok(layouts.size>1,'different addresses vary');
 });
 import {City,pedestrian,traffic,PEDESTRIAN_TYPES,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
+import {RIVER_ROWS,BLOCK,RIVER_WIDTH,WATER_LEVEL,BRIDGE_RISE,groundHeight,bridgeHeight} from '../neon-city/world.js';
+import {drawRiverTerrain,drawRiverStructures} from '../neon-city/rivers.js';
+
+test('wide parallel rivers flank spawn four to six streets away and eight to twelve blocks apart',()=>{
+  const city=new City(42),centres=RIVER_ROWS.map(row=>(row+1)*BLOCK);
+  assert.equal(centres.length,2);
+  assert.ok(centres[0]<4&&centres[1]>4);
+  assert.ok((centres[1]-centres[0])/BLOCK>=8&&(centres[1]-centres[0])/BLOCK<=12);
+  assert.ok(RIVER_WIDTH>BLOCK);
+  assert.ok(WATER_LEVEL<=-5);
+  for(const centre of centres)assert.ok(Math.abs(centre-4)/BLOCK>=4&&Math.abs(centre-4)/BLOCK<=6);
+  for(const row of RIVER_ROWS)for(const part of [row,row+1])for(const x of [-3,0,7]){
+    const chunk=city.generate(x,part);
+    assert.ok(chunk.river);
+    assert.equal(chunk.buildings.length+chunk.manholes.length+chunk.newspaperMachines.length,0);
+    for(const p of chunk.people)for(let t=0;t<400;t++){
+      const pos=pedestrian(chunk,{...p,walkTime:t},t);
+      assert.ok(!city.solid(pos.x,pos.z),'bank and bridge pedestrian routes stay dry');
+    }
+    for(let t=0;t<20;t+=.1)for(const car of traffic(chunk,t))assert.ok(!city.solid(car.x,car.z,1.5),'traffic crosses on bridges or follows bank roads');
+    if(part===row+1)assert.ok(traffic(chunk,0).every(c=>c.axis===0),'no cross traffic on water');
+  }
+});
+
+test('water blocks walking and knockback while bridge sidewalks cross both wide rivers',()=>{
+  const city=new City(1);
+  for(const row of RIVER_ROWS){
+    const z=row*BLOCK;
+    for(const [from,direction] of [[11,1],[117,-1]]){
+      const bank={x:32,z:z+from};city.move(bank,0,direction*150);
+      assert.ok(direction>0?bank.z<z+18:bank.z>z+110);
+    }
+    for(let t=19;t<110;t++)assert.ok(city.solid(32,z+t));
+    for(const x of [-11,0,11,53,64,75]){
+      const p={x,z:z+11};city.move(p,0,106);
+      assert.ok(Math.abs(p.z-(z+117))<1e-6,'bridge remains traversable');
+      city.move(p,0,-106);assert.ok(Math.abs(p.z-(z+11))<1e-6);
+    }
+  }
+});
+
+test('bridge elevations meet the banks, rise smoothly, and remain symmetric across chunk seams',()=>{
+  for(const row of RIVER_ROWS){
+    const z=row*BLOCK;
+    assert.equal(bridgeHeight(z+18),0);assert.equal(bridgeHeight(z+110),0);
+    assert.equal(groundHeight(0,z+64),BRIDGE_RISE);
+    assert.equal(groundHeight(32,z+64),0);
+    for(let t=18;t<110;t+=.25){
+      assert.ok(Math.abs(bridgeHeight(z+t)-bridgeHeight(z+128-t))<1e-10);
+      assert.ok(Math.abs(bridgeHeight(z+t+.25)-bridgeHeight(z+t))<.06);
+      assert.equal(groundHeight(11,z+t),groundHeight(3,z+t),'sidewalk and road follow the same arch');
+    }
+  }
+});
+
+test('river geometry has recessed water, grassy banks, and elevated bridge decks matching physics',()=>{
+  const city=new City(1);
+  for(const row of RIVER_ROWS)for(const part of [row,row+1]){
+    const chunk=city.generate(0,part),quads=[],faces=[];
+    drawRiverTerrain(chunk,{quad:(...args)=>quads.push(args)},0);
+    drawRiverStructures(chunk,{face:(vertices,color)=>faces.push({vertices,color}),box:()=>{} });
+    assert.ok(quads.some(q=>q[1]===WATER_LEVEL));
+    assert.ok(quads.some(q=>q[5]==='#345841'),'grass on each bank');
+    assert.ok(quads.some(q=>q[5]==='#757380'),'walking path on each bank');
+    for(const {vertices,color} of faces)if(color==='#292b3b'||color==='#757380')for(const v of vertices)
+      assert.ok(Math.abs(v.y-groundHeight(v.x,v.z)-.075)<1e-9,'road and path match collision elevation');
+    assert.ok(faces.some(f=>f.vertices.some(v=>v.y>5)),'arched structure reaches above banks');
+    const bank=part===row?row*BLOCK+18:row*BLOCK+110;
+    const landViewer={z:bank+(part===row?-1:1)};
+    const landFaces=[];
+    drawRiverStructures(chunk,{face:vertices=>landFaces.push(vertices),box:()=>{}},landViewer);
+    assert.ok(landFaces.every(vertices=>vertices.every(v=>v.y>WATER_LEVEL)), 'retaining wall backs cannot cover the grass from land');
+  }
+});
 
 test('nearby blocks are retained; forgotten blocks regenerate; memory is bounded',()=>{
   const c=new City(42);c.update(0,0);const original=c.chunks.get('0,0');assert.equal(c.chunks.size,25);
@@ -976,7 +1050,7 @@ test('machine surfaces use overlap depth so slanted walls cannot erase tops or l
 
 test('adjacent venues share walls without gaps and collision matches the outer walls',()=>{
   const city=new City(52);
-  for(const [x,z] of [[0,0],[-2,3],[4,-5]]){
+  for(const [x,z] of [[0,0],[-2,3],[4,-4]]){
     const {buildings:b}=city.generate(x,z);
     for(const [left,right] of [[b[0],b[2]],[b[1],b[3]]])assert.equal(left.x+left.w,right.x);
     for(const [front,back] of [[b[0],b[1]],[b[2],b[3]]])assert.equal(front.z+front.d,back.z);

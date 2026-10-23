@@ -1,5 +1,22 @@
 export const PEDESTRIAN_TYPES=7;
 export const BLOCK = 64;
+// Each river occupies two rows; their centres are ten blocks apart.
+export const RIVER_ROWS = [-6, 4];
+export const RIVER_WIDTH = 92;
+export const WATER_LEVEL = -7;
+export const BRIDGE_RISE = 6;
+export const riverStart = row => RIVER_ROWS.find(start=>row>=start&&row<start+2);
+export const isRiverRow = row => riverStart(row)!==undefined;
+export function bridgeHeight(z) {
+  const start=riverStart(Math.floor(z/BLOCK));
+  if(start===undefined)return 0;
+  const t=(z-start*BLOCK-18)/RIVER_WIDTH;
+  return t>0&&t<1?BRIDGE_RISE*Math.sin(Math.PI*t):0;
+}
+export function groundHeight(x,z) {
+  const lx=mod(x,BLOCK);
+  return lx<=14||lx>=50?bridgeHeight(z):0;
+}
 export const LOAD_RADIUS = 2;
 export const KEEP_RADIUS = 3;
 export const PEDESTRIAN_MIN_SPEED = .9;
@@ -34,6 +51,11 @@ export class City {
     // Jitter separated slots so new pedestrians never spawn inside each other.
     // Assign speed once, using a separate random draw from appearance.
     for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:Math.floor(r()*PEDESTRIAN_TYPES),reverse:r()>.5,variant:r(),walkTime:0});
+    if(isRiverRow(z)){
+      const start=riverStart(z);
+      // One shared loop follows both banks and the two bridge sidewalks.
+      return {x,z,river:true,riverStart:start,buildings:[],people:z===start?people:[],manholes:[],newspaperMachines:[]};
+    }
     const manholes=[],slots=Array.from({length:32},(_,i)=>i);
     const count=Math.floor(r()*4);
     for(let i=0;i<count;i++){
@@ -59,6 +81,8 @@ export class City {
   solid(x,z, radius=.45) {
     // All blocks share the same footprint, so collision works before a chunk is loaded.
     const lx=mod(x,BLOCK),lz=mod(z,BLOCK);
+    const start=riverStart(Math.floor(z/BLOCK));
+    if(start!==undefined)return lx>14-radius&&lx<50+radius&&z>start*BLOCK+18-radius&&z<start*BLOCK+110+radius;
     if(lx>14-radius && lx<50+radius && lz>14-radius && lz<50+radius)return true;
     const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
     return (chunk?.newspaperMachines??[]).some(m=>Math.abs(x-m.x)<m.w/2+radius&&Math.abs(z-m.z)<m.d/2+radius);
@@ -83,7 +107,7 @@ export class City {
         if(Math.hypot(na.x-nb.x,na.z-nb.z)>=gap)continue;
         // Always choose the forward walker, independent of array order.
         const p=a.reverse?b:a,partner=p===a?b:a;
-        const n=mod(p.phase+p.walkTime*p.speed,168),side=Math.floor(n/42);
+        const {side}=pedestrianRoute(chunk,p,p.walkTime);
         const dx=[0,1,0,-1][side],dz=[-1,0,1,0][side];
         const origin=pedestrian(chunk,p,time),target={x:origin.x+dx*1.3,z:origin.z+dz*1.3};
         if(crossesPerson(origin,target,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,target,pedestrian(chunk,q,time))))continue;
@@ -154,7 +178,7 @@ export class City {
       }
       const turnAround=p=>{
         if((p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5)return false;
-        const phase=mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),168);
+        const phase=mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?296:168);
         const origin=pedestrian(chunk,p,time);
         const next=pedestrian(chunk,{...p,phase,reverse:!p.reverse,walkTime:p.walkTime+.2},time);
         if(this.solid(next.x,next.z)||crossesPerson(origin,next,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,next,pedestrian(chunk,q,time))))return false;
@@ -195,10 +219,18 @@ export class City {
     return bumpedPedestrian;
   }
 }
+function pedestrianRoute(chunk,p,time){
+  const length=chunk.river?106:42;
+  let t=mod(p.phase+time*p.speed*(p.reverse?-1:1),2*(42+length));
+  const lengths=[42,length,42,length];
+  let side=0;
+  while(side<3&&t>=lengths[side])t-=lengths[side++];
+  return {side,t,length};
+}
 export function pedestrian(chunk,p,time) {
   time=p.walkTime??time;
-  const n=mod(p.phase+time*p.speed*(p.reverse?-1:1),168), side=Math.floor(n/42), t=n%42;
-  return {x:chunk.x*64+[11+t,53,53-t,11][side]+(p.yielding?p.yielding.dx*p.yielding.offset:0),z:chunk.z*64+[11,11+t,53,53-t][side]+(p.yielding?p.yielding.dz*p.yielding.offset:0),facingX:[1,0,-1,0][side]*(p.reverse?-1:1),facingZ:[0,1,0,-1][side]*(p.reverse?-1:1),type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
+  const {side,t,length}=pedestrianRoute(chunk,p,time);
+  return {x:chunk.x*64+[11+t,53,53-t,11][side]+(p.yielding?p.yielding.dx*p.yielding.offset:0),z:(chunk.river?chunk.riverStart:chunk.z)*64+[11,11+t,11+length,11+length-t][side]+(p.yielding?p.yielding.dz*p.yielding.offset:0),facingX:[1,0,-1,0][side]*(p.reverse?-1:1),facingZ:[0,1,0,-1][side]*(p.reverse?-1:1),type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
 }
 export function pedestrianShowsBack(person,viewer) {
   return (viewer.x-person.x)*person.facingX+(viewer.z-person.z)*person.facingZ<0;
@@ -207,6 +239,8 @@ export function traffic(chunk,time) {
   const cars=[];
   // Identify each car in the moving stream so its colour survives tile crossings.
   for(let axis=0;axis<2;axis++)for(let dir=-1;dir<=1;dir+=2){
+    // The street through the middle of a wide river is removed.
+    if(axis&&isRiverRow(chunk.z)&&chunk.z!==riverStart(chunk.z))continue;
     const lane=axis?chunk.z:chunk.x, phase=time*10*dir+lane*17+dir*13, t=mod(phase,64);
     const carId=(axis?chunk.x:chunk.z)-Math.floor(phase/64);
     const colour=random(Math.imul(carId,73856093)^Math.imul(lane,19349663)^Math.imul(axis+1,83492791)^Math.imul(dir,2654435761))();

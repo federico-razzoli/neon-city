@@ -2,7 +2,8 @@ import {PubLife} from './pub-life.js';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite} from './sprites.js?v=pedestrians-7';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod} from './world.js?v=newspapers-1';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight} from './world.js?v=rivers-2';
+import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=rivers-2';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js';
@@ -98,7 +99,9 @@ function camera(v){
 }
 function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
 function clip(vertices){const out=[];for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],ai=a.z>=.15,bi=b.z>=.15;if(ai)out.push(a);if(ai!==bi){const t=(.15-a.z)/(b.z-a.z),v={};for(const k of ['x','y','z','u','v'])v[k]=a[k]+(b[k]-a[k])*t;out.push(v);}}return out;}
+let vehicleSurface=null;
 function face(vertices,color,texture=null,smooth=false){
+  if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
   const vs=vertices.map(camera),depth=vs.reduce((s,p)=>s+p.z,0)/vs.length;
   if(depth>150||vs.every(p=>p.z<.15))return;
   const clipped=clip(vs);if(clipped.length<3)return;
@@ -114,7 +117,7 @@ function box(x,y,z,w,h,d,color,roof=color){
   if(player.z>z+d)face([c,e,up(e),up(c)],color);
   if(player.x<x)face([e,a,up(a),up(e)],color);
   if(player.x>x+w)face([b,c,up(c),up(b)],color);
-  if(eye>y+h)face([up(a),up(b),up(c),up(e)],roof);
+  if(eye>y+h+(vehicleSurface?vehicleSurface(z+d/2):0))face([up(a),up(b),up(c),up(e)],roof);
   if(insidePub&&eye<y)face([e,c,b,a],color);
 }
 function wallTexture(b,side){
@@ -155,17 +158,20 @@ function drawFace(f){
   if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
 }
 function person(p){
-  const v=camera({x:p.x,y:0,z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=(p.type===4?1.68:1.85)*F/v.z,width=height/2;
+  const v=camera({x:p.x,y:groundHeight(p.x,p.z),z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=(p.type===4?1.68:1.85)*F/v.z,width=height/2;
   if(pos.x+width<0||pos.x-width>W)return;
   queue.push({depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player)),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }
 function car(c){
+  const base=groundHeight(c.x,c.z),slope=c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
+  vehicleSurface=z=>base+(z-c.z)*slope;
   const w=c.axis?4.7:2.1,d=c.axis?2.1:4.7,x=c.x-w/2,z=c.z-d/2;
   box(x,.25,z,w,.65,d,c.color);box(x+(c.axis?1:.15),.9,z+(c.axis?.15:1),c.axis?2.5:1.8,.6,c.axis?1.8:2.5,'#34445d','#657187');
   if(c.axis){for(const side of [-1,1])for(const offset of [.8,3.5])box(x+offset,.12,c.z+side*1.05-.1,.7,.55,.2,'#10101b');}
   else{for(const side of [-1,1])for(const offset of [.8,3.5])box(c.x+side*1.05-.1,.12,z+offset,.2,.55,.7,'#10101b');}
   const frontX=c.x+(c.axis?c.dir*2.36:0),frontZ=c.z+(c.axis?0:c.dir*2.36);
   for(const side of [-1,1])box(frontX+(c.axis?-.04:side*.7-.2),.52,frontZ+(c.axis?side*.7-.2:-.04),c.axis?.08:.4,.2,c.axis?.4:.08,'#fff0b8');
+  vehicleSurface=null;
 }
 let newspaperTexture;
 function newspaperMachine(m){
@@ -202,6 +208,7 @@ function newspaperMachine(m){
 }
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
+  if(chunk.river){drawRiverTerrain(chunk,{quad},time);return;}
   quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
   // Keep each entire dash between the intersections, which begin at offset 56.
   for(let t=12;t+4<=56;t+=12){quad(x-.09,.025,z+t,.18,4,'#b09485');quad(x+t,.025,z-.09,4,.18,'#b09485');}
@@ -251,6 +258,8 @@ function seatedPatron(p,walking=false){
 }
 let interiorRenderer;
 function render(){
+  if(!insidePub)eye=1.65+groundHeight(player.x,player.z);
+  else if(!playerSeat)eye=1.65;
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub);
   if(insidePub){
     queue=[];drawPubInterior({face,quad,box,patrons:pubPatrons,seatedPatron,bartenderType});
@@ -282,6 +291,7 @@ function render(){
   for(const f of queue)drawFace(f);
   queue=[];
   for(const chunk of visible){
+    if(chunk.river)drawRiverStructures(chunk,{face,box},player);
     for(const b of chunk.buildings)building(b);
     for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
