@@ -16,8 +16,8 @@ import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,StaffTa
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=register-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
-import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=pub-music-1';
-import {PubMusic,PUB_MUSIC,PUB_PIECES} from './pub-music.js?v=pub-music-1';
+import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=pub-music-2';
+import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=pub-music-2';
 import {HOTEL,RECEPTIONISTS,RECEPTIONIST_TALK,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=register-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
@@ -607,8 +607,13 @@ function tick(now){
   }
   // Running taps are heard only in the lavatory, louder nearer the sinks.
   if(running&&!pubMenu.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
-  // Ambient music plays throughout the hotel lobby, and boogie-woogie in the pub.
-  if(running){lobbyMusic.update(audioContext,insideHotel?LOBBY_MUSIC.volume:0);pubMusic.update(audioContext,insidePub?PUB_MUSIC.volume:0);}
+  // Ambient music plays throughout the hotel lobby, and boogie-woogie in the
+  // pub, heard faintly from the lavatory but not from inside a cubicle.
+  if(running){
+    lobbyMusic.update(audioContext,insideHotel?LOBBY_MUSIC.volume:0);
+    const pubHeard=pubMusicHeard(insidePub?'pub':insideLavatory?'lavatory':insideCubicle?'cubicle':'street');
+    pubMusic.update(audioContext,pubHeard.volume,pubHeard.lowpass);
+  }
   if(running||!painted){render();painted=true;}
   requestAnimationFrame(tick);
 }

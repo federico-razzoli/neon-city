@@ -1,9 +1,17 @@
-import {MusicLoop} from './music-loop.js?v=pub-music-1';
+import {MusicLoop} from './music-loop.js?v=pub-music-2';
 // Pub music: boogie-woogie piano. A twelve-bar blues in C with a rolling
 // left-hand bass of eight swung notes to the bar, under right-hand riffs
 // with crushed blue notes and runs down the blues scale.
-// Played at about the same level as the hotel lobby music.
-export const PUB_MUSIC={rate:22050,peak:.3,volume:.55};
+// Played at about the same level as the hotel lobby music. Through the
+// lavatory wall it is barely audible and muffled; in a cubicle, gone.
+export const PUB_MUSIC={rate:22050,peak:.3,volume:.55,lavatory:{level:.05,lowpass:700}};
+// How the pub music is heard in each place: {volume, lowpass}, where an
+// undefined lowpass keeps the speakers' own.
+export function pubMusicHeard(place){
+  if(place==='pub')return {volume:PUB_MUSIC.volume};
+  if(place==='lavatory')return {volume:PUB_MUSIC.volume*PUB_MUSIC.lavatory.level,lowpass:PUB_MUSIC.lavatory.lowpass};
+  return {volume:0};
+}
 const midi=n=>440*2**((n-69)/12);
 
 // Seconds per beat; 0.36 s is about 167 beats a minute, a whole number of

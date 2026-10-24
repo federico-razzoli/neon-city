@@ -2492,13 +2492,13 @@ test('a flush is a rush of water, a few gurgles and a refill, silent until sound
   assert.equal(started.length,before);
 });
 
-test('boogie-woogie plays in the pub, carries on through a trip to the lavatory, and starts afresh on each visit',async()=>{
+test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in a cubicle, and afresh on each visit',async()=>{
   const {readFile}=await import('node:fs/promises');
   const {runInNewContext}=await import('node:vm');
   const pubInterior=await import('../neon-city/pub-interior.js');
   const lavatory=await import('../neon-city/lavatory.js');
-  const {PUB_MUSIC,PUB_PIECES}=await import('../neon-city/pub-music.js');
-  const events={},elements=new Map(),volumes=[],choices=[],lobbyVolumes=[];
+  const pubMusic=await import('../neon-city/pub-music.js'),{PUB_MUSIC,PUB_PIECES}=pubMusic;
+  const events={},elements=new Map(),volumes=[],lowpasses=[],choices=[],lobbyVolumes=[];
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
@@ -2509,7 +2509,7 @@ test('boogie-woogie plays in the pub, carries on through a trip to the lavatory,
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     ...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(context,volume){lobbyVolumes.push(volume);}mute(){}},
-    PUB_MUSIC,PUB_PIECES,PubMusic:class{prepare(){}choose(piece){choices.push(piece);}update(context,volume){volumes.push(volume);}mute(){}},
+    ...pubMusic,PubMusic:class{prepare(){}choose(piece){choices.push(piece);}update(context,volume,lowpass){volumes.push(volume);lowpasses.push(lowpass);}mute(){}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -2527,14 +2527,28 @@ test('boogie-woogie plays in the pub, carries on through a trip to the lavatory,
   assert.equal(location(),'THE PUB / BAR ROOM');
   assert.deepEqual(choices,[PUB_PIECES[0]],'a tune is put on for the visit');
   assert.equal(volumes.at(-1),PUB_MUSIC.volume);
+  assert.equal(lowpasses.at(-1),undefined,'heard through the speakers alone');
   assert.equal(lobbyVolumes.at(-1),0,'no lobby music in the pub');
-  // The lavatory is out of earshot; back in the bar, the same tune carries on.
+  // Through the lavatory wall it is barely audible and muffled.
+  const faint=()=>{
+    assert.equal(location(),'THE PUB / LAVATORY');
+    assert.ok(volumes.at(-1)>0&&volumes.at(-1)<=PUB_MUSIC.volume/10,'barely audible, but audible');
+    assert.ok(lowpasses.at(-1)<1000,'muffled by the wall');
+  };
   Object.assign(player,{x:pubInterior.PUB.toiletDoor.x,z:16.5,angle:0});press();
-  assert.equal(location(),'THE PUB / LAVATORY');
-  assert.equal(volumes.at(-1),0);
+  faint();
+  // Inside a cubicle it is gone entirely, and back in the lavatory faint again.
+  const [gents]=lavatory.LAVATORY.cubicles;
+  Object.assign(player,{x:gents.x,z:lavatory.LAVATORY.depth-1.5,angle:0});press();
+  assert.equal(location(),'THE PUB / GENTS');
+  assert.equal(volumes.at(-1),0,'silent in the cubicle');
+  Object.assign(player,{...lavatory.CUBICLE.spawn,angle:Math.PI});press();
+  faint();
+  // Back in the pub, the same tune carries on at full level.
   Object.assign(player,{...lavatory.LAVATORY.spawn,angle:Math.PI});press();
   assert.equal(location(),'THE PUB / LOUNGE','both rooms of the pub hear it');
   assert.equal(volumes.at(-1),PUB_MUSIC.volume);
+  assert.equal(lowpasses.at(-1),undefined);
   assert.equal(choices.length,1,'not started again');
   // Out on the street it stops; the next visit starts it afresh.
   Object.assign(player,{x:pubInterior.PUB.door.x,z:1.5,angle:Math.PI});press();
@@ -3847,13 +3861,13 @@ test('the hotel lobby plays soft, seamless, different loops of ambient music',as
 
 test('the lobby music is prepared ahead, starts the chosen piece from the top on each visit, and fades with the lobby',async()=>{
   const {LobbyMusic,LOBBY_PIECES}=await import('../neon-city/lobby-music.js');
-  const calls=[],sources=[];
-  const param=name=>({value:0,setTargetAtTime(v){calls.push([name,v]);}});
+  const log=[],sources=[],calls=[];
+  const param=name=>({value:0,setTargetAtTime(v){(name==='gain'?calls:log).push([name,v]);}});
   const context={state:'running',currentTime:0,destination:{},buffers:[],
     createBuffer(channels,length){const b={length,getChannelData:()=>new Float32Array(length)};this.buffers.push(b);return b;},
     createGain:()=>({gain:param('gain'),connect(){},disconnect(){}}),
     createBufferSource:()=>{const s={connect(){},disconnect(){},start(){calls.push(['start',s.buffer]);},stop(){s.stopped=true;}};sources.push(s);return s;},
-    createBiquadFilter:()=>({frequency:{value:0},connect(){}})};
+    createBiquadFilter:()=>({frequency:param('lowpass'),connect(){}})};
   const music=new LobbyMusic(),[first,second]=LOBBY_PIECES;
   music.update(context,.8);
   assert.equal(context.buffers.length,0,'nothing is built or played before a piece is chosen');
@@ -3865,6 +3879,8 @@ test('the lobby music is prepared ahead, starts the chosen piece from the top on
   assert.equal(sources[0].loop,true);
   music.update(context,0);music.mute();
   assert.deepEqual(calls.slice(2),[['gain',0],['gain',0]]);
+  // The lobby's speakers keep their own low-pass throughout.
+  assert.ok(log.length&&log.every(([,v])=>v===3200));
   // The next visit ends the last piece and starts its own from the top.
   for(const piece of [second,second]){
     calls.length=0;music.choose(piece);music.update(context,.8);
@@ -3911,6 +3927,14 @@ test('the pub plays a seamless, swung twelve-bar boogie-woogie on the piano',asy
   const rms=a=>Math.sqrt(a.reduce((sum,v)=>sum+v*v,0)/a.length);
   const ratio=rms(samples)*PUB_MUSIC.volume/(rms(lobbyMusicSamples(LOBBY_PIECES[0]))*LOBBY_MUSIC.volume);
   assert.ok(ratio>.85&&ratio<1.2,`level ${ratio}`);
+  // Through the lavatory wall: about 25 dB down, which sounds about a sixth
+  // as loud, and muffled; in a cubicle or out in the street, nothing.
+  const {pubMusicHeard}=await import('../neon-city/pub-music.js');
+  assert.deepEqual(pubMusicHeard('pub'),{volume:PUB_MUSIC.volume});
+  const lavatory=pubMusicHeard('lavatory'),down=20*Math.log10(lavatory.volume/PUB_MUSIC.volume);
+  assert.ok(down<-20&&down>-30,`${down} dB in the lavatory`);
+  assert.ok(lavatory.lowpass<1000);
+  for(const place of ['cubicle','street'])assert.equal(pubMusicHeard(place).volume,0);
   const started=performance.now();pubMusicSamples(BOOGIE);
   assert.ok(performance.now()-started<1000,'quick enough to prepare when sound is switched on');
 });

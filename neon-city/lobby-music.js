@@ -1,4 +1,4 @@
-import {MusicLoop} from './music-loop.js?v=pub-music-1';
+import {MusicLoop} from './music-loop.js?v=pub-music-2';
 // Hotel lobby music: slow ambient loops of soft pad chords over a low bass
 // note, with a sparse melody echoing away, played at a steady level in the
 // hall. Each visit to a lobby plays one of the pieces, chosen at random.
