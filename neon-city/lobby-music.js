@@ -1,6 +1,8 @@
 // Hotel lobby music: a slow ambient loop of soft pad chords, a low bass note
 // and a sparse bell melody echoing away, played at a steady level in the hall.
-export const LOBBY_MUSIC={rate:22050,chordSeconds:8,peak:.3,volume:.8};
+// The volume is a third quieter to the ear than the first level of .8: loudness
+// halves every 10 dB, so that is 10*log2(2/3), about -5.85 dB.
+export const LOBBY_MUSIC={rate:22050,chordSeconds:8,peak:.3,volume:.8*(2/3)**(Math.log2(10)/2)};
 const midi=n=>440*2**((n-69)/12);
 // Dmaj9, Bm9, Gmaj9, Aadd9 (bass, then pad notes), MIDI numbers.
 const CHORDS=[
