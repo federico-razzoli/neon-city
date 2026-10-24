@@ -1172,6 +1172,33 @@ test('pub seats zero to two patrons per table with exactly one beer per occupied
   }
 });
 
+test('pub beer colours are chosen per glass and persist across redraws and seat occupancy',async()=>{
+  const {PUB,createPubPatrons,drawPubInterior}=await import('../neon-city/pub-interior.js');
+  for(const value of [0,.2,1/3,.7]){
+    const patrons=createPubPatrons(()=>value);
+    assert.ok(patrons.every(seats=>seats.beerDark.every(dark=>dark===(value<1/3))));
+  }
+  let call=0;
+  const draws=[.6,0,.2,.4,.5,.5,.5,.5,.1,.8];
+  const patrons=createPubPatrons(()=>draws[call++%draws.length]);
+  assert.ok(patrons.every(seats=>seats.beerDark[0]&&!seats.beerDark[1]),'two glasses on one table can differ');
+  const render=()=>{
+    const glasses=[];
+    drawPubInterior({patrons,box(){},quad(){},face(vertices,color){
+      if(['#492c22','#bd873d'].includes(color)&&vertices.every(v=>Math.abs(v.y-1.102)<1e-8))glasses.push({color,x:vertices[0].x,z:vertices[0].z});
+    }});
+    return glasses;
+  };
+  const initial=render();
+  assert.equal(initial.filter(g=>g.color==='#492c22').length,PUB.tables.length);
+  assert.equal(initial.filter(g=>g.color==='#bd873d').length,PUB.tables.length);
+  assert.deepEqual(render(),initial,'camera-independent scene rebuild keeps each glass colour');
+  const occupant=patrons[0][0];patrons[0][0]=null;
+  assert.equal(render().length,initial.length-1,'empty chair has no beer');
+  patrons[0][0]=occupant;
+  assert.deepEqual(render(),initial,'returning to a seat keeps its glass colour');
+});
+
 test('pub collisions report seated patrons and bartender but not empty furniture or standing still',async()=>{
   const {PUB,pubChairs,moveInPub}=await import('../neon-city/pub-interior.js');
   const chair=pubChairs()[0],patrons=PUB.tables.map(()=>[null,null]);patrons[0][0]=0;
@@ -1561,8 +1588,8 @@ test('street characters appear in proportion to their weights, but pubs ignore w
   const {PUB,createPubPatrons}=await import('../neon-city/pub-interior.js');
   const pubCounts=new Map(PUB_TYPES.map(type=>[type,0]));
   for(let i=0;i<1100;i++){
-    // Per table: two patrons, first seat 0, both characters from the sweep, then beer sides and variants.
-    const draws=[.6,0,(i+.5)/1100,(i+.5)/1100,.5,.5,.5,.5];let call=0;
+    // Per table: two patrons, first seat 0, both characters from the sweep, then beer sides, variants, and beer colours.
+    const draws=[.6,0,(i+.5)/1100,(i+.5)/1100,.5,.5,.5,.5,.5,.5];let call=0;
     for(const seats of createPubPatrons(()=>draws[call++%draws.length]))for(const type of seats)pubCounts.set(type,pubCounts.get(type)+1);
   }
   assert.equal(new Set(pubCounts.values()).size,1,'pub patrons stay uniform');

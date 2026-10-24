@@ -47,6 +47,8 @@ export function createPubPatrons(random=Math.random){
     seats.beerSides=[random()<.5?-1:1,random()<.5?-1:1];
     // Outfit variants follow patrons between the street sprite and their seat.
     seats.variants=[random(),random()];
+    // Glass colours belong to the pub's persistent seats, not to a camera view.
+    seats.beerDark=[random()<1/3,random()<1/3];
     return seats;
   });
 }
@@ -167,10 +169,10 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     box(x-.015,y+.1,z-r-.008,.03,.07,.009,'#8a4b38');
     box(x-r*.55,y+.025,z-r*.83,.018,.2,.008,'#80907c');
   };
-  const pint=(x,y,z)=>{
-    cylinder(x,y,z,.1,.27,'#bd873d','#f2e0ae',.13);
+  const pint=(x,y,z,dark=false)=>{
+    cylinder(x,y,z,.1,.27,dark?'#492c22':'#bd873d','#f2e0ae',.13);
     cylinder(x,y+.27,z,.13,.045,'#eee0b0');
-    box(x-.08,y+.03,z-.1,.025,.19,.02,'#e7cca0');
+    box(x-.08,y+.03,z-.1,.025,.19,.02,dark?'#a68b68':'#e7cca0');
   };
   for(const [tableIndex,b] of PUB.tables.entries()){
     cylinder(b.x,0,b.z,.65,.12,'#3c2a21');
@@ -182,7 +184,8 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
       // Pick once per seat so glasses never jump sides while looking around.
       const seats=patrons[tableIndex];
       seats.beerSides??=[Math.random()<.5?-1:1,Math.random()<.5?-1:1];
-      pint(b.x+seats.beerSides[seat]*.65,1.102,b.z+(seat===0?-1:1)*(b.radius-.45));
+      seats.beerDark??=[Math.random()<1/3,Math.random()<1/3];
+      pint(b.x+seats.beerSides[seat]*.65,1.102,b.z+(seat===0?-1:1)*(b.radius-.45),seats.beerDark[seat]);
     }
   }
   for(const chair of pubChairs()){

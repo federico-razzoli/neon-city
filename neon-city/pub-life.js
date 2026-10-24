@@ -1,4 +1,4 @@
-import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-12';
+import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=beer-1';
 import {PUB_TYPES} from './world.js?v=characters-12';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});

@@ -1,4 +1,4 @@
-import {PubLife,PubConversation} from './pub-life.js?v=characters-12';
+import {PubLife,PubConversation} from './pub-life.js?v=beer-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=characters-12';
@@ -10,11 +10,12 @@ import {drawParkGround,drawParkStructures,facingBench} from './parks.js?v=parks-
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-12';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=beer-1';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
 import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=raster-1';
+import {hotelHIsDim,dimHotelH} from './hotel.js';
 import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
@@ -143,8 +144,16 @@ function box(x,y,z,w,h,d,color,roof=color){
   if(eye>y+h+(vehicleSurface?vehicleSurface(z+d/2):0))face([up(a),up(b),up(c),up(e)],roof);
   if(insidePub&&eye<y)face([e,c,b,a],color);
 }
-function wallTexture(b,side){
-  b.textures??=[];if(b.textures[side])return b.textures[side];
+function wallTexture(b,side,dim=hotelHIsDim(b,time)){
+  // Separate immutable textures keep the pitched renderer's pixel cache valid.
+  const textures=dim?(b.dimTextures??=[]):(b.textures??=[]);
+  if(textures[side])return textures[side];
+  if(dim){
+    const lit=wallTexture(b,side,false),c=document.createElement('canvas');
+    c.width=lit.width;c.height=lit.height;const g=c.getContext('2d');
+    g.drawImage(lit,0,0);dimHotelH(g,c.height);
+    textures[side]=c;return c;
+  }
   const c=document.createElement('canvas');c.width=160;c.height=b.h*9;const g=c.getContext('2d');
   g.fillStyle=b.color;g.fillRect(0,0,c.width,c.height);
   for(let y=8;y<c.height-42;y+=26)for(let x=9;x<155;x+=25){const lit=mod(x*17+y*13+b.seed,11)>4;g.fillStyle=lit?(mod(x+y+b.seed,3)?'#777086':'#b2968b'):'#14172a';g.fillRect(x,y,12,15);g.fillStyle='#252238';g.fillRect(x+5,y,2,15);g.fillRect(x,y+7,12,2);}
@@ -155,7 +164,7 @@ function wallTexture(b,side){
   g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign==='NEON PUB'?pubName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
   // The vertical hotel sign must fit entirely below the roofline.
   if(b.sign==='HOTEL'&&c.height>=137){g.fillStyle='#160c24';g.fillRect(132,c.height-137,24,72);g.fillStyle=b.neon;g.font='bold 12px monospace';for(let i=0;i<5;i++)g.fillText('HOTEL'[i],144,c.height-124+i*13);}
-  b.textures[side]=c;return c;
+  textures[side]=c;return c;
 }
 function building(b){
   const x=b.x,z=b.z,w=b.w,d=b.d,h=b.h;
