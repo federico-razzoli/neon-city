@@ -195,6 +195,32 @@ export const PARK_PATH_WIDTH = 3;
 // A fingerpost: the board hangs off the side of a 3.75 m pole, from its surface
 // out to the arrow tip, which points along z towards the river.
 export const RIVER_SIGN = {pole:.08, height:3.75, start:.08, reach:2.48, tip:.45, bottom:2.925, top:3.495};
+// A second board hangs just below the first on the same pole.
+export const LOWER_BOARD = {bottom:2.255, top:2.825};
+// The game starts in front of the first building of block 0,0, a few steps
+// from its corner towards block 1,0: just far enough to see the boards of the
+// fingerpost on the sidewalk corner by the crossroads, clear of the walkers.
+// Its pole is half as tall again as a park's, with the boards raised to match.
+export const START_SIGN = {x:8.6, z:8.6, height:1.5*RIVER_SIGN.height};
+export const START = {x:17, z:13.5, angle:Math.atan2(START_SIGN.x-17,START_SIGN.z-13.5)};
+// One block down one of the four streets from that crossroads is always a
+// park, with a block of buildings in between. No other park is generated as
+// close to the fingerpost, so it is the closest park.
+export const START_PARKS = [{x:2,z:0},{x:-2,z:0},{x:0,z:2},{x:0,z:-2}];
+// From the fingerpost to the nearest point of a block's lawn.
+export const startSignDistance = (x,z) => Math.hypot(
+  Math.max(x*BLOCK+14-START_SIGN.x,0,START_SIGN.x-x*BLOCK-50),
+  Math.max(z*BLOCK+14-START_SIGN.z,0,START_SIGN.z-z*BLOCK-50));
+// The boards point along the streets: to the river, and to the start park.
+export function startSignBoards(park){
+  const dx=(park.x+.5)*BLOCK-START_SIGN.x,dz=(park.z+.5)*BLOCK-START_SIGN.z;
+  const parkAxis=Math.abs(dx)>Math.abs(dz)?{dx:Math.sign(dx),dz:0}:{dx:0,dz:Math.sign(dz)};
+  const raise=START_SIGN.height-RIVER_SIGN.height;
+  return [
+    {text:'NIGHT RIVER',dx:0,dz:riverBearing(Math.floor(START_SIGN.z/BLOCK)).dz,bottom:RIVER_SIGN.bottom+raise,top:RIVER_SIGN.top+raise},
+    {text:'PARK',...parkAxis,bottom:LOWER_BOARD.bottom+raise,top:LOWER_BOARD.top+raise}
+  ];
+}
 // A walker reaching either end of the footpath takes it one time in four.
 export const FOOTPATH_CHANCE = .25;
 export const LOAD_RADIUS = 2;
@@ -227,7 +253,11 @@ export const NEWSPAPERS = ['DAILY BUGLE', 'NEON NEWS', 'THE RECORD'];
 const signs = ['DISCO', 'HOTEL', 'COCKTAILS', 'NEON PUB', 'PARADISE', 'BLUE NOTE', 'DREAMS', 'ARCADE', 'MIDNIGHT', 'CLUB 87'];
 const neon = ['#ff46b5', '#55e8ef', '#af78ff', '#ffbc57'];
 export class City {
-  constructor(seed = Date.now()) { this.rng = random(seed); this.chunks = new Map(); }
+  constructor(seed = Date.now()) {
+    this.rng = random(seed); this.chunks = new Map();
+    this.startPark = START_PARKS[Math.floor(this.rng() * START_PARKS.length)];
+    this.startSignBoards = startSignBoards(this.startPark);
+  }
   update(x, z) {
     const cx = Math.floor(x / BLOCK), cz = Math.floor(z / BLOCK);
     for (const [key, c] of this.chunks) if (Math.max(Math.abs(c.x - cx), Math.abs(c.z - cz)) > (c.river?RIVER_LOAD_RADIUS:KEEP_RADIUS)) this.chunks.delete(key);
@@ -250,7 +280,8 @@ export class City {
       // A three-block loop follows both banks between consecutive bridges.
       return {x,z,river:true,riverStart:start,buildings:[],people:z===start&&hasBridge(x)?people:[],manholes:[],newspaperMachines:[]};
     }
-    const park=r()<PARK_CHANCE&&!this.parkNear(x,z)?parkLayout(x,z,r):null;
+    const startPark=x===this.startPark.x&&z===this.startPark.z;
+    const park=startPark||r()<PARK_CHANCE&&!this.parkNear(x,z)?parkLayout(x,z,r):null;
     if(park)buildings.length=0;
     const manholes=[],slots=Array.from({length:32},(_,i)=>i);
     const count=Math.floor(r()*4);
@@ -275,6 +306,9 @@ export class City {
     return { x, z, buildings, people, manholes, newspaperMachines, park };
   }
   parkNear(x,z) {
+    // The start park counts even before it is cached, and stays the closest.
+    if(Math.max(Math.abs(this.startPark.x-x),Math.abs(this.startPark.z-z))<=PARK_GAP)return true;
+    if(startSignDistance(x,z)<=startSignDistance(this.startPark.x,this.startPark.z))return true;
     for(const c of this.chunks.values())if(c.park&&Math.max(Math.abs(c.x-x),Math.abs(c.z-z))<=PARK_GAP)return true;
     return false;
   }
@@ -296,6 +330,7 @@ export class City {
         (park.sign!=null&&Math.hypot(x-park.sign.x,z-park.sign.z)<RIVER_SIGN.pole+radius)||
         park.benches.some(b=>Math.abs((x-b.x)*b.tx+(z-b.z)*b.tz)<1.08+radius&&Math.abs((x-b.x)*b.nx+(z-b.z)*b.nz)<.3+radius);
     }
+    if(Math.hypot(x-START_SIGN.x,z-START_SIGN.z)<RIVER_SIGN.pole+radius)return true;
     return (chunk?.newspaperMachines??[]).some(m=>Math.abs(x-m.x)<m.w/2+radius&&Math.abs(z-m.z)<m.d/2+radius);
   }
   pedestrians(time) {

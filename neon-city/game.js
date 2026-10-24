@@ -3,11 +3,11 @@ import {PubLife,PubConversation} from './pub-life.js?v=enter-talk-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=bump-physical-1-5';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=start-sign-6';
 import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
-import {drawParkGround,drawParkStructures,facingBench,paintRiverSign,RIVER_SIGN_TEXTURE} from './parks.js?v=talk-13';
+import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=start-sign-6';
 import {WalkerTalk,talksHere} from './walker-talk.js?v=lavatory-talk-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
@@ -130,7 +130,7 @@ talkBox.addEventListener('click',e=>{
   canvas.focus();
   answerStaff(button?.dataset.choice==null?undefined:Number(button.dataset.choice));
 });
-const city=new City(),player={x:10,z:4,angle:.12},keys=new Set(),shiftKeys=new Set();
+const city=new City(),player={...START},keys=new Set(),shiftKeys=new Set();
 const roadTraffic=new Traffic();
 const W=640,H=360,F=355,horizon=164;
 let eye=1.65;
@@ -319,14 +319,15 @@ function newspaperMachine(m){
   face([point(-.5*scale,.08),point(.5*scale,.08),point(.5*scale,top),point(-.5*scale,top)].map((p,i)=>({...p,u:[0,160,160,0][i],v:[224,224,0,0][i]})),look.paint,newspaperTextures[paper]);
   for(let i=firstFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;}
 }
-// One texture per direction the arrow can point on screen.
-const riverSignTextures=[];
-function riverSignTexture(tipRight){
-  if(!riverSignTextures[+tipRight]){
-    const c=document.createElement('canvas');c.width=RIVER_SIGN_TEXTURE.width;c.height=RIVER_SIGN_TEXTURE.height;
-    paintRiverSign(c.getContext('2d'),tipRight);riverSignTextures[+tipRight]=c;
+// One texture per board text and direction the arrow can point on screen.
+const signTextures=new Map();
+function signTexture(text,tipRight){
+  const key=`${text}|${tipRight}`;
+  if(!signTextures.has(key)){
+    const c=document.createElement('canvas');c.width=SIGN_TEXTURE.width;c.height=SIGN_TEXTURE.height;
+    paintSign(c.getContext('2d'),text,tipRight);signTextures.set(key,c);
   }
-  return riverSignTextures[+tipRight];
+  return signTextures.get(key);
 }
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
@@ -461,11 +462,14 @@ function render(){
     if(chunk.park){
       // Benches and trees are small, layered objects; order them at real overlaps.
       const first=queue.length;
-      drawParkStructures(chunk,{face,riverSignTexture},{x:player.x,y:eye,z:player.z});
+      drawParkStructures(chunk,{face,signTexture},{x:player.x,y:eye,z:player.z});
       for(let i=first;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
     }
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
   }
+  const firstSignFace=queue.length;
+  drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z});
+  for(let i=firstSignFace;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
   for(const c of roadTraffic.cars)if(Math.hypot(c.x-player.x,c.z-player.z)<RIVER_VIEW_DISTANCE)car(c);
   queue=orderSurfaces(queue);
   ctx.save();if(!reduced)ctx.translate(shake?Math.sin(time*85)*shake:0,running?Math.sin(steps)*.65:0);

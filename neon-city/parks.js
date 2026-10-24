@@ -1,4 +1,4 @@
-import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,mod,pathDistance} from './world.js?v=talk-13';
+import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,mod,pathDistance} from './world.js?v=start-sign-6';
 
 // Ground terrain is painted in order of elevation, so each layer sits above
 // the one it must cover: the footpath always paints over the lawn and its decals.
@@ -126,11 +126,11 @@ function pineCone(c,face,viewer){
 
 const SIGN_POST=['#1d2230','#272d3d','#323a4c','#3e475b'];
 const SIGN_BOARD='#1f5bb5',SIGN_EDGE='#123a78',SIGN_TEXT='#ffffff';
-export const RIVER_SIGN_TEXTURE={width:300,height:72};
-// One face of the board: white on glossy blue. The tip is on the right or the
+export const SIGN_TEXTURE={width:300,height:72};
+// One face of a board: white on glossy blue. The tip is on the right or the
 // left, so the words read forwards from either side of the sign.
-export function paintRiverSign(g,tipRight){
-  const {width:w,height:h}=RIVER_SIGN_TEXTURE,tip=w*RIVER_SIGN.tip/(RIVER_SIGN.reach-RIVER_SIGN.start);
+export function paintSign(g,text,tipRight){
+  const {width:w,height:h}=SIGN_TEXTURE,tip=w*RIVER_SIGN.tip/(RIVER_SIGN.reach-RIVER_SIGN.start);
   // Enamel catches the moonlight near the top and darkens towards the bottom.
   const enamel=g.createLinearGradient(0,0,0,h);
   enamel.addColorStop(0,'#3d7fd6');enamel.addColorStop(.45,SIGN_BOARD);enamel.addColorStop(1,'#184a99');
@@ -145,33 +145,40 @@ export function paintRiverSign(g,tipRight){
   g.strokeStyle=SIGN_TEXT;g.lineWidth=3;g.stroke();
   g.restore();
   g.font='bold 32px monospace';g.textAlign='center';g.textBaseline='middle';g.fillStyle=SIGN_TEXT;
-  g.fillText('NIGHT RIVER',tipRight?(w-tip)/2+3:tip+(w-tip)/2-3,h/2+1,w-tip-20);
+  g.fillText(text,tipRight?(w-tip)/2+3:tip+(w-tip)/2-3,h/2+1,w-tip-20);
 }
 
-// A pole with an arrow-shaped board pointing along z, at s.dz, to the river.
-function riverSign(s,face,viewer,texture){
-  const {pole,height,start,reach,tip,bottom,top}=RIVER_SIGN,half=.035,{width,height:rows}=RIVER_SIGN_TEXTURE;
-  band(face,viewer,s,0,pole,height,pole,SIGN_POST,{sides:6,bottom:false});
-  // The board outline as (along, y), anticlockwise; along runs towards the river.
+// An arrow-shaped board hanging off a pole at s, pointing along the street
+// direction (dx,dz) between heights bottom and top.
+function signBoard(s,{text,dx,dz,bottom,top},face,viewer,texture){
+  const {start,reach,tip}=RIVER_SIGN,half=.035,{width,height:rows}=SIGN_TEXTURE;
+  // The board outline as (along, y), anticlockwise; along runs towards the tip.
   const outline=[[start,bottom],[reach-tip,bottom],[reach,(bottom+top)/2],[reach-tip,top],[start,top]];
-  const at=(a,y,side)=>({x:s.x+side*half,y,z:s.z+s.dz*a});
+  const at=(a,y,side)=>({x:s.x+side*half*dz+dx*a,y,z:s.z-side*half*dx+dz*a});
   for(const side of [-1,1]){
-    if(!visible(viewer,at(start,bottom,side),{x:side,y:0,z:0}))continue;
-    // Seen from +x, +z is on the viewer's right. Texture u grows rightwards.
-    const tipRight=side*s.dz>0;
-    face(outline.map(([a,y])=>({...at(a,y,side),u:(tipRight?a-start:reach-a)/(reach-start)*width,v:(top-y)/(top-bottom)*rows})),SIGN_BOARD,texture?.(tipRight)??null);
+    if(!visible(viewer,at(start,bottom,side),{x:side*dz,y:0,z:-side*dx}))continue;
+    // Seen from side 1, the tip is on the viewer's right. Texture u grows rightwards.
+    const tipRight=side>0;
+    face(outline.map(([a,y])=>({...at(a,y,side),u:(tipRight?a-start:reach-a)/(reach-start)*width,v:(top-y)/(top-bottom)*rows})),SIGN_BOARD,texture?.(text,tipRight)??null);
   }
   for(let i=0;i<outline.length;i++){
-    const [a0,y0]=outline[i],[a1,y1]=outline[(i+1)%outline.length],n={x:0,y:a0-a1,z:(y1-y0)*s.dz};
+    const [a0,y0]=outline[i],[a1,y1]=outline[(i+1)%outline.length],n={x:(y1-y0)*dx,y:a0-a1,z:(y1-y0)*dz};
     if(!visible(viewer,at(a0,y0,1),n))continue;
     face([at(a0,y0,-1),at(a1,y1,-1),at(a1,y1,1),at(a0,y0,1)],SIGN_EDGE);
   }
 }
 
-export function drawParkStructures(chunk,{face,riverSignTexture},viewer){
+// A pole, as tall as s.height or a park's, with one board per entry in boards.
+export function drawFingerpost(s,boards,{face,signTexture},viewer){
+  band(face,viewer,s,0,RIVER_SIGN.pole,s.height??RIVER_SIGN.height,RIVER_SIGN.pole,SIGN_POST,{sides:6,bottom:false});
+  for(const b of boards)signBoard(s,b,face,viewer,signTexture);
+}
+
+export function drawParkStructures(chunk,{face,signTexture},viewer){
   for(const c of chunk.park.cones)pineCone(c,face,viewer);
   for(const b of chunk.park.benches)bench(b,face,viewer);
-  if(chunk.park.sign)riverSign(chunk.park.sign,face,viewer,riverSignTexture);
+  const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
+  if(sign)drawFingerpost(sign,[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}],{face,signTexture},viewer);
   for(const t of chunk.park.trees)tree(t,face,viewer);
 }
 

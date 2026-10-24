@@ -316,7 +316,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
+  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -1048,7 +1048,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     return elements.get(id);
   };
   let bumpedPerson=null;
-  const sandbox={WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+  const sandbox={START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -1524,7 +1524,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
-  const sandbox={...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -2489,7 +2489,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -3247,19 +3247,23 @@ test('bridge pavement stays behind pedestrian legs at oblique camera bearings',a
 
 test('one block in ten becomes a park with benches and trees in place of buildings',async()=>{
   const {PARK_CHANCE}=await import('../neon-city/world.js');
-  const city=new City(7);let parks=0,total=0;
-  for(let x=-40;x<40;x++)for(let z=-30;z<30;z++){
-    if(RIVER_ROWS.some(row=>z===row||z===row+1))continue;
-    const chunk=city.generate(x,z);total++;
-    if(!chunk.park){assert.equal(chunk.buildings.length,4);continue;}
-    parks++;
-    assert.equal(chunk.buildings.length+chunk.newspaperMachines.length,0);
-    assert.equal(chunk.park.benches.length,2);
-    assert.ok(chunk.park.trees.length>=3&&chunk.park.trees.length<=5);
+  // Several cities, so the share does not hang on one random sample.
+  let parks=0,total=0;
+  for(const seed of [7,8,9,10]){
+    const city=new City(seed);
+    for(let x=-40;x<40;x++)for(let z=-30;z<30;z++){
+      if(RIVER_ROWS.some(row=>z===row||z===row+1))continue;
+      const chunk=city.generate(x,z);total++;
+      if(!chunk.park){assert.equal(chunk.buildings.length,4);continue;}
+      parks++;
+      assert.equal(chunk.buildings.length+chunk.newspaperMachines.length,0);
+      assert.equal(chunk.park.benches.length,2);
+      assert.ok(chunk.park.trees.length>=3&&chunk.park.trees.length<=5);
+    }
+    for(const row of RIVER_ROWS)assert.ok(!city.generate(0,row).park,'river blocks never become parks');
   }
   assert.equal(PARK_CHANCE,.1);
   assert.ok(Math.abs(parks/total-PARK_CHANCE)<.015,`park share ${parks/total}`);
-  for(const row of RIVER_ROWS)assert.ok(!city.generate(0,row).park,'river blocks never become parks');
 });
 
 test('cached parks always have at least two ordinary blocks between them, diagonals included',()=>{
@@ -3430,7 +3434,7 @@ test('parks away from the river have a NIGHT RIVER sign pointing towards it; par
 
 test('the NIGHT RIVER arrow points to the river on screen from either side, with its words unmirrored',async()=>{
   const {RIVER_SIGN}=await import('../neon-city/world.js');
-  const {drawParkStructures,RIVER_SIGN_TEXTURE}=await import('../neon-city/parks.js');
+  const {drawParkStructures,SIGN_TEXTURE}=await import('../neon-city/parks.js');
   const river=RIVER_ROWS[0];
   for(const row of [river-3,river+4]){
     const {chunk}=parkInRow(row,5),sign=chunk.park.sign,riverZ=river*BLOCK+64;
@@ -3438,7 +3442,7 @@ test('the NIGHT RIVER arrow points to the river on screen from either side, with
     for(const side of [-1,1]){
       const viewer={x:mid.x+side*7,y:1.65,z:mid.z+2};
       const faces=[];
-      drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[]}},{face:(v,color,texture)=>faces.push({v,texture}),riverSignTexture:tipRight=>({tipRight})},viewer);
+      drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[]}},{face:(v,color,texture)=>faces.push({v,texture}),signTexture:(text,tipRight)=>({text,tipRight})},viewer);
       const boards=faces.filter(f=>f.texture);
       assert.equal(boards.length,1,'only the near face of the board is drawn');
       const {v,texture}=boards[0];
@@ -3451,8 +3455,118 @@ test('the NIGHT RIVER arrow points to the river on screen from either side, with
       // Texture u grows to the viewer's right, so text reads forwards.
       const sorted=[...v].sort((p,q)=>right(p)-right(q));
       assert.ok(sorted[0].u<sorted.at(-1).u);
-      assert.ok(v.every(p=>p.u>=0&&p.u<=RIVER_SIGN_TEXTURE.width&&p.v>=0&&p.v<=RIVER_SIGN_TEXTURE.height));
+      assert.ok(v.every(p=>p.u>=0&&p.u<=SIGN_TEXTURE.width&&p.v>=0&&p.v<=SIGN_TEXTURE.height));
       assert.ok(Math.min(...v.map(p=>p.y))>2.8&&Math.max(...v.map(p=>p.y))<3.75,'the board hangs well above head height, below the pole top');
+    }
+  }
+});
+
+test('the game starts beside the building corner, just far enough to see the fingerpost boards on the sidewalk corner',async()=>{
+  const {START,START_SIGN,RIVER_SIGN,LOWER_BOARD}=await import('../neon-city/world.js');
+  const city=new City(1);city.update(START.x,START.z);
+  const corner=city.chunks.get('0,0').buildings.find(b=>b.i===0&&b.j===0);
+  assert.deepEqual([corner.x,corner.z],[14,14]);
+  assert.ok(!city.solid(START.x,START.z),'free to move');
+  assert.ok(city.solid(START.x,START.z+.1),'right against the building front');
+  assert.ok(START.x>corner.x&&START.z<corner.z,'a few steps from its corner, towards block 1,0');
+  // The pole stands on the kerb corner of block 0,0, by the crossroads.
+  assert.ok(START_SIGN.x>8&&START_SIGN.x<9&&START_SIGN.z>8&&START_SIGN.z<9);
+  assert.ok(city.solid(START_SIGN.x,START_SIGN.z),'the pole blocks walking');
+  const dx=START_SIGN.x-START.x,dz=START_SIGN.z-START.z,distance=Math.hypot(dx,dz);
+  assert.ok(Math.abs((dx*Math.sin(START.angle)+dz*Math.cos(START.angle))/distance-1)<1e-12,'looking straight at the pole');
+  // The pole is half as tall again as a park sign's, and its boards are raised
+  // to match, keeping the same gap below its top.
+  assert.equal(START_SIGN.height,1.5*RIVER_SIGN.height);
+  const [river,park]=city.startSignBoards;
+  assert.ok(Math.abs(START_SIGN.height-river.top-(RIVER_SIGN.height-RIVER_SIGN.top))<1e-9);
+  assert.ok(Math.abs(river.bottom-park.top-(RIVER_SIGN.bottom-LOWER_BOARD.top))<1e-9);
+  // Walkers on the corner never brush the pole, even stepping aside towards the kerb.
+  for(let seed=1;seed<10;seed++){
+    const city=new City(seed);city.update(START.x,START.z);
+    const chunk=city.chunks.get('0,0');
+    for(const p of chunk.people)for(let t=0;t<200;t+=.25){
+      const pos=pedestrian(chunk,p,t);
+      assert.ok(Math.hypot(pos.x-START_SIGN.x,pos.z-START_SIGN.z)>1.3+RIVER_SIGN.pole+.4);
+    }
+  }
+});
+
+test('the start fingerpost points along the streets to the river and to the closest park, which varies between games',async()=>{
+  const {START,START_SIGN,START_PARKS,RIVER_SIGN}=await import('../neon-city/world.js');
+  // Each start park lies down a street from the start block, one block beyond its neighbour.
+  for(const {x,z} of START_PARKS)assert.ok(Math.abs(x)+Math.abs(z)===2&&(x===0||z===0));
+  const water=(RIVER_ROWS[0]*BLOCK+18+RIVER_ROWS[0]*BLOCK+110)/2;
+  const lawnDistance=c=>Math.hypot(Math.max(c.x*BLOCK+14-START_SIGN.x,0,START_SIGN.x-c.x*BLOCK-50),Math.max(c.z*BLOCK+14-START_SIGN.z,0,START_SIGN.z-c.z*BLOCK-50));
+  const directions=new Set();
+  for(let seed=1;seed<60;seed++){
+    const city=new City(seed),[river,park]=city.startSignBoards;
+    assert.deepEqual([river.text,park.text],['NIGHT RIVER','PARK']);
+    for(const b of city.startSignBoards)assert.equal(Math.abs(b.dx)+Math.abs(b.dz),1,'along a street');
+    // The river lies straight ahead along z.
+    assert.equal(river.dx,0);assert.equal(river.dz,Math.sign(water-START_SIGN.z));
+    // The boards hang at different heights, both above head height.
+    assert.ok(park.top<river.bottom&&park.bottom>2.2&&river.top<START_SIGN.height);
+    assert.ok(START_PARKS.includes(city.startPark));
+    // Wander away and back, so blocks are dropped and generated again.
+    for(let i=0;i<40;i++)city.update(START.x+Math.sin(i*.3)*600,START.z-Math.abs(Math.cos(i*.2))*500);
+    city.update(START.x,START.z);
+    const startPark=city.chunks.get(`${city.startPark.x},${city.startPark.z}`);
+    assert.ok(startPark.park,'the start park is always there');
+    const between=city.chunks.get(`${city.startPark.x/2},${city.startPark.z/2}`);
+    assert.ok(!between.park&&between.buildings.length===4,'a block of buildings separates it from the start block');
+    for(let x=-8;x<=8;x++)for(let z=-8;z<=3;z++){
+      const chunk=city.chunks.get(`${x},${z}`)??city.generate(x,z);
+      if(chunk.park&&chunk!==startPark)assert.ok(lawnDistance(chunk)>lawnDistance(startPark),`park ${x},${z} is closer`);
+    }
+    // The PARK arrow follows the street towards the park's lawn.
+    const lawn={x:(city.startPark.x+.5)*BLOCK,z:(city.startPark.z+.5)*BLOCK};
+    const along=(lawn.x-START_SIGN.x)*park.dx+(lawn.z-START_SIGN.z)*park.dz,across=Math.abs((lawn.x-START_SIGN.x)*park.dz-(lawn.z-START_SIGN.z)*park.dx);
+    assert.ok(along>0&&along>across);
+    directions.add(`${park.dx},${park.dz}`);
+  }
+  assert.equal(directions.size,4,'the park can lie down any of the four streets');
+});
+
+test('from the start, each fingerpost arrow points across the screen towards its place, with words unmirrored',async()=>{
+  const {START,START_SIGN,START_PARKS,startSignBoards}=await import('../neon-city/world.js');
+  const {drawFingerpost,SIGN_TEXTURE}=await import('../neon-city/parks.js');
+  const viewer={x:START.x,y:1.65,z:START.z};
+  const f={x:Math.sin(START.angle),z:Math.cos(START.angle)},right=p=>(p.x-viewer.x)*f.z-(p.z-viewer.z)*f.x;
+  // Screen x, measured from the pole, so perspective cannot flip a far target.
+  const screen=p=>right(p)/((p.x-viewer.x)*f.x+(p.z-viewer.z)*f.z);
+  for(const startPark of START_PARKS){
+    const faces=[];
+    drawFingerpost(START_SIGN,startSignBoards(startPark),{face:(v,color,texture)=>faces.push({v,texture}),signTexture:(text,tipRight)=>({text,tipRight})},viewer);
+    const boards=faces.filter(f=>f.texture);
+    assert.deepEqual(boards.map(b=>b.texture.text),['NIGHT RIVER','PARK'],'one face of each board');
+    // Both boards fit on screen (F=355, horizon=164, 640 wide), but would not
+    // a metre closer to the corner.
+    const screenTop=(at,board)=>{
+      const g={x:Math.sin(at.angle),z:Math.cos(at.angle)},margin=[];
+      drawFingerpost(START_SIGN,[board],{face:(v,color,texture)=>{if(texture)margin.push(...v);},signTexture:()=>({})},{x:at.x,y:1.65,z:at.z});
+      return Math.min(...margin.map(p=>{
+        const depth=(p.x-at.x)*g.x+(p.z-at.z)*g.z,across=(p.x-at.x)*g.z-(p.z-at.z)*g.x;
+        assert.ok(Math.abs(across*355/depth)<320,'within the screen width');
+        return 164-(p.y-1.65)*355/depth;
+      }));
+    };
+    const closer={x:START.x-1,z:START.z,angle:Math.atan2(START_SIGN.x-START.x+1,START_SIGN.z-START.z)};
+    for(const board of startSignBoards(startPark))assert.ok(screenTop(START,board)>0,`${board.text} is below the top of the screen`);
+    assert.ok(startSignBoards(startPark).some(board=>screenTop(closer,board)<0),'not further than needed');
+    const top=Math.max(...faces.filter(f=>!f.texture).flatMap(f=>f.v.map(p=>p.y)));
+    assert.ok(Math.abs(top-START_SIGN.height)<1e-9,'the pole reaches its full height');
+    // A point a little way down the street towards each place.
+    const towards={'NIGHT RIVER':{x:START_SIGN.x,z:RIVER_ROWS[0]*BLOCK+64},PARK:{x:(startPark.x+.5)*BLOCK,z:(startPark.z+.5)*BLOCK}};
+    for(const {v,texture} of boards){
+      const target=towards[texture.text],step=Math.hypot(target.x-START_SIGN.x,target.z-START_SIGN.z)/3;
+      const near={x:START_SIGN.x+(target.x-START_SIGN.x)/step,z:START_SIGN.z+(target.z-START_SIGN.z)/step};
+      const tip=v.reduce((a,b)=>Math.hypot(b.x-START_SIGN.x,b.z-START_SIGN.z)>Math.hypot(a.x-START_SIGN.x,a.z-START_SIGN.z)?b:a);
+      const targetRight=screen(near)>screen(START_SIGN);
+      assert.equal(screen(tip)>screen(START_SIGN),targetRight,`${texture.text} tip is on its place's side`);
+      assert.equal(texture.tipRight,targetRight,'the painted outline matches the board');
+      const sorted=[...v].sort((p,q)=>screen(p)-screen(q));
+      assert.ok(sorted[0].u<sorted.at(-1).u,'text reads forwards');
+      assert.ok(v.every(p=>p.u>=0&&p.u<=SIGN_TEXTURE.width&&p.v>=0&&p.v<=SIGN_TEXTURE.height));
     }
   }
 });
