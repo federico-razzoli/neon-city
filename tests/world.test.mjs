@@ -628,7 +628,7 @@ test('wall texture lines follow perspective through left and right turns and nea
 });
 
 test('pitched wall textures stay perspective-correct when a seated player looks up',async()=>{
-  const {pitchedWallRuns,wallColumns}=await import('../neon-city/perspective.js');
+  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
   const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
   let checked=0;
   for(const pitch of [.2,.6,1.1])for(const angle of [-.7,0,.5]){
@@ -649,25 +649,61 @@ test('pitched wall textures stay perspective-correct when a seated player looks 
       const wx=(p.x*ay.y-p.y*ay.x)/det,wy=(ax.x*p.y-ax.y*p.x)/det;
       return {u:(wx+4)*160/8,v:180*(1-wy/20)};
     };
-    const runs=[...pitchedWallRuns(vs.map(project),vs,640)];
-    assert.ok(runs.length>[...wallColumns(vs.map(project),vs,640)].length,'tilted walls cross texel columns');
-    for(const {x,top,bottom,column} of runs){
-      assert.ok(bottom.y>=top.y);
-      // The run's texel column is the true one at its centre, and v maps to
-      // screen y within half a pixel along the whole run.
-      const mid=(top.y+bottom.y)/2,truth=texel(x+.5,mid);
-      assert.ok(Math.abs(truth.u-(column+.5))<=.5+1e-6,`column ${column} vs ${truth.u.toFixed(2)}`);
-      for(const f of [0,.25,.5,.75,1]){
-        const y=top.y+(bottom.y-top.y)*f,drawn=top.v+(bottom.v-top.v)*f,real=texel(x+.5,y).v;
-        const pixelsPerTexel=Math.abs((bottom.y-top.y)/((bottom.v-top.v)||1e-12));
-        assert.ok(Math.abs(drawn-real)*pixelsPerTexel<.75,`v off by ${(Math.abs(drawn-real)*pixelsPerTexel).toFixed(2)}px`);
-      }
+    const texture={width:160,height:180,data:new Uint8ClampedArray(160*180*4)};
+    for(let y=0;y<180;y++)for(let x=0;x<160;x++)texture.data.set([x,y,73,255],(y*160+x)*4);
+    const pixels=new Uint8ClampedArray(640*360*4);
+    const bounds=rasterizePitchedWall(vs.map(project),vs,texture,640,360,pixels);
+    assert.ok(bounds&&bounds.left>=0&&bounds.top>=0&&bounds.left+bounds.width<=640&&bounds.top+bounds.height<=360);
+    let samples=0;
+    for(let y=0;y<360;y+=3)for(let x=0;x<640;x+=3){
+      const offset=(y*640+x)*4;
+      if(!pixels[offset+3])continue;
+      const truth=texel(x+.5,y+.5);
+      assert.ok(Math.abs(pixels[offset]-Math.max(0,Math.min(159,truth.u-.5)))<=.501,'u matches independent ray intersection');
+      assert.ok(Math.abs(pixels[offset+1]-Math.max(0,Math.min(179,truth.v-.5)))<=.501,'v matches independent ray intersection');
+      assert.equal(pixels[offset+2],73);samples++;
     }
+    assert.ok(samples>0);
+
   }
   assert.ok(checked>=6,`${checked} camera setups checked`);
-  // Level views reduce to the standard columns: one run each.
-  const level=[{x:-4,y:-1.5,z:8,u:0,v:180},{x:4,y:-1.5,z:12,u:160,v:180},{x:4,y:18.5,z:12,u:160,v:0},{x:-4,y:18.5,z:8,u:0,v:0}];
-  assert.equal([...pitchedWallRuns(level.map(project),level,640)].length,[...wallColumns(level.map(project),level,640)].length);
+
+});
+
+test('pitched textures clip to the viewport, clear scratch pixels, and preserve filtered alpha',async()=>{
+  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
+  const points=[{x:-100000,y:-100000},{x:100000,y:-100000},{x:500,y:300},{x:100,y:300}];
+  const vertices=[{z:.15,u:0,v:0},{z:.15,u:2,v:0},{z:100,u:2,v:2},{z:100,u:0,v:2}];
+  const texture={width:2,height:2,data:new Uint8ClampedArray([255,0,0,255,0,255,0,0,255,0,0,255,0,255,0,0])};
+  const pixels=new Uint8ClampedArray(640*360*4).fill(255);
+  const bounds=rasterizePitchedWall(points,vertices,texture,640,360,pixels);
+  assert.deepEqual(bounds,{left:0,top:0,width:640,height:300});
+  assert.equal(pixels[(299*640)*4+3],0,'scratch pixels outside the polygon are cleared');
+  assert.equal(rasterizePitchedWall(points.map(p=>({x:p.x+200000,y:p.y})),vertices,texture,640,360,pixels),null);
+  const square=[{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
+  const uv=[{z:1,u:0,v:0},{z:1,u:2,v:0},{z:1,u:2,v:2},{z:1,u:0,v:2}];
+  const sample=new Uint8ClampedArray(4);
+  rasterizePitchedWall(square,uv,texture,1,1,sample,true);
+  assert.deepEqual([...sample],[255,0,0,128],'bilinear filtering uses premultiplied alpha');
+});
+
+test('pitched texture panels meet without gaps and support upside-down walls',async()=>{
+  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
+  const texture={width:8,height:8,data:new Uint8ClampedArray(8*8*4)};
+  for(let y=0;y<8;y++)for(let x=0;x<8;x++)texture.data.set([x*20,y*20,10,255],(y*8+x)*4);
+  const coverage=new Uint8Array(64);
+  for(const [left,right] of [[0,3.5],[3.5,8]]){
+    const points=[{x:left,y:0},{x:right,y:0},{x:right,y:8},{x:left,y:8}];
+    const vertices=points.map(p=>({z:2,u:p.x,v:8-p.y}));
+    const pixels=new Uint8ClampedArray(64*4);
+    rasterizePitchedWall(points,vertices,texture,8,8,pixels);
+    for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+      const i=y*8+x;if(!pixels[i*4+3])continue;
+      coverage[i]++;
+      assert.deepEqual([...pixels.slice(i*4,i*4+4)],[x*20,(7-y)*20,10,255]);
+    }
+  }
+  assert.ok(coverage.every(n=>n===1),'each pixel belongs to exactly one panel, including shared edge pixel centres');
 });
 
 test('all pedestrian types have distinct cached front/back sprites and walking frames',async()=>{
@@ -956,6 +992,11 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const facing=player.angle;
   assert.ok(Math.abs(Math.cos(facing)+1)<1e-9,'seated, facing away from the backrest');
   assert.ok(Math.abs(sandbox.game.camera({x:39.5,y:1.5,z:29}).y)<1e-9,'seated eye height');
+  events.keydown({key:'ArrowUp',preventDefault(){}});tick(ms+=100);
+  assert.ok(Math.abs(sandbox.game.seat.pitch-.1*1.65)<1e-9,'100ms frame does not slow camera to the simulation cap');
+  events.keyup({key:'ArrowUp'});events.keydown({key:'ArrowDown',preventDefault(){}});tick(ms+=100);
+  events.keyup({key:'ArrowDown'});
+  assert.equal(sandbox.game.seat.pitch,0);
   const benchMoves=moves;
   for(const movement of ['ArrowUp','ArrowDown','w','s','a','d']){
     events.keydown({key:movement,preventDefault(){}});tick(ms+=20);
@@ -980,6 +1021,15 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(sandbox.game.camera({x:player.x,y:1.65,z:player.z-2}).y,0,'standing resets pitch and eye height');
   events.keyup(key);events.keydown({key:'ArrowUp',preventDefault(){}});tick(ms+=20);
   assert.ok(moves>benchMoves,'walking resumes after standing');
+  let movement;
+  city.move=(p,x,z)=>{movement=Math.hypot(x,z);return false;};
+  const angleBefore=player.angle;
+  events.keydown({key:'ArrowRight',preventDefault(){}});tick(ms+=100);
+  assert.ok(Math.abs(player.angle-angleBefore-.1*1.65)<1e-9,'standing rotation also follows elapsed time');
+  assert.ok(Math.abs(movement-.04*5.8)<1e-9,'movement keeps its collision-safe time cap');
+  const beforeStall=player.angle;tick(ms+=2000);
+  assert.ok(Math.abs(player.angle-beforeStall-.25*1.65)<1e-9,'long stalls cannot cause unbounded camera jumps');
+  events.keyup({key:'ArrowRight'});events.keyup({key:'ArrowUp'});
 
 });
 

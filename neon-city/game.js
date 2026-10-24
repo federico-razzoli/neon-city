@@ -14,7 +14,7 @@ import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,fac
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
-import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=bench-1';
+import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=raster-1';
 import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
@@ -379,16 +379,18 @@ for(const button of document.querySelectorAll('[data-key]')){
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
 function tick(now){
-  const dt=Math.min((now-last)/1000,.04);last=now;
+  // Camera input follows elapsed time through ordinary slow frames. Bound long
+  // stalls, while retaining the smaller simulation step for safe movement.
+  const elapsed=Math.max(0,(now-last)/1000),cameraDt=Math.min(elapsed,.25),dt=Math.min(elapsed,.04);last=now;
   if(running&&!pubMenu.open){
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     const pace=!playerSeat&&keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;
-    player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*dt*1.65*pace;
+    player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*cameraDt*1.65*pace;
     if(playerSeat){
       player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
-      playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+tilt*dt*1.65));
+      playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
     }
     const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(insidePub){
