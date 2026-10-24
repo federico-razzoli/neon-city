@@ -61,17 +61,23 @@ export function drawBridgeFascias(chunk,{face},viewer,belowGround=false){
   }
 }
 
-export function drawRiverStructures(chunk,{face,box},viewer){
-  drawBridgeFascias(chunk,{face},viewer);
+// Below-ground faces must be painted before the grass, promenade, and roads.
+export function drawRiverbankFaces(chunk,{face},viewer){
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const bank=chunk.z===chunk.riverStart?start+18:start+110;
   // Stone retaining walls expose the full drop from the grass to the water.
   const waterSide=!viewer||(chunk.z===chunk.riverStart?viewer.z>bank:viewer.z<bank);
   for(let a=0;waterSide&&a<64;a+=8){
     for(let y=WATER_LEVEL;y<0;y+=1.4){
-      face([{x:x+a,y,z:bank},{x:x+a+8,y,z:bank},{x:x+a+8,y:y+1.4,z:bank},{x:x+a,y:y+1.4,z:bank}],Math.round((y-WATER_LEVEL)/1.4)%2?'#52566a':'#454c60');
+      face([{x:x+a,y,z:bank},{x:x+a+8,y,z:bank},{x:x+a+8,y:Math.min(0,y+1.4),z:bank},{x:x+a,y:Math.min(0,y+1.4),z:bank}],Math.round((y-WATER_LEVEL)/1.4)%2?'#52566a':'#454c60');
     }
   }
+}
+
+export function drawRiverStructures(chunk,{face,box},viewer){
+  drawBridgeFascias(chunk,{face},viewer);
+  const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
+  const bank=chunk.z===chunk.riverStart?start+18:start+110;
   for(let a=14;a<50;a+=6){
     box(x+a,.06,bank-.22,6,.2,.44,'#89929d');
     box(x+a,1.05,bank-.09,6,.12,.18,'#9ba6ab');

@@ -26,7 +26,7 @@ test('arcade windows and sides vary while retaining their layout on redraw',()=>
 });
 import {City,pedestrian,traffic,PEDESTRIAN_TYPES,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
 import {RIVER_ROWS,BLOCK,RIVER_WIDTH,WATER_LEVEL,BRIDGE_RISE,groundHeight,bridgeHeight} from '../neon-city/world.js';
-import {drawRiverTerrain,drawRiverStructures} from '../neon-city/rivers.js';
+import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces} from '../neon-city/rivers.js';
 import {orderGroundSurfaces} from '../neon-city/surface-order.js';
 
 test('river ground visibility matches nearest surface from either bank and camera bearing',()=>{
@@ -125,8 +125,12 @@ test('river geometry has recessed water, grassy banks, and elevated bridge decks
     assert.ok(faces.some(f=>f.vertices.some(v=>v.y>5)),'arched structure reaches above banks');
     const bank=part===row?row*BLOCK+18:row*BLOCK+110;
     const landViewer={z:bank+(part===row?-1:1)};
+    const bankFaces=[];
+    drawRiverbankFaces(chunk,{face:vertices=>bankFaces.push(vertices)},{z:bank+(part===row?1:-1)});
+    assert.ok(bankFaces.length>0,'water-facing retaining walls are present');
+    assert.ok(bankFaces.every(vertices=>vertices.every(v=>v.y<=0)), 'retaining walls stay below the ground pass');
     const landFaces=[];
-    drawRiverStructures(chunk,{face:vertices=>landFaces.push(vertices),box:()=>{}},landViewer);
+    drawRiverbankFaces(chunk,{face:vertices=>landFaces.push(vertices)},landViewer);
     assert.ok(landFaces.every(vertices=>vertices.every(v=>v.y>WATER_LEVEL)), 'retaining wall backs cannot cover the grass from land');
   }
 });

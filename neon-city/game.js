@@ -3,7 +3,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=characters-12';
 import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight, characterHeight, pubLines} from './world.js?v=characters-12';
-import {drawRiverTerrain,drawRiverStructures,drawBridgeFascias} from './rivers.js?v=characters-12';
+import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=riverbank-depth-1';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-12';
@@ -293,7 +293,10 @@ function render(){
   const terrain=queue;
   for(const f of terrain)if(f.elevation<0)drawFace(f);
   queue=[];
-  for(const chunk of visible)if(chunk.river)drawBridgeFascias(chunk,{face},player,true);
+  for(const chunk of visible)if(chunk.river){
+    drawRiverbankFaces(chunk,{face},player);
+    drawBridgeFascias(chunk,{face},player,true);
+  }
   queue.sort((a,b)=>b.depth-a.depth);
   for(const f of queue)drawFace(f);
   for(const f of terrain)if(f.elevation>=0)drawFace(f);
