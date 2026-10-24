@@ -5,7 +5,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=staff-room-1';
-import {Traffic} from './traffic.js?v=london-taxi-2';
+import {Traffic} from './traffic.js?v=hippie-van-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=start-sign-6';
@@ -284,17 +284,62 @@ function taxiSign(){
   }
   return taxiSignTexture;
 }
+const vanTextures={};
+function vanTexture(side){
+  if(vanTextures[side])return vanTextures[side];
+  const canvas=document.createElement('canvas');canvas.width=side==='side'?384:192;canvas.height=192;
+  const g=canvas.getContext('2d'),w=canvas.width;
+  g.fillStyle='#29a99c';g.fillRect(0,0,w,192);
+  g.fillStyle='#f3e5bc';g.fillRect(0,0,w,86);
+  g.fillStyle='#344d65';
+  if(side==='front'){
+    // Classic split windshield and cream V-shaped nose.
+    g.fillRect(12,12,78,60);g.fillRect(102,12,78,60);
+    g.fillStyle='#f3e5bc';g.beginPath();g.moveTo(0,82);g.lineTo(96,142);g.lineTo(192,82);g.fill();
+    g.strokeStyle='#f3e5bc';g.lineWidth=4;g.beginPath();g.arc(96,137,20,0,Math.PI*2);g.stroke();
+    g.font='bold 23px sans-serif';g.textAlign='center';g.fillText('VW',96,145);
+    for(const x of [28,164]){g.fillStyle='#d6d8cc';g.beginPath();g.arc(x,155,15,0,Math.PI*2);g.fill();g.fillStyle='#fff0b8';g.beginPath();g.arc(x,155,11,0,Math.PI*2);g.fill();}
+  }else if(side==='side'){
+    for(let i=0;i<4;i++)g.fillRect(12+i*94,12,78,60);
+    // Painted rainbow, flowers, and a peace symbol.
+    for(const [i,color] of ['#f56392','#ffab54','#ffe475'].entries()){
+      g.strokeStyle=color;g.lineWidth=8;g.beginPath();g.arc(182,180,69-i*10,Math.PI,Math.PI*2);g.stroke();
+    }
+    for(const [x,y,color] of [[40,126,'#ff77be'],[329,131,'#ffce59'],[286,166,'#ed8bea']]){
+      g.fillStyle=color;
+      for(let i=0;i<6;i++){const a=i*Math.PI/3;g.beginPath();g.arc(x+Math.cos(a)*13,y+Math.sin(a)*13,9,0,Math.PI*2);g.fill();}
+      g.fillStyle='#fff0b8';g.beginPath();g.arc(x,y,7,0,Math.PI*2);g.fill();
+    }
+    g.strokeStyle='#fff0b8';g.lineWidth=4;g.beginPath();g.arc(94,132,23,0,Math.PI*2);g.moveTo(94,109);g.lineTo(94,155);g.moveTo(94,132);g.lineTo(78,148);g.moveTo(94,132);g.lineTo(110,148);g.stroke();
+  }else{
+    g.fillRect(28,12,136,60);
+    g.fillStyle='#e65a57';g.fillRect(14,145,14,25);g.fillRect(164,145,14,25);
+    g.fillStyle='#e9dbb8';g.fillRect(67,152,58,18);
+  }
+  return vanTextures[side]=canvas;
+}
 function car(c){
   vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
   const base=groundHeight(c.x,c.z),slope=c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
   vehicleSurface=z=>base+(z-c.z)*slope;
   const w=c.axis?4.7:2.1,d=c.axis?2.1:4.7,x=c.x-w/2,z=c.z-d/2;
-  if(c.type==='taxi'){
-    // Local coordinates: across the cab and along its direction of travel.
-    const part=(across,along,y,width,length,height,color,roof=color)=>{
+  // Local coordinates shared by the special vehicle bodies.
+  const part=(across,along,y,width,length,height,color,roof=color)=>{
       const px=c.x+(c.axis?along*c.dir:across),pz=c.z+(c.axis?across:along*c.dir);
       box(px-(c.axis?length:width)/2,y,pz-(c.axis?width:length)/2,c.axis?length:width,height,c.axis?width:length,color,roof);
     };
+  if(c.type==='hippie-van'){
+    part(0,0,.25,2.1,4.7,1.85,'#29a99c','#f3e5bc');
+    part(0,0,2.1,2.02,4.58,.18,'#f3e5bc','#fff1cf');
+    const point=(across,along,y,u,v)=>({x:c.x+(c.axis?along*c.dir:across),z:c.z+(c.axis?across:along*c.dir),y,u,v});
+    for(const side of [-1,1]){
+      const left=side*c.dir*(c.axis?-1:1)*1.05,along=side*2.351;
+      face([point(left,along,.25,0,192),point(-left,along,.25,192,192),point(-left,along,2.1,192,0),point(left,along,2.1,0,0)],'#29a99c',vanTexture(side===1?'front':'rear'));
+      const a=side*1.051,start=side*(c.axis?-1:1)*2.35;
+      face([point(a,start,.25,0,192),point(a,-start,.25,384,192),point(a,-start,2.1,384,0),point(a,start,2.1,0,0)],'#29a99c',vanTexture('side'));
+      part(0,side*2.38,.29,2.1,.12,.14,'#deded1');
+    }
+  }else if(c.type==='taxi'){
     part(0,0,.25,2.1,4.7,.78,'#14151c','#242630');
     part(0,-.3,1.03,1.85,2.9,.8,'#455765','#171820');
     part(0,-.3,1.83,1.98,3.05,.16,'#171820','#30313a');
@@ -324,7 +369,7 @@ function car(c){
   if(c.axis){for(const side of [-1,1])for(const offset of [.8,3.5])box(x+offset,.12,c.z+side*1.05-.1,.7,.55,.2,'#10101b');}
   else{for(const side of [-1,1])for(const offset of [.8,3.5])box(c.x+side*1.05-.1,.12,z+offset,.2,.55,.7,'#10101b');}
   const frontX=c.x+(c.axis?c.dir*2.36:0),frontZ=c.z+(c.axis?0:c.dir*2.36);
-  for(const side of [-1,1])box(frontX+(c.axis?-.04:side*.7-.2),.52,frontZ+(c.axis?side*.7-.2:-.04),c.axis?.08:.4,.2,c.axis?.4:.08,'#fff0b8');
+  if(c.type!=='hippie-van')for(const side of [-1,1])box(frontX+(c.axis?-.04:side*.7-.2),.52,frontZ+(c.axis?side*.7-.2:-.04),c.axis?.08:.4,.2,c.axis?.4:.08,'#fff0b8');
   vehicleSurface=null;vehicleTurn=null;
 }
 // Cabinet colours per paper; any paper without an entry uses the Bugle's.

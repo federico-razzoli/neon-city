@@ -4006,13 +4006,15 @@ test('the pub plays seamless, swung twelve-bar boogie-woogies on the piano, each
 });
 
 
-test('London taxis appear once per ten normal cars on average',()=>{
-  let taxis=0,normal=0;
+test('taxis and hippie vans each appear once per ten normal cars on average',()=>{
+  let taxis=0,vans=0,normal=0;
   for(let x=-100;x<100;x++)for(let z=-25;z<25;z++){
     for(const car of traffic({x,z},123)){
       if(car.type==='taxi')taxis++;
+      else if(car.type==='hippie-van')vans++;
       else {assert.equal(car.type,'normal');normal++;}
     }
   }
   assert.ok(Math.abs(taxis/normal-.1)<.01,`taxi to normal ratio: ${taxis/normal}`);
+  assert.ok(Math.abs(vans/normal-.1)<.01,`van to normal ratio: ${vans/normal}`);
 });
