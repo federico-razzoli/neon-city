@@ -41,6 +41,113 @@ test('hotel windows show varied empty lobbies in per-hotel colours, with the rec
   assert.deepEqual([...nooks].sort(),[...NOOK_SCENES].sort());
 });
 
+test('hotel doors open from the street-facing facade and from inside the lobby',async()=>{
+  const {facingHotelDoor,facingHotelExit,HOTEL}=await import('../neon-city/hotel-interior.js');
+  for(const j of [0,1]){
+    const b={x:14,z:14+j*18,w:18,d:18,j,sign:'HOTEL'},z=j?b.z+b.d:b.z,p={x:b.x+b.w/2,z:z+(j?1.5:-1.5),angle:j?Math.PI:0};
+    assert.equal(facingHotelDoor(p,[b]),b);
+    assert.equal(facingHotelDoor({...p,angle:p.angle+Math.PI},[b]),undefined,'looking away');
+    assert.equal(facingHotelDoor({...p,x:b.x+2},[b]),undefined,'facing a window, not the doors');
+    assert.equal(facingHotelDoor(p,[{...b,sign:'DISCO'}]),undefined,'only hotels');
+  }
+  assert.equal(facingHotelExit({...HOTEL.spawn,angle:Math.PI}),true);
+  assert.equal(facingHotelExit(HOTEL.spawn),false);
+  assert.equal(facingHotelExit({x:3,z:1,angle:Math.PI}),false,'facing the wall beside the doors');
+});
+
+test('the lobby keeps the player out of the furniture but lets them reach the desk, sofa, lift and stairs',async()=>{
+  const {HOTEL,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  const walk=(from,to)=>{
+    const p={...from};
+    for(let i=0;i<400;i++)moveInHotel(p,Math.sign(to.x-p.x)*Math.min(.1,Math.abs(to.x-p.x)),Math.sign(to.z-p.z)*Math.min(.1,Math.abs(to.z-p.z)));
+    return p;
+  };
+  const near=(p,q,distance=.05)=>Math.hypot(p.x-q.x,p.z-q.z)<distance;
+  const spawn=HOTEL.spawn;
+  // Reachable spots in front of each piece of furniture.
+  for(const spot of [{x:4,z:11.4},{x:12,z:15.5},{x:1.8,z:6},{x:15.9,z:3}]){
+    const corner={x:spot.x,z:spawn.z};
+    assert.ok(near(walk(walk(spawn,corner),spot),spot),`reaches ${spot.x},${spot.z}`);
+  }
+  // Furniture and walls stop the player.
+  const blocked=[
+    [{x:4,z:11},{x:4,z:14}],[{x:1.8,z:6},{x:0,z:6}],[{x:15.5,z:6},{x:19,z:6}],
+    [{x:17.5,z:2},{x:17.5,z:6}],[{x:2,z:3.5},{x:0,z:3.5}],[{x:10,z:2},{x:10,z:-1}],[{x:10,z:15},{x:10,z:17}]
+  ];
+  for(const [from,to] of blocked){
+    const end=walk(from,to);
+    assert.ok(!near(end,to,.25),`stopped walking from ${from.x},${from.z} towards ${to.x},${to.z}`);
+  }
+  // Nobody can get behind the desk to the receptionist.
+  for(const target of [HOTEL.receptionist,{x:1,z:15},{x:7,z:15.5}])assert.ok(!near(walk(walk(spawn,{x:target.x,z:spawn.z}),target),target,.5));
+});
+
+test('each lobby has Nurse Joy or a blonde receptionist and the hotel colours, with red-carpeted stairs',async()=>{
+  const {drawHotelInterior,RECEPTIONISTS}=await import('../neon-city/hotel-interior.js');
+  const {NURSE_JOY,BLONDE_RECEPTIONIST}=await import('../neon-city/pub-interior.js');
+  const {HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  assert.deepEqual([...RECEPTIONISTS].sort(),[NURSE_JOY,BLONDE_RECEPTIONIST].sort());
+  for(const look of HOTEL_LOOKS)for(const receptionist of RECEPTIONISTS){
+    const colors=new Set();
+    drawHotelInterior({look,receptionist,face:(v,color)=>colors.add(color),quad:(x,y,z,w,d,color)=>colors.add(color),box:(x,y,z,w,h,d,...c)=>c.forEach(color=>colors.add(color))});
+    const nurse=receptionist===NURSE_JOY;
+    assert.equal(colors.has('#ee7c9e'),nurse,'pink hair');
+    assert.equal(colors.has('#d94650'),nurse,'only Nurse Joy keeps a Poké Ball');
+    assert.equal(colors.has('#d9b45a'),!nurse,'blonde hair');
+    for(const color of [look.floor[0],look.floor[1],look.wall,look.panel,look.velvet[0],look.metal])assert.ok(colors.has(color),`uses the hotel colour ${color}`);
+    assert.ok(colors.has('#6e2030'),'red stair carpet');
+  }
+});
+
+test('Space enters a hotel through its doors and leaves it the same way',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {runInNewContext}=await import('node:vm');
+  const pubInterior=await import('../neon-city/pub-interior.js');
+  const hotelInterior=await import('../neon-city/hotel-interior.js');
+  const {hotelLook}=await import('../neon-city/hotel.js');
+  const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
+  const events={},elements=new Map();let covers=0;
+  const element=id=>{
+    if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
+    return elements.get(id);
+  };
+  const sandbox={...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,
+    CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+    pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
+    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
+    window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
+    requestAnimationFrame(){},performance:{now:()=>0}};
+  const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
+  const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
+  const hotel={x:14,z:14,w:18,d:18,j:0,sign:'HOTEL'};
+  city.chunks.set('0,0',{buildings:[hotel],manholes:[],newspaperMachines:[]});
+  const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
+  let ms=0;
+  const press=()=>{events.keydown(space);tick(ms+=20);events.keyup(space);tick(ms+=20);};
+  press();// starts the game
+  Object.assign(player,{x:23,z:12.5,angle:0});
+  press();
+  assert.equal(location(),'HOTEL / LOBBY');
+  assert.deepEqual({x:player.x,z:player.z,angle:player.angle},hotelInterior.HOTEL.spawn);
+  const receptionist=hotel.receptionist;
+  assert.ok(hotelInterior.RECEPTIONISTS.includes(receptionist),'a receptionist is on duty');
+  // Space away from the doors does nothing in the lobby.
+  Object.assign(player,{x:12,z:15.5,angle:0});const before=covers;
+  press();
+  assert.equal(location(),'HOTEL / LOBBY');assert.equal(covers,before,'no manhole cover to lift indoors');
+  Object.assign(player,{x:10,z:1.5,angle:Math.PI});
+  press();
+  assert.match(location(),/^MIDNIGHT DISTRICT/);
+  assert.ok(Math.abs(player.x-23)<1e-9&&Math.abs(player.z-12.5)<.1,'back outside the doors');
+  assert.ok(Math.abs(player.angle-Math.PI)<1e-9,'facing the street');
+  Object.assign(player,{x:23,z:12.5,angle:0});
+  press();
+  assert.equal(hotel.receptionist,receptionist,'the same receptionist next time');
+});
+
 test('arcade windows and sides vary while retaining their layout on redraw',()=>{
   const render=(building,side)=>{
     const positions=[];
@@ -1064,7 +1171,9 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {RiverLook}=await import('../neon-city/river-look.js');
   const {facingBench}=await import('../neon-city/parks.js');
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
-  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const hotelInterior=await import('../neon-city/hotel-interior.js');
+  const {hotelLook}=await import('../neon-city/hotel.js');
+  const sandbox={...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},

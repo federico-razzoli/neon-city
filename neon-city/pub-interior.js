@@ -52,7 +52,7 @@ export function createPubPatrons(random=Math.random){
     return seats;
   });
 }
-function facing(player,target,halfWidth){
+export function facingDoorway(player,target,halfWidth){
   const dz=target.z-player.z,forwardZ=Math.cos(player.angle);
   // Aim at the whole doorway, rather than a shrinking cone around its centre.
   // The same facing direction stays valid as the player approaches the wall.
@@ -66,12 +66,12 @@ export function facingPubDoor(player,buildings){
   return buildings.find(b=>{
     if(b.sign!=='NEON PUB')return false;
     const south=b.j===1,z=south?b.z+b.d:b.z;
-    return (south?player.z>z:player.z<z)&&facing(player,{x:b.x+b.w/2,z},b.w*10/160);
+    return (south?player.z>z:player.z<z)&&facingDoorway(player,{x:b.x+b.w/2,z},b.w*10/160);
   });
 }
-export const facingPubExit=player=>player.z>PUB.door.z&&facing(player,PUB.door,.7);
-export const facingStaffDoor=player=>player.z<PUB.staffDoor.z&&facing(player,PUB.staffDoor,.7);
-export const facingToiletDoor=player=>player.z<PUB.toiletDoor.z&&facing(player,PUB.toiletDoor,.7);
+export const facingPubExit=player=>player.z>PUB.door.z&&facingDoorway(player,PUB.door,.7);
+export const facingStaffDoor=player=>player.z<PUB.staffDoor.z&&facingDoorway(player,PUB.staffDoor,.7);
+export const facingToiletDoor=player=>player.z<PUB.toiletDoor.z&&facingDoorway(player,PUB.toiletDoor,.7);
 export function pubPersonBlocks(start,end,person){
   if(!person)return false;
   const clearance=.85,dx=end.x-start.x,dz=end.z-start.z;
@@ -104,6 +104,115 @@ export function moveInPub(player,dx,dz,patrons=[],walker,bumpedSeats=[]){
     if(dz&&clear(player.x,player.z+dz/count))player.z+=dz/count;
   }
   return bumpedPerson;
+}
+// Faceted cylinders give glasses, bottles and tables actual round silhouettes.
+export function drawCylinder(face,x,y,z,r,h,color,top=color,rTop=r){
+  const n=16,ring=(i,yy,rr)=>({x:x+Math.cos(i*2*Math.PI/n)*rr,y:yy,z:z+Math.sin(i*2*Math.PI/n)*rr});
+  for(let i=0;i<n;i++)face([ring(i,y,r),ring(i+1,y,r),ring(i+1,y+h,rTop),ring(i,y+h,rTop)],color);
+  face(Array.from({length:n},(_,i)=>ring(i,y+h,rTop)),top);
+  face(Array.from({length:n},(_,i)=>ring(i,y,r)),color);
+}
+// An octagonal rod between two points.
+export function drawRod(face,a,b,r,color){
+  const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,len=Math.hypot(dx,dy,dz);
+  const axis={x:dx/len,y:dy/len,z:dz/len};
+  const horizontal=Math.hypot(dx,dz);
+  const u=horizontal>.001?{x:-dz/horizontal,y:0,z:dx/horizontal}:{x:1,y:0,z:0};
+  const v={x:axis.y*u.z-axis.z*u.y,y:axis.z*u.x-axis.x*u.z,z:axis.x*u.y-axis.y*u.x};
+  const point=(p,i)=>{const c=Math.cos(i*Math.PI/4)*r,t=Math.sin(i*Math.PI/4)*r;return {x:p.x+u.x*c+v.x*t,y:p.y+u.y*c+v.y*t,z:p.z+u.z*c+v.z*t};};
+  for(let i=0;i<8;i++)face([point(a,i),point(a,i+1),point(b,i+1),point(b,i)],color);
+}
+// Staff standing behind a counter, facing -z. Types 0-3 tend the pub bar;
+// type 3 is Nurse Joy, whose Poké Ball rests at counter (x, y, z). Type 4 is
+// the blonde hotel receptionist.
+export const NURSE_JOY=3,BLONDE_RECEPTIONIST=4;
+export function drawStaff({face,box},at,type,counter){
+  const {x,z}=at;
+  const staffScale=4/3;
+  const staffBox=(px,py,pz,w,h,d,...colors)=>box(x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,w*staffScale,h*staffScale,d*staffScale,...colors);
+  const staffCylinder=(px,py,pz,r,h,color,top=color,rTop=r)=>drawCylinder(face,x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,r*staffScale,h*staffScale,color,top,rTop*staffScale);
+  const staffFace=(points,...args)=>face(points.map(p=>({x:x+(p.x-x)*staffScale,y:p.y*staffScale,z:z+(p.z-z)*staffScale})),...args);
+  const nurse=type===NURSE_JOY,large=type===2,blonde=type===BLONDE_RECEPTIONIST;
+  const skin=type===0?'#94624e':nurse?'#f4bdab':blonde?'#efc3a4':'#e2aa8c';
+  const hair=type===0?'#201e26':nurse?'#ee7c9e':blonde?'#d9b45a':large?'#88553d':'#49352c';
+  const width=large?.86:.56,depth=large?.5:.34,head=large?.23:.19;
+  const shirt=nurse?'#f29bb7':blonde?'#2b3150':large?'#729083':'#eee5cf';
+  for(const dx of [-.16,.08])staffBox(x+dx,0,z-.1,.16,.82,.22,nurse?'#f5eee5':'#282731');
+  staffBox(x-width/2,.8,z-depth/2,width,.57,depth,shirt);
+  if(nurse||large){
+    staffBox(x-width/2,.48,z-depth/2,width,.38,depth,shirt);
+    staffBox(x-width*.34,.52,z-depth/2-.025,width*.68,.73,.03,'#f5eee5');
+    staffBox(x-width/2,1.05,z-depth/2-.04,width,.07,.04,'#fff4df');
+  }else if(blonde){
+    // A navy blazer open over a white blouse, with a brass name badge.
+    staffBox(x-.07,1.06,z-depth/2-.03,.14,.31,.04,'#f3ece0');
+    staffBox(x+.12,1.17,z-depth/2-.03,.09,.04,.03,'#cfad6b');
+  }else{
+    staffBox(x-.23,.83,z-.195,.46,.48,.04,'#25232b');
+    // White shirt front, pointed collar, black bow tie and brass vest buttons.
+    staffBox(x-.085,1.02,z-.24,.17,.33,.04,'#fff4df');
+    for(const side of [-1,1])staffBox(x+side*.08-.045,1.27,z-.29,.09,.07,.04,'#24232b');
+    for(const y of [.92,1.04,1.16])staffBox(x+.11,y,z-.24,.025,.025,.03,'#cfad6b');
+  }
+  staffCylinder(x,1.37,z,.09,.12,skin);
+  staffCylinder(x,1.49,z,head,.34,skin,skin);
+  staffCylinder(x,1.79,z,head+.01,.1,hair);
+  for(const dx of [-.08,.07]){
+    staffBox(x+dx,1.67,z-head-.01,.035,.04,.025,nurse?'#467b98':blonde?'#3f6f94':'#2a282a');
+    if(nurse)staffBox(x+dx-.008,1.705,z-head-.015,.05,.012,.025,'#663e50');
+  }
+  staffBox(x-.025,1.57,z-head-.04,.055,.09,.07,skin);
+  staffBox(x-.045,1.535,z-head-.015,.09,.018,.025,nurse?'#bf627d':blonde?'#c46a78':'#9f6658');
+  for(const side of [-1,1]){
+    const armX=x+side*(width/2+.065)-.065;
+    staffBox(armX,.98,z-.14,.13,.36,.23,shirt);
+    staffBox(armX,.98,z-.37,.13,.12,.27,skin);
+  }
+  if(large){
+    staffCylinder(x,1.76,z+.15,.22,.22,hair);
+    for(const side of [-1,1])staffCylinder(x+side*.22,1.49,z,.055,.07,'#d8ba6e');
+  }
+  if(nurse){
+    // Pink hair wraps the rear half of the head down to the nape.
+    for(let i=0;i<12;i++){
+      const point=(angle,y)=>({x:x+Math.cos(angle)*(head+.025),y,z:z+Math.sin(angle)*(head+.025)});
+      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      staffFace([point(a,1.48),point(b,1.48),point(b,1.84),point(a,1.84)],hair);
+    }
+    // A red-and-white Poké Ball rests on the countertop only for Nurse Joy.
+    const ball={...counter,r:.18};
+    const latitudes=[-Math.PI/2,-1.2,-.9,-.6,-.3,-.09,.09,.3,.6,.9,1.2,Math.PI/2];
+    const spherePoint=(latitude,angle)=>({x:ball.x+ball.r*Math.cos(latitude)*Math.cos(angle),y:ball.y+ball.r*Math.sin(latitude),z:ball.z+ball.r*Math.cos(latitude)*Math.sin(angle)});
+    for(let j=0;j<latitudes.length-1;j++)for(let i=0;i<24;i++){
+      const low=latitudes[j],high=latitudes[j+1],a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      const color=low===-.09?'#25232b':low>=.09?'#d94650':'#eee9df';
+      face([spherePoint(low,a),spherePoint(low,b),spherePoint(high,b),spherePoint(high,a)],color);
+    }
+    const button=(r,offset,color)=>face(Array.from({length:20},(_,i)=>({x:ball.x+Math.cos(i*Math.PI/10)*r,y:ball.y+Math.sin(i*Math.PI/10)*r,z:ball.z-ball.r-offset})),color);
+    button(.06,.004,'#25232b');button(.04,.008,'#f8f2df');button(.023,.012,'#d3d4ce');
+    // Nurse Joy's pink side loops, swept fringe, white cap and pink uniform.
+    for(const side of [-1,1]){
+      staffCylinder(x+side*.27,1.55,z+.04,.13,.28,hair,'#ffa1bc');
+      staffCylinder(x+side*.3,1.5,z+.06,.09,.09,hair);
+    }
+    staffBox(x-.19,1.76,z-.2,.15,.1,.08,hair);
+    staffBox(x+.02,1.8,z-.19,.17,.06,.06,hair);
+    staffBox(x-.22,1.88,z-.12,.44,.2,.19,'#fff3e4');
+    staffBox(x-.025,1.92,z-.132,.05,.12,.02,'#e16b88');
+    staffBox(x-.06,1.955,z-.135,.12,.045,.02,'#e16b88');
+    staffBox(x-.08,1.28,z-depth/2-.03,.16,.08,.04,'#fff3e4');
+  }
+  if(blonde){
+    // Long blonde hair falls behind her shoulders, with a soft fringe and
+    // strands framing her face.
+    for(let i=0;i<12;i++){
+      const point=(angle,y)=>({x:x+Math.cos(angle)*(head+.025),y,z:z+Math.sin(angle)*(head+.025)});
+      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      staffFace([point(a,1.2),point(b,1.2),point(b,1.86),point(a,1.86)],hair);
+    }
+    staffBox(x-.2,1.76,z-.2,.4,.08,.07,hair);
+    for(const side of [-1,1])staffBox(x+side*.175-.035,1.38,z-.17,.07,.4,.1,hair);
+  }
 }
 export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1}){
   for(let x=0;x<PUB.width;x+=2)for(let z=0;z<PUB.depth;z+=2){
@@ -155,13 +264,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     }
   }
   }
-  // Faceted cylinders give glasses, bottles and tables actual round silhouettes.
-  const cylinder=(x,y,z,r,h,color,top=color,rTop=r)=>{
-    const n=16,ring=(i,yy,rr)=>({x:x+Math.cos(i*2*Math.PI/n)*rr,y:yy,z:z+Math.sin(i*2*Math.PI/n)*rr});
-    for(let i=0;i<n;i++)face([ring(i,y,r),ring(i+1,y,r),ring(i+1,y+h,rTop),ring(i,y+h,rTop)],color);
-    face(Array.from({length:n},(_,i)=>ring(i,y+h,rTop)),top);
-    face(Array.from({length:n},(_,i)=>ring(i,y,r)),color);
-  };
+  const cylinder=(...args)=>drawCylinder(face,...args);
   const bottle=(x,y,z,i)=>{
     const glass=['#395640','#6b442a','#3a554f'][i%3],r=.095+(i%2)*.015,h=.27+(i%3)*.025;
     cylinder(x,y,z,r,h,glass,glass);
@@ -257,87 +360,9 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
   }
   pint(7.1,1.3,13.35);
   // Four regulars behind the bar: chosen once when this pub is first entered.
-  const {x,z}=PUB.bartender;
-  const staffScale=4/3;
-  const staffBox=(px,py,pz,w,h,d,...colors)=>box(x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,w*staffScale,h*staffScale,d*staffScale,...colors);
-  const staffCylinder=(px,py,pz,r,h,color,top=color,rTop=r)=>cylinder(x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,r*staffScale,h*staffScale,color,top,rTop*staffScale);
-  const staffFace=(points,...args)=>face(points.map(p=>({x:x+(p.x-x)*staffScale,y:p.y*staffScale,z:z+(p.z-z)*staffScale})),...args);
-  const nurse=bartenderType===3,large=bartenderType===2;
-  const skin=bartenderType===0?'#94624e':nurse?'#f4bdab':'#e2aa8c';
-  const hair=bartenderType===0?'#201e26':nurse?'#ee7c9e':large?'#88553d':'#49352c';
-  const width=large?.86:.56,depth=large?.5:.34,head=large?.23:.19;
-  const shirt=nurse?'#f29bb7':large?'#729083':'#eee5cf';
-  for(const dx of [-.16,.08])staffBox(x+dx,0,z-.1,.16,.82,.22,nurse?'#f5eee5':'#282731');
-  staffBox(x-width/2,.8,z-depth/2,width,.57,depth,shirt);
-  if(nurse||large){
-    staffBox(x-width/2,.48,z-depth/2,width,.38,depth,shirt);
-    staffBox(x-width*.34,.52,z-depth/2-.025,width*.68,.73,.03,'#f5eee5');
-    staffBox(x-width/2,1.05,z-depth/2-.04,width,.07,.04,'#fff4df');
-  }else{
-    staffBox(x-.23,.83,z-.195,.46,.48,.04,'#25232b');
-    // White shirt front, pointed collar, black bow tie and brass vest buttons.
-    staffBox(x-.085,1.02,z-.24,.17,.33,.04,'#fff4df');
-    for(const side of [-1,1])staffBox(x+side*.08-.045,1.27,z-.29,.09,.07,.04,'#24232b');
-    for(const y of [.92,1.04,1.16])staffBox(x+.11,y,z-.24,.025,.025,.03,'#cfad6b');
-  }
-  staffCylinder(x,1.37,z,.09,.12,skin);
-  staffCylinder(x,1.49,z,head,.34,skin,skin);
-  staffCylinder(x,1.79,z,head+.01,.1,hair);
-  for(const dx of [-.08,.07]){
-    staffBox(x+dx,1.67,z-head-.01,.035,.04,.025,nurse?'#467b98':'#2a282a');
-    if(nurse)staffBox(x+dx-.008,1.705,z-head-.015,.05,.012,.025,'#663e50');
-  }
-  staffBox(x-.025,1.57,z-head-.04,.055,.09,.07,skin);
-  staffBox(x-.045,1.535,z-head-.015,.09,.018,.025,nurse?'#bf627d':'#9f6658');
-  for(const side of [-1,1]){
-    const armX=x+side*(width/2+.065)-.065;
-    staffBox(armX,.98,z-.14,.13,.36,.23,shirt);
-    staffBox(armX,.98,z-.37,.13,.12,.27,skin);
-  }
-  if(large){
-    staffCylinder(x,1.76,z+.15,.22,.22,hair);
-    for(const side of [-1,1])staffCylinder(x+side*.22,1.49,z,.055,.07,'#d8ba6e');
-  }
-  if(nurse){
-    // Pink hair wraps the rear half of the head down to the nape.
-    for(let i=0;i<12;i++){
-      const point=(angle,y)=>({x:x+Math.cos(angle)*(head+.025),y,z:z+Math.sin(angle)*(head+.025)});
-      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
-      staffFace([point(a,1.48),point(b,1.48),point(b,1.84),point(a,1.84)],hair);
-    }
-    // A red-and-white Poké Ball rests on the countertop only for Nurse Joy.
-    const ball={x:x+.8,y:1.48,z:13.55,r:.18};
-    const latitudes=[-Math.PI/2,-1.2,-.9,-.6,-.3,-.09,.09,.3,.6,.9,1.2,Math.PI/2];
-    const spherePoint=(latitude,angle)=>({x:ball.x+ball.r*Math.cos(latitude)*Math.cos(angle),y:ball.y+ball.r*Math.sin(latitude),z:ball.z+ball.r*Math.cos(latitude)*Math.sin(angle)});
-    for(let j=0;j<latitudes.length-1;j++)for(let i=0;i<24;i++){
-      const low=latitudes[j],high=latitudes[j+1],a=i*Math.PI/12,b=(i+1)*Math.PI/12;
-      const color=low===-.09?'#25232b':low>=.09?'#d94650':'#eee9df';
-      face([spherePoint(low,a),spherePoint(low,b),spherePoint(high,b),spherePoint(high,a)],color);
-    }
-    const button=(r,offset,color)=>face(Array.from({length:20},(_,i)=>({x:ball.x+Math.cos(i*Math.PI/10)*r,y:ball.y+Math.sin(i*Math.PI/10)*r,z:ball.z-ball.r-offset})),color);
-    button(.06,.004,'#25232b');button(.04,.008,'#f8f2df');button(.023,.012,'#d3d4ce');
-    // Nurse Joy's pink side loops, swept fringe, white cap and pink uniform.
-    for(const side of [-1,1]){
-      staffCylinder(x+side*.27,1.55,z+.04,.13,.28,hair,'#ffa1bc');
-      staffCylinder(x+side*.3,1.5,z+.06,.09,.09,hair);
-    }
-    staffBox(x-.19,1.76,z-.2,.15,.1,.08,hair);
-    staffBox(x+.02,1.8,z-.19,.17,.06,.06,hair);
-    staffBox(x-.22,1.88,z-.12,.44,.2,.19,'#fff3e4');
-    staffBox(x-.025,1.92,z-.132,.05,.12,.02,'#e16b88');
-    staffBox(x-.06,1.955,z-.135,.12,.045,.02,'#e16b88');
-    staffBox(x-.08,1.28,z-depth/2-.03,.16,.08,.04,'#fff3e4');
-  }
+  drawStaff({face,box},PUB.bartender,bartenderType,{x:PUB.bartender.x+.8,y:1.48,z:13.55});
   // Suspended antique brass chandeliers, each with six curved candle arms.
-  const rod=(a,b,r,color)=>{
-    const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,len=Math.hypot(dx,dy,dz);
-    const axis={x:dx/len,y:dy/len,z:dz/len};
-    const horizontal=Math.hypot(dx,dz);
-    const u=horizontal>.001?{x:-dz/horizontal,y:0,z:dx/horizontal}:{x:1,y:0,z:0};
-    const v={x:axis.y*u.z-axis.z*u.y,y:axis.z*u.x-axis.x*u.z,z:axis.x*u.y-axis.y*u.x};
-    const point=(p,i)=>{const c=Math.cos(i*Math.PI/4)*r,t=Math.sin(i*Math.PI/4)*r;return {x:p.x+u.x*c+v.x*t,y:p.y+u.y*c+v.y*t,z:p.z+u.z*c+v.z*t};};
-    for(let i=0;i<8;i++)face([point(a,i),point(a,i+1),point(b,i+1),point(b,i)],color);
-  };
+  const rod=(...args)=>drawRod(face,...args);
   for(const {x,z} of PUB.chandeliers){
     const base=PUB.height-1.35,brass='#96713d',highlight='#c09a59';
     cylinder(x,PUB.height-.09,z,.22,.09,brass);
