@@ -2492,7 +2492,7 @@ test('a flush is a rush of water, a few gurgles and a refill, silent until sound
   assert.equal(started.length,before);
 });
 
-test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in a cubicle, and afresh on each visit',async()=>{
+test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in a cubicle, and a tune is picked on each visit',async()=>{
   const {readFile}=await import('node:fs/promises');
   const {runInNewContext}=await import('node:vm');
   const pubInterior=await import('../neon-city/pub-interior.js');
@@ -2525,7 +2525,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
   assert.equal(volumes.at(-1),0,'no boogie-woogie on the street');
   enter();
   assert.equal(location(),'THE PUB / BAR ROOM');
-  assert.deepEqual(choices,[PUB_PIECES[0]],'a tune is put on for the visit');
+  assert.equal(choices.length,1,'a tune is put on for the visit');assert.ok(PUB_PIECES.includes(choices[0]));
   assert.equal(volumes.at(-1),PUB_MUSIC.volume);
   assert.equal(lowpasses.at(-1),undefined,'heard through the speakers alone');
   assert.equal(lobbyVolumes.at(-1),0,'no lobby music in the pub');
@@ -2557,6 +2557,13 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
   enter();
   assert.equal(choices.length,2);
   assert.equal(volumes.at(-1),PUB_MUSIC.volume);
+  // Every visit picks its tune afresh, at random.
+  for(let visit=0;visit<20;visit++){
+    Object.assign(player,{x:pubInterior.PUB.door.x,z:1.5,angle:Math.PI});press();
+    enter();
+  }
+  assert.equal(choices.length,22,'one choice per visit');
+  assert.deepEqual(new Set(choices),new Set(PUB_PIECES),'each tune comes up');
 });
 
 test('Space walks from the pub into a free cubicle, sits, flushes on standing and goes back',async()=>{
@@ -3893,40 +3900,77 @@ test('the lobby music is prepared ahead, starts the chosen piece from the top on
   assert.equal(context.buffers.length,LOBBY_PIECES.length);
 });
 
-test('the pub plays a seamless, swung twelve-bar boogie-woogie on the piano',async()=>{
-  const {pubMusicSamples,PUB_MUSIC,PUB_PIECES,BOOGIE,loopSeconds,PubMusic}=await import('../neon-city/pub-music.js');
+test('the pub plays seamless, swung twelve-bar boogie-woogies on the piano, each its own tune',async()=>{
+  const {pubMusicSamples,PUB_MUSIC,PUB_PIECES,loopSeconds,PubMusic}=await import('../neon-city/pub-music.js');
   const {LOBBY_MUSIC,LOBBY_PIECES,lobbyMusicSamples}=await import('../neon-city/lobby-music.js');
   const {MusicLoop}=await import('../neon-city/music-loop.js');
   // The module is loaded under a cache-busting version, so compare by name.
   assert.equal(Object.getPrototypeOf(PubMusic).name,MusicLoop.name,'played like the lobby music');
-  assert.deepEqual(PUB_PIECES,[BOOGIE]);
-  // A twelve-bar blues: I I I I, IV IV I I, V IV I V, with the left hand two
-  // octaves below the right.
-  const roots=BOOGIE.bars.map(([low])=>low-BOOGIE.bars[0][0]);
-  assert.deepEqual(roots,[0,0,0,0,5,5,0,0,7,5,0,7]);
-  for(const [low,high] of BOOGIE.bars)assert.equal(high-low,24);
-  const rate=PUB_MUSIC.rate,samples=pubMusicSamples(BOOGIE);
-  assert.equal(samples.length,Math.round(loopSeconds(BOOGIE)*rate));
-  // Lively: between 150 and 190 beats a minute.
-  const beat=loopSeconds(BOOGIE)/48;
-  assert.ok(60/beat>150&&60/beat<190);
-  assert.deepEqual(pubMusicSamples(BOOGIE),samples,'the same tune every time');
-  let peak=0,step=0;
-  for(let i=0;i<samples.length;i++){
-    peak=Math.max(peak,Math.abs(samples[i]));
-    if(i)step=Math.max(step,Math.abs(samples[i]-samples[i-1]));
-  }
-  assert.ok(Math.abs(peak-PUB_MUSIC.peak)<1e-6);
-  assert.ok(Math.abs(samples.at(-1)-samples[0])<step/4,'the loop joins up without a click');
-  // Eight notes to the bar in the left hand: the level pulses with each one,
-  // swung long-short, so it is never silent and rarely still.
-  const window=Math.round(beat*rate/6),levels=[];
-  for(let i=0;i+window<=samples.length;i+=window)levels.push(Math.sqrt(samples.subarray(i,i+window).reduce((sum,v)=>sum+v*v,0)/window));
-  assert.ok(Math.min(...levels)>.05*Math.max(...levels),'always playing');
-  // Played at about the same level as the lobby music.
+  assert.ok(PUB_PIECES.length>=2,'an alternative tune');
+  assert.equal(new Set(PUB_PIECES.map(p=>p.name)).size,PUB_PIECES.length);
   const rms=a=>Math.sqrt(a.reduce((sum,v)=>sum+v*v,0)/a.length);
-  const ratio=rms(samples)*PUB_MUSIC.volume/(rms(lobbyMusicSamples(LOBBY_PIECES[0]))*LOBBY_MUSIC.volume);
-  assert.ok(ratio>.85&&ratio<1.2,`level ${ratio}`);
+  const lobbyLevel=rms(lobbyMusicSamples(LOBBY_PIECES[0]))*LOBBY_MUSIC.volume;
+  const all=PUB_PIECES.map(piece=>{
+    const rate=PUB_MUSIC.rate,samples=pubMusicSamples(piece);
+    assert.equal(samples.length,Math.round(loopSeconds(piece)*rate));
+    assert.ok(Number.isInteger(Math.round(piece.beat*rate*1e6)/1e6),'a whole number of samples per beat');
+    // Lively: between 150 and 190 beats a minute.
+    assert.ok(60/piece.beat>150&&60/piece.beat<190);
+    assert.deepEqual(pubMusicSamples(piece),samples,'the same tune every time');
+    let peak=0,step=0;
+    for(let i=0;i<samples.length;i++){
+      peak=Math.max(peak,Math.abs(samples[i]));
+      if(i)step=Math.max(step,Math.abs(samples[i]-samples[i-1]));
+    }
+    assert.ok(Math.abs(peak-(piece.peak??PUB_MUSIC.peak))<1e-6&&peak<.5);
+    assert.ok(Math.abs(samples.at(-1)-samples[0])<step/4,`${piece.name} joins up without a click`);
+    // The level pulses with each left-hand note, swung long-short, so it is
+    // never silent and rarely still, but for the gaps left by stop-time.
+    const window=Math.round(piece.beat*rate/6),barLength=Math.round(4*piece.beat*rate),levels=[];
+    for(let i=0;i+window<=samples.length;i+=window){
+      if(piece.bars[Math.floor(i/barLength)].left==='stop')continue;
+      levels.push(Math.sqrt(samples.subarray(i,i+window).reduce((sum,v)=>sum+v*v,0)/window));
+    }
+    assert.ok(Math.min(...levels)>.05*Math.max(...levels),`${piece.name} always playing`);
+    // Played at about the same level as the lobby music.
+    const ratio=rms(samples)*PUB_MUSIC.volume/lobbyLevel;
+    assert.ok(ratio>.85&&ratio<1.2,`${piece.name} level ${ratio}`);
+    return {piece,samples};
+  });
+  // Boogie in C, for solo piano: a twelve-bar blues, I I I I, IV IV I I,
+  // V IV I V, the right hand two octaves above the left.
+  const c=PUB_PIECES[0];
+  assert.deepEqual(c.bars.map(([low])=>low-c.bars[0][0]),[0,0,0,0,5,5,0,0,7,5,0,7]);
+  for(const [low,high,riff] of c.bars){assert.equal(high-low,24);assert.ok(c.riffs[riff]);}
+  // Jump Boogie in F, for a trio: two choruses of the twelve-bar blues, with
+  // a quick change to IV in the second bar of the second.
+  const f=PUB_PIECES[1],chords=f.bars.map(bar=>((bar.chord[0]-f.bars[0].chord[0])%12+12)%12);
+  assert.equal(f.bars.length,24);
+  assert.deepEqual(chords,[0,0,0,0,5,5,0,0,7,5,0,7,0,5,0,0,5,5,0,0,7,5,0,7]);
+  // More than a piano: an upright bass under the left hand, and drums.
+  for(const bar of f.bars){assert.ok(bar.bass&&bar.drums);assert.equal(bar.chord[0]-bar.chord[1],12,'the bass an octave below');}
+  // Variation: no right-hand bar is played twice; the second chorus opens
+  // with four bars of stop-time, then the left hand changes pattern, and
+  // each chorus ends on a turnaround with a drum fill.
+  assert.equal(new Set(f.bars.map(bar=>JSON.stringify(bar.right))).size,24);
+  assert.deepEqual(f.bars.slice(12,16).map(bar=>[bar.left,bar.bass]),Array(4).fill(['stop','stop']));
+  assert.ok(f.bars.slice(0,12).every(bar=>bar.left==='walk'));
+  assert.ok(f.bars.slice(16,22).every(bar=>bar.left.startsWith('roll')));
+  assert.equal(f.bars[11].drums,'fill');assert.equal(f.bars[23].drums,'fill');
+  assert.ok(f.bars.slice(12).every(bar=>bar.louder>1),'the solo chorus is played harder');
+  // Stop-time is heard: after the hit on the first beat, the low end of the
+  // bass and the left hand falls silent, while the full band keeps it going.
+  const rate=PUB_MUSIC.rate,sound=all[1].samples,low=new Float32Array(sound.length),k=1-Math.exp(-2*Math.PI*150/rate);
+  for(let i=1;i<sound.length;i++)low[i]=low[i-1]+k*(sound[i]-low[i-1]);
+  const barLength=Math.round(4*f.beat*rate),lowAfterHit=i=>rms(low.subarray(i*barLength+Math.round(1.5*f.beat*rate),(i+1)*barLength));
+  const stopTime=[12,13,14,15].map(lowAfterHit),band=[0,1,2,3,16,17,18,19].map(lowAfterHit);
+  assert.ok(Math.max(...stopTime)<.4*Math.min(...band),'the band drops out for stop-time');
+  // In stop-time, the drums play only on the first beat, or fill into the band's return.
+  for(const bar of f.bars.slice(12,16))assert.ok(bar.drums.startsWith('stop'));
+  // The tunes differ: key, tempo and line-up.
+  assert.notEqual(c.bars[0][0]%12,f.bars[0].chord[0]%12);
+  assert.notEqual(c.beat,f.beat);
+  assert.ok(!c.bars.some(bar=>bar.bass));
   // Through the lavatory wall: about 25 dB down, which sounds about a sixth
   // as loud, and muffled; in a cubicle or out in the street, nothing.
   const {pubMusicHeard}=await import('../neon-city/pub-music.js');
@@ -3935,6 +3979,6 @@ test('the pub plays a seamless, swung twelve-bar boogie-woogie on the piano',asy
   assert.ok(down<-20&&down>-30,`${down} dB in the lavatory`);
   assert.ok(lavatory.lowpass<1000);
   for(const place of ['cubicle','street'])assert.equal(pubMusicHeard(place).volume,0);
-  const started=performance.now();pubMusicSamples(BOOGIE);
-  assert.ok(performance.now()-started<1000,'quick enough to prepare when sound is switched on');
+  const started=performance.now();for(const piece of PUB_PIECES)pubMusicSamples(piece);
+  assert.ok(performance.now()-started<1500,'quick enough to prepare when sound is switched on');
 });
