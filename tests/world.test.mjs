@@ -1987,7 +1987,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...pubInterior,...lavatory,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -2047,6 +2047,26 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   Object.assign(player,{x:pubInterior.PUB.toiletDoor.x,z:16.5,angle:0});
   press();
   assert.equal(rolls,2);
+  // Force BANSHEE on the next entry and verify the actual input handlers lock.
+  sandbox.rollBanshee=()=>true;
+  sandbox.bansheeFrame=(await import('../neon-city/banshee.js')).bansheeFrame;
+  let screams=0;
+  sandbox.playBansheeScream=()=>screams++;
+  sandbox.performance.now=()=>ms;
+  Object.assign(player,{x:gents.x,z:depth-1.5,angle:0});
+  press();
+  const frozen={...player};
+  events.keydown(arrow('ArrowUp'));events.keydown(arrow('ArrowLeft'));
+  events.keydown(arrow('Escape'));press();
+  for(let i=0;i<100;i++)tick(ms+=20);
+  assert.deepEqual({...player},frozen,'movement and turning blocked');
+  assert.equal(sandbox.game.seat,null,'interaction blocked');
+  assert.equal(element('#overlay').hidden,true,'pause blocked');
+  assert.equal(screams,1);
+  tick(ms+=7100);
+  assert.equal(location(),'THE PUB / GENTS','event ends in the cubicle');
+  events.keydown(arrow('ArrowLeft'));tick(ms+=20);events.keyup(arrow('ArrowLeft'));
+  assert.notEqual(player.angle,frozen.angle,'controls restored');
 });
 
  test('pub names use the requested list and stay consistent per address',async()=>{

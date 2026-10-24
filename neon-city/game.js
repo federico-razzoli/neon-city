@@ -1,3 +1,4 @@
+import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=5';
 import {PubLife,PubConversation} from './pub-life.js?v=enter-talk-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
@@ -27,6 +28,7 @@ const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:f
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu');
 let insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
+let banshee=null,bansheeMisses=0;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
@@ -35,7 +37,7 @@ function useDoor(){
   if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();}
   else if(insideLavatory){
     const cubicle=facingVacantCubicle(player,lavatoryOccupied);
-    if(cubicle){Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;}
+    if(cubicle){Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;if(rollBanshee(Math.random,bansheeMisses)){bansheeMisses=0;banshee={started:performance.now()};playBansheeScream(audioContext,2);}else bansheeMisses++;}
     else if(facingLavatoryExit(player)){Object.assign(player,{x:PUB.toiletDoor.x,z:PUB.toiletDoor.z-.9,angle:Math.PI});insideLavatory=false;insidePub=true;}
     else return false;
   }else if(insideCubicle){
@@ -365,7 +367,13 @@ function render(){
   if(insideCubicle){
     queue=[];drawCubicle({face,quad,box});
     interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue);return;
+    interiorRenderer.render(queue);
+    if(banshee){
+      const seconds=(performance.now()-banshee.started)/1000,frame=bansheeFrame(seconds);
+      if(frame.dark){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
+      if(frame.opacity)drawBanshee(ctx,W,H,seconds,frame.opacity);
+    }
+    return;
   }
   if(insideLavatory){
     queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle}});
@@ -430,11 +438,11 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){if(pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){if(banshee||pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(pubMenu.open)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
-window.addEventListener('keydown',e=>{const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
+window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
 if(k===' '&&!running){
   e.preventDefault();
   if(!e.repeat){play();startSpaceHeld=true;}
@@ -458,17 +466,23 @@ function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
-window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open)syncShift(e);});
+window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open&&!banshee)syncShift(e);});
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 for(const button of document.querySelectorAll('[data-key]')){
-  button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
+  button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||banshee)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
 function tick(now){
   // Camera input follows elapsed time through ordinary slow frames. Bound long
   // stalls, while retaining the smaller simulation step for safe movement.
   const elapsed=Math.max(0,(now-last)/1000),cameraDt=Math.min(elapsed,.25),dt=Math.min(elapsed,.04);last=now;
-  if(running&&!pubMenu.open){
+  if(banshee){
+    keys.clear();shiftKeys.clear();coverPressed=false;
+    document.querySelector('#pace').hidden=true;
+    document.querySelector('#message').textContent='';
+    if(!bansheeFrame((now-banshee.started)/1000).active)banshee=null;
+  }
+  if(running&&!pubMenu.open&&!banshee){
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     const pace=!playerSeat&&keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;
