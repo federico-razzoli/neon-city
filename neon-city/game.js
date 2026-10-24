@@ -12,7 +12,7 @@ import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=hall-3';
-import {HOTEL,RECEPTIONISTS,facingHotelDoor,facingHotelExit,facingHotelLamp,facingHotelSeat,hotelReply,moveInHotel,drawHotelInterior} from './hotel-interior.js?v=sofa-1';
+import {HOTEL,RECEPTIONISTS,facingHotelDoor,facingHotelExit,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,drawHotelInterior} from './hotel-interior.js?v=stairs-1';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
@@ -333,7 +333,7 @@ function seatedPatron(p,walking=false){
 let interiorRenderer;
 function render(){
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
-  else if(!playerSeat)eye=1.65;
+  else if(!playerSeat)eye=1.65+(insideHotel?hotelFloorHeight(player.x,player.z):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
   if(insideHotel){

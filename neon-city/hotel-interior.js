@@ -20,16 +20,26 @@ const brighter=(color,factor)=>'#'+[1,3,5].map(i=>Math.min(255,Math.round(parseI
 // The same red carpet runs up the stairs in every hotel.
 const STAIR_CARPET=['#6e2030','#7a2636'];
 
-// Furniture the player cannot walk through: the staircase and landing form one block.
+// Furniture the player cannot walk through, including the banister's newel post.
 const obstacles=()=>{
-  const {stairs:s,landing:l}=HOTEL;
-  return [HOTEL.desk,HOTEL.deskReturn,HOTEL.sofa,{x:s.x,z:s.z,w:s.w,d:l.z+l.d-s.z}];
+  const {stairs:s}=HOTEL;
+  return [HOTEL.desk,HOTEL.deskReturn,HOTEL.sofa,{x:s.x-.1,z:s.z-.3,w:.28,d:.28}];
 };
+// Height of the floor underfoot: the stairs rise evenly from their bottom
+// step to the landing, so the view climbs smoothly rather than step by step.
+export function hotelFloorHeight(x,z){
+  const {stairs:s,landing:l}=HOTEL;
+  if(x<s.x||z<s.z)return 0;
+  return Math.min(l.y,(z-s.z)*s.rise/s.run);
+}
+// The stairs are entered from their bottom step only: the banister runs the
+// length of their open side and round the landing, so nobody climbs over it.
 export function moveInHotel(player,dx,dz){
-  const radius=.3,boxes=obstacles();
+  const radius=.3,boxes=obstacles(),{stairs:s}=HOTEL;
   const clear=(x,z)=>x>=radius&&x<=HOTEL.width-radius&&z>=radius&&z<=HOTEL.depth-radius&&
     !boxes.some(b=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius)&&
-    !HOTEL.palms.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+radius);
+    !HOTEL.palms.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+radius)&&
+    !(z>s.z-.02&&Math.abs(x-s.x)<radius);
   // Substeps keep running and diagonal motion from crossing furniture or walls.
   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
   for(let i=0;i<count;i++){
@@ -68,6 +78,7 @@ export const facingHotelLamp=player=>facingNearest(player,[HOTEL.lamp])!=null;
 // What Space says in the lobby, or null where there is nothing to try.
 export function hotelReply(player){
   const {lift,liftButton}=HOTEL;
+  if(hotelFloorHeight(player.x,player.z)>0)return null;
   if(player.z<liftButton.z&&facingDoorway(player,liftButton,liftButton.halfWidth))return "IT'S OUT OF SERVICE";
   if(player.z<lift.z&&facingDoorway(player,lift,lift.halfWidth))return 'TRY PRESSING THE BUTTON...';
   if(facingHotelPlant(player))return "IT'S JUST A PLANT.";
@@ -180,9 +191,9 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   rod({x:railX,y:1.2,z:st.z-.16},{x:railX,y:ld.y+railHeight,z:ld.z},.04,look.wood[0]);
   for(let z=ld.z+.5;z<D;z+=.6)box(railX-.03,ld.y,z,.06,railHeight,.06,look.metal);
   rod({x:railX,y:ld.y+railHeight,z:ld.z},{x:railX,y:ld.y+railHeight,z:D},.04,look.wood[0]);
-  // A dark corridor leads off the landing to the rooms.
+  // The way to the rooms is closed off by a black panel in a brass frame.
   box(ld.x+.4,ld.y,D-.06,ld.w-.8,2.5,.04,look.metal);
-  box(ld.x+.55,ld.y,D-.08,ld.w-1.1,2.35,.03,'#120c14');
+  box(ld.x+.55,ld.y,D-.08,ld.w-1.1,2.35,.03,'#050406');
 
   // The lift: brass doors under a floor dial, with a call button.
   const {lift}=HOTEL;

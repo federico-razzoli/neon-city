@@ -72,7 +72,7 @@ test('the lobby keeps the player out of the furniture but lets them reach the de
   // Furniture and walls stop the player.
   const blocked=[
     [{x:4,z:11},{x:4,z:14}],[{x:1.8,z:6},{x:0,z:6}],[{x:15.5,z:6},{x:19,z:6}],
-    [{x:17.5,z:2},{x:17.5,z:6}],[{x:2,z:3.5},{x:0,z:3.5}],[{x:10,z:2},{x:10,z:-1}],[{x:10,z:15},{x:10,z:17}]
+    [{x:15.5,z:7},{x:19,z:7}],[{x:2,z:3.5},{x:0,z:3.5}],[{x:10,z:2},{x:10,z:-1}],[{x:10,z:15},{x:10,z:17}]
   ];
   for(const [from,to] of blocked){
     const end=walk(from,to);
@@ -80,6 +80,43 @@ test('the lobby keeps the player out of the furniture but lets them reach the de
   }
   // Nobody can get behind the desk to the receptionist.
   for(const target of [HOTEL.receptionist,{x:1,z:15},{x:7,z:15.5}])assert.ok(!near(walk(walk(spawn,{x:target.x,z:spawn.z}),target),target,.5));
+});
+
+test('the stairs climb from their bottom step to the landing, behind a banister, up to a closed panel',async()=>{
+  const {HOTEL,moveInHotel,hotelFloorHeight,hotelReply}=await import('../neon-city/hotel-interior.js');
+  const {stairs,landing}=HOTEL;
+  const walk=(p,to,steps=600)=>{
+    for(let i=0;i<steps;i++)moveInHotel(p,Math.sign(to.x-p.x)*Math.min(.1,Math.abs(to.x-p.x)),Math.sign(to.z-p.z)*Math.min(.1,Math.abs(to.z-p.z)));
+    return p;
+  };
+  // The floor rises evenly along the stairs, without a step at either end.
+  assert.equal(hotelFloorHeight(10,8),0);
+  assert.equal(hotelFloorHeight(18,stairs.z-.01),0);
+  assert.ok(Math.abs(hotelFloorHeight(18,stairs.z+2)-1)<1e-9);
+  assert.equal(hotelFloorHeight(18,landing.z),landing.y);
+  assert.equal(hotelFloorHeight(18,15),landing.y);
+  for(let z=stairs.z;z<landing.z;z+=.05)assert.ok(hotelFloorHeight(18,z+.05)-hotelFloorHeight(18,z)<=.026,'a smooth climb');
+  // Up from the foot of the stairs to the landing, and back down.
+  const p=walk(walk({...HOTEL.spawn},{x:18,z:2}),{x:18,z:14});
+  assert.ok(Math.abs(p.x-18)<1e-9&&Math.abs(p.z-14)<1e-9,'reached the landing');
+  assert.equal(hotelFloorHeight(p.x,p.z),landing.y);
+  // A black panel closes the way to the rooms: the wall stops the player.
+  walk(p,{x:18,z:17});
+  assert.ok(p.z<=HOTEL.depth-.3+1e-9,'stopped at the panel');
+  // The banister keeps the player on the landing.
+  walk(p,{x:14,z:p.z});
+  assert.ok(p.x>=stairs.x+.3-1e-9,'held by the banister');
+  assert.equal(hotelFloorHeight(p.x,p.z),landing.y);
+  assert.equal(hotelReply({...p,angle:-Math.PI/2}),null,'no lift replies from upstairs');
+  walk(walk(p,{x:18,z:13}),{x:18,z:2});
+  assert.equal(hotelFloorHeight(p.x,p.z),0,'back down');
+  // Nobody climbs on or off over the banister, halfway up or under the landing.
+  for(const z of [5,8,11,13,15]){
+    const side=walk({x:15.5,z},{x:19,z});
+    assert.ok(side.x<=stairs.x-.3+1e-9,`kept off the stairs at ${z}`);
+    const off=walk(walk(walk({...HOTEL.spawn},{x:18,z:2}),{x:18,z}),{x:14,z});
+    assert.ok(off.x>=stairs.x+.3-1e-9&&Math.abs(off.z-z)<1e-9,`kept on the stairs at ${z}`);
+  }
 });
 
 test('each lobby has Nurse Joy or a blonde receptionist and the hotel colours, with red-carpeted stairs',async()=>{
