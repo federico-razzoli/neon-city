@@ -1430,3 +1430,29 @@ test('bridge fascia separates buried ends and hides lower walls from the deck si
     }
   }
 });
+
+test('bridge pavement stays behind pedestrian legs at oblique camera bearings',async()=>{
+  const {orderSurfaces}=await import('../neon-city/surface-order.js');
+  let corrected=0;
+  for(const angle of [-1.2,-.8,-.4,.4,.8,1.2]){
+    const s=Math.sin(angle),c=Math.cos(angle);
+    const camera={x:11-s*10,z:1-c*10,y:1.725};
+    const project=v=>{
+      const dx=v.x-camera.x,dz=v.z-camera.z,z=dx*s+dz*c;
+      return {z,p:{x:(dx*c-dz*s)/z,y:(camera.y-v.y)/z}};
+    };
+    const vertices=[{x:8,y:.075,z:0},{x:14,y:.075,z:0},{x:14,y:.075,z:2},{x:8,y:.075,z:2}].map(project);
+    const deck={name:'deck',depth:vertices.reduce((sum,v)=>sum+v.z,0)/4,ps:vertices.map(v=>v.p),vs:vertices};
+    // The pedestrian stands nearer one end of the panel, not at its centre.
+    const feet=project({x:11,y:.075,z:1.6}),width=.09,height=.185;
+    const person={name:'person',detail:true,depth:feet.z,vs:Array.from({length:4},()=>({z:feet.z})),ps:[
+      {x:feet.p.x-width/2,y:feet.p.y},{x:feet.p.x+width/2,y:feet.p.y},
+      {x:feet.p.x+width/2,y:feet.p.y-height},{x:feet.p.x-width/2,y:feet.p.y-height}
+    ]};
+    if(person.depth>deck.depth)corrected++;
+    for(const faces of [[person,deck],[deck,person]])assert.deepEqual(orderSurfaces(faces).map(f=>f.name),['deck','person']);
+    const rail={...person,name:'rail',detail:false,depth:feet.z-1,vs:person.vs.map(()=>({z:feet.z-1}))};
+    assert.deepEqual(orderSurfaces([rail,person,deck]).map(f=>f.name),['deck','person','rail'],'foreground rail still hides pedestrians');
+  }
+  assert.ok(corrected>0,'covers angles where centre-distance sorting hides the legs');
+});
