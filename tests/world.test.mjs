@@ -627,6 +627,50 @@ test('wall texture lines follow perspective through left and right turns and nea
   }
 });
 
+test('street wall panels own every column once and share continuous depth and fog',async()=>{
+  const {wallColumns,wallFog}=await import('../neon-city/perspective.js');
+  const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
+  for(const reverse of [false,true]){
+    const at=(u,v)=>({x:-30+60*u/160,y:38*(1-v/180)-1.65,z:reverse?85-55*u/160:30+55*u/160,u,v});
+    const columns=(l,r)=>{const vs=[[l,180],[r,180],[r,0],[l,0]].map(([u,v])=>at(u,v));return [...wallColumns(vs.map(project),vs,640)];};
+    const whole=columns(0,160),panels=Array.from({length:8},(_,i)=>columns(i*20,(i+1)*20)).flat();
+    assert.deepEqual(panels.map(c=>c.x),whole.map(c=>c.x),'no missing or overlapping columns at fractional panel boundaries');
+    for(let i=0;i<whole.length;i++){
+      const a=whole[i],b=panels[i];
+      for(const edge of ['top','bottom'])for(const key of ['y','u','v','depth'])assert.ok(Math.abs(a[edge][key]-b[edge][key])<1e-8);
+      assert.ok(Math.abs(wallFog(a.top.depth)-wallFog(b.top.depth))<1e-10,'fog does not depend on panel subdivision');
+      // Independently intersect this camera ray with z = z0 + slope * (x+30).
+      const slope=(reverse?-55:55)/60,z0=reverse?85:30,rayX=(a.x+.5-320)/355;
+      const depth=(z0+30*slope)/(1-slope*rayX);
+      assert.ok(Math.abs(a.top.depth-depth)<1e-8);
+    }
+  }
+  assert.equal(wallFog(10),0);assert.equal(wallFog(22),0);
+  assert.equal(wallFog(89.5),.5);assert.equal(wallFog(1000),.94);
+});
+
+test('pitched wall fog and edge coverage are independent of panel subdivision',async()=>{
+  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
+  const texture={width:1,height:1,data:new Uint8ClampedArray([186,164,134,255])};
+  for(const pitch of [0,.5,1.1]){
+    const at=(u,v)=>{const x=-30+60*u,z=30+55*u,y=38*(1-v)-1.65;return {x,y:y*Math.cos(pitch)-z*Math.sin(pitch),z:z*Math.cos(pitch)+y*Math.sin(pitch),u,v};};
+    const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
+    const render=count=>{
+      const output=new Uint8ClampedArray(640*360*4),coverage=new Uint8Array(640*360);
+      for(let part=0;part<count;part++){
+        const l=part/count,r=(part+1)/count,vs=[[l,1],[r,1],[r,0],[l,0]].map(([u,v])=>at(u,v));
+        const pixels=new Uint8ClampedArray(output.length);
+        rasterizePitchedWall(vs.map(project),vs,texture,640,360,pixels,false,true);
+        for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]){coverage[i/4]++;output.set(pixels.subarray(i,i+4),i);}
+      }
+      assert.ok(coverage.every(n=>n<=1),'panels never apply fog twice to a pixel');
+      return output;
+    };
+    const whole=render(1),panels=render(8);
+    for(let i=0;i<whole.length;i++)assert.ok(Math.abs(whole[i]-panels[i])<=1,'fogged pixels match an unsplit wall');
+  }
+});
+
 test('pitched wall textures stay perspective-correct when a seated player looks up',async()=>{
   const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
   const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});

@@ -14,7 +14,7 @@ import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,fac
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
-import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=raster-1';
+import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=street-1';
 import {hotelHIsDim,dimHotelH} from './hotel.js';
 import {HornWarning,playHorn} from './horn.js';
 
@@ -120,7 +120,7 @@ function camera(v){
 function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
 function clip(vertices){const out=[];for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],ai=a.z>=.15,bi=b.z>=.15;if(ai)out.push(a);if(ai!==bi){const t=(.15-a.z)/(b.z-a.z),v={};for(const k of ['x','y','z','u','v'])v[k]=a[k]+(b[k]-a[k])*t;out.push(v);}}return out;}
 let vehicleSurface=null,vehicleTurn=null;
-function face(vertices,color,texture=null,smooth=false){
+function face(vertices,color,texture=null,smooth=false,buildingWall=false){
   if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
   if(vehicleTurn){
     const {x,z,angle}=vehicleTurn,c=Math.cos(angle),s=Math.sin(angle);
@@ -131,7 +131,7 @@ function face(vertices,color,texture=null,smooth=false){
   const clipped=clip(vs);if(clipped.length<3)return;
   const ps=clipped.map(project);
   if(ps.every(p=>p.x<0)||ps.every(p=>p.x>W)||ps.every(p=>p.y<0)||ps.every(p=>p.y>H))return;
-  queue.push({ps,vs:clipped,depth,elevation:vertices[0].y,color,texture,smooth});
+  queue.push({ps,vs:clipped,depth,elevation:vertices[0].y,color,texture,smooth,buildingWall});
 }
 function quad(x,y,z,w,d,color){face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);}
 function box(x,y,z,w,h,d,color,roof=color){
@@ -175,7 +175,7 @@ function building(b){
     for(let s=0;s<8;s++){
       const l=s/8,r=(s+1)/8;
       const panel=[lerp(points[0],points[1],l),lerp(points[0],points[1],r),lerp(points[3],points[2],r),lerp(points[3],points[2],l)];
-      face(panel.map((p,i)=>({...p,u:[l*160,r*160,r*160,l*160][i],v:[tex.height,tex.height,0,0][i]})),b.color,tex);
+      face(panel.map((p,i)=>({...p,u:[l*160,r*160,r*160,l*160][i],v:[tex.height,tex.height,0,0][i]})),b.color,tex,false,true);
     }
   }
   if(player.z<z)wall([{x,y:0,z},{x:x+w,y:0,z},{x:x+w,y:h,z},{x,y:h,z}],0);
@@ -184,9 +184,12 @@ function building(b){
   if(player.x>x+w)wall([{x:x+w,y:0,z},{x:x+w,y:0,z:z+d},{x:x+w,y:h,z:z+d},{x:x+w,y:h,z}],3);
 }
 function drawFace(f){
-  ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();
-  if(f.texture&&playerSeat?.pitch)drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth);
-  else if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth);
+  // Opaque building textures own complete pixels at panel edges and carry
+  // their own continuous fog. A polygon underlay/overlay would add seams.
+  if(!f.buildingWall){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();}
+  if(f.texture&&playerSeat?.pitch)drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
+  else if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
+  if(f.buildingWall)return;
   const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
   if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
 }

@@ -10,7 +10,7 @@ export function* wallColumns(points,vertices,width){
       if(center<Math.min(a.x,b.x)||center>=Math.max(a.x,b.x))continue;
       const t=(center-a.x)/(b.x-a.x),va=vertices[i],vb=vertices[j];
       const inverseDepth=(1-t)/va.z+t/vb.z;
-      hits.push({y:a.y+(b.y-a.y)*t,
+      hits.push({y:a.y+(b.y-a.y)*t,depth:1/inverseDepth,
         u:((1-t)*va.u/va.z+t*vb.u/vb.z)/inverseDepth,
         v:((1-t)*va.v/va.z+t*vb.v/vb.z)/inverseDepth});
     }
@@ -20,12 +20,18 @@ export function* wallColumns(points,vertices,width){
   }
 }
 
-export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false){
+export const wallFog=depth=>Math.min(.94,Math.max(0,(depth-22)/135));
+
+export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false,continuousFog=false){
   ctx.save();
   ctx.imageSmoothingEnabled=smooth;
-  ctx.beginPath();
-  points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-  ctx.closePath();ctx.clip();
+  // Building panels partition the integer columns by pixel centre. Clipping
+  // those columns to fractional panel edges would expose the background.
+  if(!continuousFog){
+    ctx.beginPath();
+    points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    ctx.closePath();ctx.clip();
+  }
   const columns=[...wallColumns(points,vertices,width)];
   for(let i=0;i<columns.length;i++){
     const {x,top,bottom}=columns[i];
@@ -38,6 +44,10 @@ export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false){
     const left=smooth?Math.max(0,u-span/2):u;
     const sampleWidth=Math.min(span,texture.width-left);
     ctx.drawImage(texture,left,top.v,sampleWidth,bottom.v-top.v,x,top.y,1,bottom.y-top.y);
+    if(continuousFog){
+      const fog=wallFog(top.depth);
+      if(fog>0){ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fillRect(x,top.y,1,bottom.y-top.y);}
+    }
   }
   ctx.restore();
 }
@@ -48,7 +58,7 @@ export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false){
 // reused; texture canvases are immutable after their first draw.
 const texturePixels=new WeakMap();
 let pitchedSurface;
-export function rasterizePitchedWall(points,vertices,texture,width,height,pixels,smooth=false){
+export function rasterizePitchedWall(points,vertices,texture,width,height,pixels,smooth=false,continuousFog=false){
   const left=Math.max(0,Math.ceil(Math.min(...points.map(p=>p.x))-.5));
   const right=Math.min(width,Math.ceil(Math.max(...points.map(p=>p.x))-.5));
   const top=Math.max(0,Math.ceil(Math.min(...points.map(p=>p.y))-.5));
@@ -95,12 +105,18 @@ export function rasterizePitchedWall(points,vertices,texture,width,height,pixels
         pixels[offset+3]=alpha;
         for(let channel=0;channel<3;channel++)pixels[offset+channel]=alpha?indices.reduce((sum,index,i)=>sum+source[index+channel]*source[index+3]*weights[i],0)/alpha:0;
       }
+      if(continuousFog&&iw<1/22){
+        const fog=wallFog(1/iw);
+        pixels[offset]+=(15-pixels[offset])*fog;
+        pixels[offset+1]+=(10-pixels[offset+1])*fog;
+        pixels[offset+2]+=(30-pixels[offset+2])*fog;
+      }
     }
   }
   return {left,top,width:right-left,height:bottom-top};
 }
 
-export function drawPitchedWallTexture(ctx,points,vertices,texture,width,smooth=false){
+export function drawPitchedWallTexture(ctx,points,vertices,texture,width,smooth=false,continuousFog=false){
   const height=ctx.canvas.height;
   if(!pitchedSurface||pitchedSurface.frame.width!==width||pitchedSurface.frame.height!==height){
     const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
@@ -109,7 +125,7 @@ export function drawPitchedWallTexture(ctx,points,vertices,texture,width,smooth=
   }
   if(!texturePixels.has(texture))texturePixels.set(texture,texture.getContext('2d').getImageData(0,0,texture.width,texture.height));
   const {canvas,context,frame}=pitchedSurface;
-  const bounds=rasterizePitchedWall(points,vertices,texturePixels.get(texture),width,height,frame.data,smooth);
+  const bounds=rasterizePitchedWall(points,vertices,texturePixels.get(texture),width,height,frame.data,smooth,continuousFog);
   if(!bounds)return;
   const {left,top,width:w,height:h}=bounds;
   // Keep the source canvas tight: browsers may upload its entire backing store
