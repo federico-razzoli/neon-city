@@ -1,4 +1,4 @@
-import {BLOCK,WATER_LEVEL,bridgeHeight,hasBridge,mod} from './world.js?v=bridge-visibility-1';
+import {BLOCK,WATER_LEVEL,bridgeHeight,hasBridge,mod} from './world.js?v=parks-4';
 
 // Each chunk owns half of a river, including its share of each bridge.
 export function drawRiverTerrain(chunk,{quad,face},time){

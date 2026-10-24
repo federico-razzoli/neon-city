@@ -59,11 +59,16 @@ test('river ground visibility matches nearest surface from either bank and camer
   }
 });
 
-test('wide parallel rivers flank spawn four to six streets away and eight to twelve blocks apart',()=>{
+test('only Night River remains through district 0, 4, with ordinary city blocks at the former river',()=>{
   const city=new City(42),centres=RIVER_ROWS.map(row=>(row+1)*BLOCK);
-  assert.equal(centres.length,2);
-  assert.ok(centres[0]<4&&centres[1]>4);
-  assert.ok((centres[1]-centres[0])/BLOCK>=8&&(centres[1]-centres[0])/BLOCK<=12);
+  assert.deepEqual(RIVER_ROWS,[4]);
+  for(const row of [-6,-5])for(const x of [-3,0,1]){
+    const chunk=city.generate(x,row);
+    assert.ok(!chunk.river,'former river is ordinary city terrain');
+    assert.ok(chunk.buildings.length>0||chunk.park,'city buildings or a park fill the removed river');
+    assert.equal(groundHeight(x*BLOCK+11,row*BLOCK+32),0,'no remaining bridge slope');
+    assert.equal(traffic(chunk,0).length,4,'ordinary streets retain traffic in both directions');
+  }
   assert.ok(RIVER_WIDTH>BLOCK);
   assert.ok(WATER_LEVEL<=-5);
   for(const centre of centres)assert.ok(Math.abs(centre-4)/BLOCK>=4&&Math.abs(centre-4)/BLOCK<=6);
@@ -412,6 +417,15 @@ test('sky stays at world bearings, matches city perspective and repeats only aft
   assert.ok(Math.abs(turned.y-(164-355*Math.tan(object.elevation)/depth))<1e-9);
   assert.equal(projectSky(object,Math.PI,640,355,164),null,'moon is behind the viewer');
   assert.equal(projectSky(object,1.5,640,355,164),null,'offscreen objects do not wrap');
+  // A seated player's upward pitch follows the city camera too.
+  const {skyHorizon}=await import('../neon-city/sky.js');
+  assert.equal(skyHorizon(164,355,0),164);
+  assert.ok(skyHorizon(164,355,.3)>164,'looking up lowers the horizon');
+  const centred=projectSky(object,object.bearing,640,355,164,object.elevation);
+  assert.ok(Math.abs(centred.x-320)<1e-9&&Math.abs(centred.y-164)<1e-9,'looking straight at a star centres it');
+  assert.equal(projectSky({bearing:0,elevation:.3},0,640,355,164,1.2)?.y>projectSky({bearing:0,elevation:.6},0,640,355,164,1.2)?.y,true,'higher stars stay higher on screen');
+  assert.equal(projectSky({bearing:0,elevation:1.2},0,640,355,164),null,'high stars are out of the level view');
+  assert.ok(projectSky({bearing:0,elevation:1.2},0,640,355,164,1.2),'and visible when looking up');
   for(const angle of [-2*Math.PI,2*Math.PI]){
     const returned=projectSky(object,angle,640,355,164);
     assert.ok(Math.abs(returned.x-initial.x)<1e-9);
@@ -613,6 +627,49 @@ test('wall texture lines follow perspective through left and right turns and nea
   }
 });
 
+test('pitched wall textures stay perspective-correct when a seated player looks up',async()=>{
+  const {pitchedWallRuns,wallColumns}=await import('../neon-city/perspective.js');
+  const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
+  let checked=0;
+  for(const pitch of [.2,.6,1.1])for(const angle of [-.7,0,.5]){
+    // The same camera as the game: turn, then pitch about the eye.
+    const c=Math.cos(angle),sn=Math.sin(angle),cp=Math.cos(pitch),sp=Math.sin(pitch);
+    const camera=w=>{const dx=w.x,dz=w.z-12,y=w.y-1.5,z=dx*sn+dz*c;return {x:dx*c-dz*sn,y:y*cp-z*sp,z:z*cp+y*sp};};
+    const wall=(u,v)=>({x:-4+8*u/160,y:20*(1-v/180),z:24});
+    const vs=[[0,180],[160,180],[160,0],[0,0]].map(([u,v])=>({...camera(wall(u,v)),u,v}));
+    if(vs.some(p=>p.z<=.15))continue;
+    checked++;
+    // Independently cast a camera ray through a screen point onto the wall.
+    const o=camera({x:0,y:0,z:24}),eu=camera({x:1,y:0,z:24}),ev=camera({x:0,y:1,z:24});
+    const ax={x:eu.x-o.x,y:eu.y-o.y,z:eu.z-o.z},ay={x:ev.x-o.x,y:ev.y-o.y,z:ev.z-o.z};
+    const n={x:ax.y*ay.z-ax.z*ay.y,y:ax.z*ay.x-ax.x*ay.z,z:ax.x*ay.y-ax.y*ay.x};
+    const texel=(sx,sy)=>{
+      const ray={x:(sx-320)/355,y:(164-sy)/355,z:1},t=(n.x*o.x+n.y*o.y+n.z*o.z)/(n.x*ray.x+n.y*ray.y+n.z*ray.z);
+      const p={x:ray.x*t-o.x,y:ray.y*t-o.y,z:ray.z*t-o.z},det=ax.x*ay.y-ax.y*ay.x;
+      const wx=(p.x*ay.y-p.y*ay.x)/det,wy=(ax.x*p.y-ax.y*p.x)/det;
+      return {u:(wx+4)*160/8,v:180*(1-wy/20)};
+    };
+    const runs=[...pitchedWallRuns(vs.map(project),vs,640)];
+    assert.ok(runs.length>[...wallColumns(vs.map(project),vs,640)].length,'tilted walls cross texel columns');
+    for(const {x,top,bottom,column} of runs){
+      assert.ok(bottom.y>=top.y);
+      // The run's texel column is the true one at its centre, and v maps to
+      // screen y within half a pixel along the whole run.
+      const mid=(top.y+bottom.y)/2,truth=texel(x+.5,mid);
+      assert.ok(Math.abs(truth.u-(column+.5))<=.5+1e-6,`column ${column} vs ${truth.u.toFixed(2)}`);
+      for(const f of [0,.25,.5,.75,1]){
+        const y=top.y+(bottom.y-top.y)*f,drawn=top.v+(bottom.v-top.v)*f,real=texel(x+.5,y).v;
+        const pixelsPerTexel=Math.abs((bottom.y-top.y)/((bottom.v-top.v)||1e-12));
+        assert.ok(Math.abs(drawn-real)*pixelsPerTexel<.75,`v off by ${(Math.abs(drawn-real)*pixelsPerTexel).toFixed(2)}px`);
+      }
+    }
+  }
+  assert.ok(checked>=6,`${checked} camera setups checked`);
+  // Level views reduce to the standard columns: one run each.
+  const level=[{x:-4,y:-1.5,z:8,u:0,v:180},{x:4,y:-1.5,z:12,u:160,v:180},{x:4,y:18.5,z:12,u:160,v:0},{x:-4,y:18.5,z:8,u:0,v:0}];
+  assert.equal([...pitchedWallRuns(level.map(project),level,640)].length,[...wallColumns(level.map(project),level,640)].length);
+});
+
 test('all pedestrian types have distinct cached front/back sprites and walking frames',async()=>{
   const previous=globalThis.document;
   globalThis.document={createElement(){
@@ -757,9 +814,10 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {PubLife,PubConversation}=await import('../neon-city/pub-life.js');
   const {pubLines}=await import('../neon-city/world.js');
   const {RiverLook}=await import('../neon-city/river-look.js');
-  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const {facingBench}=await import('../neon-city/parks.js');
+  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -885,6 +943,43 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(player.x,21);assert.equal(player.z,-7);
   assert.equal(player.angle,Math.PI,'exit faces away from the pub');
   assert.equal(sounds,7,'door use never lifts a manhole');
+  // Park benches use the same seated mode as pub chairs.
+  events.keyup(key);
+  city.chunks.set('0,0',{buildings:[],manholes:[],park:{benches:[{x:40,z:30,tx:1,tz:0,nx:0,nz:1}]}});
+  player.x=39.4;player.z=28.6;player.angle=Math.PI;
+  events.keydown(key);tick(ms+=20);
+  assert.equal(sandbox.game.seat,null,'facing away from a bench does not sit');
+  events.keyup(key);player.angle=0;
+  events.keydown(key);tick(ms+=20);
+  assert.ok(sandbox.game.seat,'facing a nearby bench sits down');
+  assert.equal(player.x,39.5);assert.equal(player.z,30,'sits on the nearer end of the seat');
+  const facing=player.angle;
+  assert.ok(Math.abs(Math.cos(facing)+1)<1e-9,'seated, facing away from the backrest');
+  assert.ok(Math.abs(sandbox.game.camera({x:39.5,y:1.5,z:29}).y)<1e-9,'seated eye height');
+  const benchMoves=moves;
+  for(const movement of ['ArrowUp','ArrowDown','w','s','a','d']){
+    events.keydown({key:movement,preventDefault(){}});tick(ms+=20);
+    assert.equal(player.x,39.5);assert.equal(player.z,30,'seated movement is locked');
+    events.keyup({key:movement});
+  }
+  assert.equal(moves,benchMoves,'no street movement while seated');
+  events.keydown({key:'ArrowRight',preventDefault(){}});
+  for(let i=0;i<100;i++)tick(ms+=40);
+  assert.ok(Math.abs(player.angle-(facing+Math.PI/4))<1e-9,'bench turning is limited like a pub chair');
+  events.keyup({key:'ArrowRight'});events.keydown({key:'ArrowLeft',preventDefault(){}});
+  for(let i=0;i<100;i++)tick(ms+=40);
+  assert.ok(Math.abs(player.angle-(facing-Math.PI/4))<1e-9);
+  events.keyup({key:'ArrowLeft'});events.keydown({key:'ArrowUp',preventDefault(){}});
+  for(let i=0;i<100;i++)tick(ms+=40);
+  assert.equal(sandbox.game.seat.pitch,Math.PI/2,'look up at the pines and stars');
+  events.keyup({key:'ArrowUp'});
+  events.keydown({...key,repeat:true});assert.ok(sandbox.game.seat,'held Space does not stand up');
+  events.keyup(key);events.keydown(key);
+  assert.equal(sandbox.game.seat,null);
+  assert.equal(player.x,39.4);assert.equal(player.z,28.6,'standing returns to a clear position');
+  assert.equal(sandbox.game.camera({x:player.x,y:1.65,z:player.z-2}).y,0,'standing resets pitch and eye height');
+  events.keyup(key);events.keydown({key:'ArrowUp',preventDefault(){}});tick(ms+=20);
+  assert.ok(moves>benchMoves,'walking resumes after standing');
 
 });
 
@@ -1567,4 +1662,228 @@ test('bridge pavement stays behind pedestrian legs at oblique camera bearings',a
     assert.deepEqual(orderSurfaces([rail,person,deck]).map(f=>f.name),['deck','person','rail'],'foreground rail still hides pedestrians');
   }
   assert.ok(corrected>0,'covers angles where centre-distance sorting hides the legs');
+});
+
+test('one block in ten becomes a park with benches and trees in place of buildings',async()=>{
+  const {PARK_CHANCE}=await import('../neon-city/world.js');
+  const city=new City(7);let parks=0,total=0;
+  for(let x=-40;x<40;x++)for(let z=-30;z<30;z++){
+    if(RIVER_ROWS.some(row=>z===row||z===row+1))continue;
+    const chunk=city.generate(x,z);total++;
+    if(!chunk.park){assert.equal(chunk.buildings.length,4);continue;}
+    parks++;
+    assert.equal(chunk.buildings.length+chunk.newspaperMachines.length,0);
+    assert.equal(chunk.park.benches.length,2);
+    assert.ok(chunk.park.trees.length>=3&&chunk.park.trees.length<=5);
+  }
+  assert.equal(PARK_CHANCE,.1);
+  assert.ok(Math.abs(parks/total-PARK_CHANCE)<.015,`park share ${parks/total}`);
+  for(const row of RIVER_ROWS)assert.ok(!city.generate(0,row).park,'river blocks never become parks');
+});
+
+test('cached parks always have at least two ordinary blocks between them, diagonals included',()=>{
+  for(const seed of [1,2,3,4,5]){
+    const city=new City(seed);let seen=0;
+    for(let i=0;i<400;i++){
+      city.update(Math.sin(i*.07)*900+i*20,Math.cos(i*.05)*700-i*9);
+      const parks=[...city.chunks.values()].filter(c=>c.park);
+      seen+=parks.length;
+      for(const a of parks)for(const b of parks)if(a!==b)
+        assert.ok(Math.max(Math.abs(a.x-b.x),Math.abs(a.z-b.z))>=3,`parks ${a.x},${a.z} and ${b.x},${b.z}`);
+    }
+    assert.ok(seen>0,'parks appear while walking');
+  }
+});
+
+function parkChunk(seed=11){
+  const city=new City(seed);
+  for(let x=0;;x++){
+    const chunk=city.generate(x,0);
+    if(chunk.park){city.chunks.set(`${x},0`,chunk);return {city,chunk};}
+  }
+}
+
+test('the winding footpath is walkable, curves, and leaves trees and benches clear',async()=>{
+  const {PARK_PATH_WIDTH,pathDistance}=await import('../neon-city/world.js');
+  for(let seed=1;seed<30;seed++){
+    const {city,chunk}=parkChunk(seed),{axis,path,trees,benches}=chunk.park,x=chunk.x*BLOCK,z=chunk.z*BLOCK;
+    const along=p=>axis?p.z-z:p.x-x,across=p=>axis?p.x-x:p.z-z;
+    assert.equal(along(path[0]),14);assert.equal(along(path.at(-1)),50);
+    // The ends meet the sidewalks squarely, and the path bends in between.
+    for(const [a,b] of [[path[0],path[1]],[path.at(-1),path.at(-2)]])
+      assert.ok(Math.abs(across(b)-across(a))<.6*Math.abs(along(b)-along(a)),'path leaves the sidewalk squarely');
+    const offsets=path.map(across);
+    assert.ok(Math.max(...offsets)-Math.min(...offsets)>6,'the path is not straight');
+    for(let i=1;i<path.length-1;i++){
+      const a=path[i-1],b=path[i],c=path[i+1];
+      const turn=Math.abs(Math.atan2(c.z-b.z,c.x-b.x)-Math.atan2(b.z-a.z,b.x-a.x));
+      const radius=(Math.hypot(b.x-a.x,b.z-a.z)+Math.hypot(c.x-b.x,c.z-b.z))/2/Math.max(1e-9,Math.min(turn,2*Math.PI-turn));
+      assert.ok(radius>PARK_PATH_WIDTH/2+.3,`curve radius ${radius.toFixed(2)} folds the path edge`);
+    }
+    assert.ok(path.every(p=>across(p)>=14+PARK_PATH_WIDTH/2&&across(p)<=50-PARK_PATH_WIDTH/2));
+    // Walk the whole centre line from one sidewalk to the other.
+    const walker={x:path[0].x,z:path[0].z};
+    for(const point of path)city.move(walker,point.x-walker.x,point.z-walker.z);
+    assert.ok(Math.hypot(walker.x-path.at(-1).x,walker.z-path.at(-1).z)<1e-6,'footpath crosses the park');
+    for(const t of trees){
+      assert.ok(city.solid(t.x,t.z));
+      assert.ok(pathDistance(path,t.x,t.z)-t.radius-.45>=PARK_PATH_WIDTH/2,'trunks leave the path clear');
+      assert.ok(t.x-x>=17&&t.x-x<=47&&t.z-z>=17&&t.z-z<=47);
+      assert.ok(!city.solid(t.x+t.radius+.5,t.z)||pathDistance(path,t.x+t.radius+.5,t.z)>0,'only the trunk is solid');
+    }
+    for(const b of benches){
+      assert.ok(city.solid(b.x,b.z));
+      const gap=pathDistance(path,b.x,b.z);
+      assert.ok(gap>PARK_PATH_WIDTH/2+.3&&gap<PARK_PATH_WIDTH/2+1,'benches stand beside the path');
+      // The seat runs parallel to the nearest stretch of path.
+      const ahead=pathDistance(path,b.x+b.tx,b.z+b.tz);
+      assert.ok(Math.abs(ahead-gap)<.35);
+    }
+    // Unloaded blocks keep their solid footprint.
+    assert.ok(city.solid(x+BLOCK*50+32,z+32));
+  }
+});
+
+test('park footpath and decals always paint over the lawn from any viewpoint',async()=>{
+  const {drawParkGround,PARK_LAYERS}=await import('../neon-city/parks.js');
+  const inside=(poly,x,z)=>{
+    let hit=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const a=poly[i],b=poly[j];
+      if((a.z>z)!==(b.z>z)&&x<(b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x)hit=!hit;
+    }
+    return hit;
+  };
+  for(let seed=1;seed<6;seed++){
+    const {chunk}=parkChunk(seed),terrain=[],x=chunk.x*BLOCK,z=chunk.z*BLOCK;
+    drawParkGround(chunk,{
+      quad:(x,elevation,z,w,d,color)=>terrain.push({poly:[{x,z},{x:x+w,z},{x:x+w,z:z+d},{x,z:z+d}],elevation,color}),
+      face:(vertices,color)=>terrain.push({poly:vertices,elevation:vertices[0].y,color})
+    });
+    assert.ok(terrain.filter(f=>f.elevation===PARK_LAYERS.path).length>20,'the path is a curved ribbon');
+    assert.ok(Math.max(...terrain.filter(f=>f.elevation<PARK_LAYERS.path).map(f=>f.elevation))<PARK_LAYERS.path);
+    for(const cameraX of [-20,11,32,70])for(const cameraZ of [-15,11,40,90])for(const target of chunk.park.path.slice(1,-1)){
+      const camera={x:x+cameraX,y:1.65,z:z+cameraZ};
+      const dx=target.x-camera.x,dz=target.z-camera.z,length=Math.hypot(dx,dz)||1;
+      const faces=terrain.map(f=>{
+        const c=f.poly.reduce((s,p)=>({x:s.x+p.x/f.poly.length,z:s.z+p.z/f.poly.length}),{x:0,z:0});
+        return {...f,depth:((c.x-camera.x)*dx+(c.z-camera.z)*dz)/length};
+      });
+      const hits=faces.filter(f=>{
+        const t=(f.elevation-camera.y)/(PARK_LAYERS.path-camera.y);
+        return inside(f.poly,camera.x+t*dx,camera.z+t*dz);
+      });
+      assert.ok(hits.some(f=>f.color==='#345841'),'the ray also crosses the lawn');
+      const painted=orderGroundSurfaces(faces).filter(f=>hits.includes(f)).at(-1);
+      assert.ok(painted.elevation>=PARK_LAYERS.path,'footpath is never hidden by the lawn');
+    }
+  }
+});
+
+test('park trees are tall pines, closed and drawn only on viewer-facing sides',async()=>{
+  const {drawParkStructures}=await import('../neon-city/parks.js');
+  for(let seed=1;seed<8;seed++){
+    const {chunk}=parkChunk(seed);
+    for(const tree of chunk.park.trees){
+      const all=[];
+      for(const viewer of [{x:tree.x-14,y:1.65,z:tree.z},{x:tree.x+6,y:1.65,z:tree.z+6},{x:tree.x+.9,y:1.65,z:tree.z},{x:tree.x,y:30,z:tree.z-20}]){
+        const faces=[];
+        drawParkStructures({...chunk,park:{...chunk.park,benches:[],cones:[],trees:[tree]}},{face:v=>faces.push(v)},viewer);
+        all.push(...faces);
+        for(const v of faces){
+          const c=v.reduce((s,p)=>({x:s.x+p.x/v.length,y:s.y+p.y/v.length,z:s.z+p.z/v.length}),{x:0,y:0,z:0});
+          if(v.every(p=>Math.abs(p.y-v[0].y)<1e-9))continue;
+          const a={x:v[1].x-v[0].x,y:v[1].y-v[0].y,z:v[1].z-v[0].z},b={x:v[2].x-v[0].x,y:v[2].y-v[0].y,z:v[2].z-v[0].z};
+          let n={x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x};
+          if(n.x*(c.x-tree.x)+n.z*(c.z-tree.z)<0)n={x:-n.x,y:-n.y,z:-n.z};
+          assert.ok(n.x*(viewer.x-c.x)+n.y*(viewer.y-c.y)+n.z*(viewer.z-c.z)>0,'only sides facing the viewer are drawn');
+        }
+        // Standing beside the trunk, the crown is overhead.
+        if(viewer.y<2&&Math.hypot(viewer.x-tree.x,viewer.z-tree.z)<1)
+          assert.ok(faces.some(v=>v.every(p=>p.y>viewer.y+.1)&&v.some(p=>Math.hypot(p.x-tree.x,p.z-tree.z)>1)),'crown seen from beneath');
+      }
+      const top=Math.max(...all.flatMap(v=>v.map(p=>p.y)));
+      assert.ok(top>=16,`tree is ${top.toFixed(1)} units tall`);
+      const lowestLeaves=Math.min(...all.filter(v=>v.some(p=>Math.hypot(p.x-tree.x,p.z-tree.z)>1)).flatMap(v=>v.map(p=>p.y)));
+      assert.ok(lowestLeaves>2.5,'boughs clear head height');
+    }
+  }
+  const faces=[];
+  drawParkStructures({...parkChunk(3).chunk,park:{...parkChunk(3).chunk.park,trees:[],cones:[]}},{face:v=>faces.push(v)},{x:0,y:1.65,z:0});
+  assert.ok(faces.length>=12,'benches have seats, backs and end supports');
+});
+
+test('a few realistic pine cones lie on the lawn beneath the pines, off the path',async()=>{
+  const {pathDistance,PARK_PATH_WIDTH}=await import('../neon-city/world.js');
+  const {drawParkStructures,PARK_LAYERS}=await import('../neon-city/parks.js');
+  for(let seed=1;seed<40;seed++){
+    const {chunk}=parkChunk(seed),{cones,trees,path}=chunk.park,x=chunk.x*BLOCK,z=chunk.z*BLOCK;
+    assert.ok(cones.length>=3&&cones.length<=2*trees.length);
+    for(const c of cones){
+      assert.ok(c.x-x>=15&&c.x-x<=49&&c.z-z>=15&&c.z-z<=49,'on the lawn');
+      assert.ok(pathDistance(path,c.x,c.z)>=PARK_PATH_WIDTH/2+.3,'not on the path');
+      assert.ok(trees.some(t=>Math.hypot(t.x-c.x,t.z-c.z)<=3.6*t.scale),'beneath the lowest boughs');
+      assert.ok(c.length>=.16&&c.length<=.24&&c.radius<c.length/2,'pine-cone sized');
+      const draw=viewer=>{
+        const faces=[];
+        drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[c]}},{face:v=>faces.push(v)},viewer);
+        return faces;
+      };
+      assert.ok(draw({x:c.x+4,y:1.65,z:c.z+3}).length>=6);
+      // From every side, the closed shape spans from the grass to its own height.
+      const ys=[{x:c.x+4,y:1.65,z:c.z+3},{x:c.x-3,y:-5,z:c.z-2}].flatMap(draw).flat().map(p=>p.y);
+      assert.ok(Math.abs(Math.min(...ys)-PARK_LAYERS.grass)<1e-9,'resting on the grass');
+      assert.ok(Math.max(...ys)<=PARK_LAYERS.grass+2*c.radius+1e-9);
+    }
+  }
+});
+
+test('park birds are heard near parks and fade out across the street',async()=>{
+  const {parkVolume,BIRD_SILENT_DISTANCE}=await import('../neon-city/park-birds.js');
+  const park={x:0,z:0,park:{}},block={x:1,z:0};
+  assert.equal(parkVolume({x:32,z:32},[park]),1,'on the lawn');
+  assert.equal(parkVolume({x:11,z:32},[park]),1,'on the sidewalk beside it');
+  const across=parkVolume({x:32,z:-6},[park]);
+  assert.ok(across>0&&across<1,'across the street, quieter');
+  assert.equal(parkVolume({x:32,z:14-BIRD_SILENT_DISTANCE},[park]),0);
+  assert.equal(parkVolume({x:32,z:32},[block]),0,'ordinary blocks are silent');
+  assert.equal(parkVolume({x:32,z:32},[park,{...park}]),1,'parks do not add up');
+});
+
+test('bird calls are varied, bounded, separated by quiet and stop on pause',async()=>{
+  const {BirdSchedule,birdCallSamples,birdCallDuration,BIRD_CALLS,ParkBirds}=await import('../neon-city/park-birds.js');
+  for(const value of [0,.31,.6,.85,.999]){
+    const schedule=new BirdSchedule(()=>value);
+    const first=.5+value*1.5;
+    assert.equal(schedule.update(first-.01,true),null);
+    const call=schedule.update(.02,true);
+    assert.ok(BIRD_CALLS.includes(call.kind));
+    const gap=birdCallDuration(call.kind)+.8+value*2.7;
+    assert.ok(gap-birdCallDuration(call.kind)>=.8&&gap-birdCallDuration(call.kind)<=3.5);
+    assert.equal(schedule.update(gap-.01,true),null,'calls never overlap');
+    assert.ok(schedule.update(.02,true));
+    schedule.update(1,false);assert.equal(schedule.update(.01,true),null,'leaving resets the timer');
+  }
+  const picks=new Set(Array.from({length:500},()=>new BirdSchedule().update(10,true).kind));
+  assert.deepEqual([...picks].sort(),[...BIRD_CALLS].sort(),'every kind of bird is heard');
+  const crossings=samples=>samples.reduce((n,v,i)=>n+(i&&(v>0)!==(samples[i-1]>0)?1:0),0)/samples.length;
+  const sounds=Object.fromEntries(BIRD_CALLS.map(kind=>[kind,birdCallSamples(kind,22050,1,7)]));
+  for(const [kind,samples] of Object.entries(sounds)){
+    assert.equal(samples.length,Math.ceil(birdCallDuration(kind)*22050));
+    assert.ok(samples.some(v=>Math.abs(v)>.04),`${kind} is audible`);
+    assert.ok(samples.every(v=>Number.isFinite(v)&&Math.abs(v)<.25),`${kind} stays quiet`);
+    assert.ok(Math.abs(samples[0])<1e-3&&Math.abs(samples.at(-1))<1e-3,'no clicks');
+  }
+  assert.ok(crossings(sounds.hoot)*5<crossings(sounds.whistle),'the owl is far lower than songbirds');
+  assert.notDeepEqual(birdCallSamples('trill',8000,1,1),birdCallSamples('trill',8000,1,2),'calls vary');
+  let starts=0,stops=0,lastVolume;
+  const context={state:'running',sampleRate:8000,currentTime:0,destination:{},
+    createGain:()=>({gain:{value:0,setTargetAtTime:v=>{lastVolume=v;}},connect(){}}),
+    createBuffer:length=>({getChannelData:()=>new Float32Array(16000)}),
+    createBufferSource:()=>({connect(){},disconnect(){},start(){starts++;},stop(){stops++;}})};
+  const birds=new ParkBirds(()=>.5);
+  birds.update(context,0,10);assert.equal(starts,0,'silent away from parks');
+  birds.update(context,.8,.1);birds.update(context,.8,2);assert.equal(starts,1);assert.equal(lastVolume,.8);
+  birds.mute();assert.equal(lastVolume,0);assert.equal(stops,1,'pause cuts a call short');
+  birds.update(context,.8,.1);assert.equal(starts,1,'no call straight after resuming');
 });

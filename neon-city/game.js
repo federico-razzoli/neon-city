@@ -2,17 +2,19 @@ import {PubLife,PubConversation} from './pub-life.js?v=characters-12';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=characters-12';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, pubLines} from './world.js?v=bridge-visibility-1';
-import {Traffic} from './traffic.js?v=riverside-turns-1';
-import {RiverLook} from './river-look.js?v=river-look-2';
-import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=river-waves-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, pubLines} from './world.js?v=parks-4';
+import {Traffic} from './traffic.js?v=parks-4';
+import {RiverLook} from './river-look.js?v=parks-4';
+import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
+import {drawParkGround,drawParkStructures,facingBench} from './parks.js?v=parks-4';
+import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-12';
 import {facingPubMenu} from './pub-menu.js';
-import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
+import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
-import {drawWallTexture} from './perspective.js';
+import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=bench-1';
 import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
@@ -26,23 +28,30 @@ function usePubDoor(){
   if(!door)return false;
   if(insidePub){Object.assign(player,streetPosition);insidePub=false;}
   else{pubLife=door.pubLife??=new PubLife();currentPubName=pubName(door);bartenderType=door.bartenderType??=Math.floor(Math.random()*4);pubPatrons=door.pubPatrons??=createPubPatrons();streetPosition={...player,angle:player.angle+Math.PI};Object.assign(player,PUB.spawn);insidePub=true;}
-  keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=0;shake=0;steps=0;arcadeAmbience.mute();
+  keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=0;shake=0;steps=0;arcadeAmbience.mute();parkBirds.mute();
   return true;
 }
-function usePubChair(){
-  if(!insidePub)return false;
+// Pub chairs and park benches share one seated mode: locked position, limited
+// turning, and looking up or down, until Space returns the player to their feet.
+const SEATED_EYE=1.5;
+function useSeat(){
   let greet=false;
   if(playerSeat){
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
     playerSeat=null;eye=1.65;pubTalk=null;
+  }else if(!insidePub){
+    const seat=facingBench(player,city.chunks.values());
+    if(!seat)return false;
+    playerSeat={bench:seat.bench,standing:{x:player.x,z:player.z},angle:seat.angle,pitch:0};
+    player.x=seat.x;player.z=seat.z;player.angle=seat.angle;eye=SEATED_EYE;
   }else{
     const chair=facingPubChair(player,pubPatrons,pubLife?.walker?.chair);
     if(!chair)return false;
     const angle=chair.side<0?0:Math.PI;
     playerSeat={tableIndex:chair.tableIndex,seat:chair.seat,standing:{x:player.x,z:player.z},angle,pitch:0};
     player.x=chair.x+chair.w/2;player.z=chair.z+chair.d/2;player.angle=angle;
-    eye=1.5;
+    eye=SEATED_EYE;
     const partner=pubPatrons[chair.tableIndex]?.[1-chair.seat];
     greet=partner!=null;
     pubTalk=greet?new PubConversation(pubLines(partner)):null;
@@ -55,7 +64,7 @@ const nearPubMenu=()=>!insidePub&&pubBuildings().find(b=>facingPubMenu(player,[b
 function togglePubMenu(){
   keys.clear();shiftKeys.clear();coverPressed=false;
   if(pubMenu.open){pubMenu.close();startSpaceHeld=true;canvas.focus();}
-  else{const pub=nearPubMenu();if(!pub)return;document.querySelector('#pub-menu .menu-eyebrow').textContent=`${pubName(pub)} · DRINKS`;pubMenu.showModal();arcadeAmbience.mute();document.querySelector('#pace').hidden=true;}
+  else{const pub=nearPubMenu();if(!pub)return;document.querySelector('#pub-menu .menu-eyebrow').textContent=`${pubName(pub)} · DRINKS`;pubMenu.showModal();arcadeAmbience.mute();parkBirds.mute();document.querySelector('#pace').hidden=true;}
 }
 pubMenu.addEventListener('cancel',e=>e.preventDefault());
 const city=new City(),player={x:10,z:4,angle:.12},keys=new Set(),shiftKeys=new Set();
@@ -65,6 +74,9 @@ let eye=1.65;
 // Generate a fixed sky around the entire world, rather than wrapping the screen.
 const starColors=['#211e33','#27233a','#2d2840','#332d46'];
 const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevation:.1+Math.random()*.35,color:starColors[Math.floor(Math.random()*starColors.length)]}));
+// Higher stars are above the level view; they appear when a seated player looks up.
+// Uniform over the upper sky, so they do not crowd around the zenith.
+for(let i=0;i<700;i++)stars.push({bearing:Math.random()*Math.PI*2,elevation:Math.asin(Math.sin(.45)+Math.random()*(1-Math.sin(.45))),color:starColors[Math.floor(Math.random()*starColors.length)]});
 const moon={bearing:.33,elevation:.31};
 let running=false,time=0,last=0,queue=[],shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
 let noticeText='',coverPressed=false,startSpaceHeld=false;
@@ -76,6 +88,7 @@ const hornWarning=new HornWarning();
 const coverAttempt=new CoverAttempt();
 const riverLook=new RiverLook();
 const arcadeAmbience=new ArcadeAmbience();
+const parkBirds=new ParkBirds();
 function enableSound(){
   try{
     const AudioContext=window.AudioContext||window.webkitAudioContext;
@@ -163,13 +176,17 @@ function building(b){
 }
 function drawFace(f){
   ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();
-  if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth);
+  if(f.texture&&playerSeat?.pitch)drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth);
+  else if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth);
   const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
   if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
 }
 function person(p){
   // Anchor feet on the pavement and sort overlapping deck panels by local depth.
-  const v=camera({x:p.x,y:groundHeight(p.x,p.z)+.075,z:p.z});if(v.z<.3||v.z>105)return;const pos=project(v),height=characterHeight(p.type)*F/v.z,width=height/2;
+  // Project the head too, so a seated player's pitched view keeps true heights.
+  const foot={x:p.x,y:groundHeight(p.x,p.z)+.075,z:p.z},v=camera(foot);if(v.z<.3||v.z>105)return;
+  const head=camera({...foot,y:foot.y+characterHeight(p.type)});if(head.z<.3)return;
+  const pos=project(v),height=pos.y-project(head).y,width=characterHeight(p.type)*F/v.z/2;if(height<=0)return;
   if(pos.x+width<0||pos.x-width>W)return;
   queue.push({detail:true,depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }
@@ -230,6 +247,7 @@ function street(chunk){
   for(let i=-3;i<=3;i++){quad(x+i*1.4,.03,z+7,.65,2.7,'#81798a');quad(x+7,.03,z+i*1.4,2.7,.65,'#81798a');}
   // Pavement seams and a pool of neon light outside each storefront.
   for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
+  if(chunk.park){drawParkGround(chunk,{quad,face});return;}
   quad(x+16,.08,z+9,12,3,'#57354f');quad(x+9,.08,z+35,3,10,'#294755');
 }
 function manhole(m){
@@ -273,7 +291,7 @@ function seatedPatron(p,walking=false){
 }
 let interiorRenderer;
 function render(){
-  if(!insidePub)eye=1.65+groundHeight(player.x,player.z);
+  if(!insidePub)eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
   else if(!playerSeat)eye=1.65;
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub);
   if(insidePub){
@@ -283,19 +301,21 @@ function render(){
     interiorRenderer.render(queue);return;
   }
   ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);
-  for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon);if(p){ctx.fillStyle=star.color;ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}}
+  const pitch=playerSeat?.pitch??0;
+  for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon,pitch);if(p){ctx.fillStyle=star.color;ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}}
   ctx.fillStyle='#3b344e';
   for(const star of URSA_MAJOR){
-    const p=projectSky(star,player.angle,W,F,horizon);
+    const p=projectSky(star,player.angle,W,F,horizon,pitch);
     if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);
   }
-  const moonPosition=projectSky(moon,player.angle,W,F,horizon);
+  const moonPosition=projectSky(moon,player.angle,W,F,horizon,pitch);
   if(moonPosition){
     ctx.fillStyle='#c4aacb';
     const widths=[5,9,11,11,13,13,13,13,13,11,11,9,5];
     widths.forEach((width,row)=>ctx.fillRect(moonPosition.x-(width-1)/2,moonPosition.y-6+row,width,1));
   }
-  ctx.fillStyle='#252233';ctx.fillRect(0,horizon,W,H-horizon);queue=[];
+  const ground=skyHorizon(horizon,F,pitch);
+  ctx.fillStyle='#252233';if(ground<H)ctx.fillRect(0,ground,W,H-ground);queue=[];
   const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=(chunk.river?RIVER_VIEW_DISTANCE:170));
   for(const chunk of visible)street(chunk);
   orderGroundSurfaces(queue);
@@ -318,6 +338,12 @@ function render(){
     if(chunk.river)drawRiverStructures(chunk,{face,box},player);
     for(const b of chunk.buildings)building(b);
     for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
+    if(chunk.park){
+      // Benches and trees are small, layered objects; order them at real overlaps.
+      const first=queue.length;
+      drawParkStructures(chunk,{face},{x:player.x,y:eye,z:player.z});
+      for(let i=first;i<queue.length;i++)queue[i].detail=true;
+    }
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
   }
   for(const c of roadTraffic.cars)if(Math.hypot(c.x-player.x,c.z-player.z)<RIVER_VIEW_DISTANCE)car(c);
@@ -326,7 +352,7 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){if(pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){if(pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(pubMenu.open)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
@@ -339,7 +365,7 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
-  if(k===' '&&!e.repeat){if(usePubChair())return;if(usePubDoor())return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingToiletDoor(player)){notice=2.5;noticeText="SOMEONE'S IN!";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(useSeat())return;if(usePubDoor())return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingToiletDoor(player)){notice=2.5;noticeText="SOMEONE'S IN!";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -375,11 +401,12 @@ function tick(now){
       document.querySelector('#location').textContent=`${currentPubName} / ${player.x<18?'BAR ROOM':'LOUNGE'}`;
     }else{
     const people=city.pedestrians(time-dt);
-    const bumpedPedestrian=city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people);
+    const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people);
     if(bumpedPedestrian){notice=2.5;noticeText='HEY! WATCH OUT!';}
-    if(forward||side)steps+=dt*10*pace;
+    if(!playerSeat&&(forward||side))steps+=dt*10*pace;
     city.update(player.x,player.z);
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
+    parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
     const cars=roadTraffic.update(city.chunks.values(),time,dt);
     if(hornWarning.update(dt,player,cars))playHorn(audioContext);
     collision: if(!hitCooldown)for(const c of cars){

@@ -11,12 +11,17 @@ export const URSA_MAJOR=Object.freeze([
 ].map(Object.freeze));
 
 // Celestial objects have fixed world bearings and elevations, at infinite distance.
-// Use the same perspective as the city, without camera translation.
-export function projectSky(object, angle, width, focalLength, horizon) {
-  const bearing=object.bearing-angle, depth=Math.cos(bearing);
+// Use the same perspective as the city, without camera translation. A seated
+// viewer may pitch the view upwards, which lowers the horizon on screen.
+export function projectSky(object, angle, width, focalLength, horizon, pitch=0) {
+  const bearing=object.bearing-angle,c=Math.cos(object.elevation);
+  const ahead=Math.cos(bearing)*c,up=Math.sin(object.elevation);
+  const depth=ahead*Math.cos(pitch)+up*Math.sin(pitch),height=up*Math.cos(pitch)-ahead*Math.sin(pitch);
   if(depth<=0)return null;
-  const x=width/2+focalLength*Math.sin(bearing)/depth;
-  const y=horizon-focalLength*Math.tan(object.elevation)/depth;
-  if(x<0||x>=width||y<0||y>=horizon)return null;
+  const x=width/2+focalLength*Math.sin(bearing)*c/depth;
+  const y=horizon-focalLength*height/depth;
+  if(x<0||x>=width||y<0||y>=skyHorizon(horizon,focalLength,pitch))return null;
   return {x,y};
 }
+// Screen row of the true horizon for a pitched view.
+export const skyHorizon=(horizon,focalLength,pitch=0)=>pitch>=Math.PI/2-1e-6?Infinity:horizon+focalLength*Math.tan(pitch);

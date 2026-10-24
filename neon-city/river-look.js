@@ -1,4 +1,4 @@
-import {BLOCK,RIVER_WIDTH,riverStart,hasBridge} from './world.js?v=bridge-visibility-1';
+import {BLOCK,RIVER_WIDTH,riverStart,hasBridge} from './world.js?v=parks-4';
 
 export function facingRiver(player){
   const start=riverStart(Math.floor(player.z/BLOCK));

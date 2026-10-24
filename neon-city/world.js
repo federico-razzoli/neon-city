@@ -55,8 +55,8 @@ export function streetType(value){
   return PEDESTRIAN_TYPES-1;
 }
 export const BLOCK = 64;
-// Each river occupies two rows; their centres are ten blocks apart.
-export const RIVER_ROWS = [-6, 4];
+// Night River occupies district rows 4 and 5.
+export const RIVER_ROWS = [4];
 export const RIVER_WIDTH = 92;
 export const WATER_LEVEL = -7;
 export const BRIDGE_RISE = 6;
@@ -74,6 +74,11 @@ export function groundHeight(x,z) {
   const street=Math.round(x/BLOCK);
   return hasBridge(street)&&(lx<=14||lx>=50)?bridgeHeight(z):0;
 }
+// A block has a 10% chance of becoming a park, unless another cached park lies
+// within two blocks in any direction, diagonals included.
+export const PARK_CHANCE = .1;
+export const PARK_GAP = 2;
+export const PARK_PATH_WIDTH = 3;
 export const LOAD_RADIUS = 2;
 export const KEEP_RADIUS = 3;
 export const RIVER_VIEW_DISTANCE = 260;
@@ -116,6 +121,8 @@ export class City {
       // A three-block loop follows both banks between consecutive bridges.
       return {x,z,river:true,riverStart:start,buildings:[],people:z===start&&hasBridge(x)?people:[],manholes:[],newspaperMachines:[]};
     }
+    const park=r()<PARK_CHANCE&&!this.parkNear(x,z)?parkLayout(x,z,r):null;
+    if(park)buildings.length=0;
     const manholes=[],slots=Array.from({length:32},(_,i)=>i);
     const count=Math.floor(r()*4);
     for(let i=0;i<count;i++){
@@ -129,14 +136,18 @@ export class City {
     // Only the shared blank edges between unlike venues can host a cabinet.
     // These seams leave the windows and central doors of both venues clear.
     const newspaperMachines=[],neighbors=[[0,2],[1,3],[0,1],[2,3]];
-    for(let side=0;side<4;side++)if(r()<.07){
+    for(let side=0;side<4&&!park;side++)if(r()<.07){
       const [a,b]=neighbors[side].map(index=>buildings[index]);
       if(a.sign===b.sign)continue;
       const along=side<2?(a.x+a.w+b.x)/2:(a.z+a.d+b.z)/2;
       const across=(side<2?a.z:a.x)+(side===0||side===2?-.9*.85/2:(side<2?a.d:a.w)+.9*.85/2);
       newspaperMachines.push({x:side<2?along:across,z:side<2?across:along,side,w:(side<2?1:.9)*.85,d:(side<2?.9:1)*.85});
     }
-    return { x, z, buildings, people, manholes, newspaperMachines };
+    return { x, z, buildings, people, manholes, newspaperMachines, park };
+  }
+  parkNear(x,z) {
+    for(const c of this.chunks.values())if(c.park&&Math.max(Math.abs(c.x-x),Math.abs(c.z-z))<=PARK_GAP)return true;
+    return false;
   }
   solid(x,z, radius=.45) {
     // All blocks share the same footprint, so collision works before a chunk is loaded.
@@ -147,8 +158,14 @@ export class City {
       const onBridge=hasBridge(street)&&Math.abs(x-street*BLOCK)<=14-radius;
       return !onBridge&&z>start*BLOCK+18-radius&&z<start*BLOCK+110+radius;
     }
-    if(lx>14-radius && lx<50+radius && lz>14-radius && lz<50+radius)return true;
     const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
+    if(lx>14-radius && lx<50+radius && lz>14-radius && lz<50+radius){
+      // Unloaded blocks keep the building footprint; parks block only trees and benches.
+      const park=chunk?.park;
+      if(!park)return true;
+      return park.trees.some(t=>Math.hypot(x-t.x,z-t.z)<t.radius+radius)||
+        park.benches.some(b=>Math.abs((x-b.x)*b.tx+(z-b.z)*b.tz)<1.08+radius&&Math.abs((x-b.x)*b.nx+(z-b.z)*b.nz)<.3+radius);
+    }
     return (chunk?.newspaperMachines??[]).some(m=>Math.abs(x-m.x)<m.w/2+radius&&Math.abs(z-m.z)<m.d/2+radius);
   }
   pedestrians(time) {
@@ -282,6 +299,69 @@ export class City {
     for(let i=0;i<steps;i++){if(!blocked(p.x+dx/steps,p.z))p.x+=dx/steps;if(!blocked(p.x,p.z+dz/steps))p.z+=dz/steps;}
     return bumpedPedestrian;
   }
+}
+// Shortest distance from a point to the footpath's centre line.
+export function pathDistance(path,x,z){
+  let best=Infinity;
+  for(let i=1;i<path.length;i++){
+    const a=path[i-1],b=path[i],dx=b.x-a.x,dz=b.z-a.z,length=dx*dx+dz*dz;
+    const t=length?Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/length)):0;
+    best=Math.min(best,Math.hypot(a.x+dx*t-x,a.z+dz*t-z));
+  }
+  return best;
+}
+// The lawn spans local 14..50. A winding footpath joins two opposite sidewalks,
+// meeting each one squarely. "along" runs between those sidewalks.
+function parkLayout(x,z,r){
+  const axis=Math.floor(r()*2),half=PARK_PATH_WIDTH/2;
+  const at=(along,across)=>axis?{x:x*BLOCK+across,z:z*BLOCK+along}:{x:x*BLOCK+along,z:z*BLOCK+across};
+  // Bends on either side of the middle make an S; on the same side, a C.
+  // Their size keeps every curve wider than the path, so its edges never fold.
+  const bend=r()<.5?-1:1,mid=32+(r()-.5)*4;
+  const keys=r()<.6
+    ?[[14,mid-bend*r()*3],[26,mid+bend*(4.5+r()*2.5)],[38,mid-bend*(4.5+r()*2.5)],[50,mid+bend*r()*3]]
+    :[[14,mid-bend*(1+r()*3)],[26,mid+bend*(5+r()*3)],[38,mid+bend*(5+r()*3)],[50,mid-bend*(1+r()*3)]];
+  // Hermite segments through the key points; the ends leave the sidewalks squarely.
+  const tangents=keys.map((k,i)=>i===0||i===keys.length-1?[18,0]:[(keys[i+1][0]-keys[i-1][0])/2,(keys[i+1][1]-keys[i-1][1])/2]);
+  const path=[];
+  for(let i=0;i<keys.length-1;i++)for(let step=i?1:0;step<=10;step++){
+    const t=step/10,h00=2*t**3-3*t**2+1,h10=t**3-2*t**2+t,h01=-2*t**3+3*t**2,h11=t**3-t**2;
+    const along=h00*keys[i][0]+h10*tangents[i][0]+h01*keys[i+1][0]+h11*tangents[i+1][0];
+    const across=h00*keys[i][1]+h10*tangents[i][1]+h01*keys[i+1][1]+h11*tangents[i+1][1];
+    path.push(at(along,across));
+  }
+  // Benches sit beside the path, parallel to it, with their backs away from it.
+  const benches=[],inLawn=(px,pz)=>px-x*BLOCK>=15&&px-x*BLOCK<=49&&pz-z*BLOCK>=15&&pz-z*BLOCK<=49;
+  for(const range of [[6,12],[18,24]])for(let tries=0;tries<12;tries++){
+    const i=range[0]+Math.floor(r()*(range[1]-range[0])),side=r()<.5?-1:1;
+    const a=path[i-1],b=path[i+1],length=Math.hypot(b.x-a.x,b.z-a.z);
+    const tx=(b.x-a.x)/length,tz=(b.z-a.z)/length,nx=-tz*side,nz=tx*side;
+    const bench={x:path[i].x+nx*(half+.65),z:path[i].z+nz*(half+.65),tx,tz,nx,nz};
+    const corners=[[-1.08,-.3],[1.08,-.3],[-1.08,.3],[1.08,.3]].map(([u,v])=>({x:bench.x+tx*u+nx*v,z:bench.z+tz*u+nz*v}));
+    if(corners.some(c=>!inLawn(c.x,c.z)||pathDistance(path,c.x,c.z)<half+.2))continue;
+    benches.push(bench);break;
+  }
+  // Pines stand 16-22 units tall. Their lowest boughs start above head height,
+  // so only trunks block walking; boughs may overhang the path.
+  const trees=[],count=3+Math.floor(r()*3);
+  for(let tries=0;trees.length<count&&tries<200;tries++){
+    const along=17+r()*30,across=17+r()*30,scale=.9+r()*.3,p=at(along,across);
+    const crown=3.6*scale,radius=.45*scale;
+    if(pathDistance(path,p.x,p.z)<half+1.2)continue;
+    if(benches.some(b=>Math.hypot(b.x-p.x,b.z-p.z)<2.6))continue;
+    if(trees.some(t=>Math.hypot(t.x-p.x,t.z-p.z)<t.crown+crown))continue;
+    trees.push({...p,scale,crown,radius});
+  }
+  // A few fallen cones lie on the grass beneath each pine, never on the path.
+  const cones=[];
+  for(const t of trees)for(let placed=0,count=1+Math.floor(r()*2),tries=0;placed<count&&tries<10;tries++){
+    const angle=r()*Math.PI*2,distance=(1+r()*2.2)*t.scale,cx=t.x+Math.cos(angle)*distance,cz=t.z+Math.sin(angle)*distance;
+    const cone={x:cx,z:cz,angle:r()*Math.PI*2,length:.16+r()*.08,radius:.055+r()*.02};
+    if(!inLawn(cx,cz)||pathDistance(path,cx,cz)<half+.3)continue;
+    if(benches.some(b=>Math.hypot(b.x-cx,b.z-cz)<1.3))continue;
+    cones.push(cone);placed++;
+  }
+  return {axis,path,benches,trees,cones};
 }
 function pedestrianRoute(chunk,p,time){
   const length=chunk.river?106:42;
