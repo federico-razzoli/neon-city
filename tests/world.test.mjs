@@ -1851,7 +1851,7 @@ test('toilet door is reachable between lounge tables and requires looking at it'
   assert.equal(facingToiletDoor({...p,x:PUB.staffDoor.x}),false);
 });
 
-test('the lavatory has two dry sinks on the right and three occupied cubicles ahead',async()=>{
+test('the lavatory has two dry sinks on the right and three cubicles ahead',async()=>{
   const {LAVATORY,CUBICLE_REPLIES,SINK_REPLY,moveInLavatory,lavatoryReply,facingLavatoryExit}=await import('../neon-city/lavatory.js');
   const {width,depth,sinks,cubicles,spawn}=LAVATORY;
   assert.deepEqual(CUBICLE_REPLIES,["SORRY, I'M IN!",'JUST A MINUTE, PLEASE!']);
@@ -1865,20 +1865,21 @@ test('the lavatory has two dry sinks on the right and three occupied cubicles ah
   for(let i=1;i<cubicles.length;i++)assert.ok(cubicles[i].x-cubicles[i].halfWidth>cubicles[i-1].x+cubicles[i-1].halfWidth+.3);
   assert.ok(cubicles.at(-1).x+cubicles.at(-1).halfWidth<width-.3);
   for(const door of [LAVATORY.door,...cubicles])assert.equal(door.halfWidth,cubicles[1].halfWidth);
-  // Each cubicle answers with one of the two lines, chosen at random.
+  // A taken cubicle answers with one of the two lines, chosen at random.
+  const taken=cubicles.map(()=>true);
   for(const c of cubicles){
     const p={x:c.x,z:depth-1.5,angle:0};
-    assert.equal(lavatoryReply(p,()=>0),CUBICLE_REPLIES[0]);
-    assert.equal(lavatoryReply(p,()=>.99),CUBICLE_REPLIES[1]);
-    assert.equal(lavatoryReply({...p,angle:Math.PI},()=>0),null,'turned away from the door');
+    assert.equal(lavatoryReply(p,taken,()=>0),CUBICLE_REPLIES[0]);
+    assert.equal(lavatoryReply(p,taken,()=>.99),CUBICLE_REPLIES[1]);
+    assert.equal(lavatoryReply({...p,angle:Math.PI},taken,()=>0),null,'turned away from the door');
   }
   for(const sink of sinks){
     // Each sink, from in front and at an angle; never while looking away.
     const front={x:sink.x-.9,z:sink.z+sink.d/2,angle:Math.PI/2};
-    assert.equal(lavatoryReply(front),SINK_REPLY);
-    assert.equal(lavatoryReply({...front,z:front.z-.6,angle:Math.PI/2-.4}),SINK_REPLY);
-    assert.equal(lavatoryReply({...front,angle:-Math.PI/2}),null);
-    assert.equal(lavatoryReply({...front,x:.5}),null,'out of reach');
+    assert.equal(lavatoryReply(front,taken),SINK_REPLY);
+    assert.equal(lavatoryReply({...front,z:front.z-.6,angle:Math.PI/2-.4},taken),SINK_REPLY);
+    assert.equal(lavatoryReply({...front,angle:-Math.PI/2},taken),null);
+    assert.equal(lavatoryReply({...front,x:.5},taken),null,'out of reach');
     // The sinks are solid.
     const p={...front};moveInLavatory(p,3,0);
     assert.ok(p.x<=sink.x-.3+1e-9,'stopped by the sink');
@@ -1888,7 +1889,136 @@ test('the lavatory has two dry sinks on the right and three occupied cubicles ah
   // The way back to the pub is behind the player on the way in.
   assert.equal(facingLavatoryExit({...spawn,angle:Math.PI}),true);
   assert.equal(facingLavatoryExit(spawn),false);
-  assert.equal(lavatoryReply({...spawn,angle:Math.PI}),null);
+  assert.equal(lavatoryReply({...spawn,angle:Math.PI},taken),null);
+});
+
+test('the disabled cubicle is always taken; the others are taken or free at random',async()=>{
+  const {LAVATORY,rollOccupancy,facingVacantCubicle,lavatoryReply}=await import('../neon-city/lavatory.js');
+  const {cubicles,depth}=LAVATORY,disabled=cubicles.findIndex(c=>c.icon==='disabled');
+  assert.deepEqual(rollOccupancy(()=>0),[true,true,true]);
+  assert.deepEqual(rollOccupancy(()=>.9),cubicles.map((c,i)=>i===disabled));
+  const rolls=Array.from({length:200},()=>rollOccupancy());
+  assert.ok(rolls.every(roll=>roll[disabled]),'disabled always taken');
+  for(const i of cubicles.keys())if(i!==disabled){
+    assert.ok(rolls.some(roll=>roll[i])&&rolls.some(roll=>!roll[i]),`${cubicles[i].icon} varies`);
+  }
+  // A free cubicle's door opens rather than answering.
+  const occupied=[false,true,true],p={x:cubicles[0].x,z:depth-1.5,angle:0};
+  assert.equal(facingVacantCubicle(p,occupied),cubicles[0]);
+  assert.equal(lavatoryReply(p,occupied),null);
+  assert.equal(facingVacantCubicle({...p,x:cubicles[1].x},occupied),null,'taken');
+  assert.equal(facingVacantCubicle({...p,angle:Math.PI},occupied),null,'turned away');
+});
+
+test('inside a cubicle the toilet is solid, a seat facing the door, and the door leads out',async()=>{
+  const {CUBICLE,moveInCubicle,facingToilet,facingCubicleExit,drawCubicle}=await import('../neon-city/lavatory.js');
+  const {spawn,seat,toilet,door,width,depth}=CUBICLE;
+  assert.equal(door.halfWidth,.5,'the same door as the ladies');
+  assert.ok(seat.x>toilet.x&&seat.x<toilet.x+toilet.w&&seat.z>toilet.z&&seat.z<toilet.z+toilet.d,'on the toilet');
+  assert.equal(seat.angle,Math.PI,'facing the door');
+  assert.ok(seat.eye<1.5,'sitting lower than on a pub chair');
+  const p={...spawn};moveInCubicle(p,0,3);
+  assert.ok(p.z<=toilet.z-.3+1e-9,'stopped by the toilet');
+  assert.equal(facingToilet(p),seat);
+  assert.equal(facingToilet({...p,angle:Math.PI}),null,'turned away');
+  assert.equal(facingCubicleExit({...p,angle:Math.PI}),true);
+  assert.equal(facingCubicleExit(p),false);
+  const q={...spawn};moveInCubicle(q,-3,-3);
+  assert.ok(q.x>=.3-1e-9&&q.z>=.3-1e-9&&width>1&&depth>1.5);
+  let faces=0;drawCubicle({face:()=>faces++,quad:()=>faces++,box:()=>faces++});
+  assert.ok(faces>100);
+});
+
+test('a flush is a rush of water, a few gurgles and a refill, silent until sound is enabled',async()=>{
+  const {playFlush,FLUSH_SECONDS}=await import('../neon-city/flush.js');
+  const param=()=>({value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}});
+  const started=[];
+  const node=()=>({connect(){},disconnect(){}});
+  const context={state:'running',currentTime:10,sampleRate:8000,destination:{},
+    createBuffer:(channels,length)=>{const data=new Float32Array(length);return {getChannelData:()=>data,length};},
+    createBufferSource(){const s={...node(),start(t){started.push(['noise',t]);s.started=t;},stop(t){s.stopped=t;}};return s;},
+    createBiquadFilter:()=>({...node(),frequency:param()}),
+    createGain:()=>({...node(),gain:param()}),
+    createOscillator(){return {...node(),frequency:param(),start(t){started.push(['gurgle',t]);},stop(){}};}};
+  playFlush(context);
+  assert.ok(started.filter(([kind])=>kind==='noise').length>=2,'water noise');
+  assert.ok(started.filter(([kind])=>kind==='gurgle').length>=3,'gurgles');
+  assert.ok(started.every(([,t])=>t>=10&&t<10+FLUSH_SECONDS));
+  const before=started.length;
+  playFlush({...context,state:'suspended'});playFlush(undefined);
+  assert.equal(started.length,before);
+});
+
+test('Space walks from the pub into a free cubicle, sits, flushes on standing and goes back',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {runInNewContext}=await import('node:vm');
+  const pubInterior=await import('../neon-city/pub-interior.js');
+  const lavatory=await import('../neon-city/lavatory.js');
+  const events={},elements=new Map();let flushes=0,rolls=0;
+  const element=id=>{
+    if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
+    return elements.get(id);
+  };
+  const sandbox={...pubInterior,...lavatory,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+    CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
+    pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
+    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
+    window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
+    requestAnimationFrame(){},performance:{now:()=>0}};
+  const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,tick,goToPub(){insidePub=true;currentPubName='THE PUB';},get seat(){return playerSeat;}};",sandbox);
+  const {player,tick}=sandbox.game,location=()=>element('#location').textContent;
+  const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
+  let ms=0;
+  const press=()=>{events.keydown(space);tick(ms+=20);events.keyup(space);tick(ms+=20);};
+  press();// starts the game
+  sandbox.game.goToPub();
+  Object.assign(player,{x:pubInterior.PUB.toiletDoor.x,z:16.5,angle:0});
+  press();
+  assert.equal(location(),'THE PUB / LAVATORY');
+  assert.equal(rolls,1,'occupancy decided on the way in');
+  const [gents,ladies]=lavatory.LAVATORY.cubicles,depth=lavatory.LAVATORY.depth;
+  // The ladies' is taken: someone answers.
+  Object.assign(player,{x:ladies.x,z:depth-1.5,angle:0});
+  press();
+  assert.ok(lavatory.CUBICLE_REPLIES.includes(element('#message').textContent));
+  assert.equal(location(),'THE PUB / LAVATORY');
+  // The gents' is free: its door opens.
+  Object.assign(player,{x:gents.x,z:depth-1.5,angle:0});
+  press();
+  assert.equal(location(),'THE PUB / GENTS');
+  assert.deepEqual({x:player.x,z:player.z,angle:player.angle},lavatory.CUBICLE.spawn);
+  // Sit down, look around as at a pub table, and stand to a flush.
+  const seat=lavatory.CUBICLE.seat,standing={x:seat.x,z:lavatory.CUBICLE.toilet.z-.6};
+  Object.assign(player,{...standing,angle:0});
+  press();
+  assert.ok(sandbox.game.seat?.toilet,'seated on the toilet');
+  assert.deepEqual({x:player.x,z:player.z,angle:player.angle},{x:seat.x,z:seat.z,angle:seat.angle});
+  const arrow=key=>({key,code:key,preventDefault(){}});
+  events.keydown(arrow('ArrowLeft'));for(let i=0;i<100;i++)tick(ms+=20);events.keyup(arrow('ArrowLeft'));
+  assert.ok(Math.abs(player.angle-(seat.angle-Math.PI/4))<1e-9,'turning stops at 45 degrees');
+  events.keydown(arrow('ArrowUp'));for(let i=0;i<20;i++)tick(ms+=20);events.keyup(arrow('ArrowUp'));
+  assert.ok(sandbox.game.seat.pitch>0,'looking up');
+  assert.equal(flushes,0);
+  press();
+  assert.equal(sandbox.game.seat,null,'standing again');
+  assert.equal(flushes,1,'flushed on standing');
+  assert.deepEqual({x:player.x,z:player.z},standing);
+  // Out of the cubicle, in front of its door, and the lavatory is as it was.
+  player.angle=Math.PI;
+  press();
+  assert.equal(location(),'THE PUB / LAVATORY');
+  assert.deepEqual({x:player.x,z:player.z},{x:gents.x,z:depth-.9});
+  assert.equal(rolls,1,'no new roll from a cubicle');
+  // Back to the pub, then in again: a new roll.
+  Object.assign(player,{...lavatory.LAVATORY.spawn,angle:Math.PI});
+  press();
+  assert.equal(location().endsWith('LAVATORY'),false);
+  Object.assign(player,{x:pubInterior.PUB.toiletDoor.x,z:16.5,angle:0});
+  press();
+  assert.equal(rolls,2);
 });
 
  test('pub names use the requested list and stay consistent per address',async()=>{
