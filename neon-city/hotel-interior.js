@@ -60,6 +60,9 @@ function facingNearest(player,things){
   return nearest;
 }
 export const facingHotelPlant=player=>facingNearest(player,HOTEL.palms);
+// One place to sit per sofa cushion; seated players face the hall.
+export const sofaSeats=()=>[0,1,2].map(i=>({x:HOTEL.sofa.x+.62,z:HOTEL.sofa.z+.75+i*.95,radius:.3,angle:Math.PI/2}));
+export const facingHotelSeat=player=>facingNearest(player,sofaSeats());
 // The lamp on the reception desk, reached across the counter.
 export const facingHotelLamp=player=>facingNearest(player,[HOTEL.lamp])!=null;
 // What Space says in the lobby, or null where there is nothing to try.

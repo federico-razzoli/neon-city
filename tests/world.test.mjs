@@ -144,6 +144,22 @@ test('the reception lamp can be reached across the desk and drawn on or off',asy
   assert.ok(!colors(undefined).has('#ffe7a0'),'lamps start switched off');
 });
 
+test('each sofa cushion is a seat facing the hall, reached from in front of the sofa',async()=>{
+  const {HOTEL,sofaSeats,facingHotelSeat,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  const seats=sofaSeats(),{sofa}=HOTEL;
+  assert.equal(seats.length,3);
+  for(const seat of seats){
+    assert.ok(seat.x>sofa.x&&seat.x<sofa.x+sofa.w&&seat.z>sofa.z&&seat.z<sofa.z+sofa.d,'on the sofa');
+    assert.equal(seat.angle,Math.PI/2,'facing the hall');
+    // Walk up to the sofa, then face the cushion.
+    const p={x:3,z:seat.z};moveInHotel(p,-3,0);
+    assert.ok(p.x>sofa.x+sofa.w,'stopped by the sofa');
+    assert.deepEqual(facingHotelSeat({...p,angle:-Math.PI/2}),seat);
+    assert.equal(facingHotelSeat({...p,angle:Math.PI/2}),null,'turned away');
+    assert.equal(facingHotelSeat({x:4,z:seat.z,angle:-Math.PI/2}),null,'out of reach');
+  }
+});
+
 test('Space enters a hotel through its doors and leaves it the same way',async()=>{
   const {readFile}=await import('node:fs/promises');
   const {runInNewContext}=await import('node:vm');
@@ -165,7 +181,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   const hotel={x:14,z:14,w:18,d:18,j:0,sign:'HOTEL'};
   city.chunks.set('0,0',{buildings:[hotel],manholes:[],newspaperMachines:[]});
@@ -188,6 +204,22 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   press();
   assert.equal(location(),'HOTEL / LOBBY');assert.equal(covers,before,'no manhole cover to lift indoors');
   assert.equal(element('#message').textContent,'');
+  // Sit on the sofa as on a pub chair: fixed in place, limited turning,
+  // looking up, and Space to stand back where the player was.
+  const seat=hotelInterior.sofaSeats()[1];
+  Object.assign(player,{x:2,z:seat.z,angle:-Math.PI/2});
+  press();
+  assert.ok(sandbox.game.seat,'seated');
+  assert.deepEqual({x:player.x,z:player.z,angle:player.angle},{x:seat.x,z:seat.z,angle:seat.angle});
+  const arrow=key=>({key,code:key,preventDefault(){}});
+  events.keydown(arrow('ArrowRight'));for(let i=0;i<100;i++)tick(ms+=20);events.keyup(arrow('ArrowRight'));
+  assert.ok(Math.abs(player.angle-(seat.angle+Math.PI/4))<1e-9,'turning stops at 45 degrees');
+  events.keydown(arrow('ArrowUp'));for(let i=0;i<20;i++)tick(ms+=20);events.keyup(arrow('ArrowUp'));
+  assert.deepEqual({x:player.x,z:player.z},{x:seat.x,z:seat.z},'no walking while seated');
+  assert.ok(sandbox.game.seat.pitch>0,'up looks up');
+  press();
+  assert.equal(sandbox.game.seat,null,'standing again');
+  assert.deepEqual({x:player.x,z:player.z},{x:2,z:seat.z});
   // Space at the reception lamp switches it on and off again, silently.
   Object.assign(player,{x:hotelInterior.HOTEL.lamp.x,z:11.5,angle:0});
   press();

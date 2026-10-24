@@ -12,7 +12,7 @@ import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=hall-3';
-import {HOTEL,RECEPTIONISTS,facingHotelDoor,facingHotelExit,facingHotelLamp,hotelReply,moveInHotel,drawHotelInterior} from './hotel-interior.js?v=lamp-2';
+import {HOTEL,RECEPTIONISTS,facingHotelDoor,facingHotelExit,facingHotelLamp,facingHotelSeat,hotelReply,moveInHotel,drawHotelInterior} from './hotel-interior.js?v=sofa-1';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
@@ -51,9 +51,9 @@ function useSeat(){
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
     playerSeat=null;eye=1.65;pubTalk=null;
-  }else if(insideHotel)return false;
-  else if(!insidePub){
-    const seat=facingBench(player,city.chunks.values());
+  }else if(!insidePub){
+    // Park benches outside; the sofa in a hotel lobby.
+    const seat=insideHotel?facingHotelSeat(player):facingBench(player,city.chunks.values());
     if(!seat)return false;
     playerSeat={bench:seat.bench,standing:{x:player.x,z:player.z},angle:seat.angle,pitch:0};
     player.x=seat.x;player.z=seat.z;player.angle=seat.angle;eye=SEATED_EYE;
@@ -451,7 +451,7 @@ function tick(now){
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=`${currentPubName} / ${player.x<18?'BAR ROOM':'LOUNGE'}`;
     }else if(insideHotel){
-      moveInHotel(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
+      if(!playerSeat)moveInHotel(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent='HOTEL / LOBBY';
     }else{
