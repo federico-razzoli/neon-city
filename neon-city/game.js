@@ -4,6 +4,7 @@ import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-
 import {sprite,outfit} from './sprites.js?v=characters-12';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, pubLines} from './world.js?v=bridge-visibility-1';
 import {Traffic} from './traffic.js?v=riverside-turns-1';
+import {RiverLook} from './river-look.js?v=river-look-2';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=river-waves-1';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
@@ -73,6 +74,7 @@ ctx.imageSmoothingEnabled=false;
 let audioContext,ouchBuffer,ouchLoading;
 const hornWarning=new HornWarning();
 const coverAttempt=new CoverAttempt();
+const riverLook=new RiverLook();
 const arcadeAmbience=new ArcadeAmbience();
 function enableSound(){
   try{
@@ -387,7 +389,9 @@ function tick(now){
         break collision;
       }
     }
-    if((coverPressed||keys.has(' '))&&coverAttempt.try(player,city.chunks.values(),time,!coverPressed)){
+    if(riverLook.try(player,coverPressed||keys.has(' '),coverPressed)){
+      notice=4.5;noticeText="THIS IS NIGHT RIVER. IT'S BEAUTIFUL...";
+    }else if((coverPressed||keys.has(' '))&&coverAttempt.try(player,city.chunks.values(),time,!coverPressed)){
       notice=2.5;noticeText="IT'S TOO HEAVY.";
       playCoverGrunt(audioContext);
     }

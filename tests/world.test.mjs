@@ -184,6 +184,26 @@ test('traffic moves, stays in roads and continues in neighboring blocks',()=>{
   const colors=new Set();for(let i=-5;i<5;i++)for(const car of traffic({x:i,z:i},123)){colors.add(car.color);assert.ok(!new City(1).solid(car.x,car.z));}assert.equal(colors.size,4);
 });
 
+test('river admiration requires a bridge railing, open water, and an outward view',async()=>{
+  const {facingRiver,RiverLook}=await import('../neon-city/river-look.js');
+  for(const row of RIVER_ROWS)for(const street of [-3,0,3])for(const side of [-1,1]){
+    const player={x:street*BLOCK+side*12,z:row*BLOCK+64,angle:side*Math.PI/2};
+    assert.equal(facingRiver(player),true);
+    assert.equal(facingRiver({...player,angle:-player.angle}),false,'looking inwards');
+    assert.equal(facingRiver({...player,angle:0}),false,'looking along the bridge');
+    assert.equal(facingRiver({...player,x:street*BLOCK+side*8}),false,'too far from railing');
+    assert.equal(facingRiver({...player,x:street*BLOCK+side*15}),false,'outside bridge');
+    assert.equal(facingRiver({...player,x:player.x+BLOCK}),false,'street without bridge');
+    for(const offset of [10,22,106,118])assert.equal(facingRiver({...player,z:row*BLOCK+offset}),false,'near bridge end');
+    const look=new RiverLook();
+    assert.equal(look.try(player,true),true);
+    assert.equal(look.try(player,true),false,'holding Space does not repeat the message');
+    assert.equal(look.try(player,false),false);
+    assert.equal(look.try(player,true),true,'new press repeats');
+    assert.equal(look.try(player,true,true),true,'quick taps between frames work');
+  }
+});
+
 test('cars turn continuously onto either riverbank at streets without bridges',async()=>{
   const {Traffic}=await import('../neon-city/traffic.js');
   const city=new City(1);
@@ -736,7 +756,8 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {pubName}=await import('../neon-city/pub.js');
   const {PubLife,PubConversation}=await import('../neon-city/pub-life.js');
   const {pubLines}=await import('../neon-city/world.js');
-  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const {RiverLook}=await import('../neon-city/river-look.js');
+  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
