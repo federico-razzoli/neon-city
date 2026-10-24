@@ -1,5 +1,5 @@
 import {PubConversation} from './pub-life.js?v=bumps-1';
-import {riverLines} from './world.js?v=talk-10';
+import {riverLines} from './world.js?v=talk-11';
 
 // A walk away shorter than this keeps the conversation going; a longer one
 // starts it again from the first line, like sitting down at a pub table.
