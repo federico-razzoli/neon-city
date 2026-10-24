@@ -1,5 +1,6 @@
 import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=bumps-1';
 import {PUB_TYPES} from './world.js?v=bumps-1';
+import {register} from './register.js';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
@@ -118,19 +119,22 @@ export function facingPokeBall(player,ball){
 // A line that ends the chat does so once its answer has been heard; one with
 // a next block offers that block's lines instead, once its answer is over.
 // A script is a list of lines, or a list of blocks of lines starting at the first.
+// A line that needs a register key is offered only once the player has it; an
+// answer given as {say,sets} adds its key to the register as it is said.
 export const BARTENDER_TALK=[
   {ask:'HEY!',answer:['HELLO THERE!']},
   {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.']},
   {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.']},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
 export class StaffTalk{
-  constructor(script=BARTENDER_TALK){this.blocks=Array.isArray(script[0])?script:[script];this.block=0;this.selected=0;this.answer=[];this.over=false;}
-  get script(){return this.blocks[this.block];}
-  get line(){return this.answer[0]??null;}
+  constructor(script=BARTENDER_TALK,record=register){this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
+  get script(){return this.blocks[this.block].filter(option=>option.needs==null||option.needs in this.record);}
+  get line(){const said=this.answer[0];return said?.say??said??null;}
   move(step){if(!this.line)this.selected=(this.selected+step+this.script.length)%this.script.length;}
   confirm(choice=this.selected){
     if(this.line)this.answer.shift();
     else{this.selected=choice;this.chosen=this.script[choice];this.answer=[...this.chosen.answer];}
+    if(this.answer[0]?.sets)this.record[this.answer[0].sets]=true;
     if(this.line)return;
     this.over=!!this.chosen.ends;
     if(this.chosen.next!=null){this.block=this.chosen.next;this.selected=0;}

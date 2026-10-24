@@ -309,6 +309,8 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
+  const {register}=await import('../neon-city/register.js');
+  for(const key in register)delete register[key];
   const events={},elements=new Map();let covers=0,bells=0;
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
@@ -428,6 +430,15 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   press();
   assert.equal(talkBox.hidden,false);assert.equal(talkBox.ariaLabel,'Talk to the robot');
   assert.match(talkBox.innerHTML,/HEY![\s\S]*WOULD YOU RECOMMEND THIS HOTEL\?[\s\S]*IS THIS HOTEL ROBOT-FRIENDLY\?[\s\S]*BYE!/);
+  assert.deepEqual(register,{});
+  key('3');press();
+  assert.equal(talkBox.innerHTML,answer('THEY BETTER BE.'));
+  assert.deepEqual(register,{HOTELS_ARE_ROBOT_FRIENDLY:true},'the register remembers what the robot said');
+  press();
+  assert.match(talkBox.innerHTML,/aria-current="true">WHAT DO YOU MEAN\?[\s\S]*YEAH, I GUESS THAT ROBOTS PAY WELL\./);
+  key('2');
+  assert.equal(talkBox.innerHTML,answer("ERR... SURE. THAT'S EXACTLY WHAT I MEANT."));
+  press();
   key('4');
   assert.equal(talkBox.innerHTML,answer('SEE YOU LATER, HUMAN!'));
   press();
@@ -435,6 +446,14 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   Object.assign(player,{x:2,z:8,angle:0});
   for(let i=0;i<1000&&life.walker;i++)tick(ms+=20);
   assert.equal(life.walker,null,'gone out to the street');
+  // The receptionist now has one more question to answer, before BYE!.
+  Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x,z:11.7,angle:0});
+  press();
+  assert.match(talkBox.innerHTML,/I'M NEW TO NEON CITY\.\.\.<\/button><\/li><li><button type="button" data-choice="3">DO ROBOTS\.\.\. THREAT YOU\?<\/button><\/li><li><button type="button" data-choice="4">BYE!/);
+  key('4');
+  assert.equal(talkBox.innerHTML,answer("N-NO. OF COURSE THEY DON'T."));
+  press();key('5');press();
+  assert.equal(talkBox.hidden,true);
   Object.assign(player,{x:10,z:1.5,angle:Math.PI});
   press();
   assert.match(location(),/^MIDNIGHT DISTRICT/);
@@ -2074,7 +2093,7 @@ test('a chat with the bartender answers each line, in sequence where it has more
 test('a chat with the receptionist moves to recommendations and back, and ends with BYE!',async()=>{
   const {StaffTalk}=await import('../neon-city/pub-interior.js');
   const {RECEPTIONIST_TALK}=await import('../neon-city/hotel-interior.js');
-  const talk=new StaffTalk(RECEPTIONIST_TALK);
+  const talk=new StaffTalk(RECEPTIONIST_TALK,{});
   const asks=()=>talk.script.map(o=>o.ask);
   const first=['HEY!','WHAT TIME DO YOU CLOSE THE DOOR?',"I'M NEW TO NEON CITY...",'BYE!'];
   assert.deepEqual(asks(),first);
@@ -2102,6 +2121,12 @@ test('a chat with the receptionist moves to recommendations and back, and ends w
   talk.confirm(3);assert.equal(talk.line,'HAVE AN UNFORGETTABLE NIGHT IN NEON CITY!');
   assert.equal(talk.over,false,'the goodbye is heard first');
   talk.confirm();assert.equal(talk.over,true);
+  // Once the player knows hotels had better be robot-friendly, there is one more question.
+  const knowing=new StaffTalk(RECEPTIONIST_TALK,{HOTELS_ARE_ROBOT_FRIENDLY:true});
+  assert.deepEqual(knowing.script.map(o=>o.ask),['HEY!','WHAT TIME DO YOU CLOSE THE DOOR?',"I'M NEW TO NEON CITY...",'DO ROBOTS... THREAT YOU?','BYE!']);
+  knowing.confirm(3);assert.equal(knowing.line,"N-NO. OF COURSE THEY DON'T.");
+  knowing.confirm();assert.equal(knowing.over,false);
+  knowing.confirm(4);assert.equal(knowing.line,'HAVE AN UNFORGETTABLE NIGHT IN NEON CITY!');
 });
 
 test('the receptionist is talked to across the desk from the lobby, not round its end',async()=>{
@@ -2180,7 +2205,7 @@ test('every 20-30 seconds a robot comes out of the rooms, down the stairs and ou
 test('a chat with a waiting robot moves to robot-friendly hotels and back, and ends with BYE!',async()=>{
   const {StaffTalk}=await import('../neon-city/pub-interior.js');
   const {ROBOT_TALK,facingHotelRobot}=await import('../neon-city/hotel-interior.js');
-  const talk=new StaffTalk(ROBOT_TALK);
+  const record={},talk=new StaffTalk(ROBOT_TALK,record);
   const asks=()=>talk.script.map(o=>o.ask);
   const hear=choice=>{talk.confirm(choice);const heard=[];while(talk.line){heard.push(talk.line);talk.confirm();}return heard;};
   const first=['HEY!','WOULD YOU RECOMMEND THIS HOTEL?','IS THIS HOTEL ROBOT-FRIENDLY?','BYE!'];
@@ -2189,11 +2214,16 @@ test('a chat with a waiting robot moves to robot-friendly hotels and back, and e
   assert.deepEqual(hear(0),['HELLO THERE, HUMAN!']);
   assert.deepEqual(hear(1),['NOT REALLY.','BUT MY CREATORS HAVE PAID THIS HOTEL FOR ME.']);
   assert.deepEqual(asks(),first);
-  assert.deepEqual(hear(2),['ALL HOTELS ARE ROBOT-FRIENDLY.','THEY BETTER BE.']);
+  assert.deepEqual(record,{},'nothing worth remembering yet');
+  talk.confirm(2);assert.equal(talk.line,'ALL HOTELS ARE ROBOT-FRIENDLY.');
+  assert.deepEqual(record,{});
+  talk.confirm();assert.equal(talk.line,'THEY BETTER BE.');
+  assert.deepEqual(record,{HOTELS_ARE_ROBOT_FRIENDLY:true},'remembered as it is said');
+  talk.confirm();
   assert.deepEqual(asks(),second);
   assert.deepEqual(hear(0),['OH, NOTHING SPECIAL.',"YOU DON'T WANT TO KNOW, ANYWAY."]);
   assert.deepEqual(asks(),first,'back to the first choices');
-  hear(2);
+  assert.deepEqual(hear(2),['ALL HOTELS ARE ROBOT-FRIENDLY.','THEY BETTER BE.']);
   assert.deepEqual(hear(1),["ERR... SURE. THAT'S EXACTLY WHAT I MEANT."]);
   assert.deepEqual(asks(),first,'back to the first choices');
   assert.equal(talk.over,false);

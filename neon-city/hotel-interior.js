@@ -1,4 +1,4 @@
-import {drawCylinder,drawRod,drawStaff,facingAcrossCounter,facingDoorway,facingNearest,pubPersonBlocks,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=receptionist-talk-1';
+import {drawCylinder,drawRod,drawStaff,facingAcrossCounter,facingDoorway,facingNearest,pubPersonBlocks,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=register-1';
 
 // Interior coordinates are local: the street entrance is centred on the south
 // wall. The staircase climbs the east wall to a landing; the receptionist
@@ -81,6 +81,7 @@ export const RECEPTIONIST_TALK=[
   [{ask:'HEY!',answer:['GOOD EVENING! HOW CAN I HELP YOU?']},
     {ask:'WHAT TIME DO YOU CLOSE THE DOOR?',answer:["WE'RE OPEN 24/7!"]},
     {ask:"I'M NEW TO NEON CITY...",answer:['WELCOME TO OUR CITY! HOW CAN I HELP YOU?'],next:1},
+    {ask:'DO ROBOTS... THREAT YOU?',answer:["N-NO. OF COURSE THEY DON'T."],needs:'HOTELS_ARE_ROBOT_FRIENDLY'},
     {ask:'BYE!',answer:['HAVE AN UNFORGETTABLE NIGHT IN NEON CITY!'],ends:true}],
   [{ask:'CAN YOU RECOMMEND SOME PLACES TO VISIT?',answer:["WELL, LET'S SEE...",
       "WE HAVE MANY GREAT PUBS HERE. YOU'LL MEET THE NEON CITY PEOPLE THERE.",
@@ -127,7 +128,7 @@ export const facingHotelRobot=(player,walker)=>!!walker&&facingNearest(player,[{
 export const ROBOT_TALK=[
   [{ask:'HEY!',answer:['HELLO THERE, HUMAN!']},
     {ask:'WOULD YOU RECOMMEND THIS HOTEL?',answer:['NOT REALLY.','BUT MY CREATORS HAVE PAID THIS HOTEL FOR ME.']},
-    {ask:'IS THIS HOTEL ROBOT-FRIENDLY?',answer:['ALL HOTELS ARE ROBOT-FRIENDLY.','THEY BETTER BE.'],next:1},
+    {ask:'IS THIS HOTEL ROBOT-FRIENDLY?',answer:['ALL HOTELS ARE ROBOT-FRIENDLY.',{say:'THEY BETTER BE.',sets:'HOTELS_ARE_ROBOT_FRIENDLY'}],next:1},
     {ask:'BYE!',answer:['SEE YOU LATER, HUMAN!'],ends:true}],
   [{ask:'WHAT DO YOU MEAN?',answer:['OH, NOTHING SPECIAL.',"YOU DON'T WANT TO KNOW, ANYWAY."],next:0},
     {ask:'YEAH, I GUESS THAT ROBOTS PAY WELL.',answer:["ERR... SURE. THAT'S EXACTLY WHAT I MEANT."],next:0}]];
