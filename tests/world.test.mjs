@@ -27,6 +27,37 @@ test('arcade windows and sides vary while retaining their layout on redraw',()=>
 import {City,pedestrian,traffic,PEDESTRIAN_TYPES,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
 import {RIVER_ROWS,BLOCK,RIVER_WIDTH,WATER_LEVEL,BRIDGE_RISE,groundHeight,bridgeHeight} from '../neon-city/world.js';
 import {drawRiverTerrain,drawRiverStructures} from '../neon-city/rivers.js';
+import {orderGroundSurfaces} from '../neon-city/surface-order.js';
+
+test('river ground visibility matches nearest surface from either bank and camera bearing',()=>{
+  const city=new City(1);
+  for(const row of RIVER_ROWS){
+    const terrain=[];
+    for(const part of [row,row+1])drawRiverTerrain(city.generate(0,part),{
+      quad:(x,elevation,z,w,d,color)=>terrain.push({x,elevation,z,w,d,color})
+    },0);
+    for(const side of [0,1])for(const cameraX of [10,32,53])for(const offset of [9,13,16]){
+      const camera={x:cameraX,y:1.65,z:row*BLOCK+(side?128-offset:offset)};
+      for(const targetOffset of [10,12,15,17,25,60]){
+        const target={x:32,y:targetOffset<18?(targetOffset<14?.06:.04):WATER_LEVEL,
+          z:row*BLOCK+(side?128-targetOffset:targetOffset)};
+        const dx=target.x-camera.x,dz=target.z-camera.z,length=Math.hypot(dx,dz)||1;
+        const faces=terrain.map(f=>({...f,depth:((f.x+f.w/2-camera.x)*dx+(f.z+f.d/2-camera.z)*dz)/length}));
+        // Intersect a viewing ray with the actual terrain, independently of
+        // painter ordering, and compare the final painted surface to the nearest.
+        const hits=faces.flatMap(f=>{
+          const t=(f.elevation-camera.y)/(target.y-camera.y);
+          const x=camera.x+t*dx,z=camera.z+t*dz;
+          return t>0&&x>=f.x&&x<=f.x+f.w&&z>=f.z&&z<=f.z+f.d?[{f,t}]:[];
+        });
+        assert.ok(hits.length);
+        const visible=new Set(hits.map(hit=>hit.f));
+        const painted=orderGroundSurfaces(faces).filter(f=>visible.has(f)).at(-1);
+        assert.equal(painted.color,hits.sort((a,b)=>a.t-b.t)[0].f.color);
+      }
+    }
+  }
+});
 
 test('wide parallel rivers flank spawn four to six streets away and eight to twelve blocks apart',()=>{
   const city=new City(42),centres=RIVER_ROWS.map(row=>(row+1)*BLOCK);
@@ -1372,5 +1403,30 @@ test('adjacent venues share walls without gaps and collision matches the outer w
     assert.equal(city.solid(x*64+30,z*64+49.99,0),true);
     assert.equal(city.solid(x*64+50.01,z*64+30,0),false);
     assert.equal(city.solid(x*64+30,z*64+50.01,0),false);
+  }
+});
+
+test('bridge fascia separates buried ends and hides lower walls from the deck side',async()=>{
+  const {drawBridgeFascias}=await import('../neon-city/rivers.js');
+  const city=new City(1);
+  for(const row of RIVER_ROWS)for(const part of [row,row+1]){
+    const chunk=city.generate(0,part);
+    const collect=(x,below)=>{
+      const faces=[];
+      drawBridgeFascias(chunk,{face:vertices=>faces.push(vertices)},{x},below);
+      return faces;
+    };
+    const buried=collect(32,true),exposed=collect(32,false);
+    assert.ok(buried.length&&exposed.length);
+    assert.ok(buried.every(face=>face.every(v=>v.y<=0)),'buried ends belong before the ground pass');
+    assert.ok(exposed.every(face=>face.every(v=>v.y>=0)),'later structures cannot paint buried ends over the bank');
+    assert.ok(buried.some(face=>face.some(v=>v.y===0)),'crossing segments meet the ground exactly');
+    for(const [x,edge] of [[11,14],[53,50]]){
+      assert.ok(collect(x,true).every(face=>face.every(v=>v.x!==edge)),'deck hides the lower wall on its own side');
+      const ownSide=collect(x,false).filter(face=>face[0].x===edge);
+      assert.ok(ownSide.length);
+      assert.ok(ownSide.every(face=>face.every(v=>v.y>=bridgeHeight(v.z)+.075-1e-9)),
+        'only the parapet remains above the deck');
+    }
   }
 });

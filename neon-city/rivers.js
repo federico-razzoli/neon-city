@@ -27,7 +27,35 @@ export function drawRiverTerrain(chunk,{quad},time){
     quad(x+offset,.075,bank,width,10,color);
 }
 
+// Split the fascia at ground level so its buried ends draw before the banks.
+// The lower wall faces the water; from the deck side it is hidden by the deck.
+export function drawBridgeFascias(chunk,{face},viewer,belowGround=false){
+  const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
+  const clip=vertices=>{
+    const out=[],sign=belowGround?-1:1;
+    for(let i=0;i<vertices.length;i++){
+      const a=vertices[i],b=vertices[(i+1)%vertices.length];
+      const ai=sign*a.y>=0,bi=sign*b.y>=0;
+      if(ai)out.push(a);
+      if(ai!==bi){const t=-a.y/(b.y-a.y);out.push({x:a.x+(b.x-a.x)*t,y:0,z:a.z+(b.z-a.z)*t});}
+    }
+    if(out.length>=3)face(out,'#68758a');
+  };
+  for(let a=Math.max(z,start+18);a<Math.min(z+64,start+110);a+=2){
+    const b=Math.min(a+2,z+64,start+110),h0=bridgeHeight(a),h1=bridgeHeight(b);
+    for(const edge of [14,50]){
+      const wall=(bottom,top)=>clip([
+        {x:x+edge,y:h0+bottom,z:a},{x:x+edge,y:h1+bottom,z:b},
+        {x:x+edge,y:h1+top,z:b},{x:x+edge,y:h0+top,z:a}
+      ]);
+      if(!viewer||(edge===14?viewer.x>x+edge:viewer.x<x+edge))wall(-1.4,.075);
+      if(!belowGround)wall(.075,.25);
+    }
+  }
+}
+
 export function drawRiverStructures(chunk,{face,box},viewer){
+  drawBridgeFascias(chunk,{face},viewer);
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const bank=chunk.z===chunk.riverStart?start+18:start+110;
   // Stone retaining walls expose the full drop from the grass to the water.
@@ -54,7 +82,6 @@ export function drawRiverStructures(chunk,{face,box},viewer){
     if(Math.floor((a-start)/4)%3===0)strip(0,.15,.085,.085,'#c4af8c');
     for(const edge of [14,50]){
       // The visible stone fascia and handrail rise together with the deck.
-      face([{x:x+edge,y:h0-1.4,z:a},{x:x+edge,y:h1-1.4,z:b},{x:x+edge,y:h1+.25,z:b},{x:x+edge,y:h0+.25,z:a}],'#68758a');
       face([{x:x+edge,y:h0+1.05,z:a},{x:x+edge,y:h1+1.05,z:b},{x:x+edge,y:h1+1.19,z:b},{x:x+edge,y:h0+1.19,z:a}],'#b0bac0');
       strip(edge-.15,edge+.15,.25,.25,'#8f9eab');
       strip(edge-.1,edge+.1,1.19,1.19,'#b0bac0');

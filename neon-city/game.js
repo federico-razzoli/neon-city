@@ -3,13 +3,13 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=characters-12';
 import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight, characterHeight, pubLines} from './world.js?v=characters-12';
-import {drawRiverTerrain,drawRiverStructures} from './rivers.js?v=characters-12';
+import {drawRiverTerrain,drawRiverStructures,drawBridgeFascias} from './rivers.js?v=characters-12';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-12';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,URSA_MAJOR} from './sky.js?v=ursa-major-1';
-import {orderSurfaces} from './surface-order.js';
+import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
 import {drawWallTexture} from './perspective.js';
 import {HornWarning,playHorn} from './horn.js';
 
@@ -109,7 +109,7 @@ function face(vertices,color,texture=null,smooth=false){
   const clipped=clip(vs);if(clipped.length<3)return;
   const ps=clipped.map(project);
   if(ps.every(p=>p.x<0)||ps.every(p=>p.x>W)||ps.every(p=>p.y<0)||ps.every(p=>p.y>H))return;
-  queue.push({ps,vs:clipped,depth,color,texture,smooth});
+  queue.push({ps,vs:clipped,depth,elevation:vertices[0].y,color,texture,smooth});
 }
 function quad(x,y,z,w,d,color){face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);}
 function box(x,y,z,w,h,d,color,roof=color){
@@ -211,6 +211,9 @@ function newspaperMachine(m){
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
   if(chunk.river){drawRiverTerrain(chunk,{quad},time);return;}
+  // Asphalt needs geometry to occlude the recessed river at street approaches.
+  // The screen background alone cannot hide water projected over the road.
+  quad(x,0,z,64,64,'#252233');
   quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
   // Keep each entire dash between the intersections, which begin at offset 56.
   for(let t=12;t+4<=56;t+=12){quad(x-.09,.025,z+t,.18,4,'#b09485');quad(x+t,.025,z-.09,4,.18,'#b09485');}
@@ -285,8 +288,14 @@ function render(){
   ctx.fillStyle='#252233';ctx.fillRect(0,horizon,W,H-horizon);queue=[];
   const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=170);
   for(const chunk of visible)street(chunk);
+  orderGroundSurfaces(queue);
+  const terrain=queue;
+  for(const f of terrain)if(f.elevation<0)drawFace(f);
+  queue=[];
+  for(const chunk of visible)if(chunk.river)drawBridgeFascias(chunk,{face},player,true);
   queue.sort((a,b)=>b.depth-a.depth);
   for(const f of queue)drawFace(f);
+  for(const f of terrain)if(f.elevation>=0)drawFace(f);
   // Ground details go over the pavement, before people and buildings.
   queue=[];
   for(const chunk of visible)for(const m of chunk.manholes)manhole(m);

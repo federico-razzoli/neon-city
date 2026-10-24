@@ -56,3 +56,9 @@ export function orderSurfaces(faces){
   for(let i=0;i<faces.length;i++)visit(i);
   return result;
 }
+// Outdoor terrain consists of horizontal planes below the camera. Wherever
+// their projections overlap, the higher plane is nearer, regardless of the
+// polygons' centres or the camera bearing. Keep decals above their base plane.
+export function orderGroundSurfaces(faces){
+  return faces.sort((a,b)=>a.elevation-b.elevation||b.depth-a.depth);
+}
