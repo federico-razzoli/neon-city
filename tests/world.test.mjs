@@ -321,7 +321,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},LobbyMusic:class{prepare(){}choose(piece){musicChoices.push(piece);}update(context,volume){musicVolumes.push(volume);}mute(){}},LOBBY_MUSIC,LOBBY_PIECES,parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},LobbyMusic:class{prepare(){}choose(piece){musicChoices.push(piece);}update(context,volume){musicVolumes.push(volume);}mute(){}},LOBBY_MUSIC,LOBBY_PIECES,...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -1064,7 +1064,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
   const sandbox={START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -1539,7 +1539,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {hotelLook}=await import('../neon-city/hotel.js');
   const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -2492,6 +2492,59 @@ test('a flush is a rush of water, a few gurgles and a refill, silent until sound
   assert.equal(started.length,before);
 });
 
+test('boogie-woogie plays in the pub, carries on through a trip to the lavatory, and starts afresh on each visit',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {runInNewContext}=await import('node:vm');
+  const pubInterior=await import('../neon-city/pub-interior.js');
+  const lavatory=await import('../neon-city/lavatory.js');
+  const {PUB_MUSIC,PUB_PIECES}=await import('../neon-city/pub-music.js');
+  const events={},elements=new Map(),volumes=[],choices=[],lobbyVolumes=[];
+  const element=id=>{
+    if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
+    return elements.get(id);
+  };
+  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
+    ...await import('../neon-city/pub-life.js'),CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},WalkerTalk:class{update(){}},talksHere:()=>false,
+    pubLines:()=>[],pubName:()=>'THE PUB',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
+    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    ...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(context,volume){lobbyVolumes.push(volume);}mute(){}},
+    PUB_MUSIC,PUB_PIECES,PubMusic:class{prepare(){}choose(piece){choices.push(piece);}update(context,volume){volumes.push(volume);}mute(){}},
+    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
+    window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
+    requestAnimationFrame(){},performance:{now:()=>0}};
+  const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
+  const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
+  city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'NEON PUB'}],manholes:[],newspaperMachines:[]});
+  const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
+  let ms=0;
+  const press=()=>{events.keydown(space);tick(ms+=20);events.keyup(space);tick(ms+=20);};
+  const enter=()=>{Object.assign(player,{x:23,z:12.5,angle:0});press();};
+  press();// starts the game
+  assert.equal(volumes.at(-1),0,'no boogie-woogie on the street');
+  enter();
+  assert.equal(location(),'THE PUB / BAR ROOM');
+  assert.deepEqual(choices,[PUB_PIECES[0]],'a tune is put on for the visit');
+  assert.equal(volumes.at(-1),PUB_MUSIC.volume);
+  assert.equal(lobbyVolumes.at(-1),0,'no lobby music in the pub');
+  // The lavatory is out of earshot; back in the bar, the same tune carries on.
+  Object.assign(player,{x:pubInterior.PUB.toiletDoor.x,z:16.5,angle:0});press();
+  assert.equal(location(),'THE PUB / LAVATORY');
+  assert.equal(volumes.at(-1),0);
+  Object.assign(player,{...lavatory.LAVATORY.spawn,angle:Math.PI});press();
+  assert.equal(location(),'THE PUB / LOUNGE','both rooms of the pub hear it');
+  assert.equal(volumes.at(-1),PUB_MUSIC.volume);
+  assert.equal(choices.length,1,'not started again');
+  // Out on the street it stops; the next visit starts it afresh.
+  Object.assign(player,{x:pubInterior.PUB.door.x,z:1.5,angle:Math.PI});press();
+  assert.match(location(),/^MIDNIGHT DISTRICT/);
+  assert.equal(volumes.at(-1),0);
+  enter();
+  assert.equal(choices.length,2);
+  assert.equal(volumes.at(-1),PUB_MUSIC.volume);
+});
+
 test('Space walks from the pub into a free cubicle, sits, flushes on standing and goes back',async()=>{
   const {readFile}=await import('node:fs/promises');
   const {runInNewContext}=await import('node:vm');
@@ -2506,7 +2559,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(context,volume){tapVolumes.push(volume);}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(context,volume){tapVolumes.push(volume);}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -3822,4 +3875,42 @@ test('the lobby music is prepared ahead, starts the chosen piece from the top on
   music.mute();music.update(context,.8);
   assert.equal(sources.at(-1).stopped,undefined);assert.equal(sources.length,3);
   assert.equal(context.buffers.length,LOBBY_PIECES.length);
+});
+
+test('the pub plays a seamless, swung twelve-bar boogie-woogie on the piano',async()=>{
+  const {pubMusicSamples,PUB_MUSIC,PUB_PIECES,BOOGIE,loopSeconds,PubMusic}=await import('../neon-city/pub-music.js');
+  const {LOBBY_MUSIC,LOBBY_PIECES,lobbyMusicSamples}=await import('../neon-city/lobby-music.js');
+  const {MusicLoop}=await import('../neon-city/music-loop.js');
+  // The module is loaded under a cache-busting version, so compare by name.
+  assert.equal(Object.getPrototypeOf(PubMusic).name,MusicLoop.name,'played like the lobby music');
+  assert.deepEqual(PUB_PIECES,[BOOGIE]);
+  // A twelve-bar blues: I I I I, IV IV I I, V IV I V, with the left hand two
+  // octaves below the right.
+  const roots=BOOGIE.bars.map(([low])=>low-BOOGIE.bars[0][0]);
+  assert.deepEqual(roots,[0,0,0,0,5,5,0,0,7,5,0,7]);
+  for(const [low,high] of BOOGIE.bars)assert.equal(high-low,24);
+  const rate=PUB_MUSIC.rate,samples=pubMusicSamples(BOOGIE);
+  assert.equal(samples.length,Math.round(loopSeconds(BOOGIE)*rate));
+  // Lively: between 150 and 190 beats a minute.
+  const beat=loopSeconds(BOOGIE)/48;
+  assert.ok(60/beat>150&&60/beat<190);
+  assert.deepEqual(pubMusicSamples(BOOGIE),samples,'the same tune every time');
+  let peak=0,step=0;
+  for(let i=0;i<samples.length;i++){
+    peak=Math.max(peak,Math.abs(samples[i]));
+    if(i)step=Math.max(step,Math.abs(samples[i]-samples[i-1]));
+  }
+  assert.ok(Math.abs(peak-PUB_MUSIC.peak)<1e-6);
+  assert.ok(Math.abs(samples.at(-1)-samples[0])<step/4,'the loop joins up without a click');
+  // Eight notes to the bar in the left hand: the level pulses with each one,
+  // swung long-short, so it is never silent and rarely still.
+  const window=Math.round(beat*rate/6),levels=[];
+  for(let i=0;i+window<=samples.length;i+=window)levels.push(Math.sqrt(samples.subarray(i,i+window).reduce((sum,v)=>sum+v*v,0)/window));
+  assert.ok(Math.min(...levels)>.05*Math.max(...levels),'always playing');
+  // Played at about the same level as the lobby music.
+  const rms=a=>Math.sqrt(a.reduce((sum,v)=>sum+v*v,0)/a.length);
+  const ratio=rms(samples)*PUB_MUSIC.volume/(rms(lobbyMusicSamples(LOBBY_PIECES[0]))*LOBBY_MUSIC.volume);
+  assert.ok(ratio>.85&&ratio<1.2,`level ${ratio}`);
+  const started=performance.now();pubMusicSamples(BOOGIE);
+  assert.ok(performance.now()-started<1000,'quick enough to prepare when sound is switched on');
 });

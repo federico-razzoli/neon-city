@@ -1,7 +1,4 @@
-// Hotel lobby music: a slow ambient loop of soft pad chords, a low bass note
-// and a sparse bell melody echoing away, played at a steady level in the hall.
-// The volume is a third quieter to the ear than the first level of .8: loudness
-// halves every 10 dB, so that is 10*log2(2/3), about -5.85 dB.
+import {MusicLoop} from './music-loop.js?v=pub-music-1';
 // Hotel lobby music: slow ambient loops of soft pad chords over a low bass
 // note, with a sparse melody echoing away, played at a steady level in the
 // hall. Each visit to a lobby plays one of the pieces, chosen at random.
@@ -94,44 +91,7 @@ export function lobbyMusicSamples(piece,rate=LOBBY_MUSIC.rate){
   return samples;
 }
 
-export class LobbyMusic{
-  constructor(){this.buffers=new Map();}
-  // Writing the loops takes a noticeable moment, so the game does it when
-  // sound is switched on rather than at the hotel doors.
-  prepare(context){
-    if(!context)return;
-    for(const piece of LOBBY_PIECES)if(!this.buffers.has(piece)){
-      const data=lobbyMusicSamples(piece),buffer=context.createBuffer(1,data.length,LOBBY_MUSIC.rate);
-      buffer.getChannelData(0).set(data);this.buffers.set(piece,buffer);
-    }
-  }
-  // The piece for this visit to a lobby, played from the start.
-  choose(piece){this.piece=piece;this.chosen=true;}
-  update(context,volume){
-    if(!context||context.state!=='running')return;
-    if(volume>0&&this.chosen){
-      this.chosen=false;this.stop();this.prepare(context);this.context=context;
-      const gain=context.createGain(),source=context.createBufferSource(),filter=context.createBiquadFilter();
-      gain.gain.value=0;gain.connect(context.destination);
-      source.buffer=this.buffers.get(this.piece);source.loop=true;
-      // A gentle low-pass keeps the music soft, like ceiling speakers.
-      filter.type='lowpass';filter.frequency.value=3200;
-      source.connect(filter);filter.connect(gain);source.start();
-      this.playing={piece:this.piece,gain,source};
-    }
-    // The music swells in on entering the lobby and dies away on leaving.
-    this.playing?.gain.gain.setTargetAtTime(volume,context.currentTime,.6);
-  }
-  // Ends the last visit's piece, quickly fading out whatever is left of it.
-  stop(){
-    if(!this.playing)return;
-    const {gain,source}=this.playing;
-    gain.gain.setTargetAtTime(0,this.context.currentTime,.025);
-    source.onended=()=>{source.disconnect();gain.disconnect();};
-    source.stop(this.context.currentTime+.2);
-    this.playing=null;
-  }
-  mute(){
-    this.playing?.gain.gain.setTargetAtTime(0,this.context.currentTime,.025);
-  }
+// A gentle low-pass keeps the lobby music soft, like ceiling speakers.
+export class LobbyMusic extends MusicLoop{
+  constructor(){super({pieces:LOBBY_PIECES,samples:lobbyMusicSamples,rate:LOBBY_MUSIC.rate,lowpass:3200});}
 }

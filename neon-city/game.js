@@ -16,7 +16,8 @@ import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,StaffTa
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=register-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
-import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=lobby-music-4';
+import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=pub-music-1';
+import {PubMusic,PUB_MUSIC,PUB_PIECES} from './pub-music.js?v=pub-music-1';
 import {HOTEL,RECEPTIONISTS,RECEPTIONIST_TALK,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=register-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
@@ -52,7 +53,7 @@ function useDoor(){
     const pub=facingPubDoor(player,pubBuildings()),hotel=!pub&&facingHotelDoor(player,pubBuildings());
     if(!pub&&!hotel)return false;
     streetPosition={...player,angle:player.angle+Math.PI};
-    if(pub){pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();Object.assign(player,PUB.spawn);insidePub=true;}
+    if(pub){pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);Object.assign(player,PUB.spawn);insidePub=true;}
     // Each hotel keeps the receptionist first seen on duty there.
     else{currentHotel=hotel;hotel.receptionist??=RECEPTIONISTS[Math.floor(Math.random()*RECEPTIONISTS.length)];Object.assign(player,HOTEL.spawn);insideHotel=true;hotelLife=new HotelLife();lobbyMusic.choose(LOBBY_PIECES[Math.floor(Math.random()*LOBBY_PIECES.length)]);}
   }
@@ -155,7 +156,7 @@ const walkerTalk=new WalkerTalk(),lavatoryTalk=new WalkerTalk();
 const arcadeAmbience=new ArcadeAmbience();
 const parkBirds=new ParkBirds();
 const tapWater=new TapWater();
-const lobbyMusic=new LobbyMusic();
+const lobbyMusic=new LobbyMusic(),pubMusic=new PubMusic();
 function enableSound(){
   try{
     const AudioContext=window.AudioContext||window.webkitAudioContext;
@@ -163,7 +164,7 @@ function enableSound(){
     audioContext??=new AudioContext();
     audioContext.resume().catch(()=>{});
     loadCoverGrunt(audioContext);
-    lobbyMusic.prepare(audioContext);
+    lobbyMusic.prepare(audioContext);pubMusic.prepare(audioContext);
     ouchLoading??=fetch(new URL('./assets/ouch-short.wav',import.meta.url))
       .then(response=>{if(!response.ok)throw new Error('Sound unavailable');return response.arrayBuffer();})
       .then(data=>audioContext.decodeAudioData(data))
@@ -479,7 +480,7 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){if(banshee||pubMenu.open||staffTalk)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){if(banshee||pubMenu.open||staffTalk)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(pubMenu.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
@@ -606,8 +607,8 @@ function tick(now){
   }
   // Running taps are heard only in the lavatory, louder nearer the sinks.
   if(running&&!pubMenu.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
-  // Ambient music plays throughout the hotel lobby.
-  if(running)lobbyMusic.update(audioContext,insideHotel?LOBBY_MUSIC.volume:0);
+  // Ambient music plays throughout the hotel lobby, and boogie-woogie in the pub.
+  if(running){lobbyMusic.update(audioContext,insideHotel?LOBBY_MUSIC.volume:0);pubMusic.update(audioContext,insidePub?PUB_MUSIC.volume:0);}
   if(running||!painted){render();painted=true;}
   requestAnimationFrame(tick);
 }
