@@ -515,7 +515,8 @@ test('characters have their own lines for the promenade and for park footpaths, 
   assert.deepEqual(footpath(4),['I LOVE THIS PARK.','I WISH IT WERE BIGGER.']);
   assert.equal(footpath(15).length,5);
   assert.equal(footpath(15).at(-1),'SEE YOU LATER.');
-  assert.deepEqual(footpath(5),[]);
+  assert.deepEqual(footpath(5),['THIS PARK SUCKS.']);
+  assert.deepEqual(footpath(6),[]);
   for(let type=0;type<16;type++)assert.deepEqual(placeLines(type,null),[],'ordinary sidewalks have no lines');
   assert.deepEqual(river(0),[]);
   const city=new City(1),npc={x:11,z:20},bumped=[];
@@ -607,8 +608,8 @@ test('bumping into a talker in their place shows their line instead of the bump 
   bumpedPerson={type:13,place:'footpath',walker:{type:13}};tick(ms+=20);
   assert.equal(message(),'HAVE YOU SEEN MY WIFE AROUND?');
   wait();wait();
-  bumpedPerson={type:5,place:'footpath',walker:{type:5}};tick(ms+=20);
-  assert.equal(message(),'HEY! WATCH OUT!','the tattooed man has no footpath lines');
+  bumpedPerson={type:6,place:'footpath',walker:{type:6}};tick(ms+=20);
+  assert.equal(message(),'HEY! WATCH OUT!','the pink-haired man has no footpath lines');
   bumpedPerson={type:0,place:'river',walker:{type:0}};
   for(const end=ms+5000;ms<end;)tick(ms+=20);
   assert.equal(message(),'HEY! WATCH OUT!','others still complain on the promenade');
@@ -2389,7 +2390,7 @@ const stepWalker=(city,chunk,p,dt)=>{
 };
 test('on a park footpath, a walker with footpath lines stays and talks while the player blocks them',async()=>{
   const {footpathJunctions}=await import('../neon-city/world.js');
-  for(const type of [13,5]){
+  for(const type of [13,6]){
     const {city,chunk}=parkChunk(4),[j]=footpathJunctions(chunk);
     // On the park's sidewalk they are not on the footpath yet.
     const walker={phase:j.at-.2,speed:1.2,reverse:false,walkTime:0,type,variant:0,stuckTime:0};
