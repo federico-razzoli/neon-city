@@ -1,19 +1,19 @@
-import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=pokeball-2';
+import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=pokeball-2';
 
 // Interior coordinates are local: the street entrance is centred on the south
 // wall. The staircase climbs the east wall to a landing; the receptionist
-// stands behind a desk that closes off the north-west corner.
+// stands behind a desk in the north-west corner, reached round its east end.
 export const HOTEL={width:20,depth:16,height:7,
   door:{x:10,z:0,halfWidth:1.2},spawn:{x:10,z:1.8,angle:0},
-  desk:{x:0,z:12,w:8,d:1.2},deskReturn:{x:6.8,z:13.2,w:1.2,d:2.8},
-  receptionist:{x:3.6,z:14.4},
+  desk:{x:0,z:12,w:8,d:1.2},
+  receptionist:{x:3.6,z:14.4,radius:.53},keys:{x:1.2,z:15.7,w:5,d:.3},
   sofa:{x:.3,z:4.6,w:1,d:3.4},
   stairs:{x:16.4,z:3.5,w:3.6,steps:16,rise:.25,run:.5},
   landing:{x:16.4,z:11.5,w:3.6,d:4.5,y:4},
   lift:{x:12,z:16,halfWidth:1.05},liftButton:{x:13.53,z:16,halfWidth:.08},
   palms:[{x:.9,z:3.5,radius:.45},{x:.9,z:9,radius:.45}],
   lamp:{x:1.42,z:12.38,radius:.3},bell:{x:6,z:12.5,radius:.25},
-  pokeBall:{x:4.4,z:12.55,radius:.18},
+  pokeBall:{x:4.4,z:12.55,radius:.18},vase:{x:2.6,z:12.5,radius:.2},
   chandelier:{x:10,z:7}};
 export const RECEPTIONISTS=[NURSE_JOY,BLONDE_RECEPTIONIST];
 // Lobby walls are lit up from their dark facade colours, as if by the chandelier.
@@ -24,7 +24,7 @@ const STAIR_CARPET=['#6e2030','#7a2636'];
 // Furniture the player cannot walk through, including the banister's newel post.
 const obstacles=()=>{
   const {stairs:s}=HOTEL;
-  return [HOTEL.desk,HOTEL.deskReturn,HOTEL.sofa,{x:s.x-.1,z:s.z-.3,w:.28,d:.28}];
+  return [HOTEL.desk,HOTEL.keys,HOTEL.sofa,{x:s.x-.1,z:s.z-.3,w:.28,d:.28}];
 };
 // Height of the floor underfoot: the stairs rise evenly from their bottom
 // step to the landing, so the view climbs smoothly rather than step by step.
@@ -39,7 +39,7 @@ export function moveInHotel(player,dx,dz){
   const radius=.3,boxes=obstacles(),{stairs:s}=HOTEL;
   const clear=(x,z)=>x>=radius&&x<=HOTEL.width-radius&&z>=radius&&z<=HOTEL.depth-radius&&
     !boxes.some(b=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius)&&
-    !HOTEL.palms.some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+radius)&&
+    ![...HOTEL.palms,HOTEL.receptionist].some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+radius)&&
     !(z>s.z-.02&&Math.abs(x-s.x)<radius);
   // Substeps keep running and diagonal motion from crossing furniture or walls.
   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
@@ -59,6 +59,9 @@ export function facingHotelDoor(player,buildings){
 }
 export const facingHotelExit=player=>player.z>HOTEL.door.z&&facingDoorway(player,HOTEL.door,HOTEL.door.halfWidth);
 export const facingHotelPlant=player=>facingNearest(player,HOTEL.palms);
+// The vase of roses on the reception desk, reached across the counter.
+export const VASE_REPLY='A ROSE, IS A ROSE, IS A ROSE';
+export const facingHotelVase=player=>facingNearest(player,[HOTEL.vase])!=null;
 // One place to sit per sofa cushion; seated players face the hall.
 export const sofaSeats=()=>[0,1,2].map(i=>({x:HOTEL.sofa.x+.62,z:HOTEL.sofa.z+.75+i*.95,radius:.3,angle:Math.PI/2}));
 export const facingHotelSeat=player=>facingNearest(player,sofaSeats());
@@ -67,6 +70,15 @@ export const facingHotelLamp=player=>facingNearest(player,[HOTEL.lamp])!=null;
 // The service bell on the reception desk; ringing it brings an answer.
 export const facingHotelBell=player=>facingNearest(player,[HOTEL.bell])!=null;
 export const BELL_ANSWER="I'M HERE...";
+// Behind the desk the receptionist sends the player back to the lobby side,
+// and the key cabinet on the wall there is in reach.
+export const behindDesk=player=>player.z>HOTEL.desk.z+HOTEL.desk.d;
+export const facingReceptionist=player=>behindDesk(player)&&facingNearest(player,[HOTEL.receptionist])!=null;
+export const KEYS_REPLY="I CAN'T TAKE A KEY FOR FREE...";
+export const facingKeys=player=>{
+  const {keys}=HOTEL;
+  return behindDesk(player)&&player.z<keys.z&&facingDoorway(player,{x:keys.x+keys.w/2,z:keys.z},keys.w/2);
+};
 // Switches a hotel's reception lamp. After a couple of goes, the
 // receptionist asks the player to stop, every time from then on.
 export const LAMP_PATIENCE=2;
@@ -81,6 +93,9 @@ export function hotelReply(player){
   if(hotelFloorHeight(player.x,player.z)>0)return null;
   if(player.z<liftButton.z&&facingDoorway(player,liftButton,liftButton.halfWidth))return "IT'S OUT OF SERVICE";
   if(player.z<lift.z&&facingDoorway(player,lift,lift.halfWidth))return 'TRY PRESSING THE BUTTON...';
+  if(facingReceptionist(player))return BARTENDER_REPLY;
+  if(facingKeys(player))return KEYS_REPLY;
+  if(facingHotelVase(player))return VASE_REPLY;
   if(facingHotelPlant(player))return "IT'S JUST A PLANT.";
   return null;
 }
@@ -124,20 +139,22 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
     face([{x:x0,y:H-.35,z:z0},{x:x1,y:H-.35,z:z1},{x:x1,y:H-.2,z:z1},{x:x0,y:H-.2,z:z0}],look.metal);
 
   // Reception: a marble-topped desk, the key cabinet and the receptionist.
-  const {desk,deskReturn:side,receptionist:at}=HOTEL;
-  for(const b of [desk,side]){
-    box(b.x,0,b.z,b.w,1.15,b.d,look.wood[0]);
-    box(b.x-.05,1.15,b.z-.1,b.w+.1,.15,b.d+.15,look.column[1],look.column[0]);
-  }
-  for(let x=desk.x+.3;x+1.1<=desk.x+desk.w-.2;x+=1.3){
-    box(x,.15,desk.z-.03,1.1,.8,.03,look.wood[1]);
-    box(x+.1,.25,desk.z-.05,.9,.6,.02,look.wood[0]);
+  const {desk,receptionist:at}=HOTEL;
+  box(desk.x,0,desk.z,desk.w,1.15,desk.d,look.wood[0]);
+  box(desk.x-.05,1.15,desk.z-.1,desk.w+.1,.15,desk.d+.15,look.column[1],look.column[0]);
+  // Raised panels about 1.1 m wide, spaced evenly along the whole front.
+  const gap=.2,panels=Math.round((desk.w-gap)/(1.1+gap)),panel=(desk.w-gap)/panels-gap;
+  for(let i=0;i<panels;i++){
+    const x=desk.x+gap+i*(panel+gap);
+    box(x,.15,desk.z-.03,panel,.8,.03,look.wood[1]);
+    box(x+.1,.25,desk.z-.05,panel-.2,.6,.02,look.wood[0]);
   }
   box(desk.x,.95,desk.z-.06,desk.w,.05,.04,look.metal);
-  box(1.2,1.4,D-.3,5,1.5,.3,look.wood[1]);
+  const {keys}=HOTEL;
+  box(keys.x,1.4,keys.z,keys.w,1.5,keys.d,look.wood[1]);
   for(let row=0;row<3;row++)for(let col=0;col<8;col++){
-    box(1.35+col*.6,1.52+row*.45,D-.33,.45,.32,.03,'#1f120e');
-    if((row*8+col)%3)box(1.55+col*.6,1.6+row*.45,D-.35,.05,.14,.02,look.metal);
+    box(keys.x+.15+col*.6,1.52+row*.45,keys.z-.03,.45,.32,.03,'#1f120e');
+    if((row*8+col)%3)box(keys.x+.35+col*.6,1.6+row*.45,keys.z-.05,.05,.14,.02,look.metal);
   }
   const {bell}=HOTEL;
   cylinder(bell.x,1.3,bell.z,.07,.04,look.metal);cylinder(bell.x,1.34,bell.z,.06,.06,look.metal,look.metal,.01);
@@ -149,8 +166,9 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   box(lamp.x-.27,1.6,lamp.z-.13,.55,.12,.26,'#2a5a40','#356b4e');
   box(lamp.x-.2,1.56,lamp.z-.08,.4,.04,.16,lampOn?'#ffe7a0':'#5a5040');
   if(lampOn){quad(lamp.x-.45,1.302,desk.z+.05,.9,.75,'#c4b494');quad(lamp.x-.25,1.303,desk.z+.2,.5,.42,'#dccb9f');}
-  cylinder(2.6,1.3,12.5,.09,.3,'#7f95a0','#9fb3bd',.06);
-  for(const [dx,dz,color] of [[0,0,'#9c2a3e'],[-.07,.04,'#ad3c52'],[.07,-.03,'#9c2a3e']])box(2.56+dx,1.62,12.46+dz,.09,.09,.09,color);
+  const {vase}=HOTEL;
+  cylinder(vase.x,1.3,vase.z,.09,.3,'#7f95a0','#9fb3bd',.06);
+  for(const [dx,dz,color] of [[0,0,'#9c2a3e'],[-.07,.04,'#ad3c52'],[.07,-.03,'#9c2a3e']])box(vase.x-.04+dx,1.62,vase.z-.04+dz,.09,.09,.09,color);
   drawStaff({face,box},at,receptionist,{...HOTEL.pokeBall,y:1.48});
 
   // A velvet sofa against the west wall, facing the hall.

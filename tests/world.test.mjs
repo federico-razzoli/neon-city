@@ -55,7 +55,7 @@ test('hotel doors open from the street-facing facade and from inside the lobby',
   assert.equal(facingHotelExit({x:3,z:1,angle:Math.PI}),false,'facing the wall beside the doors');
 });
 
-test('the lobby keeps the player out of the furniture but lets them reach the desk, sofa, lift and stairs',async()=>{
+test('the lobby keeps the player out of the furniture but lets them reach the desk, behind it, the sofa, lift and stairs',async()=>{
   const {HOTEL,moveInHotel}=await import('../neon-city/hotel-interior.js');
   const walk=(from,to)=>{
     const p={...from};
@@ -78,8 +78,17 @@ test('the lobby keeps the player out of the furniture but lets them reach the de
     const end=walk(from,to);
     assert.ok(!near(end,to,.25),`stopped walking from ${from.x},${from.z} towards ${to.x},${to.z}`);
   }
-  // Nobody can get behind the desk to the receptionist.
-  for(const target of [HOTEL.receptionist,{x:1,z:15},{x:7,z:15.5}])assert.ok(!near(walk(walk(spawn,{x:target.x,z:spawn.z}),target),target,.5));
+  // Round the east end of the desk to behind it, past the receptionist but not through her.
+  const behind=walk(walk(walk(spawn,{x:9,z:spawn.z}),{x:9,z:15.3}),{x:1,z:15.3});
+  assert.ok(near(behind,{x:1,z:15.3}),'behind the desk, at the west wall');
+  // The key cabinet on the back wall is solid.
+  const {keys}=HOTEL;
+  for(const x of [keys.x+.2,keys.x+keys.w/2,keys.x+keys.w-.2])
+    assert.ok(walk({x,z:13.6},{x,z:17}).z<=keys.z-.3+1e-9,'stopped by the key cabinet');
+  const {receptionist}=HOTEL,stopped=walk(walk({x:9,z:14.4},{x:7,z:14.4}),{x:0,z:14.4});
+  assert.ok(stopped.x>=receptionist.x+receptionist.radius+.3-1e-9,'stopped by the receptionist');
+  // The desk itself still cannot be crossed from the lobby.
+  assert.ok(!near(walk(walk(spawn,{x:4,z:spawn.z}),{x:4,z:15.5}),{x:4,z:15.5},.5));
 });
 
 test('the stairs climb from their bottom step to the landing, behind a banister, up to a closed panel',async()=>{
@@ -181,6 +190,19 @@ test('the reception lamp can be reached across the desk and drawn on or off',asy
   assert.ok(!colors(undefined).has('#ffe7a0'),'lamps start switched off');
 });
 
+test('the panels on the front of the reception desk run its whole length',async()=>{
+  const {HOTEL,drawHotelInterior}=await import('../neon-city/hotel-interior.js');
+  const {HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  const {desk}=HOTEL,panels=[];
+  drawHotelInterior({look:HOTEL_LOOKS[0],face(){},quad(){},box:(x,y,z,w)=>{if(y===.15&&z===desk.z-.03)panels.push({x,w});}});
+  assert.ok(panels.length>=5);
+  const ends=panels.map(p=>[p.x,p.x+p.w]).sort((a,b)=>a[0]-b[0]);
+  const near=(a,b)=>Math.abs(a-b)<1e-9;
+  assert.ok(near(ends[0][0]-desk.x,desk.x+desk.w-ends.at(-1)[1]),'the same margin at either end');
+  assert.ok(ends[0][0]-desk.x<=.3,'no bare stretch at either end');
+  for(let i=1;i<ends.length;i++)assert.ok(near(ends[i][0]-ends[i-1][1],ends[0][0]-desk.x),'evenly spaced');
+});
+
 test('each sofa cushion is a seat facing the hall, reached from in front of the sofa',async()=>{
   const {HOTEL,sofaSeats,facingHotelSeat,moveInHotel}=await import('../neon-city/hotel-interior.js');
   const seats=sofaSeats(),{sofa}=HOTEL;
@@ -207,6 +229,52 @@ test('switching the reception lamp more than twice makes the receptionist compla
     assert.equal(first.lampOn,i%2===0,'the lamp still switches');
   }
   assert.equal(switchHotelLamp(second),null,'another hotel keeps its own count');
+});
+
+test('behind the desk the receptionist sends the player back, and the key cabinet gets a reply',async()=>{
+  const {HOTEL,KEYS_REPLY,hotelReply,facingReceptionist,facingKeys,facingHotelLamp,facingHotelBell}=await import('../neon-city/hotel-interior.js');
+  const {facingPokeBall}=await import('../neon-city/pub-interior.js');
+  const {receptionist:r,keys}=HOTEL;
+  const aim=(p,t)=>({...p,angle:Math.atan2(t.x-p.x,t.z-p.z)});
+  assert.equal(KEYS_REPLY,"I CAN'T TAKE A KEY FOR FREE...");
+  // At the receptionist's side, behind her and in front of her.
+  for(const p of [{x:r.x+1.2,z:r.z},{x:r.x-1.2,z:r.z},{x:r.x,z:15.35},{x:r.x+.9,z:13.6}]){
+    const facing=aim(p,r);
+    assert.equal(hotelReply(facing),'CLIENTS ON THE OTHER SIDE, PLEASE.',`from ${p.x},${p.z}`);
+    for(const other of [facingHotelLamp,facingHotelBell])assert.equal(other(facing),false);
+    assert.equal(facingPokeBall(facing,HOTEL.pokeBall),false);
+    assert.equal(facingReceptionist({...facing,angle:facing.angle+Math.PI}),false,'turned away');
+  }
+  // Across the desk from the lobby, the receptionist has nothing to say.
+  assert.equal(facingReceptionist(aim({x:r.x,z:11.7},r)),false);
+  assert.equal(hotelReply(aim({x:r.x,z:11.7},r)),null);
+  // The key cabinet, straight on and at an angle, but not past its ends.
+  for(const p of [{x:keys.x+.4,z:15.3},{x:keys.x+keys.w-.4,z:15.3},{x:7.5,z:14}]){
+    const facing=aim(p,{x:p.x<keys.x+keys.w?p.x:keys.x+keys.w-.5,z:keys.z});
+    assert.equal(facingKeys(facing),true,`from ${p.x},${p.z}`);
+    assert.equal(hotelReply(facing),KEYS_REPLY);
+  }
+  assert.equal(facingKeys({x:7.5,z:15.3,angle:0}),false,'past the end of the cabinet');
+  assert.equal(facingKeys({x:keys.x+1,z:15.3,angle:Math.PI}),false,'turned away');
+  assert.equal(facingKeys({x:keys.x+1,z:11.7,angle:0}),false,'out of reach from the lobby');
+});
+
+test('the vase of roses on the desk is reached across the counter and gets a reply',async()=>{
+  const {HOTEL,VASE_REPLY,hotelReply,facingHotelBell,facingHotelLamp,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  const {facingPokeBall}=await import('../neon-city/pub-interior.js');
+  const {vase}=HOTEL;
+  assert.equal(VASE_REPLY,'A ROSE, IS A ROSE, IS A ROSE');
+  for(const dx of [-.4,0,.4]){
+    const p={x:vase.x+dx,z:11.5};moveInHotel(p,0,1);
+    assert.ok(p.z<HOTEL.desk.z,'still in front of the desk');
+    const facing={...p,angle:Math.atan2(vase.x-p.x,vase.z-p.z)};
+    assert.equal(hotelReply(facing),VASE_REPLY);
+    assert.equal(facingHotelLamp(facing),false,'not the lamp');
+    assert.equal(facingHotelBell(facing),false,'not the bell');
+    assert.equal(facingPokeBall(facing,HOTEL.pokeBall),false,'not the Poké Ball');
+    assert.equal(hotelReply({...p,angle:Math.PI}),null,'turned away');
+  }
+  assert.equal(hotelReply({x:vase.x,z:9,angle:0}),null,'out of reach');
 });
 
 test('the desk bell is reached across the counter and rings a short, bright ding',async()=>{
@@ -299,6 +367,20 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   Object.assign(player,{x:hotelInterior.HOTEL.bell.x,z:11.5,angle:0});
   press();
   assert.equal(bells,1);assert.equal(element('#message').textContent,"I'M HERE...");
+  for(let i=0;i<200;i++)tick(ms+=20);
+  // Space at the vase of roses gets a reply.
+  Object.assign(player,{x:hotelInterior.HOTEL.vase.x,z:11.5,angle:0});
+  press();
+  assert.equal(element('#message').textContent,'A ROSE, IS A ROSE, IS A ROSE');
+  for(let i=0;i<200;i++)tick(ms+=20);
+  // Behind the desk, the receptionist and the key cabinet answer.
+  Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x+1.2,z:hotelInterior.HOTEL.receptionist.z,angle:-Math.PI/2});
+  press();
+  assert.equal(element('#message').textContent,'CLIENTS ON THE OTHER SIDE, PLEASE.');
+  for(let i=0;i<200;i++)tick(ms+=20);
+  Object.assign(player,{x:2,z:15.3,angle:0});
+  press();
+  assert.equal(element('#message').textContent,"I CAN'T TAKE A KEY FOR FREE...");
   for(let i=0;i<200;i++)tick(ms+=20);
   // Space at the reception lamp switches it on and off again, silently.
   Object.assign(player,{x:hotelInterior.HOTEL.lamp.x,z:11.5,angle:0});

@@ -16,7 +16,7 @@ import {PUB,BOTTLES_REPLY,BARTENDER_REPLY,POKE_BALL_REPLY,BartenderTalk,facingPo
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=bartender-3';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
-import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=pokeball-1';
+import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=desk-keys-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
