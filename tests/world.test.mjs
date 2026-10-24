@@ -2081,7 +2081,8 @@ test('Nurse Joy\'s Poké Ball stays on the counter, from either side of the bar 
 test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
   const {BARTENDER_TALK,StaffTalk}=await import('../neon-city/pub-interior.js');
   assert.deepEqual(BARTENDER_TALK.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','ABOUT THE STAFF ROOM...','BYE!']);
-  const talk=new StaffTalk();
+  assert.deepEqual(new StaffTalk(BARTENDER_TALK,{}).script.map(o=>o.ask),['HEY!','ABOUT THE STAFF ROOM...','BYE!'],'nothing to ask about the toilet before the banshee');
+  const talk=new StaffTalk(BARTENDER_TALK,{PUB_PARANORMAL_ACTIVITIES:true});
   assert.equal(talk.selected,0);assert.equal(talk.line,null);
   talk.confirm();
   assert.equal(talk.line,'HELLO THERE!');
@@ -2571,12 +2572,14 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   const {runInNewContext}=await import('node:vm');
   const pubInterior=await import('../neon-city/pub-interior.js');
   const lavatory=await import('../neon-city/lavatory.js');
+  const {register}=await import('../neon-city/register.js');
+  for(const key in register)delete register[key];
   const events={},elements=new Map();let flushes=0,rolls=0,tapVolumes=[];
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -2611,23 +2614,22 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   press();
   const talkBox=element('#staff-talk');
   assert.equal(talkBox.hidden,false);
-  assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE TOILET\.\.\.[\s\S]*ABOUT THE STAFF ROOM\.\.\.[\s\S]*BYE!/);
+  assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE STAFF ROOM\.\.\.[\s\S]*BYE!/);
+  assert.doesNotMatch(talkBox.innerHTML,/ABOUT THE TOILET/,'nothing to ask about the toilet before the banshee');
   key('ArrowDown');key('ArrowDown');
-  assert.match(talkBox.innerHTML,/aria-current="true">ABOUT THE STAFF ROOM/);
+  assert.match(talkBox.innerHTML,/aria-current="true">BYE!/);
   key('ArrowUp');events.keydown(space);tick(ms+=20);
-  assert.equal(talkBox.innerHTML,'<p class="talk-answer">THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.</p>');
+  assert.equal(talkBox.innerHTML,'<p class="talk-answer">THE STAFF ROOM IS A PRIVATE SPACE.</p>');
   for(let i=0;i<20;i++)tick(ms+=200);
-  assert.match(talkBox.innerHTML,/PARANORMAL/,'the answer waits for Space');
+  assert.match(talkBox.innerHTML,/PRIVATE SPACE/,'the answer waits for Space');
   assert.equal(element('#message').textContent,'','answers stay in the box');
   events.keyup(space);
-  press();key('ArrowDown');press();
-  assert.equal(talkBox.innerHTML,'<p class="talk-answer">THE STAFF ROOM IS A PRIVATE SPACE.</p>');
   press();
   assert.equal(talkBox.innerHTML,'<p class="talk-answer">IT HIDES NO SECRET, ANYWAY.</p>');
   press();
-  key('ArrowUp');key('ArrowUp');
+  key('ArrowUp');
   assert.match(talkBox.innerHTML,/aria-current="true">HEY!/);
-  key('4');
+  key('3');
   assert.equal(talkBox.innerHTML,'<p class="talk-answer">SEE YOU LATER!</p>');
   press();
   assert.equal(talkBox.hidden,true,'BYE! ends the chat');
@@ -2706,6 +2708,18 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   assert.equal(element('#message').textContent,'WTF WAS THAT??...','reaction once the banshee is gone');
   events.keydown(arrow('ArrowLeft'));tick(ms+=20);events.keyup(arrow('ArrowLeft'));
   assert.notEqual(player.angle,frozen.angle,'controls restored');
+  assert.deepEqual(register,{PUB_PARANORMAL_ACTIVITIES:true},'the register remembers the banshee');
+  // Back at the bar, the bartender can now be asked about the toilet.
+  Object.assign(player,{x:lavatory.CUBICLE.spawn.x,z:lavatory.CUBICLE.spawn.z,angle:Math.PI});
+  press();
+  Object.assign(player,{...lavatory.LAVATORY.spawn,angle:Math.PI});
+  press();
+  Object.assign(player,{x:pubInterior.PUB.bartender.x,z:12.6,angle:0});
+  tick(ms+=20);
+  press();
+  assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE TOILET\.\.\.[\s\S]*ABOUT THE STAFF ROOM\.\.\.[\s\S]*BYE!/);
+  key('2');
+  assert.equal(talkBox.innerHTML,'<p class="talk-answer">THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.</p>');
 });
 
  test('pub names use the requested list and stay consistent per address',async()=>{

@@ -1,4 +1,5 @@
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
+import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=enter-talk-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
@@ -12,13 +13,13 @@ import {WalkerTalk,talksHere} from './walker-talk.js?v=lavatory-talk-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=register-1';
-import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=register-1';
+import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=paranormal-1';
+import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=paranormal-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=pub-music-2';
 import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=pub-music-4';
-import {HOTEL,RECEPTIONISTS,RECEPTIONIST_TALK,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=register-1';
+import {HOTEL,RECEPTIONISTS,RECEPTIONIST_TALK,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=paranormal-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
@@ -40,7 +41,7 @@ function useDoor(){
   if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();lavatoryLife=new LavatoryLife();lavatoryTaps=LAVATORY.sinks.map(()=>false);}
   else if(insideLavatory){
     const cubicle=facingVacantCubicle(player,lavatoryOccupied);
-    if(cubicle){Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;if(rollBanshee(Math.random,bansheeMisses)){bansheeMisses=0;banshee={started:performance.now()};playBansheeScream(audioContext,2);}else bansheeMisses++;}
+    if(cubicle){Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;if(rollBanshee(Math.random,bansheeMisses)){bansheeMisses=0;banshee={started:performance.now()};register.PUB_PARANORMAL_ACTIVITIES=true;playBansheeScream(audioContext,2);}else bansheeMisses++;}
     else if(facingLavatoryExit(player)){Object.assign(player,{x:PUB.toiletDoor.x,z:PUB.toiletDoor.z-.9,angle:Math.PI});insideLavatory=false;insidePub=true;}
     else return false;
   }else if(insideCubicle){

@@ -123,7 +123,7 @@ export function facingPokeBall(player,ball){
 // answer given as {say,sets} adds its key to the register as it is said.
 export const BARTENDER_TALK=[
   {ask:'HEY!',answer:['HELLO THERE!']},
-  {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.']},
+  {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.'],needs:'PUB_PARANORMAL_ACTIVITIES'},
   {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.']},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
 export class StaffTalk{
