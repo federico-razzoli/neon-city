@@ -62,6 +62,7 @@ export const WATER_LEVEL = -7;
 export const BRIDGE_RISE = 6;
 export const riverStart = row => RIVER_ROWS.find(start=>row>=start&&row<start+2);
 export const isRiverRow = row => riverStart(row)!==undefined;
+export const hasBridge = street => mod(street,3)===0;
 export function bridgeHeight(z) {
   const start=riverStart(Math.floor(z/BLOCK));
   if(start===undefined)return 0;
@@ -70,10 +71,13 @@ export function bridgeHeight(z) {
 }
 export function groundHeight(x,z) {
   const lx=mod(x,BLOCK);
-  return lx<=14||lx>=50?bridgeHeight(z):0;
+  const street=Math.round(x/BLOCK);
+  return hasBridge(street)&&(lx<=14||lx>=50)?bridgeHeight(z):0;
 }
 export const LOAD_RADIUS = 2;
 export const KEEP_RADIUS = 3;
+export const RIVER_VIEW_DISTANCE = 260;
+const RIVER_LOAD_RADIUS = 4;
 export const PEDESTRIAN_MIN_SPEED = .9;
 export const PEDESTRIAN_MAX_SPEED = PEDESTRIAN_MIN_SPEED * 2;
 export const PERSON_CLEARANCE = .85; // Player radius plus pedestrian radius.
@@ -92,8 +96,9 @@ export class City {
   constructor(seed = Date.now()) { this.rng = random(seed); this.chunks = new Map(); }
   update(x, z) {
     const cx = Math.floor(x / BLOCK), cz = Math.floor(z / BLOCK);
-    for (const [key, c] of this.chunks) if (Math.max(Math.abs(c.x - cx), Math.abs(c.z - cz)) > KEEP_RADIUS) this.chunks.delete(key);
-    for (let i = cx - LOAD_RADIUS; i <= cx + LOAD_RADIUS; i++) for (let j = cz - LOAD_RADIUS; j <= cz + LOAD_RADIUS; j++) {
+    for (const [key, c] of this.chunks) if (Math.max(Math.abs(c.x - cx), Math.abs(c.z - cz)) > (c.river?RIVER_LOAD_RADIUS:KEEP_RADIUS)) this.chunks.delete(key);
+    for (let i = cx - RIVER_LOAD_RADIUS; i <= cx + RIVER_LOAD_RADIUS; i++) for (let j = cz - LOAD_RADIUS; j <= cz + LOAD_RADIUS; j++) {
+      if(Math.abs(i-cx)>LOAD_RADIUS&&!isRiverRow(j))continue;
       const key = `${i},${j}`;
       if (!this.chunks.has(key)) this.chunks.set(key, this.generate(i, j));
     }
@@ -108,8 +113,8 @@ export class City {
     for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:streetType(r()),reverse:r()>.5,variant:r(),walkTime:0});
     if(isRiverRow(z)){
       const start=riverStart(z);
-      // One shared loop follows both banks and the two bridge sidewalks.
-      return {x,z,river:true,riverStart:start,buildings:[],people:z===start?people:[],manholes:[],newspaperMachines:[]};
+      // A three-block loop follows both banks between consecutive bridges.
+      return {x,z,river:true,riverStart:start,buildings:[],people:z===start&&hasBridge(x)?people:[],manholes:[],newspaperMachines:[]};
     }
     const manholes=[],slots=Array.from({length:32},(_,i)=>i);
     const count=Math.floor(r()*4);
@@ -137,7 +142,11 @@ export class City {
     // All blocks share the same footprint, so collision works before a chunk is loaded.
     const lx=mod(x,BLOCK),lz=mod(z,BLOCK);
     const start=riverStart(Math.floor(z/BLOCK));
-    if(start!==undefined)return lx>14-radius&&lx<50+radius&&z>start*BLOCK+18-radius&&z<start*BLOCK+110+radius;
+    if(start!==undefined){
+      const street=Math.round(x/BLOCK);
+      const onBridge=hasBridge(street)&&Math.abs(x-street*BLOCK)<=14-radius;
+      return !onBridge&&z>start*BLOCK+18-radius&&z<start*BLOCK+110+radius;
+    }
     if(lx>14-radius && lx<50+radius && lz>14-radius && lz<50+radius)return true;
     const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
     return (chunk?.newspaperMachines??[]).some(m=>Math.abs(x-m.x)<m.w/2+radius&&Math.abs(z-m.z)<m.d/2+radius);
@@ -233,7 +242,7 @@ export class City {
       }
       const turnAround=p=>{
         if((p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5)return false;
-        const phase=mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?296:168);
+        const phase=mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168);
         const origin=pedestrian(chunk,p,time);
         const next=pedestrian(chunk,{...p,phase,reverse:!p.reverse,walkTime:p.walkTime+.2},time);
         if(this.solid(next.x,next.z)||crossesPerson(origin,next,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,next,pedestrian(chunk,q,time))))return false;
@@ -276,16 +285,17 @@ export class City {
 }
 function pedestrianRoute(chunk,p,time){
   const length=chunk.river?106:42;
-  let t=mod(p.phase+time*p.speed*(p.reverse?-1:1),2*(42+length));
-  const lengths=[42,length,42,length];
+  const width=chunk.river?170:42;
+  let t=mod(p.phase+time*p.speed*(p.reverse?-1:1),2*(width+length));
+  const lengths=[width,length,width,length];
   let side=0;
   while(side<3&&t>=lengths[side])t-=lengths[side++];
-  return {side,t,length};
+  return {side,t,length,width};
 }
 export function pedestrian(chunk,p,time) {
   time=p.walkTime??time;
-  const {side,t,length}=pedestrianRoute(chunk,p,time);
-  return {x:chunk.x*64+[11+t,53,53-t,11][side]+(p.yielding?p.yielding.dx*p.yielding.offset:0),z:(chunk.river?chunk.riverStart:chunk.z)*64+[11,11+t,11+length,11+length-t][side]+(p.yielding?p.yielding.dz*p.yielding.offset:0),facingX:[1,0,-1,0][side]*(p.reverse?-1:1),facingZ:[0,1,0,-1][side]*(p.reverse?-1:1),type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
+  const {side,t,length,width}=pedestrianRoute(chunk,p,time);
+  return {x:chunk.x*64+[11+t,11+width,11+width-t,11][side]+(p.yielding?p.yielding.dx*p.yielding.offset:0),z:(chunk.river?chunk.riverStart:chunk.z)*64+[11,11+t,11+length,11+length-t][side]+(p.yielding?p.yielding.dz*p.yielding.offset:0),facingX:[1,0,-1,0][side]*(p.reverse?-1:1),facingZ:[0,1,0,-1][side]*(p.reverse?-1:1),type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
 }
 export function pedestrianShowsBack(person,viewer) {
   return (viewer.x-person.x)*person.facingX+(viewer.z-person.z)*person.facingZ<0;
@@ -295,6 +305,7 @@ export function traffic(chunk,time) {
   // Identify each car in the moving stream so its colour survives tile crossings.
   for(let axis=0;axis<2;axis++)for(let dir=-1;dir<=1;dir+=2){
     // The street through the middle of a wide river is removed.
+    if(!axis&&isRiverRow(chunk.z)&&!hasBridge(chunk.x))continue;
     if(axis&&isRiverRow(chunk.z)&&chunk.z!==riverStart(chunk.z))continue;
     const lane=axis?chunk.z:chunk.x, phase=time*10*dir+lane*17+dir*13, t=mod(phase,64);
     const carId=(axis?chunk.x:chunk.z)-Math.floor(phase/64);

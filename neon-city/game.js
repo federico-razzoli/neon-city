@@ -2,8 +2,8 @@ import {PubLife,PubConversation} from './pub-life.js?v=characters-12';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=characters-12';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod, groundHeight, characterHeight, pubLines} from './world.js?v=characters-12';
-import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=riverbank-depth-1';
+import {City, pedestrian, pedestrianShowsBack, traffic, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, pubLines} from './world.js?v=bridge-visibility-1';
+import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=bridge-visibility-1';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-12';
@@ -105,7 +105,7 @@ let vehicleSurface=null;
 function face(vertices,color,texture=null,smooth=false){
   if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
   const vs=vertices.map(camera),depth=vs.reduce((s,p)=>s+p.z,0)/vs.length;
-  if(depth>150||vs.every(p=>p.z<.15))return;
+  if(depth>RIVER_VIEW_DISTANCE||vs.every(p=>p.z<.15))return;
   const clipped=clip(vs);if(clipped.length<3)return;
   const ps=clipped.map(project);
   if(ps.every(p=>p.x<0)||ps.every(p=>p.x>W)||ps.every(p=>p.y<0)||ps.every(p=>p.y>H))return;
@@ -287,7 +287,7 @@ function render(){
     widths.forEach((width,row)=>ctx.fillRect(moonPosition.x-(width-1)/2,moonPosition.y-6+row,width,1));
   }
   ctx.fillStyle='#252233';ctx.fillRect(0,horizon,W,H-horizon);queue=[];
-  const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=170);
+  const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=(chunk.river?RIVER_VIEW_DISTANCE:170));
   for(const chunk of visible)street(chunk);
   orderGroundSurfaces(queue);
   const terrain=queue;

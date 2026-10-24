@@ -89,10 +89,30 @@ test('water blocks walking and knockback while bridge sidewalks cross both wide 
       assert.ok(direction>0?bank.z<z+18:bank.z>z+110);
     }
     for(let t=19;t<110;t++)assert.ok(city.solid(32,z+t));
-    for(const x of [-11,0,11,53,64,75]){
+    for(const x of [-203,-192,-181,-11,0,11,181,192,203]){
       const p={x,z:z+11};city.move(p,0,106);
       assert.ok(Math.abs(p.z-(z+117))<1e-6,'bridge remains traversable');
       city.move(p,0,-106);assert.ok(Math.abs(p.z-(z+11))<1e-6);
+    }
+  }
+});
+
+test('only every third side street has a bridge, including negative coordinates',()=>{
+  const city=new City(1);
+  for(const row of RIVER_ROWS)for(let street=-6;street<=6;street++){
+    const expected=street%3===0,z=row*BLOCK+64;
+    for(const offset of [-11,0,11]){
+      assert.equal(city.solid(street*BLOCK+offset,z),!expected);
+      assert.equal(groundHeight(street*BLOCK+offset,z),expected?BRIDGE_RISE:0);
+    }
+    for(const part of [row,row+1]){
+      const chunk=city.generate(street,part),decks=[];
+      drawRiverStructures(chunk,{face:(vertices,color)=>{
+        if(color==='#292b3b'||color==='#757380')decks.push(vertices);
+      },box:()=>{}});
+      assert.equal(decks.some(v=>v[0].x===street*BLOCK),expected);
+      assert.equal(decks.some(v=>v[0].x===street*BLOCK+56),(street+1)%3===0);
+      assert.equal(traffic(chunk,0).some(car=>car.axis===0),expected);
     }
   }
 });
@@ -135,10 +155,20 @@ test('river geometry has recessed water, grassy banks, and elevated bridge decks
   }
 });
 
+test('both halves of the next bridges stay loaded from either sidewalk',()=>{
+  for(const row of RIVER_ROWS)for(const street of [-3,0,3])for(const offset of [-11,11]){
+    const city=new City(1);
+    city.update(street*BLOCK+offset,row*BLOCK+64);
+    for(const next of [street-3,street+3])for(const x of [next-1,next])for(const z of [row,row+1]){
+      assert.ok(city.chunks.has(`${x},${z}`),'adjacent bridge half is loaded');
+    }
+  }
+});
+
 test('nearby blocks are retained; forgotten blocks regenerate; memory is bounded',()=>{
   const c=new City(42);c.update(0,0);const original=c.chunks.get('0,0');assert.equal(c.chunks.size,25);
   c.update(64,64);assert.equal(c.chunks.get('0,0'),original);
-  for(let i=0;i<200;i++){c.update(i*64,i*32);assert.ok(c.chunks.size<=49);}
+  for(let i=0;i<200;i++){c.update(i*64,i*32);assert.ok(c.chunks.size<=85);}
   assert.ok(!c.chunks.has('0,0'));c.update(0,0);assert.notDeepEqual(c.chunks.get('0,0').buildings,original.buildings);
 });
 test('solid buildings stop walking and high-speed knockback, including negative coordinates',()=>{
@@ -1425,7 +1455,7 @@ test('bridge fascia separates buried ends and hides lower walls from the deck si
     assert.ok(buried.every(face=>face.every(v=>v.y<=0)),'buried ends belong before the ground pass');
     assert.ok(exposed.every(face=>face.every(v=>v.y>=0)),'later structures cannot paint buried ends over the bank');
     assert.ok(buried.some(face=>face.some(v=>v.y===0)),'crossing segments meet the ground exactly');
-    for(const [x,edge] of [[11,14],[53,50]]){
+    for(const [x,edge] of [[11,14]]){
       assert.ok(collect(x,true).every(face=>face.every(v=>v.x!==edge)),'deck hides the lower wall on its own side');
       const ownSide=collect(x,false).filter(face=>face[0].x===edge);
       assert.ok(ownSide.length);
