@@ -1,6 +1,14 @@
 export const PEDESTRIAN_TYPES=12;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
+  3:{lines:[
+    'DO YOU KNOW THE RADIOACTIVE COWS?',
+    "THEY'RE A POLKA BAND.",
+    "THEIR DRUMMER COMPOSED ALL SEPULTURA'S SONGS.",
+    "THEY'LL BE IN TOWN TOMORROW, BUT THE TICKETS ARE SOLD OUT.",
+    "FIND ME ONE AND I'LL MARRY YOU.",
+    'I PROMISE.'
+  ]},
   4:{height:1.68,lines:[
     'MY DAD SENT ME TO THE PUB AGAIN.',
     "I DON'T WANT TO GET DRUNK. I WANT TO STUDY MATH.",

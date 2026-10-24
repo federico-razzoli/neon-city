@@ -1208,7 +1208,12 @@ test('table partners say their lines in order every 3 to 5 seconds, looping',asy
   assert.equal(gay.length,5);
   assert.equal(gay[0],"DON'T TALK TO THE STUPID ROBOTS.");
   assert.equal(gay.at(-1),'THOSE ROBOTS SHOULD SEE A DOCTOR.');
-  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![4,5,6,11].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
+  const punk=pubLines(3);
+  assert.equal(punk.length,6);
+  assert.equal(punk[0],'DO YOU KNOW THE RADIOACTIVE COWS?');
+  assert.equal(punk[2],"THEIR DRUMMER COMPOSED ALL SEPULTURA'S SONGS.");
+  assert.equal(punk.at(-1),'I PROMISE.');
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![3,4,5,6,11].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
   const values=[0,1,.5,.25,.75,0,1,.5,.1],random=()=>values.shift()??.5;
   const talk=new PubConversation(lines,random),said=[],gaps=[];
   let since=0;
