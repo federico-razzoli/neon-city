@@ -12,7 +12,7 @@ export const HOTEL={width:20,depth:16,height:7,
   landing:{x:16.4,z:11.5,w:3.6,d:4.5,y:4},
   lift:{x:12,z:16,halfWidth:1.05},liftButton:{x:13.53,z:16,halfWidth:.08},
   palms:[{x:.9,z:3.5,radius:.45},{x:.9,z:9,radius:.45}],
-  lamp:{x:1.42,z:12.38,radius:.3},
+  lamp:{x:1.42,z:12.38,radius:.3},bell:{x:6,z:12.5,radius:.25},
   chandelier:{x:10,z:7}};
 export const RECEPTIONISTS=[NURSE_JOY,BLONDE_RECEPTIONIST];
 // Lobby walls are lit up from their dark facade colours, as if by the chandelier.
@@ -75,6 +75,17 @@ export const sofaSeats=()=>[0,1,2].map(i=>({x:HOTEL.sofa.x+.62,z:HOTEL.sofa.z+.7
 export const facingHotelSeat=player=>facingNearest(player,sofaSeats());
 // The lamp on the reception desk, reached across the counter.
 export const facingHotelLamp=player=>facingNearest(player,[HOTEL.lamp])!=null;
+// The service bell on the reception desk; ringing it brings an answer.
+export const facingHotelBell=player=>facingNearest(player,[HOTEL.bell])!=null;
+export const BELL_ANSWER="I'M HERE...";
+// Switches a hotel's reception lamp. After a couple of goes, the
+// receptionist asks the player to stop, every time from then on.
+export const LAMP_PATIENCE=2;
+export function switchHotelLamp(hotel){
+  hotel.lampOn=!hotel.lampOn;
+  hotel.lampSwitches=(hotel.lampSwitches??0)+1;
+  return hotel.lampSwitches>LAMP_PATIENCE?'CAN YOU NOT, PLEASE?':null;
+}
 // What Space says in the lobby, or null where there is nothing to try.
 export function hotelReply(player){
   const {lift,liftButton}=HOTEL;
@@ -139,7 +150,8 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
     box(1.35+col*.6,1.52+row*.45,D-.33,.45,.32,.03,'#1f120e');
     if((row*8+col)%3)box(1.55+col*.6,1.6+row*.45,D-.35,.05,.14,.02,look.metal);
   }
-  cylinder(6,1.3,12.5,.07,.04,look.metal);cylinder(6,1.34,12.5,.06,.06,look.metal,look.metal,.01);
+  const {bell}=HOTEL;
+  cylinder(bell.x,1.3,bell.z,.07,.04,look.metal);cylinder(bell.x,1.34,bell.z,.06,.06,look.metal,look.metal,.01);
   // A banker's lamp and a vase of roses on the counter. The lamp starts off;
   // lit, its bulb glows under the shade and warms the marble beneath it.
   const {lamp}=HOTEL;

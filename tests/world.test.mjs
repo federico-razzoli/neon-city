@@ -197,6 +197,43 @@ test('each sofa cushion is a seat facing the hall, reached from in front of the 
   }
 });
 
+test('switching the reception lamp more than twice makes the receptionist complain, in each hotel',async()=>{
+  const {switchHotelLamp}=await import('../neon-city/hotel-interior.js');
+  const first={},second={};
+  assert.equal(switchHotelLamp(first),null);assert.equal(first.lampOn,true);
+  assert.equal(switchHotelLamp(first),null);assert.equal(first.lampOn,false);
+  for(let i=0;i<5;i++){
+    assert.equal(switchHotelLamp(first),'CAN YOU NOT, PLEASE?');
+    assert.equal(first.lampOn,i%2===0,'the lamp still switches');
+  }
+  assert.equal(switchHotelLamp(second),null,'another hotel keeps its own count');
+});
+
+test('the desk bell is reached across the counter and rings a short, bright ding',async()=>{
+  const {HOTEL,facingHotelBell,facingHotelLamp,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  const {playDeskBell,BELL_PARTIALS}=await import('../neon-city/desk-bell.js');
+  const {bell}=HOTEL;
+  for(const dx of [-.7,0,.7]){
+    const p={x:bell.x+dx,z:11.5};moveInHotel(p,0,1);
+    assert.ok(p.z<HOTEL.desk.z,'still in front of the desk');
+    const facing={...p,angle:Math.atan2(bell.x-p.x,bell.z-p.z)};
+    assert.equal(facingHotelBell(facing),true);assert.equal(facingHotelLamp(facing),false,'not the lamp');
+    assert.equal(facingHotelBell({...p,angle:Math.PI}),false,'turned away');
+  }
+  assert.equal(facingHotelBell({x:bell.x,z:9,angle:0}),false,'out of reach');
+  const oscillators=[];
+  const param=()=>({value:0,events:[],setValueAtTime(v,t){this.events.push(['set',v,t]);},linearRampToValueAtTime(v,t){this.events.push(['ramp',v,t]);},exponentialRampToValueAtTime(v,t){this.events.push(['exp',v,t]);}});
+  const context={state:'running',currentTime:3,destination:{},
+    createGain:()=>({gain:param(),connect(){},disconnect(){}}),
+    createOscillator(){const o={frequency:{value:0},connect(){},disconnect(){},start(t){o.started=t;},stop(t){o.stopped=t;}};oscillators.push(o);return o;}};
+  playDeskBell(context);
+  assert.equal(oscillators.length,BELL_PARTIALS.length);
+  assert.ok(oscillators.every(o=>o.started===3&&o.stopped>3&&o.stopped<=5),'a ring of under two seconds');
+  assert.ok(oscillators[0].frequency.value>=1500,'a high, bright note');
+  playDeskBell({...context,state:'suspended'});
+  assert.equal(oscillators.length,BELL_PARTIALS.length,'silent until sound is enabled');
+});
+
 test('Space enters a hotel through its doors and leaves it the same way',async()=>{
   const {readFile}=await import('node:fs/promises');
   const {runInNewContext}=await import('node:vm');
@@ -204,12 +241,12 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
-  const events={},elements=new Map();let covers=0;
+  const events={},elements=new Map();let covers=0,bells=0;
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,
+  const sandbox={...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -257,12 +294,23 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   press();
   assert.equal(sandbox.game.seat,null,'standing again');
   assert.deepEqual({x:player.x,z:player.z},{x:2,z:seat.z});
+  // Space at the desk bell rings it, and the receptionist answers.
+  for(let i=0;i<200;i++)tick(ms+=20);
+  Object.assign(player,{x:hotelInterior.HOTEL.bell.x,z:11.5,angle:0});
+  press();
+  assert.equal(bells,1);assert.equal(element('#message').textContent,"I'M HERE...");
+  for(let i=0;i<200;i++)tick(ms+=20);
   // Space at the reception lamp switches it on and off again, silently.
   Object.assign(player,{x:hotelInterior.HOTEL.lamp.x,z:11.5,angle:0});
   press();
   assert.equal(hotel.lampOn,true);assert.equal(element('#message').textContent,'');
   press();
-  assert.equal(hotel.lampOn,false);
+  assert.equal(hotel.lampOn,false);assert.equal(element('#message').textContent,'');
+  // From the third switch on, the receptionist complains every time.
+  for(const on of [true,false,true]){
+    press();
+    assert.equal(hotel.lampOn,on);assert.equal(element('#message').textContent,'CAN YOU NOT, PLEASE?');
+  }
   Object.assign(player,{x:10,z:1.5,angle:Math.PI});
   press();
   assert.match(location(),/^MIDNIGHT DISTRICT/);
