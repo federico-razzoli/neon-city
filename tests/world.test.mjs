@@ -94,9 +94,54 @@ test('each lobby has Nurse Joy or a blonde receptionist and the hotel colours, w
     assert.equal(colors.has('#ee7c9e'),nurse,'pink hair');
     assert.equal(colors.has('#d94650'),nurse,'only Nurse Joy keeps a Poké Ball');
     assert.equal(colors.has('#d9b45a'),!nurse,'blonde hair');
-    for(const color of [look.floor[0],look.floor[1],look.wall,look.panel,look.velvet[0],look.metal])assert.ok(colors.has(color),`uses the hotel colour ${color}`);
+    for(const color of [look.floor[0],look.floor[1],look.velvet[0],look.metal])assert.ok(colors.has(color),`uses the hotel colour ${color}`);
+    // Walls are lit-up versions of the facade's dark colours.
+    const lum=c=>[1,3,5].reduce((sum,i)=>sum+parseInt(c.slice(i,i+2),16),0);
+    assert.ok(!colors.has(look.wall)&&[...colors].some(c=>/^#[0-9a-f]{6}$/.test(c)&&lum(c)>lum(look.wall)*1.4&&lum(c)<lum(look.wall)*1.8),'brighter walls');
     assert.ok(colors.has('#6e2030'),'red stair carpet');
   }
+});
+
+test('Space at a lobby plant, the lift doors or the lift button gets a reply',async()=>{
+  const {HOTEL,hotelReply}=await import('../neon-city/hotel-interior.js');
+  const {lift,liftButton,palms}=HOTEL;
+  for(const z of [15.5,14]){
+    assert.equal(hotelReply({x:liftButton.x,z,angle:0}),"IT'S OUT OF SERVICE");
+    for(const dx of [-.9,0,.9])assert.equal(hotelReply({x:lift.x+dx,z,angle:0}),'TRY PRESSING THE BUTTON...');
+  }
+  assert.equal(hotelReply({x:lift.x,z:15.5,angle:Math.PI}),null,'looking away from the lift');
+  assert.equal(hotelReply({x:lift.x,z:11,angle:0}),null,'too far from the lift');
+  for(const palm of palms){
+    // From the hall, straight on and at an angle.
+    for(const [dx,dz] of [[1.2,0],[.9,-.7],[.9,.7]])
+      assert.equal(hotelReply({x:palm.x+dx,z:palm.z+dz,angle:Math.atan2(-dx,-dz)}),"IT'S JUST A PLANT.");
+    assert.equal(hotelReply({x:palm.x+1.2,z:palm.z,angle:Math.PI/2}),null,'turned away from the plant');
+    assert.equal(hotelReply({x:palm.x+3,z:palm.z,angle:-Math.PI/2}),null,'out of reach');
+  }
+  assert.equal(hotelReply(HOTEL.spawn),null,'nothing to try from the doors');
+});
+
+test('the reception lamp can be reached across the desk and drawn on or off',async()=>{
+  const {HOTEL,facingHotelLamp,drawHotelInterior,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  const {HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  const {lamp}=HOTEL;
+  // Standing at the counter, straight on and from either side.
+  for(const dx of [-.6,0,.8]){
+    const p={x:lamp.x+dx,z:11.5};moveInHotel(p,0,1);
+    assert.ok(p.z<HOTEL.desk.z,'still in front of the desk');
+    assert.equal(facingHotelLamp({...p,angle:Math.atan2(lamp.x-p.x,lamp.z-p.z)}),true);
+    assert.equal(facingHotelLamp({...p,angle:Math.PI}),false,'turned away');
+  }
+  assert.equal(facingHotelLamp({x:lamp.x,z:9,angle:0}),false,'out of reach');
+  const colors=lampOn=>{
+    const seen=new Set();
+    drawHotelInterior({look:HOTEL_LOOKS[0],lampOn,face:(v,c)=>seen.add(c),quad:(x,y,z,w,d,c)=>seen.add(c),box:(x,y,z,w,h,d,...c)=>c.forEach(color=>seen.add(color))});
+    return seen;
+  };
+  const on=colors(true),off=colors(false);
+  assert.ok(on.has('#ffe7a0')&&on.has('#dccb9f'),'a lit bulb and a pool of light');
+  assert.ok(!off.has('#ffe7a0')&&!off.has('#dccb9f')&&off.has('#5a5040'),'a dark bulb');
+  assert.ok(!colors(undefined).has('#ffe7a0'),'lamps start switched off');
 });
 
 test('Space enters a hotel through its doors and leaves it the same way',async()=>{
@@ -134,10 +179,21 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   assert.deepEqual({x:player.x,z:player.z,angle:player.angle},hotelInterior.HOTEL.spawn);
   const receptionist=hotel.receptionist;
   assert.ok(hotelInterior.RECEPTIONISTS.includes(receptionist),'a receptionist is on duty');
-  // Space away from the doors does nothing in the lobby.
-  Object.assign(player,{x:12,z:15.5,angle:0});const before=covers;
+  // Space at the lift gets a reply; elsewhere it does nothing in the lobby.
+  Object.assign(player,{x:12,z:15.5,angle:0});
+  press();
+  assert.equal(element('#message').textContent,'TRY PRESSING THE BUTTON...');
+  for(let i=0;i<200;i++)tick(ms+=20);
+  Object.assign(player,{x:10,z:8,angle:Math.PI/2});const before=covers;
   press();
   assert.equal(location(),'HOTEL / LOBBY');assert.equal(covers,before,'no manhole cover to lift indoors');
+  assert.equal(element('#message').textContent,'');
+  // Space at the reception lamp switches it on and off again, silently.
+  Object.assign(player,{x:hotelInterior.HOTEL.lamp.x,z:11.5,angle:0});
+  press();
+  assert.equal(hotel.lampOn,true);assert.equal(element('#message').textContent,'');
+  press();
+  assert.equal(hotel.lampOn,false);
   Object.assign(player,{x:10,z:1.5,angle:Math.PI});
   press();
   assert.match(location(),/^MIDNIGHT DISTRICT/);

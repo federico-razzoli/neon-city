@@ -6,3 +6,5 @@
 
 /* Uniform pub dusk: the resume overlay tint at a brighter-than-midpoint opacity. */
 .scanlines.pub-shade{background:rgba(9,7,21,.55);box-shadow:none}
+/* Hotel lobbies are brightly lit: a lighter tint of the same dusk. */
+.scanlines.hotel-shade{background:rgba(9,7,21,.2);box-shadow:none}

@@ -10,10 +10,13 @@ export const HOTEL={width:20,depth:16,height:7,
   sofa:{x:.3,z:4.6,w:1,d:3.4},
   stairs:{x:16.4,z:3.5,w:3.6,steps:16,rise:.25,run:.5},
   landing:{x:16.4,z:11.5,w:3.6,d:4.5,y:4},
-  lift:{x:12,z:16},
+  lift:{x:12,z:16,halfWidth:1.05},liftButton:{x:13.53,z:16,halfWidth:.08},
   palms:[{x:.9,z:3.5,radius:.45},{x:.9,z:9,radius:.45}],
+  lamp:{x:1.42,z:12.38,radius:.3},
   chandelier:{x:10,z:7}};
 export const RECEPTIONISTS=[NURSE_JOY,BLONDE_RECEPTIONIST];
+// Lobby walls are lit up from their dark facade colours, as if by the chandelier.
+const brighter=(color,factor)=>'#'+[1,3,5].map(i=>Math.min(255,Math.round(parseInt(color.slice(i,i+2),16)*factor)).toString(16).padStart(2,'0')).join('');
 // The same red carpet runs up the stairs in every hotel.
 const STAIR_CARPET=['#6e2030','#7a2636'];
 
@@ -44,15 +47,39 @@ export function facingHotelDoor(player,buildings){
   });
 }
 export const facingHotelExit=player=>player.z>HOTEL.door.z&&facingDoorway(player,HOTEL.door,HOTEL.door.halfWidth);
+// The nearest round thing in reach and in view, with the same reach and cone as a pub chair.
+function facingNearest(player,things){
+  let nearest=null,distance=Infinity;
+  for(const thing of things){
+    const dx=thing.x-player.x,dz=thing.z-player.z,gap=Math.hypot(dx,dz);
+    if(gap>thing.radius+1.2||gap>=distance)continue;
+    const halfAngle=.45+Math.asin(Math.min(1,thing.radius/Math.max(gap,.001)));
+    if(gap>thing.radius&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(halfAngle))continue;
+    nearest=thing;distance=gap;
+  }
+  return nearest;
+}
+export const facingHotelPlant=player=>facingNearest(player,HOTEL.palms);
+// The lamp on the reception desk, reached across the counter.
+export const facingHotelLamp=player=>facingNearest(player,[HOTEL.lamp])!=null;
+// What Space says in the lobby, or null where there is nothing to try.
+export function hotelReply(player){
+  const {lift,liftButton}=HOTEL;
+  if(player.z<liftButton.z&&facingDoorway(player,liftButton,liftButton.halfWidth))return "IT'S OUT OF SERVICE";
+  if(player.z<lift.z&&facingDoorway(player,lift,lift.halfWidth))return 'TRY PRESSING THE BUTTON...';
+  if(facingHotelPlant(player))return "IT'S JUST A PLANT.";
+  return null;
+}
 
 // The lobby in the hotel's own colours (see hotelLook), empty but for the receptionist.
-export function drawHotelInterior({face,quad,box,look,receptionist=NURSE_JOY}){
+export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false}){
+  const look={...facade,wall:brighter(facade.wall,1.6),panel:brighter(facade.panel,1.35),wood:facade.wood.map(color=>brighter(color,1.25))};
   const {width:W,depth:D,height:H}=HOTEL;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const rod=(...args)=>drawRod(face,...args);
   // Marble chequer underfoot, a dark coffered ceiling overhead.
   for(let x=0;x<W;x++)for(let z=0;z<D;z++)quad(x,0,z,1,1,look.floor[(x+z)%2]);
-  for(let x=0;x<W;x+=2)for(let z=0;z<D;z+=2)quad(x,H,z,2,2,(x+z)%4?'#231a22':'#2b2029');
+  for(let x=0;x<W;x+=2)for(let z=0;z<D;z+=2)quad(x,H,z,2,2,(x+z)%4?'#3a2d36':'#443541');
   // A carpet runner leads from the doors towards the middle of the hall.
   quad(9,.01,0,2,9,look.carpet);
   for(const x of [8.9,11])quad(x,.012,0,.1,9,look.metal);
@@ -99,8 +126,14 @@ export function drawHotelInterior({face,quad,box,look,receptionist=NURSE_JOY}){
     if((row*8+col)%3)box(1.55+col*.6,1.6+row*.45,D-.35,.05,.14,.02,look.metal);
   }
   cylinder(6,1.3,12.5,.07,.04,look.metal);cylinder(6,1.34,12.5,.06,.06,look.metal,look.metal,.01);
-  // A banker's lamp and a vase of roses on the counter.
-  box(1.4,1.3,12.35,.06,.32,.06,look.metal);box(1.15,1.6,12.25,.55,.12,.26,'#2a5a40','#356b4e');
+  // A banker's lamp and a vase of roses on the counter. The lamp starts off;
+  // lit, its bulb glows under the shade and warms the marble beneath it.
+  const {lamp}=HOTEL;
+  box(lamp.x-.13,1.3,lamp.z-.1,.26,.03,.2,look.metal);
+  box(lamp.x-.03,1.33,lamp.z-.03,.06,.29,.06,look.metal);
+  box(lamp.x-.27,1.6,lamp.z-.13,.55,.12,.26,'#2a5a40','#356b4e');
+  box(lamp.x-.2,1.56,lamp.z-.08,.4,.04,.16,lampOn?'#ffe7a0':'#5a5040');
+  if(lampOn){quad(lamp.x-.45,1.302,desk.z+.05,.9,.75,'#c4b494');quad(lamp.x-.25,1.303,desk.z+.2,.5,.42,'#dccb9f');}
   cylinder(2.6,1.3,12.5,.09,.3,'#7f95a0','#9fb3bd',.06);
   for(const [dx,dz,color] of [[0,0,'#9c2a3e'],[-.07,.04,'#ad3c52'],[.07,-.03,'#9c2a3e']])box(2.56+dx,1.62,12.46+dz,.09,.09,.09,color);
   drawStaff({face,box},at,receptionist,{x:at.x+.8,y:1.48,z:desk.z+.55});
@@ -150,13 +183,14 @@ export function drawHotelInterior({face,quad,box,look,receptionist=NURSE_JOY}){
 
   // The lift: brass doors under a floor dial, with a call button.
   const {lift}=HOTEL;
-  box(lift.x-1.25,0,D-.08,2.5,2.8,.08,look.metal);
-  for(const x of [lift.x-1.05,lift.x+.01])box(x,0,D-.12,1.04,2.55,.04,'#5f5a52');
-  box(lift.x-.02,0,D-.13,.04,2.55,.02,'#3c3732');
-  box(lift.x-.35,2.95,D-.08,.7,.3,.06,'#1a1210');
-  box(lift.x-.05,3.05,D-.1,.1,.1,.02,'#d8c48c');
-  box(lift.x+1.45,1.05,D-.08,.16,.32,.06,look.metal);
-  box(lift.x+1.49,1.15,D-.1,.08,.08,.02,'#e8b04a');
+  box(lift.x-1.25,0,D-.08,2.5,3.35,.08,look.metal);
+  for(const x of [lift.x-1.05,lift.x+.01])box(x,0,D-.12,1.04,3.1,.04,'#5f5a52');
+  box(lift.x-.02,0,D-.13,.04,3.1,.02,'#3c3732');
+  box(lift.x-.35,3.5,D-.08,.7,.3,.06,'#1a1210');
+  box(lift.x-.05,3.6,D-.1,.1,.1,.02,'#d8c48c');
+  const button=HOTEL.liftButton;
+  box(button.x-button.halfWidth,1.05,D-.08,2*button.halfWidth,.32,.06,look.metal);
+  box(button.x-.04,1.15,D-.1,.08,.08,.02,'#e8b04a');
 
   // A crystal chandelier hangs over the middle of the hall.
   const ch=HOTEL.chandelier,base=H-3;
