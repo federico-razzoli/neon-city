@@ -2,11 +2,11 @@ import {PubLife,PubConversation} from './pub-life.js?v=bumps-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=papers-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=sign-2';
 import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
-import {drawParkGround,drawParkStructures,facingBench} from './parks.js?v=parks-4';
+import {drawParkGround,drawParkStructures,facingBench,paintRiverSign,RIVER_SIGN_TEXTURE} from './parks.js?v=sign-2';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
@@ -254,6 +254,15 @@ function newspaperMachine(m){
   face([point(-.5*scale,.08),point(.5*scale,.08),point(.5*scale,top),point(-.5*scale,top)].map((p,i)=>({...p,u:[0,160,160,0][i],v:[224,224,0,0][i]})),look.paint,newspaperTextures[paper]);
   for(let i=firstFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;}
 }
+// One texture per direction the arrow can point on screen.
+const riverSignTextures=[];
+function riverSignTexture(tipRight){
+  if(!riverSignTextures[+tipRight]){
+    const c=document.createElement('canvas');c.width=RIVER_SIGN_TEXTURE.width;c.height=RIVER_SIGN_TEXTURE.height;
+    paintRiverSign(c.getContext('2d'),tipRight);riverSignTextures[+tipRight]=c;
+  }
+  return riverSignTextures[+tipRight];
+}
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
   if(chunk.river){drawRiverTerrain(chunk,{quad,face},time);return;}
@@ -360,8 +369,8 @@ function render(){
     if(chunk.park){
       // Benches and trees are small, layered objects; order them at real overlaps.
       const first=queue.length;
-      drawParkStructures(chunk,{face},{x:player.x,y:eye,z:player.z});
-      for(let i=first;i<queue.length;i++)queue[i].detail=true;
+      drawParkStructures(chunk,{face,riverSignTexture},{x:player.x,y:eye,z:player.z});
+      for(let i=first;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
     }
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
   }

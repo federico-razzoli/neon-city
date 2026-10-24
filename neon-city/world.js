@@ -85,6 +85,16 @@ export const WATER_LEVEL = -7;
 export const BRIDGE_RISE = 6;
 export const riverStart = row => RIVER_ROWS.find(start=>row>=start&&row<start+2);
 export const isRiverRow = row => riverStart(row)!==undefined;
+// Which way the nearest river lies from a row outside it: dz is +1 or -1, and
+// blocks counts the rows up to its bank, so 1 means the row borders the river.
+export function riverBearing(row) {
+  let best=null;
+  for(const start of RIVER_ROWS){
+    const dz=row<start?1:-1,blocks=row<start?start-row:row-start-1;
+    if(!best||blocks<best.blocks)best={dz,blocks};
+  }
+  return best;
+}
 export const hasBridge = street => mod(street,3)===0;
 export function bridgeHeight(z) {
   const start=riverStart(Math.floor(z/BLOCK));
@@ -102,6 +112,9 @@ export function groundHeight(x,z) {
 export const PARK_CHANCE = .1;
 export const PARK_GAP = 2;
 export const PARK_PATH_WIDTH = 3;
+// A fingerpost: the board hangs off the side of a 3.75 m pole, from its surface
+// out to the arrow tip, which points along z towards the river.
+export const RIVER_SIGN = {pole:.08, height:3.75, start:.08, reach:2.48, tip:.45, bottom:2.925, top:3.495};
 // A walker reaching either end of the footpath takes it one time in four.
 export const FOOTPATH_CHANCE = .25;
 export const LOAD_RADIUS = 2;
@@ -191,6 +204,7 @@ export class City {
       const park=chunk?.park;
       if(!park)return true;
       return park.trees.some(t=>Math.hypot(x-t.x,z-t.z)<t.radius+radius)||
+        (park.sign!=null&&Math.hypot(x-park.sign.x,z-park.sign.z)<RIVER_SIGN.pole+radius)||
         park.benches.some(b=>Math.abs((x-b.x)*b.tx+(z-b.z)*b.tz)<1.08+radius&&Math.abs((x-b.x)*b.nx+(z-b.z)*b.nz)<.3+radius);
     }
     return (chunk?.newspaperMachines??[]).some(m=>Math.abs(x-m.x)<m.w/2+radius&&Math.abs(z-m.z)<m.d/2+radius);
@@ -404,6 +418,17 @@ function parkLayout(x,z,r){
     if(corners.some(c=>!inLawn(c.x,c.z)||pathDistance(path,c.x,c.z)<half+.2))continue;
     benches.push(bench);break;
   }
+  // Parks away from the river have a fingerpost on the lawn's river-side edge,
+  // read face-on from the street along that edge.
+  const bearing=riverBearing(z);
+  let sign=null;
+  if(bearing.blocks>1)for(const lx of [17,47,20,44,23,41,26,38,29,35,32]){
+    const pole={x:x*BLOCK+lx,z:z*BLOCK+(bearing.dz>0?47:17),dz:bearing.dz};
+    const tip={x:pole.x,z:pole.z+pole.dz*RIVER_SIGN.reach};
+    if(pathDistance(path,pole.x,pole.z)<half+1||pathDistance(path,tip.x,tip.z)<half+.3)continue;
+    if(benches.some(b=>Math.hypot(b.x-pole.x,b.z-pole.z)<2.2||Math.hypot(b.x-tip.x,b.z-tip.z)<1.6))continue;
+    sign=pole;break;
+  }
   // Pines stand 16-22 units tall. Their lowest boughs start above head height,
   // so only trunks block walking; boughs may overhang the path.
   const trees=[],count=3+Math.floor(r()*3);
@@ -412,6 +437,8 @@ function parkLayout(x,z,r){
     const crown=3.6*scale,radius=.45*scale;
     if(pathDistance(path,p.x,p.z)<half+1.2)continue;
     if(benches.some(b=>Math.hypot(b.x-p.x,b.z-p.z)<2.6))continue;
+    // Boughs stay clear of the sign, so it stands against the sky.
+    if(sign&&Math.hypot(sign.x-p.x,sign.z-p.z)<crown+.5)continue;
     if(trees.some(t=>Math.hypot(t.x-p.x,t.z-p.z)<t.crown+crown))continue;
     trees.push({...p,scale,crown,radius});
   }
@@ -424,7 +451,7 @@ function parkLayout(x,z,r){
     if(benches.some(b=>Math.hypot(b.x-cx,b.z-cz)<1.3))continue;
     cones.push(cone);placed++;
   }
-  return {axis,path,benches,trees,cones};
+  return {axis,path,benches,trees,cones,sign};
 }
 // Loop positions of the sidewalk points level with each footpath end.
 export function footpathJunctions(chunk){

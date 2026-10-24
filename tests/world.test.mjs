@@ -2089,7 +2089,7 @@ test('park trees are tall pines, closed and drawn only on viewer-facing sides',a
       const all=[];
       for(const viewer of [{x:tree.x-14,y:1.65,z:tree.z},{x:tree.x+6,y:1.65,z:tree.z+6},{x:tree.x+.9,y:1.65,z:tree.z},{x:tree.x,y:30,z:tree.z-20}]){
         const faces=[];
-        drawParkStructures({...chunk,park:{...chunk.park,benches:[],cones:[],trees:[tree]}},{face:v=>faces.push(v)},viewer);
+        drawParkStructures({...chunk,park:{...chunk.park,benches:[],cones:[],trees:[tree],sign:null}},{face:v=>faces.push(v)},viewer);
         all.push(...faces);
         for(const v of faces){
           const c=v.reduce((s,p)=>({x:s.x+p.x/v.length,y:s.y+p.y/v.length,z:s.z+p.z/v.length}),{x:0,y:0,z:0});
@@ -2110,8 +2110,71 @@ test('park trees are tall pines, closed and drawn only on viewer-facing sides',a
     }
   }
   const faces=[];
-  drawParkStructures({...parkChunk(3).chunk,park:{...parkChunk(3).chunk.park,trees:[],cones:[]}},{face:v=>faces.push(v)},{x:0,y:1.65,z:0});
+  drawParkStructures({...parkChunk(3).chunk,park:{...parkChunk(3).chunk.park,trees:[],cones:[],sign:null}},{face:v=>faces.push(v)},{x:0,y:1.65,z:0});
   assert.ok(faces.length>=12,'benches have seats, backs and end supports');
+});
+
+// The first park generated in a row, scanning eastwards.
+function parkInRow(row,seed){
+  const city=new City(seed);
+  for(let x=0;;x++){
+    const chunk=city.generate(x,row);
+    if(chunk.park){city.chunks.set(`${x},${row}`,chunk);return {city,chunk};}
+  }
+}
+
+test('parks away from the river have a NIGHT RIVER sign pointing towards it; parks on its banks have none',async()=>{
+  const {PARK_PATH_WIDTH,RIVER_SIGN,pathDistance,riverBearing}=await import('../neon-city/world.js');
+  const river=RIVER_ROWS[0];
+  assert.deepEqual(riverBearing(river-1),{dz:1,blocks:1});
+  assert.deepEqual(riverBearing(river+2),{dz:-1,blocks:1});
+  assert.deepEqual(riverBearing(river-5),{dz:1,blocks:5});
+  assert.deepEqual(riverBearing(river+9),{dz:-1,blocks:8});
+  for(const row of [river-1,river+2])for(let seed=1;seed<15;seed++)
+    assert.equal(parkInRow(row,seed).chunk.park.sign,null,`park in row ${row} borders the river`);
+  for(const row of [river-12,river-3,river-2,river+3,river+4,river+20])for(let seed=1;seed<15;seed++){
+    const {city,chunk}=parkInRow(row,seed),{sign,path,trees,benches}=chunk.park,x=chunk.x*BLOCK,z=chunk.z*BLOCK;
+    assert.ok(sign,`park in row ${row} has a sign`);
+    // The arrow points from the park towards the river's water.
+    const water=(river*BLOCK+18+river*BLOCK+110)/2;
+    assert.equal(sign.dz,Math.sign(water-sign.z));
+    const tip={x:sign.x,z:sign.z+sign.dz*RIVER_SIGN.reach};
+    for(const p of [sign,tip])assert.ok(p.x-x>14.3&&p.x-x<49.7&&p.z-z>14.3&&p.z-z<49.7,'on the lawn');
+    assert.ok(pathDistance(path,sign.x,sign.z)>=PARK_PATH_WIDTH/2+1&&pathDistance(path,tip.x,tip.z)>=PARK_PATH_WIDTH/2+.3,'clear of the path');
+    assert.ok(benches.every(b=>Math.hypot(b.x-sign.x,b.z-sign.z)>=2.2));
+    assert.ok(trees.every(t=>Math.hypot(t.x-sign.x,t.z-sign.z)>=t.crown+.5),'boughs leave the sign clear');
+    assert.ok(city.solid(sign.x,sign.z),'the pole blocks walking');
+    assert.ok(!city.solid(sign.x+RIVER_SIGN.pole+.5,sign.z)||trees.some(t=>Math.hypot(t.x-sign.x,t.z-sign.z)<2));
+  }
+});
+
+test('the NIGHT RIVER arrow points to the river on screen from either side, with its words unmirrored',async()=>{
+  const {RIVER_SIGN}=await import('../neon-city/world.js');
+  const {drawParkStructures,RIVER_SIGN_TEXTURE}=await import('../neon-city/parks.js');
+  const river=RIVER_ROWS[0];
+  for(const row of [river-3,river+4]){
+    const {chunk}=parkInRow(row,5),sign=chunk.park.sign,riverZ=river*BLOCK+64;
+    const mid={x:sign.x,z:sign.z+sign.dz*RIVER_SIGN.reach/2};
+    for(const side of [-1,1]){
+      const viewer={x:mid.x+side*7,y:1.65,z:mid.z+2};
+      const faces=[];
+      drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[]}},{face:(v,color,texture)=>faces.push({v,texture}),riverSignTexture:tipRight=>({tipRight})},viewer);
+      const boards=faces.filter(f=>f.texture);
+      assert.equal(boards.length,1,'only the near face of the board is drawn');
+      const {v,texture}=boards[0];
+      // Screen right for a viewer looking at the sign.
+      const f={x:mid.x-viewer.x,z:mid.z-viewer.z},right=p=>p.x*f.z-p.z*f.x;
+      const tip=v.reduce((a,b)=>Math.abs(b.z-sign.z)>Math.abs(a.z-sign.z)?b:a);
+      const riverRight=right({x:mid.x,z:riverZ})>right(mid);
+      assert.equal(right(tip)>right(mid),riverRight,'the tip is on the river side of the screen');
+      assert.equal(texture.tipRight,riverRight,'the painted outline matches the board');
+      // Texture u grows to the viewer's right, so text reads forwards.
+      const sorted=[...v].sort((p,q)=>right(p)-right(q));
+      assert.ok(sorted[0].u<sorted.at(-1).u);
+      assert.ok(v.every(p=>p.u>=0&&p.u<=RIVER_SIGN_TEXTURE.width&&p.v>=0&&p.v<=RIVER_SIGN_TEXTURE.height));
+      assert.ok(Math.min(...v.map(p=>p.y))>2.8&&Math.max(...v.map(p=>p.y))<3.75,'the board hangs well above head height, below the pole top');
+    }
+  }
 });
 
 test('a few realistic pine cones lie on the lawn beneath the pines, off the path',async()=>{
@@ -2127,7 +2190,7 @@ test('a few realistic pine cones lie on the lawn beneath the pines, off the path
       assert.ok(c.length>=.16&&c.length<=.24&&c.radius<c.length/2,'pine-cone sized');
       const draw=viewer=>{
         const faces=[];
-        drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[c]}},{face:v=>faces.push(v)},viewer);
+        drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[c],sign:null}},{face:v=>faces.push(v)},viewer);
         return faces;
       };
       assert.ok(draw({x:c.x+4,y:1.65,z:c.z+3}).length>=6);
