@@ -46,6 +46,58 @@ export function lavatoryReply(player,occupied,random=Math.random){
   return null;
 }
 
+// The mirror above a sink: its glass faces the room, in the plane x.
+export const mirrorOf=sink=>({x:LAVATORY.width-.05,y0:1.29,y1:2.06,z0:sink.z-.01,z1:sink.z+sink.d+.01});
+// The player's outline, in metres across (u) and up (y).
+// A human contour: a broad crown, temples, small ears, cheekbones and
+// an angular jaw tapering to a chin. Eyes sit near 1.65m, halfway down.
+const HEAD=[
+  [-.045,1.835],[.045,1.835],[.085,1.82],[.112,1.79],
+  [.125,1.75],[.126,1.705],[.119,1.665],
+  [.139,1.67],[.145,1.65],[.138,1.605],[.119,1.595],
+  [.109,1.555],[.085,1.515],[.045,1.485],[.025,1.478],
+  [-.025,1.478],[-.045,1.485],[-.085,1.515],[-.109,1.555],
+  [-.119,1.595],[-.138,1.605],[-.145,1.65],[-.139,1.67],
+  [-.119,1.665],[-.126,1.705],[-.125,1.75],[-.112,1.79],[-.085,1.82]
+];
+const NECK=[[-.062,1.535],[.062,1.535],[.061,1.425],[.092,1.39],[-.092,1.39],[-.061,1.425]];
+// Trapezius slopes into rounded shoulders and upper arms; the waist tapers.
+const TORSO=[
+  [-.061,1.435],[.061,1.435],[.105,1.405],[.177,1.382],
+  [.218,1.36],[.241,1.325],[.255,1.27],[.27,1.08],[.265,.9],
+  [.197,.9],[.193,1.12],[.181,.97],[.17,.9],
+  [-.17,.9],[-.181,.97],[-.193,1.12],[-.197,.9],
+  [-.265,.9],[-.27,1.08],[-.255,1.27],[-.241,1.325],
+  [-.218,1.36],[-.177,1.382],[-.105,1.405]
+];
+// Keeps the part of a polygon, given as [z, y] points, inside a mirror.
+function clipToMirror(points,m){
+  for(const [axis,limit,keepAbove] of [[0,m.z0,true],[0,m.z1,false],[1,m.y0,true],[1,m.y1,false]]){
+    const inside=p=>keepAbove?p[axis]>=limit:p[axis]<=limit,out=[];
+    for(let i=0;i<points.length;i++){
+      const a=points[i],b=points[(i+1)%points.length];
+      if(inside(a))out.push(a);
+      if(inside(a)!==inside(b)){const t=(limit-a[axis])/(b[axis]-a[axis]);out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}
+    }
+    points=out;
+    if(points.length<3)return [];
+  }
+  return points;
+}
+// The viewer's reflection, as polygons drawn on the glass. A mirror image
+// stands as far behind the glass as the viewer stands in front, so its
+// outline on the glass is half size, about the viewer's eyes: it grows on
+// approach, shrinks going back, and slides off the edge stepping aside.
+// Turned away from the mirror, the shoulders narrow towards a side view.
+export function mirrorSilhouette(viewer,mirror){
+  if(viewer.x>=mirror.x)return [];
+  const across=Math.max(.55,Math.abs(Math.sin(viewer.angle)));
+  const shapes=[HEAD,NECK,TORSO.map(([u,y])=>[u*across,y])];
+  return shapes.map(shape=>clipToMirror(shape.map(([u,y])=>[viewer.z+u/2,viewer.eye+(y-viewer.eye)/2]),mirror))
+    .filter(points=>points.length)
+    .map(points=>points.map(([z,y])=>({x:mirror.x-.004,y,z})));
+}
+
 // Door sign pictograms, one cell per character.
 const ICONS={
   gents:['...###...','..#####..','..#####..','...###...','.........','.#######.','#########','#.#####.#','#.#####.#','#.#####.#','#.#####.#','..#####..','..##.##..','..##.##..','..##.##..','..##.##..','..##.##..'],
@@ -83,7 +135,7 @@ function drawDoor({face,box},x,z,halfWidth,south){
   box(x+s*(halfWidth-.22)-.06,1.,south?z+.06:z-.12,.12,.16,.06,'#d9b671');
 }
 
-export function drawLavatory({face,quad,box,occupied=[]}){
+export function drawLavatory({face,quad,box,occupied=[],viewer=null}){
   const {width:W,depth:D,height:H}=LAVATORY;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const door=(...args)=>drawDoor({face,box},...args);
@@ -113,7 +165,9 @@ export function drawLavatory({face,quad,box,occupied=[]}){
     box(s.x+s.w-.27,1.08,cz-.02,.2,.035,.04,'#c6ccd0');
     for(const dz of [-.12,.12])cylinder(s.x+s.w-.09,.94,cz+dz,.03,.05,'#c6ccd0',dz<0?'#4f7fc0':'#c8484a');
     box(W-.03,1.25,s.z-.05,.03,.85,s.d+.1,'#7c6a52');
-    box(W-.05,1.29,s.z-.01,.02,.77,s.d+.02,'#8ea2ac');
+    const m=mirrorOf(s);
+    box(m.x,m.y0,m.z0,.02,m.y1-m.y0,m.z1-m.z0,'#8ea2ac');
+    if(viewer)for(const points of mirrorSilhouette(viewer,m))face(points,'#0b0b10');
   }
   // Two strip lights across the ceiling.
   for(const z of [D/3,2*D/3])box(W/2-.7,H-.08,z-.08,1.4,.08,.16,'#f4f2e6');

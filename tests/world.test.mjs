@@ -1892,6 +1892,34 @@ test('the lavatory has two dry sinks on the right and three cubicles ahead',asyn
   assert.equal(lavatoryReply({...spawn,angle:Math.PI},taken),null);
 });
 
+test('each lavatory mirror shows the viewer as a silhouette that moves as a reflection does',async()=>{
+  const {LAVATORY,mirrorOf,mirrorSilhouette,drawLavatory}=await import('../neon-city/lavatory.js');
+  const mirror=mirrorOf(LAVATORY.sinks[1]),middle=(mirror.z0+mirror.z1)/2;
+  const viewer=(x,z=middle,angle=Math.PI/2)=>({x,z,eye:1.65,angle});
+  const points=v=>mirrorSilhouette(v,mirror).flat();
+  const span=v=>{const zs=points(v).map(p=>p.z);return Math.max(...zs)-Math.min(...zs);};
+  const centre=v=>{const zs=points(v).map(p=>p.z);return (Math.max(...zs)+Math.min(...zs))/2;};
+  // On the glass, inside the frame, and drawn just in front of it.
+  for(const p of points(viewer(6)))assert.ok(p.x<mirror.x&&p.x>mirror.x-.01&&p.y>=mirror.y0-1e-9&&p.y<=mirror.y1+1e-9&&p.z>=mirror.z0-1e-9&&p.z<=mirror.z1+1e-9);
+  // Approaching makes it look bigger; going back, smaller.
+  const angular=x=>span(viewer(x))/(mirror.x-x);
+  assert.ok(angular(6.3)>angular(5)&&angular(5)>angular(3.5));
+  // Stepping aside moves it aside, and past the edge it slides out of the frame.
+  assert.ok(Math.abs(centre(viewer(6))-middle)<1e-9);
+  assert.ok(centre(viewer(6,middle+.15))>centre(viewer(6)));
+  assert.ok(span(viewer(6,mirror.z1+.1))<span(viewer(6))/2,'half out of the frame');
+  assert.deepEqual(mirrorSilhouette(viewer(6,mirror.z1+.5),mirror),[],'out of sight');
+  // Eyes level with the reflected eyes; turned away, the shoulders narrow.
+  const ys=points(viewer(6)).map(p=>p.y);
+  assert.ok(Math.min(...ys)<1.65&&Math.max(...ys)>1.65);
+  assert.ok(span(viewer(6,middle,Math.PI/2+.9))<span(viewer(6)));
+  // The lavatory draws black silhouettes only when given a viewer in front of a mirror.
+  const dark=v=>{let n=0;drawLavatory({face:(pts,color)=>{if(color==='#0b0b10')n++;},quad(){},box(){},viewer:v});return n;};
+  assert.equal(dark(null),0);
+  assert.ok(dark(viewer(6))>0);
+  assert.equal(dark(viewer(6,(mirror.z0+mirrorOf(LAVATORY.sinks[0]).z1)/2)),0,'between the mirrors');
+});
+
 test('the disabled cubicle is always taken; the others are taken or free at random',async()=>{
   const {LAVATORY,rollOccupancy,facingVacantCubicle,lavatoryReply}=await import('../neon-city/lavatory.js');
   const {cubicles,depth}=LAVATORY,disabled=cubicles.findIndex(c=>c.icon==='disabled');

@@ -12,7 +12,7 @@ import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=lavatory-1';
-import {LAVATORY,CUBICLE,facingLavatoryExit,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=toilet-2';
+import {LAVATORY,CUBICLE,facingLavatoryExit,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=mirror-3';
 import {playFlush} from './flush.js?v=toilet-2';
 import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=lavatory-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
@@ -368,7 +368,7 @@ function render(){
     interiorRenderer.render(queue);return;
   }
   if(insideLavatory){
-    queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied});
+    queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle}});
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue);return;
   }
