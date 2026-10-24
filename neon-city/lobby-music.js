@@ -2,18 +2,40 @@
 // and a sparse bell melody echoing away, played at a steady level in the hall.
 // The volume is a third quieter to the ear than the first level of .8: loudness
 // halves every 10 dB, so that is 10*log2(2/3), about -5.85 dB.
-export const LOBBY_MUSIC={rate:22050,chordSeconds:8,peak:.3,volume:.8*(2/3)**(Math.log2(10)/2)};
+// Hotel lobby music: slow ambient loops of soft pad chords over a low bass
+// note, with a sparse melody echoing away, played at a steady level in the
+// hall. Each visit to a lobby plays one of the pieces, chosen at random.
+// The volume is a third quieter to the ear than the first level of .8: loudness
+// halves every 10 dB, so that is 10*log2(2/3), about -5.85 dB.
+export const LOBBY_MUSIC={rate:22050,peak:.3,volume:.8*(2/3)**(Math.log2(10)/2)};
 const midi=n=>440*2**((n-69)/12);
-// Dmaj9, Bm9, Gmaj9, Aadd9 (bass, then pad notes), MIDI numbers.
-const CHORDS=[
-  [38,[57,62,66,69,76]],
-  [35,[57,62,66,69,73]],
-  [31,[59,62,66,69,74]],
-  [33,[57,61,64,69,71]]
+// One note per [seconds into each chord], taking that pad note an octave up.
+const arpeggio=(chords,chordSeconds,steps)=>chords.flatMap(([,notes],c)=>steps.map(([at,n])=>[c*chordSeconds+at,notes[n]+12]));
+const LOUNGE_CHORDS=[
+  [41,[57,64,67,72]],
+  [40,[55,62,67,71]],
+  [38,[53,60,64,69]],
+  [36,[52,59,62,67]]
 ];
-// [beat in the loop, MIDI note]; beats are a second long.
-const MELODY=[[1,78],[3.5,76],[6,73],[10,74],[12.5,73],[14,69],[18,71],[20.5,74],[22,78],[26,76],[28.5,73],[30,69]];
-export const LOOP_SECONDS=CHORDS.length*LOBBY_MUSIC.chordSeconds;
+// Each piece: chords as [bass, pad notes] in MIDI numbers, a melody of
+// [seconds into the loop, MIDI note], the voice playing it, and its echo.
+export const LOBBY_PIECES=[
+  // Bells over Dmaj9, Bm9, Gmaj9 and Aadd9.
+  {name:'AIRPORT BELLS',chordSeconds:8,chords:[
+    [38,[57,62,66,69,76]],
+    [35,[57,62,66,69,73]],
+    [31,[59,62,66,69,74]],
+    [33,[57,61,64,69,71]]
+  ],melody:[[1,78],[3.5,76],[6,73],[10,74],[12.5,73],[14,69],[18,71],[20.5,74],[22,78],[26,76],[28.5,73],[30,69]],
+  // A struck tone with an inharmonic shimmer, ringing out.
+  voice:{level:.06,attack:.008,decay:1.2,partial:2.76,partialLevel:.25,partialDecay:2},echo:{seconds:.75,feedback:.45}},
+  // A slow electric-piano arpeggio drifting down Fmaj9, Em7, Dm9 and Cmaj9.
+  {name:'NIGHT LOUNGE',chordSeconds:10,chords:LOUNGE_CHORDS,
+  melody:arpeggio(LOUNGE_CHORDS,10,[[.5,0],[2,2],[3.5,1],[5.5,3],[7,2],[8.5,1]]),
+  // A rounder, softer strike with its octave fading first.
+  voice:{level:.05,attack:.015,decay:1.4,partial:2,partialLevel:.3,partialDecay:3},echo:{seconds:.6,feedback:.35}}
+];
+export const loopSeconds=piece=>piece.chords.length*piece.chordSeconds;
 
 // Adds a note to the loop, starting at start seconds: a sum of [frequency,
 // level, phase] tones shaped by envelope[i], one value per sample. A tail
@@ -35,67 +57,81 @@ function addNote(samples,rate,start,envelope,tones){
 const mod=(n,d)=>((n%d)+d)%d;
 const table=(rate,seconds,f)=>Float32Array.from({length:Math.round(seconds*rate)},(_,i)=>f(i/rate));
 
-export function lobbyMusicSamples(rate=LOBBY_MUSIC.rate){
-  const length=LOOP_SECONDS*rate,pads=new Float32Array(length),bells=new Float32Array(length),{chordSeconds}=LOBBY_MUSIC;
+export function lobbyMusicSamples(piece,rate=LOBBY_MUSIC.rate){
+  const {chordSeconds,chords,melody,voice,echo}=piece;
+  const length=loopSeconds(piece)*rate,pads=new Float32Array(length),notes=new Float32Array(length);
   // Each chord swells in over three seconds and fades out over the next
   // chord's swell, with each note a pair of slightly detuned tones.
   const fade=3,hold=chordSeconds-fade;
   const swell=table(rate,chordSeconds+fade,t=>t<fade?.5-.5*Math.cos(Math.PI*t/fade):t<hold+fade?1:.5+.5*Math.cos(Math.PI*(t-hold-fade)/fade));
-  CHORDS.forEach(([bass,notes],c)=>{
+  chords.forEach(([bass,pad],c)=>{
     const start=c*chordSeconds-fade/2;
-    notes.forEach((note,n)=>{
+    pad.forEach((note,n)=>{
       const f=midi(note);
       addNote(pads,rate,start+n*.12,swell,[[f,.045,0],[f*(1.003+n*.0007),.045,n],[2*f,.009,0]]);
     });
     const f=midi(bass);
     addNote(pads,rate,start,swell,[[f,.08,0],[2*f,.024,0]]);
   });
-  // Soft bells: a struck tone with an inharmonic shimmer, ringing out.
-  const strike=t=>.06*Math.min(1,t/.008)*Math.exp(-t*1.2);
-  const ring=table(rate,4,strike),shimmer=table(rate,4,t=>.25*strike(t)*Math.exp(-t*2));
-  for(const [beat,note] of MELODY){
+  // The melody's voice: a struck tone and an overtone that fades sooner.
+  const strike=t=>voice.level*Math.min(1,t/voice.attack)*Math.exp(-t*voice.decay);
+  const ring=table(rate,4,strike),overtone=table(rate,4,t=>voice.partialLevel*strike(t)*Math.exp(-t*voice.partialDecay));
+  for(const [at,note] of melody){
     const f=midi(note);
-    addNote(bells,rate,beat,ring,[[f,1,0]]);
-    addNote(bells,rate,beat,shimmer,[[f*2.76,1,0]]);
+    addNote(notes,rate,at,ring,[[f,1,0]]);
+    addNote(notes,rate,at,overtone,[[f*voice.partial,1,0]]);
   }
-  // Echoes three-quarters of a second apart, wrapping round the loop.
+  // Echoes of the melody, wrapping round the loop.
   const echoes=new Float32Array(length);
   for(let k=1;k<=4;k++){
-    const delay=Math.round(.75*k*rate),level=.45**k;
-    for(let i=0;i<length;i++)echoes[(i+delay)%length]+=bells[i]*level;
+    const delay=Math.round(echo.seconds*k*rate),level=echo.feedback**k;
+    for(let i=0;i<length;i++)echoes[(i+delay)%length]+=notes[i]*level;
   }
   const samples=new Float32Array(length);
   let peak=0;
-  for(let i=0;i<length;i++){samples[i]=pads[i]+bells[i]+echoes[i];peak=Math.max(peak,Math.abs(samples[i]));}
+  for(let i=0;i<length;i++){samples[i]=pads[i]+notes[i]+echoes[i];peak=Math.max(peak,Math.abs(samples[i]));}
   for(let i=0;i<length;i++)samples[i]*=LOBBY_MUSIC.peak/peak;
   return samples;
 }
 
 export class LobbyMusic{
-  // Writing the loop takes a noticeable moment, so the game does it when
+  constructor(){this.buffers=new Map();}
+  // Writing the loops takes a noticeable moment, so the game does it when
   // sound is switched on rather than at the hotel doors.
   prepare(context){
-    if(!context||this.buffer)return;
-    const data=lobbyMusicSamples();
-    this.buffer=context.createBuffer(1,data.length,LOBBY_MUSIC.rate);
-    this.buffer.getChannelData(0).set(data);
+    if(!context)return;
+    for(const piece of LOBBY_PIECES)if(!this.buffers.has(piece)){
+      const data=lobbyMusicSamples(piece),buffer=context.createBuffer(1,data.length,LOBBY_MUSIC.rate);
+      buffer.getChannelData(0).set(data);this.buffers.set(piece,buffer);
+    }
   }
+  // The piece for this visit to a lobby, played from the start.
+  choose(piece){this.piece=piece;this.chosen=true;}
   update(context,volume){
     if(!context||context.state!=='running')return;
-    if(!this.gain){
-      if(volume<=0)return;
-      this.prepare(context);
-      this.context=context;this.gain=context.createGain();this.gain.gain.value=0;
-      this.gain.connect(context.destination);
-      this.source=context.createBufferSource();this.source.buffer=this.buffer;this.source.loop=true;
+    if(volume>0&&this.chosen){
+      this.chosen=false;this.stop();this.prepare(context);this.context=context;
+      const gain=context.createGain(),source=context.createBufferSource(),filter=context.createBiquadFilter();
+      gain.gain.value=0;gain.connect(context.destination);
+      source.buffer=this.buffers.get(this.piece);source.loop=true;
       // A gentle low-pass keeps the music soft, like ceiling speakers.
-      this.filter=context.createBiquadFilter();this.filter.type='lowpass';this.filter.frequency.value=3200;
-      this.source.connect(this.filter);this.filter.connect(this.gain);this.source.start();
+      filter.type='lowpass';filter.frequency.value=3200;
+      source.connect(filter);filter.connect(gain);source.start();
+      this.playing={piece:this.piece,gain,source};
     }
     // The music swells in on entering the lobby and dies away on leaving.
-    this.gain.gain.setTargetAtTime(volume,context.currentTime,.6);
+    this.playing?.gain.gain.setTargetAtTime(volume,context.currentTime,.6);
+  }
+  // Ends the last visit's piece, quickly fading out whatever is left of it.
+  stop(){
+    if(!this.playing)return;
+    const {gain,source}=this.playing;
+    gain.gain.setTargetAtTime(0,this.context.currentTime,.025);
+    source.onended=()=>{source.disconnect();gain.disconnect();};
+    source.stop(this.context.currentTime+.2);
+    this.playing=null;
   }
   mute(){
-    if(this.gain)this.gain.gain.setTargetAtTime(0,this.context.currentTime,.025);
+    this.playing?.gain.gain.setTargetAtTime(0,this.context.currentTime,.025);
   }
 }
