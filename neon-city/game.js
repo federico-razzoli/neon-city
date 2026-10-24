@@ -462,7 +462,7 @@ function tick(now){
     const held=city.advancePedestrians(dt,player,time)??[];
     const line=walkerTalk.update(dt,[...bumped,...held]);
     if(line){notice=2.5;noticeText=line;}
-    document.querySelector('#message').textContent=nearPubMenu()?'SPACE — READ DRINKS MENU':notice?noticeText:'';
+    document.querySelector('#message').textContent=notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
     }
   }
