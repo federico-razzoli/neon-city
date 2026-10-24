@@ -1938,6 +1938,67 @@ test('the disabled cubicle is always taken; the others are taken or free at rand
   assert.equal(facingVacantCubicle({...p,angle:Math.PI},occupied),null,'turned away');
 });
 
+test('every 20-30 seconds a robot leaves a taken gents or ladies cubicle and walks straight out',async()=>{
+  const {LAVATORY,LavatoryLife,moveInLavatory}=await import('../neon-city/lavatory.js');
+  const {cubicles,depth,door}=LAVATORY,away={x:.5,z:3};
+  const run=(life,occupied,player,seconds)=>{for(let t=0;t<seconds;t+=.02)life.update(.02,occupied,player);};
+  // The wait is drawn afresh each time, between 20 and 30 seconds.
+  assert.equal(new LavatoryLife(()=>0).wait,20);
+  assert.equal(new LavatoryLife(()=>.5).wait,25);
+  assert.ok(new LavatoryLife(()=>.999).wait<30);
+  // Only the disabled cubicle taken: nobody ever comes out.
+  const quiet=new LavatoryLife(()=>0),onlyDisabled=[false,false,true];
+  run(quiet,onlyDisabled,away,65);
+  assert.equal(quiet.walker,null);
+  assert.deepEqual(onlyDisabled,[false,false,true]);
+  // Both taken: the roll picks the door, and that cubicle comes free.
+  for(const [roll,index] of [[0,0],[.75,1]]){
+    const life=new LavatoryLife(()=>roll),occupied=[true,true,true];
+    life.wait=.01;life.update(.02,occupied,away);
+    assert.deepEqual({x:life.walker.x,z:life.walker.z,type:life.walker.type},{x:cubicles[index].x,z:depth-.4,type:11});
+    assert.deepEqual(occupied,cubicles.map((c,i)=>i!==index));
+    // It heads directly for the exit and is gone once there.
+    const start={x:life.walker.x,z:life.walker.z},path=[];
+    for(let i=0;i<500&&life.walker;i++){life.update(.02,occupied,away);if(life.walker)path.push({x:life.walker.x,z:life.walker.z});}
+    assert.equal(life.walker,null,'reached the exit');
+    // Every step lies on the straight line from its door to the exit.
+    for(const p of path)assert.ok(Math.abs((p.x-start.x)*(.4-start.z)-(p.z-start.z)*(door.x-start.x))<1e-9);
+    assert.ok(path.at(-1).z<.5);
+  }
+  // The player in its path stops it; stepping aside lets it go on.
+  const life=new LavatoryLife(()=>.75),occupied=[false,true,true];
+  life.wait=.01;life.update(.02,occupied,away);
+  const blocker={x:door.x,z:depth-1.6};
+  run(life,occupied,blocker,3);
+  const stopped={x:life.walker.x,z:life.walker.z};
+  assert.ok(Math.hypot(stopped.x-blocker.x,stopped.z-blocker.z)>=.85,'keeps its distance');
+  run(life,occupied,blocker,3);
+  assert.deepEqual({x:life.walker.x,z:life.walker.z},stopped,'waits');
+  assert.equal(life.held,true,'reports that it is held');
+  // Held, it talks as a walker outside does: the first line at once, then on.
+  const {WalkerTalk}=await import('../neon-city/walker-talk.js');
+  const talk=new WalkerTalk(()=>0),contact=[{walker:life.walker,place:'lavatory'}],said=[];
+  for(let t=0;t<13;t+=.02){const line=talk.update(.02,contact);if(line)said.push(line);}
+  assert.deepEqual(said,['I FEEL MUCH BETTER NOW!','ROBOTS NEED TO GO TO THE TOILET, TOO.','ACTUALLY, MORE OFTEN THAN HUMANS.','BUT NOT AS OFTEN AS LADYBUGS.','I FEEL MUCH BETTER NOW!']);
+  run(life,occupied,away,.02);
+  assert.equal(life.held,false);
+  run(life,occupied,away,10);
+  assert.equal(life.walker,null,'goes on once the way is clear');
+  // Nor can the player walk through it.
+  const robot={x:door.x,z:3},player={x:door.x,z:1.5};
+  moveInLavatory(player,0,1,robot);
+  assert.ok(player.z>2&&robot.z-player.z>=.85,'stops short of it');
+  const close=player.z;moveInLavatory(player,0,-.5,robot);
+  assert.ok(Math.abs(player.z-(close-.5))<1e-9,'free to back away');
+  // Standing at a taken door keeps it shut until the player steps aside.
+  const held=new LavatoryLife(()=>0),taken=[true,false,true];
+  held.wait=.01;held.update(.02,taken,{x:cubicles[0].x,z:depth-.6});
+  assert.equal(held.walker,null);
+  assert.equal(taken[0],true);
+  held.update(.02,taken,away);
+  assert.equal(held.walker.x,cubicles[0].x);
+});
+
 test('inside a cubicle the toilet is solid, a seat facing the door, and the door leads out',async()=>{
   const {CUBICLE,moveInCubicle,facingToilet,facingCubicleExit,drawCubicle}=await import('../neon-city/lavatory.js');
   const {spawn,seat,toilet,door,width,depth}=CUBICLE;

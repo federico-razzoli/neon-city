@@ -1,4 +1,4 @@
-import {drawCylinder,drawRod,facingDoorway,facingNearest} from './pub-interior.js?v=lavatory-1';
+import {drawCylinder,drawRod,facingDoorway,facingNearest,pubPersonBlocks} from './pub-interior.js?v=lavatory-1';
 
 // The pub's lavatory, entered through the TOILET door at the back of the
 // lounge. Local coordinates: the way back to the pub is centred on the south
@@ -14,9 +14,10 @@ export const LAVATORY={width:7.2,depth:6,height:3,
 export const CUBICLE_REPLIES=["SORRY, I'M IN!",'JUST A MINUTE, PLEASE!'];
 export const SINK_REPLY="THERE'S NO WATER.";
 
-export function moveInLavatory(player,dx,dz){
+// A robot walking out is in the way, as people are in the pub.
+export function moveInLavatory(player,dx,dz,walker){
   const radius=.3,{width:W,depth:D,sinks}=LAVATORY;
-  const clear=(x,z)=>x>=radius&&x<=W-radius&&z>=radius&&z<=D-radius&&
+  const clear=(x,z)=>!pubPersonBlocks(player,{x,z},walker)&&x>=radius&&x<=W-radius&&z>=radius&&z<=D-radius&&
     !sinks.some(s=>x>s.x-radius&&x<s.x+s.w+radius&&z>s.z-radius&&z<s.z+s.d+radius);
   // Substeps keep running and diagonal motion from crossing the sinks.
   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
@@ -34,6 +35,39 @@ const isOccupied=(cubicle,occupied)=>occupied[LAVATORY.cubicles.indexOf(cubicle)
 export function facingVacantCubicle(player,occupied){
   const cubicle=facingCubicle(player);
   return cubicle&&!isOccupied(cubicle,occupied)?cubicle:null;
+}
+// Every 20–30 seconds, whoever is in the gents' or the ladies' (a robot,
+// either way) comes out and walks straight to the way back to the pub,
+// leaving the cubicle free. It waits while the player is in its path, and
+// held reports that it is waiting.
+const ROBOT=11,ROBOT_SPEED=1.3,ROBOT_EXIT={x:LAVATORY.door.x,z:.4};
+export class LavatoryLife{
+  constructor(random=Math.random){this.random=random;this.wait=this.delay();this.walker=null;this.held=false;}
+  delay(){return 20+this.random()*10;}
+  update(dt,occupied,player){
+    this.held=false;
+    if(this.walker){
+      const w=this.walker;let travel=dt*ROBOT_SPEED;
+      while(travel>0){
+        const dx=ROBOT_EXIT.x-w.x,dz=ROBOT_EXIT.z-w.z,d=Math.hypot(dx,dz);
+        if(!d){this.walker=null;return;}
+        w.facingX=dx/d;w.facingZ=dz/d;
+        const move=Math.min(d,travel,.05),next={x:w.x+dx/d*move,z:w.z+dz/d*move};
+        if(pubPersonBlocks(w,next,player)){this.held=true;return;}
+        w.x=next.x;w.z=next.z;w.walkTime+=move/ROBOT_SPEED;travel-=move;
+      }
+      return;
+    }
+    this.wait-=dt;
+    if(this.wait>0)return;
+    const taken=LAVATORY.cubicles.map((c,i)=>i).filter(i=>occupied[i]&&!LAVATORY.cubicles[i].alwaysOccupied);
+    if(!taken.length){this.wait=this.delay();return;}
+    const index=taken[Math.floor(this.random()*taken.length)],start={x:LAVATORY.cubicles[index].x,z:LAVATORY.depth-.4};
+    // Someone standing at that door keeps it shut until they step aside.
+    if(pubPersonBlocks(start,start,player))return;
+    this.wait=this.delay();occupied[index]=false;
+    this.walker={...start,type:ROBOT,variant:0,walkTime:0,facingX:0,facingZ:-1};
+  }
 }
 const sinkSpots=()=>LAVATORY.sinks.map(s=>({x:s.x+s.w/2,z:s.z+s.d/2,radius:s.d/2}));
 export const facingSink=player=>facingNearest(player,sinkSpots())!=null;

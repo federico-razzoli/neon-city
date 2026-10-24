@@ -74,7 +74,12 @@ const CHARACTER_TRAITS={
     "I'M HERE TO STUDY HUMANS.",
     'I SUPPOSE I SHOULD STUDY YOU.',
     'NO OFFENCE INTENDED, BUT I FIND YOU RATHER BORING.'
-  ],footpathLines:['SO MANY LADYBUGS IN THIS PARK!']},
+  ],footpathLines:['SO MANY LADYBUGS IN THIS PARK!'],lavatoryLines:[
+    'I FEEL MUCH BETTER NOW!',
+    'ROBOTS NEED TO GO TO THE TOILET, TOO.',
+    'ACTUALLY, MORE OFTEN THAN HUMANS.',
+    'BUT NOT AS OFTEN AS LADYBUGS.'
+  ]},
   12:{goesToPub:false,weight:.25,riverLines:["THIS DOESN'T LOOK LIKE EGYPT.",'WHY AM I HERE?'],footpathLines:[
     'THERE ARE LOTS OF PLACES LIKE THIS IN EGYPT.',
     'BUT WITH LESS GRASS.',
@@ -138,7 +143,7 @@ export const characterGirth=type=>CHARACTER_TRAITS[type]?.girth??1;
 export const pubLines=type=>CHARACTER_TRAITS[type]?.lines??[];
 // What a character says, in order, while the player blocks their way in one
 // of these places. Elsewhere, or without lines, they say the usual bump notice.
-const PLACE_LINES={river:'riverLines',footpath:'footpathLines'};
+const PLACE_LINES={river:'riverLines',footpath:'footpathLines',lavatory:'lavatoryLines'};
 export const placeLines=(type,place)=>CHARACTER_TRAITS[type]?.[PLACE_LINES[place]]??[];
 // The riverside promenade, a park footpath, or null for an ordinary sidewalk.
 const walkerPlace=(chunk,p)=>chunk.river?'river':p.detour?'footpath':null;

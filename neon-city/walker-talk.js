@@ -1,10 +1,10 @@
 import {PubConversation} from './pub-life.js?v=enter-talk-1';
-import {placeLines} from './world.js?v=talk-13';
+import {placeLines} from './world.js?v=lavatory-talk-1';
 
 // A walk away shorter than this keeps the conversation going; a longer one
 // starts it again from the first line, like sitting down at a pub table.
 export const TALK_MEMORY=5;
-// A contact is a walker and where they are: 'river', 'footpath' or null.
+// A contact is a walker and where they are: 'river', 'footpath', 'lavatory' or null.
 export const talksHere=({walker,place})=>placeLines(walker.type,place).length>0;
 
 // A walker with lines for their place talks to the player who blocks their

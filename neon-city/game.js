@@ -8,12 +8,12 @@ import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
 import {drawParkGround,drawParkStructures,facingBench,paintRiverSign,RIVER_SIGN_TEXTURE} from './parks.js?v=talk-13';
-import {WalkerTalk,talksHere} from './walker-talk.js?v=enter-talk-1';
+import {WalkerTalk,talksHere} from './walker-talk.js?v=lavatory-talk-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=lavatory-1';
-import {LAVATORY,CUBICLE,facingLavatoryExit,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=mirror-3';
+import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=robot-2';
 import {playFlush} from './flush.js?v=toilet-2';
 import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=lavatory-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
@@ -27,14 +27,14 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu');
-let insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
+let insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
 let banshee=null,bansheeMisses=0;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
 // The pub's TOILET door leads to its lavatory, where a free cubicle opens.
 function useDoor(){
-  if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();}
+  if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();lavatoryLife=new LavatoryLife();}
   else if(insideLavatory){
     const cubicle=facingVacantCubicle(player,lavatoryOccupied);
     if(cubicle){Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;if(rollBanshee(Math.random,bansheeMisses)){bansheeMisses=0;banshee={started:performance.now()};playBansheeScream(audioContext,2);}else bansheeMisses++;}
@@ -122,7 +122,7 @@ let audioContext,ouchBuffer,ouchLoading;
 const hornWarning=new HornWarning();
 const coverAttempt=new CoverAttempt();
 const riverLook=new RiverLook();
-const walkerTalk=new WalkerTalk();
+const walkerTalk=new WalkerTalk(),lavatoryTalk=new WalkerTalk();
 const arcadeAmbience=new ArcadeAmbience();
 const parkBirds=new ParkBirds();
 function enableSound(){
@@ -329,7 +329,7 @@ function manhole(m){
   }
 }
 const seatedPixels=new Map();
-function seatedPatron(p,walking=false){
+function seatedPatron(p,walking=false,height=48*.05){
   const back=walking?pedestrianShowsBack(p,player):(player.z-p.z)*p.side>0;
   const frame=walking?Math.floor(p.walkTime*6)%4:1,rows=walking?48:32,key=`${p.type}:${outfit(p.type,p.variant)}:${back}:${frame}:${rows}`;
   if(!seatedPixels.has(key)){
@@ -346,7 +346,7 @@ function seatedPatron(p,walking=false){
     seatedPixels.set(key,runs);
   }
   // Standing patrons use the pub's larger scale, with their feet on the floor.
-  const scale=walking?.05:.0375,headHeight=walking?48*scale:1.87;
+  const scale=walking?height/48:.0375,headHeight=walking?height:1.87;
   for(const run of seatedPixels.get(key)){
     const girth=characterGirth(p.type),left=(run.x-12)*scale*girth,right=(run.end-12)*scale*girth,top=headHeight-run.y*scale,bottom=top-scale;
     const point=(offset,y)=>({x:p.x+Math.cos(player.angle)*offset,y,z:p.z-Math.sin(player.angle)*offset});
@@ -377,6 +377,8 @@ function render(){
   }
   if(insideLavatory){
     queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle}});
+    // The lavatory is built to true size, unlike the pub, so the robot is too.
+    if(lavatoryLife?.walker)seatedPatron(lavatoryLife.walker,true,characterHeight(lavatoryLife.walker.type));
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue);return;
   }
@@ -451,7 +453,7 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
-  const conversation=insidePub?pubTalk:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;
+  const conversation=insidePub?pubTalk:insideLavatory?lavatoryTalk.apart===0?lavatoryTalk.conversation:null:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;
   if(e.key==='Enter'&&conversation?.lines.length){
     if(!e.repeat){
       const line=conversation.advance();
@@ -505,7 +507,11 @@ function tick(now){
       document.querySelector('#location').textContent=`${currentPubName} / ${player.x<18?'BAR ROOM':'LOUNGE'}`;
     }else if(insideLavatory){
       // The pub waits, as it was, for the player to come back through.
-      moveInLavatory(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
+      lavatoryLife.update(dt,lavatoryOccupied,player);
+      // A robot the player keeps waiting talks, as walkers outside do.
+      const line=lavatoryTalk.update(dt,lavatoryLife.held?[{walker:lavatoryLife.walker,place:'lavatory'}]:[]);
+      if(line){notice=2.5;noticeText=line;}
+      moveInLavatory(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,lavatoryLife.walker);
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=`${currentPubName} / LAVATORY`;
     }else if(insideCubicle){
