@@ -8,6 +8,14 @@ const CHARACTER_TRAITS={
     "THEY'LL BE IN TOWN TOMORROW, BUT THE TICKETS ARE SOLD OUT.",
     "FIND ME ONE AND I'LL MARRY YOU.",
     'I PROMISE.'
+  ],riverLines:[
+    "♪♫ I'M A RADIOACTIVE COW ♪",
+    "♪♫ YOU'RE A RADIOACTIVE COW ♪",
+    "♪♫ LET'S MOO TOGETHER ♪",
+    '♪♫ MOO ♪ MOO ♪ MOO ♪',
+    "♪♫ LET'S MOO FOREVER ♪",
+    "AND THEN, THERE'S THAT BEAUTIFUL CLAVICHORD SOLO...",
+    '♫ ♫ ♫ ♫ ♫ ♫ ♫'
   ]},
   4:{height:1.68,lines:[
     'MY DAD SENT ME TO THE PUB AGAIN.',
@@ -16,14 +24,24 @@ const CHARACTER_TRAITS={
     'MY DAD IS A BLOCKHEAD.',
     'BY THE WAY, I LOVE TALKING TO YOU.',
     'SOMETIMES I REALLY FEEL ALONE.'
+  ],riverLines:[
+    'THE GOVERNMENT SAYS THAT 2 + 2 = 5.',
+    "I THINK IT'S 4.",
+    "YOU SEE WHY IT'S IMPORTANT TO STUDY MATH?"
   ]},
-  5:{lines:['THIS BEER SUCKS.','THIS PUB SUCKS.','LIFE SUCKS.','THIS CONVERSATION SUCKS.']},
+  5:{lines:['THIS BEER SUCKS.','THIS PUB SUCKS.','LIFE SUCKS.','THIS CONVERSATION SUCKS.'],riverLines:['THIS RIVER SUCKS.']},
   6:{lines:[
     "DON'T TALK TO THE STUPID ROBOTS.",
     "THEY'RE SO BORING.",
     "THEY'RE OBSESSED WITH LADYBUGS.",
     'ONE OF THEM TOLD ME THAT LADYBUGS ARE THE SMARTEST SPECIES.',
     'THOSE ROBOTS SHOULD SEE A DOCTOR.'
+  ]},
+  7:{riverLines:["SORRY PAL, I'M IN HURRY."]},
+  8:{riverLines:[
+    'HAVE YOU MET NURSE JOY?',
+    'I THINK YOU TWO WOULD GET ALONG.',
+    "CAREFUL, THOUGH. I THINK SHE'S UP TO SOMETHING."
   ]},
   9:{goesToPub:false},
   10:{height:1.78},
@@ -37,13 +55,22 @@ const CHARACTER_TRAITS={
     'THE MOST BEAUTIFUL LOVE POEMS WERE WRITTEN BY LADYBUGS.',
     'I ADMIRE LADYBUGS.',
     'I REALLY DO.'
+  ],riverLines:[
+    "I'M HERE TO STUDY HUMANS.",
+    'I SUPPOSE I SHOULD STUDY YOU.',
+    'NO OFFENCE INTENDED, BUT I FIND YOU RATHER BORING.'
   ]},
-  12:{goesToPub:false,weight:.25},
+  12:{goesToPub:false,weight:.25,riverLines:["THIS DOESN'T LOOK LIKE EGYPT.",'WHY AM I HERE?']},
   13:{height:1.6,girth:1.25,lines:[
     'MY WIFE HAS ANOTHER MAN AND ANOTHER WOMAN.',
     'MY DAUGHTER HAS ANOTHER DAD.',
     "BUT I DON'T MIND.",
     'FANCY ANOTHER PINT?'
+  ],riverLines:[
+    'I WAS PLANNING TO JUMP FROM A BRIDGE AND DISAPPEAR.',
+    'BUT NIGHT RIVER MADE MY MOOD BETTER.',
+    'THIS HAPPENS EVERY NIGHT.',
+    "FUCKING RIVER! I'M STILL HERE BECAUSE OF IT."
   ]},
   14:{height:1.7,lines:[
     "I'M LEARNING THE PERL PROGRAMMING LANGUAGE.",
@@ -51,6 +78,9 @@ const CHARACTER_TRAITS={
     "A LANGUAGE IS MORE THAN GRAMMAR. IT'S A WAY OF THINKING.",
     "PITY ONE CAN'T PROGRAM ROBOTS WITH PERL.",
     `perl -e 'print "PERL IS GOOD\\n"'`
+  ],riverLines:[
+    'I LOVE REGULAR EXPRESSIONS.',
+    "I'M NOT SURE YOU CAN UNDERSTAND."
   ]},
   15:{height:1.95,lines:[
     'PEOPLE KEEP JUDGING ME.',
@@ -59,6 +89,10 @@ const CHARACTER_TRAITS={
     'SOMETIMES IT HURTS.',
     "WHEN I'M SAD, I GO TO THE NIGHT RIVER.",
     "I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM..."
+  ],riverLines:[
+    "I COME HERE WHEN I'M SAD.",
+    'NIGHT RIVER ALWAYS HELPS MY MOOD.',
+    'THOSE ROBOTS SCARE ME.'
   ]}
 };
 export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;
@@ -67,6 +101,9 @@ export const characterHeight=type=>CHARACTER_TRAITS[type]?.height??1.85;
 export const characterGirth=type=>CHARACTER_TRAITS[type]?.girth??1;
 // What a character says, in order, while the player shares their pub table.
 export const pubLines=type=>CHARACTER_TRAITS[type]?.lines??[];
+// What a character says, in order, while the player blocks their way on the
+// riverside promenade. Characters without lines just say the usual bump notice.
+export const riverLines=type=>CHARACTER_TRAITS[type]?.riverLines??[];
 export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
 // Relative chance of meeting each character on the street; pubs ignore it.
 export const streetWeight=type=>CHARACTER_TRAITS[type]?.weight??1;
@@ -210,9 +247,12 @@ export class City {
     return (chunk?.newspaperMachines??[]).some(m=>Math.abs(x-m.x)<m.w/2+radius&&Math.abs(z-m.z)<m.d/2+radius);
   }
   pedestrians(time) {
-    return [...this.chunks.values()].flatMap(chunk=>chunk.people.map(p=>pedestrian(chunk,p,time)));
+    // Each position keeps its walker, so a bump can tell who was bumped and where.
+    return [...this.chunks.values()].flatMap(chunk=>chunk.people.map(p=>({...pedestrian(chunk,p,time),walker:p,river:chunk.river})));
   }
+  // Returns the promenade walkers that the player is standing in the way of.
   advancePedestrians(dt,player,time) {
+    const heldOnPromenade=[];
     // Sidewalk loops in separate blocks are at least 22 units apart.
     for(const chunk of this.chunks.values()){
       for(const p of chunk.people)p.walkTime??=time-dt;
@@ -262,8 +302,15 @@ export class City {
         // collision checks below see where the walker will really be.
         const route=!y&&!waitingForSideStep&&chunk.park?this.footpathStep(chunk,p,dt):null;
         const after=pedestrian(chunk,{...p,...route,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
-        return {p,before,after,offset,waitingForSideStep,route,blocked:crossesPerson(before,after,player)||this.solid(after.x,after.z)};
+        const held=crossesPerson(before,after,player);
+        return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)};
       });
+      // Walkers with river lines stay to talk while the player blocks them.
+      const talking=new Set();
+      if(chunk.river)for(const move of moves)if(move.held){
+        heldOnPromenade.push(move.p);
+        if(riverLines(move.p.type).length)talking.add(move.p);
+      }
       // Resolve from one shared snapshot. Repeat so a stop propagates backwards
       // through a queue in this frame, regardless of array order.
       let changed=true;
@@ -307,7 +354,7 @@ export class City {
         if(y.stage==='back'&&y.offset===0)delete move.p.yielding;
       }
       const turnAround=p=>{
-        if((p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5)return false;
+        if((p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5||talking.has(p))return false;
         // On the footpath, walk back the way they came.
         const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=pedestrian(chunk,p,time);
@@ -333,6 +380,7 @@ export class City {
       // is required. The clearance check lets a queue unwind from its free end.
       for(const move of moves)if(move.p.stuckTime>=1.5)turnAround(move.p);
     }
+    return heldOnPromenade;
   }
   // Plans a walker's next dt on a park block: the state to adopt if the step
   // goes ahead, or null to keep walking as before. A choice made at a blocked
@@ -361,13 +409,16 @@ export class City {
     }
     return null;
   }
-  move(p,dx,dz,people=[]) {
+  // Bumped people are also added to the optional bumped list.
+  move(p,dx,dz,people=[],bumped=[]) {
     let bumpedPedestrian=false;
     const reach=Math.hypot(dx,dz)+PERSON_CLEARANCE;
     const nearby=people.filter(person=>Math.hypot(person.x-p.x,person.z-p.z)<=reach);
     const blocked=(x,z)=>{
       if(this.solid(x,z))return true;
-      if((x!==p.x||z!==p.z)&&nearby.some(person=>crossesPerson(p,{x,z},person))){
+      const hit=x!==p.x||z!==p.z?nearby.filter(person=>crossesPerson(p,{x,z},person)):[];
+      if(hit.length){
+        for(const person of hit)if(!bumped.includes(person))bumped.push(person);
         bumpedPedestrian=true;return true;
       }
       return false;

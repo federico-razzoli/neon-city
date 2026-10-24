@@ -486,6 +486,108 @@ test('pedestrian front and back follow walking direction on every side of the bl
   assert.equal(before.facingX,1);assert.equal(after.facingZ,1);
 });
 
+test('the punk girl, the teen girl, the tattooed man, the businessman, the businesswoman, the robot, the mummy, the bald man, the nerd and the tall woman have river lines; characters without them have none',async()=>{
+  const {riverLines}=await import('../neon-city/world.js');
+  assert.deepEqual(riverLines(15),["I COME HERE WHEN I'M SAD.",'NIGHT RIVER ALWAYS HELPS MY MOOD.','THOSE ROBOTS SCARE ME.']);
+  assert.deepEqual(riverLines(14),['I LOVE REGULAR EXPRESSIONS.',"I'M NOT SURE YOU CAN UNDERSTAND."]);
+  assert.equal(riverLines(3).length,7);
+  assert.equal(riverLines(3)[0],"♪♫ I'M A RADIOACTIVE COW ♪");
+  assert.equal(riverLines(3).at(-1),'♫ ♫ ♫ ♫ ♫ ♫ ♫');
+  assert.deepEqual(riverLines(11),["I'M HERE TO STUDY HUMANS.",'I SUPPOSE I SHOULD STUDY YOU.','NO OFFENCE INTENDED, BUT I FIND YOU RATHER BORING.']);
+  assert.deepEqual(riverLines(5),['THIS RIVER SUCKS.']);
+  assert.deepEqual(riverLines(4),['THE GOVERNMENT SAYS THAT 2 + 2 = 5.',"I THINK IT'S 4.","YOU SEE WHY IT'S IMPORTANT TO STUDY MATH?"]);
+  assert.equal(riverLines(13).length,4);
+  assert.equal(riverLines(13).at(-1),"FUCKING RIVER! I'M STILL HERE BECAUSE OF IT.");
+  assert.deepEqual(riverLines(12),["THIS DOESN'T LOOK LIKE EGYPT.",'WHY AM I HERE?']);
+  assert.deepEqual(riverLines(8),['HAVE YOU MET NURSE JOY?','I THINK YOU TWO WOULD GET ALONG.',"CAREFUL, THOUGH. I THINK SHE'S UP TO SOMETHING."]);
+  assert.deepEqual(riverLines(7),["SORRY PAL, I'M IN HURRY."]);
+  assert.deepEqual(riverLines(0),[]);
+  const city=new City(1),npc={x:11,z:20},bumped=[];
+  assert.equal(city.move({x:11,z:19.1},0,.5,[npc],bumped),true);
+  assert.deepEqual(bumped,[npc],'movement names the bumped person');
+});
+
+test('river lines come in order like a pub conversation, and restart after a long walk away',async()=>{
+  const {RiverTalk,RIVER_TALK_MEMORY}=await import('../neon-city/river-talk.js');
+  const [first,second,third]=["I COME HERE WHEN I'M SAD.",'NIGHT RIVER ALWAYS HELPS MY MOOD.','THOSE ROBOTS SCARE ME.'];
+  const talker={type:15},other={type:0},talk=new RiverTalk(()=>0);
+  assert.equal(talk.update(.1,[other]),null,'characters without lines say nothing here');
+  assert.equal(talk.update(.1,[other,talker]),first,'the first line comes at once');
+  assert.equal(talk.update(2.95,[talker]),null,'then lines follow the pub delay');
+  assert.equal(talk.update(.1,[talker]),second);
+  assert.equal(talk.update(1,[]),null,'nothing is said while apart');
+  assert.equal(talk.update(3,[talker]),third,'a short break keeps the place');
+  assert.equal(talk.update(3,[talker]),first,'lines repeat from the start');
+  talk.update(RIVER_TALK_MEMORY,[]);
+  assert.equal(talk.update(.1,[talker]),first,'a long break starts again');
+});
+
+test('on the promenade, a walker with river lines stays and talks while the player blocks them',async()=>{
+  const {riverLines}=await import('../neon-city/world.js');
+  for(const type of [15,0]){
+    const city=new City(1),walker={phase:8,speed:1,type,reverse:false,variant:0,walkTime:0};
+    const chunk={x:0,z:RIVER_ROWS[0],river:true,riverStart:RIVER_ROWS[0],people:[walker]};
+    city.chunks.set(`0,${chunk.z}`,chunk);
+    const player={x:20,z:chunk.z*BLOCK+11};
+    let turns=0,heldFrames=0;
+    for(let i=1;i<=500;i++){
+      const reverse=walker.reverse,held=city.advancePedestrians(.02,player,i*.02);
+      if(held.includes(walker))heldFrames++;
+      if(walker.reverse!==reverse)turns++;
+      const at=pedestrian(chunk,walker,0);
+      assert.ok(Math.hypot(at.x-player.x,at.z-player.z)>=PERSON_CLEARANCE);
+    }
+    if(riverLines(type).length){assert.equal(turns,0,'she waits to talk');assert.ok(heldFrames>400);}
+    else assert.equal(turns,1,'others still turn around');
+    // Leaving lets her walk on.
+    if(type===15){
+      player.z-=6;
+      const before=pedestrian(chunk,walker,0);
+      assert.deepEqual(city.advancePedestrians(.02,player,10.02),[]);
+      assert.ok(pedestrian(chunk,walker,0).x>before.x);
+    }
+  }
+  // Ordinary sidewalks are not the promenade.
+  const city=new City(1),walker={phase:8,speed:1,type:15,reverse:false,variant:0,walkTime:0};
+  city.chunks.set('0,0',{x:0,z:0,people:[walker]});
+  let held=0;
+  for(let i=1;i<=100;i++)held+=city.advancePedestrians(.02,{x:20,z:11},i*.02).length;
+  assert.equal(held,0);
+});
+
+test('bumping into a river talker on the promenade shows her line instead of the bump notice',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {runInNewContext}=await import('node:vm');
+  const {RiverTalk,talksOnPromenade}=await import('../neon-city/river-talk.js');
+  const events={},elements=new Map();
+  const element=id=>{
+    if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
+    return elements.get(id);
+  };
+  let bumpedPerson=null;
+  const sandbox={RiverTalk,talksOnPromenade,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+    pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
+    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
+    window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
+    requestAnimationFrame(){},performance:{now:()=>0}};
+  const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={tick};",sandbox);
+  const {tick}=sandbox.game,message=()=>element('#message').textContent;
+  events.keydown({key:' ',code:'Space',repeat:false,preventDefault(){}});tick(0);
+  events.keyup({key:' ',code:'Space'});
+  bumpedPerson={type:15,river:false,walker:{type:15}};tick(20);
+  assert.equal(message(),'HEY! WATCH OUT!','away from the river she just complains');
+  for(let ms=40;ms<=3000;ms+=20){bumpedPerson=null;tick(ms);}
+  const walker={type:15};
+  bumpedPerson={type:15,river:true,walker};tick(3020);
+  assert.equal(message(),"I COME HERE WHEN I'M SAD.");
+  bumpedPerson={type:0,river:true,walker:{type:0}};
+  for(let ms=3040;ms<=8000;ms+=20)tick(ms);
+  assert.equal(message(),'HEY! WATCH OUT!','others still complain on the promenade');
+});
+
 test('movement reports pedestrian bumps but not idle, clear movement or building collisions',()=>{
   const city=new City(1),npc={x:11,z:20};
   for(const distance of [.1,.348,20]){
@@ -895,7 +997,8 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {pubLines}=await import('../neon-city/world.js');
   const {RiverLook}=await import('../neon-city/river-look.js');
   const {facingBench}=await import('../neon-city/parks.js');
-  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const {RiverTalk,talksOnPromenade}=await import('../neon-city/river-talk.js');
+  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,RiverTalk,talksOnPromenade,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
