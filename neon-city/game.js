@@ -13,8 +13,9 @@ import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=lavatory-1';
-import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=robot-2';
+import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=taps-2';
 import {playFlush} from './flush.js?v=toilet-2';
+import {TapWater} from './water.js?v=taps-1';
 import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=lavatory-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
@@ -27,14 +28,14 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu');
-let insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
+let insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,lavatoryTaps=[],currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
 let banshee=null,bansheeMisses=0;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
 // The pub's TOILET door leads to its lavatory, where a free cubicle opens.
 function useDoor(){
-  if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();lavatoryLife=new LavatoryLife();}
+  if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();lavatoryLife=new LavatoryLife();lavatoryTaps=LAVATORY.sinks.map(()=>false);}
   else if(insideLavatory){
     const cubicle=facingVacantCubicle(player,lavatoryOccupied);
     if(cubicle){Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;if(rollBanshee(Math.random,bansheeMisses)){bansheeMisses=0;banshee={started:performance.now()};playBansheeScream(audioContext,2);}else bansheeMisses++;}
@@ -125,6 +126,7 @@ const riverLook=new RiverLook();
 const walkerTalk=new WalkerTalk(),lavatoryTalk=new WalkerTalk();
 const arcadeAmbience=new ArcadeAmbience();
 const parkBirds=new ParkBirds();
+const tapWater=new TapWater();
 function enableSound(){
   try{
     const AudioContext=window.AudioContext||window.webkitAudioContext;
@@ -376,7 +378,7 @@ function render(){
     return;
   }
   if(insideLavatory){
-    queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle}});
+    queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle},taps:lavatoryTaps,time:performance.now()/1000});
     // The lavatory is built to true size, unlike the pub, so the robot is too.
     if(lavatoryLife?.walker)seatedPatron(lavatoryLife.walker,true,characterHeight(lavatoryLife.walker.type));
     interiorRenderer??=new DepthRenderer(ctx,W,H);
@@ -440,7 +442,7 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){if(banshee||pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){if(banshee||pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(pubMenu.open)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
@@ -461,7 +463,7 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){if(useSeat())return;if(useDoor())return;if(insideHotel){if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(useSeat())return;if(useDoor())return;if(insideHotel){if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -555,6 +557,8 @@ function tick(now){
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
     }
   }
+  // Running taps are heard only in the lavatory, louder nearer the sinks.
+  if(running&&!pubMenu.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
   if(running||!painted){render();painted=true;}
   requestAnimationFrame(tick);
 }

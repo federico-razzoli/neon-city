@@ -12,7 +12,6 @@ export const LAVATORY={width:7.2,depth:6,height:3,
   cubicles:[{x:1.4,halfWidth:DOOR_HALF_WIDTH,icon:'gents'},{x:3.6,halfWidth:DOOR_HALF_WIDTH,icon:'ladies'},{x:5.8,halfWidth:DOOR_HALF_WIDTH,icon:'disabled',alwaysOccupied:true}],
   sinks:[{x:6.65,z:2,w:.55,d:.7},{x:6.65,z:3.6,w:.55,d:.7}]};
 export const CUBICLE_REPLIES=["SORRY, I'M IN!",'JUST A MINUTE, PLEASE!'];
-export const SINK_REPLY="THERE'S NO WATER.";
 
 // A robot walking out is in the way, as people are in the pub.
 export function moveInLavatory(player,dx,dz,walker){
@@ -69,15 +68,27 @@ export class LavatoryLife{
     this.walker={...start,type:ROBOT,variant:0,walkTime:0,facingX:0,facingZ:-1};
   }
 }
-const sinkSpots=()=>LAVATORY.sinks.map(s=>({x:s.x+s.w/2,z:s.z+s.d/2,radius:s.d/2}));
-export const facingSink=player=>facingNearest(player,sinkSpots())!=null;
-// What Space says in the lavatory: someone answers from a taken cubicle, and
-// the taps are dry. Null where there is nothing to try, or the door opens.
+const sinkSpots=()=>LAVATORY.sinks.map((s,index)=>({x:s.x+s.w/2,z:s.z+s.d/2,radius:s.d/2,index}));
+// The index of the sink in reach and in view, or null.
+export const facingSink=player=>facingNearest(player,sinkSpots())?.index??null;
+// What Space says in the lavatory: someone answers from a taken cubicle.
+// Null where there is nothing to say, or the door opens.
 export function lavatoryReply(player,occupied,random=Math.random){
   const cubicle=facingCubicle(player);
   if(cubicle)return isOccupied(cubicle,occupied)?CUBICLE_REPLIES[Math.floor(random()*CUBICLE_REPLIES.length)]:null;
-  if(facingSink(player))return SINK_REPLY;
   return null;
+}
+// Where each tap's water falls: under the end of its spout, into the basin.
+export const tapStream=sink=>({x:sink.x+sink.w-.25,z:sink.z+sink.d/2,top:1.08,bottom:.941});
+// How loud the running taps are where the player stands: each open tap is
+// loudest beside its basin and fades with distance across the room.
+export function tapVolume(player,open){
+  let volume=0;
+  for(const [i,sink] of LAVATORY.sinks.entries())if(open[i]){
+    const {x,z}=tapStream(sink);
+    volume+=.3/Math.max(1,Math.hypot(player.x-x,player.z-z));
+  }
+  return Math.min(.45,volume);
 }
 
 // The mirror above a sink: its glass faces the room, in the plane x.
@@ -169,7 +180,7 @@ function drawDoor({face,box},x,z,halfWidth,south){
   box(x+s*(halfWidth-.22)-.06,1.,south?z+.06:z-.12,.12,.16,.06,'#d9b671');
 }
 
-export function drawLavatory({face,quad,box,occupied=[],viewer=null}){
+export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time=0}){
   const {width:W,depth:D,height:H}=LAVATORY;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const door=(...args)=>drawDoor({face,box},...args);
@@ -202,9 +213,23 @@ export function drawLavatory({face,quad,box,occupied=[],viewer=null}){
     const m=mirrorOf(s);
     box(m.x,m.y0,m.z0,.02,m.y1-m.y0,m.z1-m.z0,'#8ea2ac');
     if(viewer)for(const points of mirrorSilhouette(viewer,m))face(points,'#0b0b10');
+    if(taps[LAVATORY.sinks.indexOf(s)])drawRunningWater({quad,cylinder},s,time);
   }
   // Two strip lights across the ceiling.
   for(const z of [D/3,2*D/3])box(W/2-.7,H-.08,z-.08,1.4,.08,.16,'#f4f2e6');
+}
+
+// An open tap: a column of water, thinning as it falls, with bright and dark
+// bands sliding down it, splashing into a shallow pool in the basin.
+const WATER=['#eaf7fc','#5fa9c9'];
+function drawRunningWater({quad,cylinder},sink,time){
+  const {x,z,top,bottom}=tapStream(sink),bands=5,band=(top-bottom)/bands,shift=Math.floor(time*14);
+  for(let i=0;i<bands;i++){
+    const y=bottom+i*band,radius=t=>.01+.007*t;
+    cylinder(x,y,z,radius(i/bands),band,WATER[(i+shift)%2],WATER[(i+shift)%2],radius((i+1)/bands));
+  }
+  quad(sink.x+.1,.943,sink.z+.12,sink.w-.26,sink.d-.24,'#6fa9bf');
+  cylinder(x,.943,z,.035+.01*((shift%3)/2),.004,WATER[0]);
 }
 
 // Inside a free cubicle: the door back to the lavatory is on the south wall,

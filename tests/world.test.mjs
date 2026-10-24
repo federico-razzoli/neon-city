@@ -250,7 +250,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -908,7 +908,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
   const sandbox={WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -1383,7 +1383,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {hotelLook}=await import('../neon-city/hotel.js');
   const sandbox={...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -1851,11 +1851,10 @@ test('toilet door is reachable between lounge tables and requires looking at it'
   assert.equal(facingToiletDoor({...p,x:PUB.staffDoor.x}),false);
 });
 
-test('the lavatory has two dry sinks on the right and three cubicles ahead',async()=>{
-  const {LAVATORY,CUBICLE_REPLIES,SINK_REPLY,moveInLavatory,lavatoryReply,facingLavatoryExit}=await import('../neon-city/lavatory.js');
+test('the lavatory has two sinks on the right and three cubicles ahead',async()=>{
+  const {LAVATORY,CUBICLE_REPLIES,moveInLavatory,lavatoryReply,facingLavatoryExit,facingSink}=await import('../neon-city/lavatory.js');
   const {width,depth,sinks,cubicles,spawn}=LAVATORY;
   assert.deepEqual(CUBICLE_REPLIES,["SORRY, I'M IN!",'JUST A MINUTE, PLEASE!']);
-  assert.equal(SINK_REPLY,"THERE'S NO WATER.");
   // Walking in faces +z: the sinks are on the right-hand (+x) wall.
   assert.equal(spawn.angle,0);
   assert.equal(sinks.length,2);
@@ -1873,13 +1872,14 @@ test('the lavatory has two dry sinks on the right and three cubicles ahead',asyn
     assert.equal(lavatoryReply(p,taken,()=>.99),CUBICLE_REPLIES[1]);
     assert.equal(lavatoryReply({...p,angle:Math.PI},taken,()=>0),null,'turned away from the door');
   }
-  for(const sink of sinks){
+  for(const [index,sink] of sinks.entries()){
     // Each sink, from in front and at an angle; never while looking away.
     const front={x:sink.x-.9,z:sink.z+sink.d/2,angle:Math.PI/2};
-    assert.equal(lavatoryReply(front,taken),SINK_REPLY);
-    assert.equal(lavatoryReply({...front,z:front.z-.6,angle:Math.PI/2-.4},taken),SINK_REPLY);
-    assert.equal(lavatoryReply({...front,angle:-Math.PI/2},taken),null);
-    assert.equal(lavatoryReply({...front,x:.5},taken),null,'out of reach');
+    assert.equal(facingSink(front),index);
+    assert.equal(facingSink({...front,z:front.z-.6,angle:Math.PI/2-.4}),index);
+    assert.equal(lavatoryReply(front,taken),null,'the tap turns rather than a reply');
+    assert.equal(facingSink({...front,angle:-Math.PI/2}),null);
+    assert.equal(facingSink({...front,x:.5}),null,'out of reach');
     // The sinks are solid.
     const p={...front};moveInLavatory(p,3,0);
     assert.ok(p.x<=sink.x-.3+1e-9,'stopped by the sink');
@@ -1999,6 +1999,36 @@ test('every 20-30 seconds a robot leaves a taken gents or ladies cubicle and wal
   assert.equal(held.walker.x,cubicles[0].x);
 });
 
+test('an open tap shows water falling into its basin and is heard nearby',async()=>{
+  const {LAVATORY,tapStream,tapVolume,drawLavatory}=await import('../neon-city/lavatory.js');
+  const {sinks}=LAVATORY;
+  const draw=(taps,time=0)=>{
+    const faces=[];
+    drawLavatory({face:(points,color)=>faces.push({points,color}),quad:()=>{},box:()=>{},taps,time});
+    return faces;
+  };
+  const water=faces=>faces.filter(f=>['#eaf7fc','#5fa9c9'].includes(f.color));
+  assert.equal(water(draw([false,false])).length,0,'closed taps are dry');
+  for(const [index,sink] of sinks.entries()){
+    const taps=sinks.map((s,i)=>i===index),faces=water(draw(taps)),{x,z,top,bottom}=tapStream(sink);
+    assert.ok(faces.length>0);
+    const points=faces.flatMap(f=>f.points);
+    // A thin column under the spout, from the spout down to the basin.
+    assert.ok(points.every(p=>Math.abs(p.z-z)<.05&&Math.abs(p.x-x)<.05&&p.y>=bottom-1e-9&&p.y<=top+1e-9));
+    assert.ok(Math.min(...points.map(p=>p.y))<.95&&Math.max(...points.map(p=>p.y))>1.07);
+    assert.ok(x>sink.x&&x<sink.x+sink.w&&z>sink.z&&z<sink.z+sink.d,'inside the basin');
+    // The bands slide down as time passes.
+    assert.notDeepEqual(water(draw(taps,0)).map(f=>f.color),water(draw(taps,.1)).map(f=>f.color));
+  }
+  // Silent with both taps shut, loudest beside an open one, quieter across the room.
+  const beside={x:sinks[0].x-.6,z:sinks[0].z+sinks[0].d/2};
+  assert.equal(tapVolume(beside,[false,false]),0);
+  const near=tapVolume(beside,[true,false]),far=tapVolume({x:.5,z:1},[true,false]);
+  assert.ok(near>0&&far>0&&far<near);
+  assert.ok(tapVolume(beside,[true,true])>near,'two taps are louder than one');
+  assert.ok(tapVolume(beside,[true,true])<=.45);
+});
+
 test('inside a cubicle the toilet is solid, a seat facing the door, and the door leads out',async()=>{
   const {CUBICLE,moveInCubicle,facingToilet,facingCubicleExit,drawCubicle}=await import('../neon-city/lavatory.js');
   const {spawn,seat,toilet,door,width,depth}=CUBICLE;
@@ -2043,7 +2073,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   const {runInNewContext}=await import('node:vm');
   const pubInterior=await import('../neon-city/pub-interior.js');
   const lavatory=await import('../neon-city/lavatory.js');
-  const events={},elements=new Map();let flushes=0,rolls=0;
+  const events={},elements=new Map();let flushes=0,rolls=0,tapVolumes=[];
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
@@ -2052,7 +2082,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(context,volume){tapVolumes.push(volume);}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -2069,6 +2099,15 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   assert.equal(location(),'THE PUB / LAVATORY');
   assert.equal(rolls,1,'occupancy decided on the way in');
   const [gents,ladies]=lavatory.LAVATORY.cubicles,depth=lavatory.LAVATORY.depth;
+  // Space at a sink turns its tap on, and again turns it off.
+  const sink=lavatory.LAVATORY.sinks[0];
+  Object.assign(player,{x:sink.x-.9,z:sink.z+sink.d/2,angle:Math.PI/2});
+  tick(ms+=20);assert.equal(tapVolumes.at(-1),0,'silent while the taps are shut');
+  press();
+  assert.ok(tapVolumes.at(-1)>0,'water heard once the tap is open');
+  assert.equal(element('#message').textContent,'');
+  press();
+  assert.equal(tapVolumes.at(-1),0,'and stops when it is shut');
   // The ladies' is taken: someone answers.
   Object.assign(player,{x:ladies.x,z:depth-1.5,angle:0});
   press();
