@@ -16,6 +16,15 @@ const CHARACTER_TRAITS={
     "♪♫ LET'S MOO FOREVER ♪",
     "AND THEN, THERE'S THAT BEAUTIFUL CLAVICHORD SOLO...",
     '♫ ♫ ♫ ♫ ♫ ♫ ♫'
+  ],footpathLines:[
+    '♪♫ COWS ARE COOL ♪',
+    '♪♫ H-BOMBS ARE COOL ♪',
+    '♪♫ THEY MESSED UP OUR CELLS ♪',
+    '♪♫ THEY FRIED OUR DNA ♪',
+    '♪♫ WE KEEP MUTATING ♪',
+    '♪♫ MOO-MUTATING ♪',
+    '♪♫ MOO-MUTATE LIKE NO TOMORROW ♪',
+    'A SONG LIKE THIS MIGHT CHANGE THE WORLD.'
   ]},
   4:{height:1.68,lines:[
     'MY DAD SENT ME TO THE PUB AGAIN.',
@@ -28,6 +37,9 @@ const CHARACTER_TRAITS={
     'THE GOVERNMENT SAYS THAT 2 + 2 = 5.',
     "I THINK IT'S 4.",
     "YOU SEE WHY IT'S IMPORTANT TO STUDY MATH?"
+  ],footpathLines:[
+    'I LOVE THIS PARK.',
+    'I WISH IT WERE BIGGER.'
   ]},
   5:{lines:['THIS BEER SUCKS.','THIS PUB SUCKS.','LIFE SUCKS.','THIS CONVERSATION SUCKS.'],riverLines:['THIS RIVER SUCKS.']},
   6:{lines:[
@@ -37,11 +49,14 @@ const CHARACTER_TRAITS={
     'ONE OF THEM TOLD ME THAT LADYBUGS ARE THE SMARTEST SPECIES.',
     'THOSE ROBOTS SHOULD SEE A DOCTOR.'
   ]},
-  7:{riverLines:["SORRY PAL, I'M IN HURRY."]},
+  7:{riverLines:["SORRY PAL, I'M IN HURRY."],footpathLines:['SORRY PAL, TIME IS MONEY.']},
   8:{riverLines:[
     'HAVE YOU MET NURSE JOY?',
     'I THINK YOU TWO WOULD GET ALONG.',
     "CAREFUL, THOUGH. I THINK SHE'S UP TO SOMETHING."
+  ],footpathLines:[
+    'I CAME HERE TO RELAX.',
+    "IT DIDN'T WORK."
   ]},
   9:{goesToPub:false},
   10:{height:1.78},
@@ -59,8 +74,16 @@ const CHARACTER_TRAITS={
     "I'M HERE TO STUDY HUMANS.",
     'I SUPPOSE I SHOULD STUDY YOU.',
     'NO OFFENCE INTENDED, BUT I FIND YOU RATHER BORING.'
+  ],footpathLines:['SO MANY LADYBUGS IN THIS PARK!']},
+  12:{goesToPub:false,weight:.25,riverLines:["THIS DOESN'T LOOK LIKE EGYPT.",'WHY AM I HERE?'],footpathLines:[
+    'THERE ARE LOTS OF PLACES LIKE THIS IN EGYPT.',
+    'BUT WITH LESS GRASS.',
+    'AND MORE SAND.',
+    'AND TOURISTS VISITING THE PYRAMIDS.',
+    'THEY TASTE GOOD.',
+    'I MEAN THE TOURISTS. NOT THE PYRAMIDS.',
+    "I GUESS I'M A BIT HOME-SICK."
   ]},
-  12:{goesToPub:false,weight:.25,riverLines:["THIS DOESN'T LOOK LIKE EGYPT.",'WHY AM I HERE?']},
   13:{height:1.6,girth:1.25,lines:[
     'MY WIFE HAS ANOTHER MAN AND ANOTHER WOMAN.',
     'MY DAUGHTER HAS ANOTHER DAD.',
@@ -71,6 +94,9 @@ const CHARACTER_TRAITS={
     'BUT NIGHT RIVER MADE MY MOOD BETTER.',
     'THIS HAPPENS EVERY NIGHT.',
     "FUCKING RIVER! I'M STILL HERE BECAUSE OF IT."
+  ],footpathLines:[
+    'HAVE YOU SEEN MY WIFE AROUND?',
+    "OH, WELL. I DON'T NEED HER."
   ]},
   14:{height:1.7,lines:[
     "I'M LEARNING THE PERL PROGRAMMING LANGUAGE.",
@@ -81,6 +107,9 @@ const CHARACTER_TRAITS={
   ],riverLines:[
     'I LOVE REGULAR EXPRESSIONS.',
     "I'M NOT SURE YOU CAN UNDERSTAND."
+  ],footpathLines:[
+    'DATABASE BENCHMARKING IS SUCH A FASCINATING SUBJECT!',
+    'ESPECIALLY WHEN IT COMES TO REPLICATION AND SHARDING.'
   ]},
   15:{height:1.95,lines:[
     'PEOPLE KEEP JUDGING ME.',
@@ -93,6 +122,12 @@ const CHARACTER_TRAITS={
     "I COME HERE WHEN I'M SAD.",
     'NIGHT RIVER ALWAYS HELPS MY MOOD.',
     'THOSE ROBOTS SCARE ME.'
+  ],footpathLines:[
+    'SO MANY RACISTS AND BIGOTS IN OUR GOVERNMENT!',
+    'THEY KNOW NOTHING ABOUT DEMOCRACY.',
+    'FUCKING TROGLODYTES!',
+    'SORRY. YOU CAME HERE TO RELAX, NOT TO TALK ABOUT THIS.',
+    'SEE YOU LATER.'
   ]}
 };
 export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;
@@ -101,9 +136,12 @@ export const characterHeight=type=>CHARACTER_TRAITS[type]?.height??1.85;
 export const characterGirth=type=>CHARACTER_TRAITS[type]?.girth??1;
 // What a character says, in order, while the player shares their pub table.
 export const pubLines=type=>CHARACTER_TRAITS[type]?.lines??[];
-// What a character says, in order, while the player blocks their way on the
-// riverside promenade. Characters without lines just say the usual bump notice.
-export const riverLines=type=>CHARACTER_TRAITS[type]?.riverLines??[];
+// What a character says, in order, while the player blocks their way in one
+// of these places. Elsewhere, or without lines, they say the usual bump notice.
+const PLACE_LINES={river:'riverLines',footpath:'footpathLines'};
+export const placeLines=(type,place)=>CHARACTER_TRAITS[type]?.[PLACE_LINES[place]]??[];
+// The riverside promenade, a park footpath, or null for an ordinary sidewalk.
+const walkerPlace=(chunk,p)=>chunk.river?'river':p.detour?'footpath':null;
 export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
 // Relative chance of meeting each character on the street; pubs ignore it.
 export const streetWeight=type=>CHARACTER_TRAITS[type]?.weight??1;
@@ -248,11 +286,12 @@ export class City {
   }
   pedestrians(time) {
     // Each position keeps its walker, so a bump can tell who was bumped and where.
-    return [...this.chunks.values()].flatMap(chunk=>chunk.people.map(p=>({...pedestrian(chunk,p,time),walker:p,river:chunk.river})));
+    return [...this.chunks.values()].flatMap(chunk=>chunk.people.map(p=>({...pedestrian(chunk,p,time),walker:p,place:walkerPlace(chunk,p)})));
   }
-  // Returns the promenade walkers that the player is standing in the way of.
+  // Returns {walker, place} for each walker on the promenade or a footpath
+  // that the player is standing in the way of.
   advancePedestrians(dt,player,time) {
-    const heldOnPromenade=[];
+    const heldInPlace=[];
     // Sidewalk loops in separate blocks are at least 22 units apart.
     for(const chunk of this.chunks.values()){
       for(const p of chunk.people)p.walkTime??=time-dt;
@@ -305,11 +344,13 @@ export class City {
         const held=crossesPerson(before,after,player);
         return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)};
       });
-      // Walkers with river lines stay to talk while the player blocks them.
+      // Walkers with lines for their place stay to talk while the player blocks them.
       const talking=new Set();
-      if(chunk.river)for(const move of moves)if(move.held){
-        heldOnPromenade.push(move.p);
-        if(riverLines(move.p.type).length)talking.add(move.p);
+      for(const move of moves){
+        const place=walkerPlace(chunk,move.p);
+        if(!move.held||!place)continue;
+        heldInPlace.push({walker:move.p,place});
+        if(placeLines(move.p.type,place).length)talking.add(move.p);
       }
       // Resolve from one shared snapshot. Repeat so a stop propagates backwards
       // through a queue in this frame, regardless of array order.
@@ -380,7 +421,7 @@ export class City {
       // is required. The clearance check lets a queue unwind from its free end.
       for(const move of moves)if(move.p.stuckTime>=1.5)turnAround(move.p);
     }
-    return heldOnPromenade;
+    return heldInPlace;
   }
   // Plans a walker's next dt on a park block: the state to adopt if the step
   // goes ahead, or null to keep walking as before. A choice made at a blocked

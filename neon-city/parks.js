@@ -1,4 +1,4 @@
-import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,mod,pathDistance} from './world.js?v=talk-11';
+import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,mod,pathDistance} from './world.js?v=talk-12';
 
 // Ground terrain is painted in order of elevation, so each layer sits above
 // the one it must cover: the footpath always paints over the lawn and its decals.

@@ -486,44 +486,62 @@ test('pedestrian front and back follow walking direction on every side of the bl
   assert.equal(before.facingX,1);assert.equal(after.facingZ,1);
 });
 
-test('the punk girl, the teen girl, the tattooed man, the businessman, the businesswoman, the robot, the mummy, the bald man, the nerd and the tall woman have river lines; characters without them have none',async()=>{
-  const {riverLines}=await import('../neon-city/world.js');
-  assert.deepEqual(riverLines(15),["I COME HERE WHEN I'M SAD.",'NIGHT RIVER ALWAYS HELPS MY MOOD.','THOSE ROBOTS SCARE ME.']);
-  assert.deepEqual(riverLines(14),['I LOVE REGULAR EXPRESSIONS.',"I'M NOT SURE YOU CAN UNDERSTAND."]);
-  assert.equal(riverLines(3).length,7);
-  assert.equal(riverLines(3)[0],"♪♫ I'M A RADIOACTIVE COW ♪");
-  assert.equal(riverLines(3).at(-1),'♫ ♫ ♫ ♫ ♫ ♫ ♫');
-  assert.deepEqual(riverLines(11),["I'M HERE TO STUDY HUMANS.",'I SUPPOSE I SHOULD STUDY YOU.','NO OFFENCE INTENDED, BUT I FIND YOU RATHER BORING.']);
-  assert.deepEqual(riverLines(5),['THIS RIVER SUCKS.']);
-  assert.deepEqual(riverLines(4),['THE GOVERNMENT SAYS THAT 2 + 2 = 5.',"I THINK IT'S 4.","YOU SEE WHY IT'S IMPORTANT TO STUDY MATH?"]);
-  assert.equal(riverLines(13).length,4);
-  assert.equal(riverLines(13).at(-1),"FUCKING RIVER! I'M STILL HERE BECAUSE OF IT.");
-  assert.deepEqual(riverLines(12),["THIS DOESN'T LOOK LIKE EGYPT.",'WHY AM I HERE?']);
-  assert.deepEqual(riverLines(8),['HAVE YOU MET NURSE JOY?','I THINK YOU TWO WOULD GET ALONG.',"CAREFUL, THOUGH. I THINK SHE'S UP TO SOMETHING."]);
-  assert.deepEqual(riverLines(7),["SORRY PAL, I'M IN HURRY."]);
-  assert.deepEqual(riverLines(0),[]);
+test('characters have their own lines for the promenade and for park footpaths, and none elsewhere',async()=>{
+  const {placeLines}=await import('../neon-city/world.js');
+  const river=type=>placeLines(type,'river'),footpath=type=>placeLines(type,'footpath');
+  assert.deepEqual(river(15),["I COME HERE WHEN I'M SAD.",'NIGHT RIVER ALWAYS HELPS MY MOOD.','THOSE ROBOTS SCARE ME.']);
+  assert.deepEqual(river(14),['I LOVE REGULAR EXPRESSIONS.',"I'M NOT SURE YOU CAN UNDERSTAND."]);
+  assert.equal(river(3).length,7);
+  assert.equal(river(3)[0],"♪♫ I'M A RADIOACTIVE COW ♪");
+  assert.equal(river(3).at(-1),'♫ ♫ ♫ ♫ ♫ ♫ ♫');
+  assert.deepEqual(river(11),["I'M HERE TO STUDY HUMANS.",'I SUPPOSE I SHOULD STUDY YOU.','NO OFFENCE INTENDED, BUT I FIND YOU RATHER BORING.']);
+  assert.deepEqual(river(5),['THIS RIVER SUCKS.']);
+  assert.deepEqual(river(4),['THE GOVERNMENT SAYS THAT 2 + 2 = 5.',"I THINK IT'S 4.","YOU SEE WHY IT'S IMPORTANT TO STUDY MATH?"]);
+  assert.equal(river(13).length,4);
+  assert.equal(river(13).at(-1),"FUCKING RIVER! I'M STILL HERE BECAUSE OF IT.");
+  assert.deepEqual(river(12),["THIS DOESN'T LOOK LIKE EGYPT.",'WHY AM I HERE?']);
+  assert.deepEqual(river(8),['HAVE YOU MET NURSE JOY?','I THINK YOU TWO WOULD GET ALONG.',"CAREFUL, THOUGH. I THINK SHE'S UP TO SOMETHING."]);
+  assert.deepEqual(river(7),["SORRY PAL, I'M IN HURRY."]);
+  assert.deepEqual(footpath(11),['SO MANY LADYBUGS IN THIS PARK!']);
+  assert.deepEqual(footpath(13),['HAVE YOU SEEN MY WIFE AROUND?',"OH, WELL. I DON'T NEED HER."]);
+  assert.deepEqual(footpath(14),['DATABASE BENCHMARKING IS SUCH A FASCINATING SUBJECT!','ESPECIALLY WHEN IT COMES TO REPLICATION AND SHARDING.']);
+  assert.equal(footpath(3).length,8);
+  assert.equal(footpath(3)[0],'♪♫ COWS ARE COOL ♪');
+  assert.equal(footpath(3).at(-1),'A SONG LIKE THIS MIGHT CHANGE THE WORLD.');
+  assert.deepEqual(footpath(7),['SORRY PAL, TIME IS MONEY.']);
+  assert.deepEqual(footpath(8),['I CAME HERE TO RELAX.',"IT DIDN'T WORK."]);
+  assert.equal(footpath(12).length,7);
+  assert.equal(footpath(12).at(-1),"I GUESS I'M A BIT HOME-SICK.");
+  assert.deepEqual(footpath(4),['I LOVE THIS PARK.','I WISH IT WERE BIGGER.']);
+  assert.equal(footpath(15).length,5);
+  assert.equal(footpath(15).at(-1),'SEE YOU LATER.');
+  assert.deepEqual(footpath(5),[]);
+  for(let type=0;type<16;type++)assert.deepEqual(placeLines(type,null),[],'ordinary sidewalks have no lines');
+  assert.deepEqual(river(0),[]);
   const city=new City(1),npc={x:11,z:20},bumped=[];
   assert.equal(city.move({x:11,z:19.1},0,.5,[npc],bumped),true);
   assert.deepEqual(bumped,[npc],'movement names the bumped person');
 });
 
-test('river lines come in order like a pub conversation, and restart after a long walk away',async()=>{
-  const {RiverTalk,RIVER_TALK_MEMORY}=await import('../neon-city/river-talk.js');
+test('place lines come in order like a pub conversation, and restart after a long walk away',async()=>{
+  const {WalkerTalk,TALK_MEMORY}=await import('../neon-city/walker-talk.js');
   const [first,second,third]=["I COME HERE WHEN I'M SAD.",'NIGHT RIVER ALWAYS HELPS MY MOOD.','THOSE ROBOTS SCARE ME.'];
-  const talker={type:15},other={type:0},talk=new RiverTalk(()=>0);
+  const woman={type:15},talker={walker:woman,place:'river'},other={walker:{type:0},place:'river'},talk=new WalkerTalk(()=>0);
   assert.equal(talk.update(.1,[other]),null,'characters without lines say nothing here');
+  assert.equal(talk.update(.1,[{walker:woman,place:null}]),null,'nor does anyone on an ordinary sidewalk');
   assert.equal(talk.update(.1,[other,talker]),first,'the first line comes at once');
   assert.equal(talk.update(2.95,[talker]),null,'then lines follow the pub delay');
   assert.equal(talk.update(.1,[talker]),second);
   assert.equal(talk.update(1,[]),null,'nothing is said while apart');
   assert.equal(talk.update(3,[talker]),third,'a short break keeps the place');
   assert.equal(talk.update(3,[talker]),first,'lines repeat from the start');
-  talk.update(RIVER_TALK_MEMORY,[]);
+  talk.update(TALK_MEMORY,[]);
   assert.equal(talk.update(.1,[talker]),first,'a long break starts again');
+  assert.equal(talk.update(.1,[{walker:woman,place:'footpath'}]),'SO MANY RACISTS AND BIGOTS IN OUR GOVERNMENT!','another place has its own conversation');
 });
 
 test('on the promenade, a walker with river lines stays and talks while the player blocks them',async()=>{
-  const {riverLines}=await import('../neon-city/world.js');
+  const {placeLines}=await import('../neon-city/world.js');
   for(const type of [15,0]){
     const city=new City(1),walker={phase:8,speed:1,type,reverse:false,variant:0,walkTime:0};
     const chunk={x:0,z:RIVER_ROWS[0],river:true,riverStart:RIVER_ROWS[0],people:[walker]};
@@ -532,12 +550,12 @@ test('on the promenade, a walker with river lines stays and talks while the play
     let turns=0,heldFrames=0;
     for(let i=1;i<=500;i++){
       const reverse=walker.reverse,held=city.advancePedestrians(.02,player,i*.02);
-      if(held.includes(walker))heldFrames++;
+      if(held.some(h=>h.walker===walker&&h.place==='river'))heldFrames++;
       if(walker.reverse!==reverse)turns++;
       const at=pedestrian(chunk,walker,0);
       assert.ok(Math.hypot(at.x-player.x,at.z-player.z)>=PERSON_CLEARANCE);
     }
-    if(riverLines(type).length){assert.equal(turns,0,'she waits to talk');assert.ok(heldFrames>400);}
+    if(placeLines(type,'river').length){assert.equal(turns,0,'she waits to talk');assert.ok(heldFrames>400);}
     else assert.equal(turns,1,'others still turn around');
     // Leaving lets her walk on.
     if(type===15){
@@ -553,19 +571,20 @@ test('on the promenade, a walker with river lines stays and talks while the play
   let held=0;
   for(let i=1;i<=100;i++)held+=city.advancePedestrians(.02,{x:20,z:11},i*.02).length;
   assert.equal(held,0);
+  assert.equal(city.pedestrians(0)[0].place,null);
 });
 
-test('bumping into a river talker on the promenade shows her line instead of the bump notice',async()=>{
+test('bumping into a talker in their place shows their line instead of the bump notice',async()=>{
   const {readFile}=await import('node:fs/promises');
   const {runInNewContext}=await import('node:vm');
-  const {RiverTalk,talksOnPromenade}=await import('../neon-city/river-talk.js');
+  const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const events={},elements=new Map();
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
   let bumpedPerson=null;
-  const sandbox={RiverTalk,talksOnPromenade,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+  const sandbox={WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -577,14 +596,21 @@ test('bumping into a river talker on the promenade shows her line instead of the
   const {tick}=sandbox.game,message=()=>element('#message').textContent;
   events.keydown({key:' ',code:'Space',repeat:false,preventDefault(){}});tick(0);
   events.keyup({key:' ',code:'Space'});
-  bumpedPerson={type:15,river:false,walker:{type:15}};tick(20);
-  assert.equal(message(),'HEY! WATCH OUT!','away from the river she just complains');
-  for(let ms=40;ms<=3000;ms+=20){bumpedPerson=null;tick(ms);}
-  const walker={type:15};
-  bumpedPerson={type:15,river:true,walker};tick(3020);
+  let ms=0;
+  const wait=()=>{for(const end=ms+3000;ms<end;){bumpedPerson=null;tick(ms+=20);}};
+  bumpedPerson={type:15,place:null,walker:{type:15}};tick(ms+=20);
+  assert.equal(message(),'HEY! WATCH OUT!','on an ordinary sidewalk she just complains');
+  wait();
+  bumpedPerson={type:15,place:'river',walker:{type:15}};tick(ms+=20);
   assert.equal(message(),"I COME HERE WHEN I'M SAD.");
-  bumpedPerson={type:0,river:true,walker:{type:0}};
-  for(let ms=3040;ms<=8000;ms+=20)tick(ms);
+  wait();
+  bumpedPerson={type:13,place:'footpath',walker:{type:13}};tick(ms+=20);
+  assert.equal(message(),'HAVE YOU SEEN MY WIFE AROUND?');
+  wait();wait();
+  bumpedPerson={type:5,place:'footpath',walker:{type:5}};tick(ms+=20);
+  assert.equal(message(),'HEY! WATCH OUT!','the tattooed man has no footpath lines');
+  bumpedPerson={type:0,place:'river',walker:{type:0}};
+  for(const end=ms+5000;ms<end;)tick(ms+=20);
   assert.equal(message(),'HEY! WATCH OUT!','others still complain on the promenade');
 });
 
@@ -997,8 +1023,8 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {pubLines}=await import('../neon-city/world.js');
   const {RiverLook}=await import('../neon-city/river-look.js');
   const {facingBench}=await import('../neon-city/parks.js');
-  const {RiverTalk,talksOnPromenade}=await import('../neon-city/river-talk.js');
-  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,RiverTalk,talksOnPromenade,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
+  const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -2361,6 +2387,31 @@ const stepWalker=(city,chunk,p,dt)=>{
   p.walkTime+=dt;
   if(route){Object.assign(p,route);if(!p.detour)delete p.detour;delete p.footpathChoice;}
 };
+test('on a park footpath, a walker with footpath lines stays and talks while the player blocks them',async()=>{
+  const {footpathJunctions}=await import('../neon-city/world.js');
+  for(const type of [13,5]){
+    const {city,chunk}=parkChunk(4),[j]=footpathJunctions(chunk);
+    // On the park's sidewalk they are not on the footpath yet.
+    const walker={phase:j.at-.2,speed:1.2,reverse:false,walkTime:0,type,variant:0,stuckTime:0};
+    chunk.people=[walker];city.rng=()=>0;
+    assert.equal(city.pedestrians(0)[0].place,null);
+    for(let i=0;i<10;i++){stepWalker(city,chunk,walker,.02);}
+    assert.ok(walker.detour);
+    assert.equal(city.pedestrians(0)[0].place,'footpath');
+    walker.walkTime+=8/1.2;
+    const ahead=pedestrian(chunk,{...walker,walkTime:walker.walkTime+1.5/1.2},0),player={x:ahead.x,z:ahead.z};
+    let time=0,heldFrames=0;
+    for(let i=0;i<500;i++){
+      const held=city.advancePedestrians(.02,player,time+=.02);
+      if(held.some(h=>h.walker===walker&&h.place==='footpath'))heldFrames++;
+    }
+    const at=pedestrian(chunk,walker,time),gap=Math.hypot(at.x-player.x,at.z-player.z);
+    assert.ok(gap>=PERSON_CLEARANCE-1e-9);
+    if(type===13){assert.ok(walker.detour,'still on the footpath');assert.ok(heldFrames>400);assert.ok(gap<1.5,'he waits to talk');}
+    else assert.ok(heldFrames<100&&gap>2.5,'others still turn back and walk away');
+  }
+});
+
 test('sidewalk walkers take the footpath one time in four, then leave left or right at random',async()=>{
   const {footpathJunctions,FOOTPATH_CHANCE}=await import('../neon-city/world.js');
   assert.equal(FOOTPATH_CHANCE,.25);

@@ -2,12 +2,12 @@ import {PubLife,PubConversation} from './pub-life.js?v=bumps-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=talk-11';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=talk-12';
 import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
-import {drawParkGround,drawParkStructures,facingBench,paintRiverSign,RIVER_SIGN_TEXTURE} from './parks.js?v=talk-11';
-import {RiverTalk,talksOnPromenade} from './river-talk.js?v=talk-11';
+import {drawParkGround,drawParkStructures,facingBench,paintRiverSign,RIVER_SIGN_TEXTURE} from './parks.js?v=talk-12';
+import {WalkerTalk,talksHere} from './walker-talk.js?v=talk-12';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
@@ -89,7 +89,7 @@ let audioContext,ouchBuffer,ouchLoading;
 const hornWarning=new HornWarning();
 const coverAttempt=new CoverAttempt();
 const riverLook=new RiverLook();
-const riverTalk=new RiverTalk();
+const walkerTalk=new WalkerTalk();
 const arcadeAmbience=new ArcadeAmbience();
 const parkBirds=new ParkBirds();
 function enableSound(){
@@ -437,9 +437,8 @@ function tick(now){
     const people=city.pedestrians(time-dt);
     const bumped=[];
     const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people,bumped);
-    // On the promenade, someone with river lines answers a bump with them instead.
-    const bumpedOnPromenade=bumped.filter(person=>person.river).map(person=>person.walker);
-    if(bumpedPedestrian&&!bumpedOnPromenade.some(talksOnPromenade)){notice=2.5;noticeText='HEY! WATCH OUT!';}
+    // On the promenade or a footpath, someone with lines for it answers a bump with them instead.
+    if(bumpedPedestrian&&!bumped.some(talksHere)){notice=2.5;noticeText='HEY! WATCH OUT!';}
     if(!playerSeat&&(forward||side))steps+=dt*10*pace;
     city.update(player.x,player.z);
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
@@ -461,8 +460,8 @@ function tick(now){
     }
     coverPressed=false;
     const held=city.advancePedestrians(dt,player,time)??[];
-    const riverLine=riverTalk.update(dt,[...bumpedOnPromenade,...held]);
-    if(riverLine){notice=2.5;noticeText=riverLine;}
+    const line=walkerTalk.update(dt,[...bumped,...held]);
+    if(line){notice=2.5;noticeText=line;}
     document.querySelector('#message').textContent=nearPubMenu()?'SPACE — READ DRINKS MENU':notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
     }
