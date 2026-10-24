@@ -1,4 +1,4 @@
-import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=bartender-3';
+import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=pokeball-1';
 
 // Interior coordinates are local: the street entrance is centred on the south
 // wall. The staircase climbs the east wall to a landing; the receptionist
@@ -13,6 +13,7 @@ export const HOTEL={width:20,depth:16,height:7,
   lift:{x:12,z:16,halfWidth:1.05},liftButton:{x:13.53,z:16,halfWidth:.08},
   palms:[{x:.9,z:3.5,radius:.45},{x:.9,z:9,radius:.45}],
   lamp:{x:1.42,z:12.38,radius:.3},bell:{x:6,z:12.5,radius:.25},
+  pokeBall:{x:4.4,z:12.55,radius:.18},
   chandelier:{x:10,z:7}};
 export const RECEPTIONISTS=[NURSE_JOY,BLONDE_RECEPTIONIST];
 // Lobby walls are lit up from their dark facade colours, as if by the chandelier.
@@ -150,7 +151,7 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   if(lampOn){quad(lamp.x-.45,1.302,desk.z+.05,.9,.75,'#c4b494');quad(lamp.x-.25,1.303,desk.z+.2,.5,.42,'#dccb9f');}
   cylinder(2.6,1.3,12.5,.09,.3,'#7f95a0','#9fb3bd',.06);
   for(const [dx,dz,color] of [[0,0,'#9c2a3e'],[-.07,.04,'#ad3c52'],[.07,-.03,'#9c2a3e']])box(2.56+dx,1.62,12.46+dz,.09,.09,.09,color);
-  drawStaff({face,box},at,receptionist,{x:at.x+.8,y:1.48,z:desk.z+.55});
+  drawStaff({face,box},at,receptionist,{...HOTEL.pokeBall,y:1.48});
 
   // A velvet sofa against the west wall, facing the hall.
   const sofa=HOTEL.sofa;

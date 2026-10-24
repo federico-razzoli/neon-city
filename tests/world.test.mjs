@@ -1884,6 +1884,40 @@ test('the bartender is reached across the bar, though not as far without one',as
   assert.equal(facingBartenderAcrossBar({x:16.5,z:12.6,angle:Math.atan2(bartender.x-16.5,bartender.z-12.6)}),false);
 });
 
+test('Nurse Joy\'s Poké Ball stays on the counter, from either side of the bar or desk',async()=>{
+  const {PUB,NURSE_JOY,BLONDE_RECEPTIONIST,POKE_BALL_REPLY,hasPokeBall,facingPokeBall,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
+  const {HOTEL,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  assert.equal(POKE_BALL_REPLY,"I SHOULDN'T TAKE IT.");
+  assert.equal(hasPokeBall(NURSE_JOY),true);
+  for(const type of [0,1,2,BLONDE_RECEPTIONIST])assert.equal(hasPokeBall(type),false);
+  const aim=(p,ball)=>({...p,angle:Math.atan2(ball.x-p.x,ball.z-p.z)});
+  // Pressed against the bar from the customers' side, straight on or from along it.
+  const ball=PUB.pokeBall;
+  for(const dx of [0,-1.5,1.5]){
+    const p={x:ball.x+dx,z:11,angle:0};moveInPub(p,0,3);
+    assert.equal(facingPokeBall(aim(p,ball),ball),true);
+    assert.equal(facingPokeBall({...aim(p,ball),angle:aim(p,ball).angle+Math.PI/2},ball),false,'looking aside');
+  }
+  // From behind the bar, along the staff aisle.
+  const behind={x:ball.x+3,z:PUB.bartender.z,angle:-Math.PI/2};moveInPub(behind,-3,0);
+  assert.ok(behind.z>PUB.bar.z+PUB.bar.d);
+  assert.equal(facingPokeBall(aim(behind,ball),ball),true);
+  assert.equal(facingPokeBall({...aim(behind,ball),angle:aim(behind,ball).angle+Math.PI},ball),false,'turned away');
+  assert.equal(facingPokeBall(aim({x:ball.x,z:9},ball),ball),false,'too far back in the room');
+  // Aiming at Nurse Joy beside the ball still talks to her.
+  const front={x:PUB.bartender.x,z:12.6,angle:0};
+  assert.equal(facingPokeBall(front,ball),false);
+  assert.equal(facingBartenderAcrossBar(front),true);
+  // In the hotel the desk is reached from the lobby side.
+  const desk=HOTEL.pokeBall;
+  for(const dx of [0,-1.5,1.5]){
+    const p={x:desk.x+dx,z:10,angle:0};moveInHotel(p,0,3);
+    assert.ok(p.z<HOTEL.desk.z);
+    assert.equal(facingPokeBall(aim(p,desk),desk),true);
+  }
+  assert.equal(facingPokeBall(aim({x:HOTEL.bell.x,z:11.6},HOTEL.bell),desk),false,'ringing the bell instead');
+});
+
 test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
   const {BARTENDER_TALK,BartenderTalk}=await import('../neon-city/pub-interior.js');
   assert.deepEqual(BARTENDER_TALK.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','ABOUT THE STAFF ROOM...','BYE!']);

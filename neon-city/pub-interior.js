@@ -10,6 +10,8 @@ export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,ang
   shelves:{x:2,z:17.25,w:13,d:.65},
   chandeliers:[{x:9,z:6},{x:9,z:11},{x:24,z:5},{x:24,z:13}],
   bartender:{x:9,z:15.5,radius:.53},
+  // Where Nurse Joy keeps her Poké Ball on the bar, beside her.
+  pokeBall:{x:9.8,z:13.55,radius:.18},
   tables:[{x:4,z:4,radius:1.6},{x:14,z:4,radius:1.6},{x:4,z:9,radius:1.6},
     {x:22,z:3.5,radius:1.6},{x:27,z:3.5,radius:1.6},{x:24.5,z:9,radius:1.6},
     {x:22,z:14.5,radius:1.6},{x:27,z:14.5,radius:1.6}]};
@@ -101,6 +103,16 @@ export function facingBartenderAcrossBar(player){
   if(x<bar.x||x>bar.x+bar.w)return false;
   return facingNearest(player,[{...bartender,reach:1.2+bartender.z-bar.z}])!=null;
 }
+// Staff who keep a Poké Ball on the counter in front of them, and won't part with it.
+export const POKE_BALL_REPLY="I SHOULDN'T TAKE IT.";
+// The crosshair has to sit on the ball itself, so the staff beside it can
+// still be addressed. It is in reach across the counter from either side.
+export function facingPokeBall(player,ball){
+  const dx=ball.x-player.x,dz=ball.z-player.z;
+  const ahead=dx*Math.sin(player.angle)+dz*Math.cos(player.angle);
+  if(ahead<=0||Math.hypot(dx,dz)>ball.radius+2)return false;
+  return Math.abs(dx*Math.cos(player.angle)-dz*Math.sin(player.angle))<=ball.radius+.12;
+}
 // Pick a line, hear the answer (Space for each further line), then pick again.
 // A line that ends the chat does so once its answer has been heard.
 export const BARTENDER_TALK=[
@@ -180,9 +192,12 @@ export function drawRod(face,a,b,r,color){
   for(let i=0;i<8;i++)face([point(a,i),point(a,i+1),point(b,i+1),point(b,i)],color);
 }
 // Staff standing behind a counter, facing -z. Types 0-3 tend the pub bar;
-// type 3 is Nurse Joy, whose Poké Ball rests at counter (x, y, z). Type 4 is
-// the blonde hotel receptionist.
+// type 3 is Nurse Joy. Type 4 is the blonde hotel receptionist. Staff with
+// a Poké Ball have it drawn at counter (x, y, z).
 export const NURSE_JOY=3,BLONDE_RECEPTIONIST=4;
+// Optional per-staff traits; anyone missing here has the defaults.
+const STAFF_TRAITS={[NURSE_JOY]:{pokeBall:true}};
+export const hasPokeBall=type=>STAFF_TRAITS[type]?.pokeBall??false;
 export function drawStaff({face,box},at,type,counter){
   const {x,z}=at;
   const staffScale=4/3;
@@ -229,14 +244,8 @@ export function drawStaff({face,box},at,type,counter){
     staffCylinder(x,1.76,z+.15,.22,.22,hair);
     for(const side of [-1,1])staffCylinder(x+side*.22,1.49,z,.055,.07,'#d8ba6e');
   }
-  if(nurse){
-    // Pink hair wraps the rear half of the head down to the nape.
-    for(let i=0;i<12;i++){
-      const point=(angle,y)=>({x:x+Math.cos(angle)*(head+.025),y,z:z+Math.sin(angle)*(head+.025)});
-      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
-      staffFace([point(a,1.48),point(b,1.48),point(b,1.84),point(a,1.84)],hair);
-    }
-    // A red-and-white Poké Ball rests on the countertop only for Nurse Joy.
+  if(hasPokeBall(type)){
+    // A red-and-white Poké Ball rests on the countertop.
     const ball={...counter,r:.18};
     const latitudes=[-Math.PI/2,-1.2,-.9,-.6,-.3,-.09,.09,.3,.6,.9,1.2,Math.PI/2];
     const spherePoint=(latitude,angle)=>({x:ball.x+ball.r*Math.cos(latitude)*Math.cos(angle),y:ball.y+ball.r*Math.sin(latitude),z:ball.z+ball.r*Math.cos(latitude)*Math.sin(angle)});
@@ -247,6 +256,14 @@ export function drawStaff({face,box},at,type,counter){
     }
     const button=(r,offset,color)=>face(Array.from({length:20},(_,i)=>({x:ball.x+Math.cos(i*Math.PI/10)*r,y:ball.y+Math.sin(i*Math.PI/10)*r,z:ball.z-ball.r-offset})),color);
     button(.06,.004,'#25232b');button(.04,.008,'#f8f2df');button(.023,.012,'#d3d4ce');
+  }
+  if(nurse){
+    // Pink hair wraps the rear half of the head down to the nape.
+    for(let i=0;i<12;i++){
+      const point=(angle,y)=>({x:x+Math.cos(angle)*(head+.025),y,z:z+Math.sin(angle)*(head+.025)});
+      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      staffFace([point(a,1.48),point(b,1.48),point(b,1.84),point(a,1.84)],hair);
+    }
     // Nurse Joy's pink side loops, swept fringe, white cap and pink uniform.
     for(const side of [-1,1]){
       staffCylinder(x+side*.27,1.55,z+.04,.13,.28,hair,'#ffa1bc');
@@ -417,7 +434,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
   }
   pint(7.1,1.3,13.35);
   // Four regulars behind the bar: chosen once when this pub is first entered.
-  drawStaff({face,box},PUB.bartender,bartenderType,{x:PUB.bartender.x+.8,y:1.48,z:13.55});
+  drawStaff({face,box},PUB.bartender,bartenderType,{...PUB.pokeBall,y:1.48});
   // Suspended antique brass chandeliers, each with six curved candle arms.
   const rod=(...args)=>drawRod(face,...args);
   for(const {x,z} of PUB.chandeliers){
