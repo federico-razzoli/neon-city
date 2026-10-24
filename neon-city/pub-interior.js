@@ -81,7 +81,7 @@ export function pubPersonBlocks(start,end,person){
   const length=dx*dx+dz*dz,t=length?Math.max(0,Math.min(1,((person.x-start.x)*dx+(person.z-start.z)*dz)/length)):0;
   return Math.hypot(start.x+dx*t-person.x,start.z+dz*t-person.z)<clearance;
 }
-// Occupied chairs the player runs into are added to bumpedSeats, once each.
+// Chair and table bumps report the affected occupied seat once each.
 export function moveInPub(player,dx,dz,patrons=[],walker,bumpedSeats=[]){
   const radius=.3,obstacles=[...PUB.walls,PUB.bar,PUB.shelves],chairs=pubChairs();
   let bumpedPerson=false;
@@ -89,7 +89,18 @@ export function moveInPub(player,dx,dz,patrons=[],walker,bumpedSeats=[]){
   const clear=(x,z)=>{
     if(pubPersonBlocks(player,{x,z},walker)){bumpedPerson=true;return false;}
     if(x<radius||x>PUB.width-radius||z<radius||z>PUB.depth-radius)return false;
-    if(obstacles.some(b=>overlaps(x,z,b))||PUB.tables.some(b=>Math.hypot(x-b.x,z-b.z)<b.radius+radius))return false;
+    if(obstacles.some(b=>overlaps(x,z,b)))return false;
+    const hitTable=PUB.tables.findIndex(b=>Math.hypot(x-b.x,z-b.z)<b.radius+radius);
+    if(hitTable!==-1){
+      // Only the table edge near a patron forgives an imprecise approach.
+      const nearest=chairs.filter(b=>b.tableIndex===hitTable&&patrons[b.tableIndex]?.[b.seat]!=null)
+        .sort((a,b)=>Math.hypot(x-a.x-a.w/2,z-a.z-a.d/2)-Math.hypot(x-b.x-b.w/2,z-b.z-b.d/2))[0];
+      if(nearest&&Math.hypot(x-nearest.x-nearest.w/2,z-nearest.z-nearest.d/2)<=1.6){
+        if(!bumpedSeats.includes(nearest))bumpedSeats.push(nearest);
+        bumpedPerson=true;
+      }
+      return false;
+    }
     const hitChairs=chairs.filter(b=>overlaps(x,z,b));
     const hitBartender=Math.hypot(x-PUB.bartender.x,z-PUB.bartender.z)<PUB.bartender.radius+radius;
     const hitPatrons=hitChairs.filter(b=>patrons[b.tableIndex]?.[b.seat]!=null);

@@ -1711,6 +1711,18 @@ test('pub collisions report seated patrons and bartender but not empty furniture
   assert.deepEqual(empty,[],'empty chairs are not reported');
 });
 
+test('pub table bumps only report nearby occupants and keep the table solid',async()=>{
+  const {PUB,moveInPub}=await import('../neon-city/pub-interior.js');
+  for(const [occupants,z,expected] of [[[0,null],2.6,0],[[null,1],5.4,1],[[0,1],2.6,0],[[0,1],5.4,1],[[0,1],4,null],[[0,1],3.5,null],[[0,1],4.5,null],[[0,null],5.4,null],[[null,1],2.6,null],[[null,null],2.6,null]]){
+    const patrons=PUB.tables.map(()=>[null,null]);patrons[0]=occupants;
+    const player={x:1.8,z},seats=[];
+    assert.equal(moveInPub(player,1.5,0,patrons,null,seats),expected!==null);
+    assert.deepEqual(seats.map(c=>[c.tableIndex,c.seat]),expected===null?[]:[[0,expected]]);
+    assert.ok(Math.hypot(player.x-4,player.z-4)>=1.9,'table still blocks movement');
+    assert.equal(moveInPub(player,0,0,patrons),false,'standing at a table is not a bump');
+  }
+});
+
 test('three bumps into a seated patron make them leave half the time, counted per seat',async()=>{
   const {PubLife}=await import('../neon-city/pub-life.js');
   const {PUB,pubChairs}=await import('../neon-city/pub-interior.js');
