@@ -1826,6 +1826,89 @@ test('staff door is reachable beside shelves, stays solid and requires facing it
   assert.equal(facingStaffDoor({...p,x:14}),false,'shelves are not the door');
 });
 
+test('the backbar bottles answer from across the bar and from behind it',async()=>{
+  const {PUB,BOTTLES_REPLY,facingBottles,facingStaffDoor,moveInPub}=await import('../neon-city/pub-interior.js');
+  const {shelves,bar}=PUB;
+  assert.equal(BOTTLES_REPLY,'SO MANY BOTTLES!');
+  // At the bar, looking across it: anywhere along the shelves.
+  for(const x of [shelves.x+.3,9,shelves.x+shelves.w-.3]){
+    const p={x,z:12,angle:0};moveInPub(p,0,2);
+    assert.ok(p.z<bar.z,'still in front of the bar');
+    assert.equal(facingBottles(p),true);
+    assert.equal(facingBottles({...p,angle:Math.PI}),false,'turned away');
+  }
+  // Looking past either end of the shelves, or from too far back in the room.
+  assert.equal(facingBottles({x:9,z:12.5,angle:Math.atan2(-9,4.75)}),false);
+  assert.equal(facingBottles({x:9,z:8,angle:0}),false,'out of reach');
+  // Behind the bar, by the staff door, the door comes first; facing the shelves, the bottles.
+  const door={x:PUB.staffDoor.x,z:16.5,angle:0};
+  assert.equal(facingStaffDoor(door),true);
+  assert.equal(facingBottles(door),false);
+  assert.equal(facingBottles({x:14,z:16.5,angle:0}),true);
+});
+
+test('the bartender sends the player back to the customers\' side from behind the bar',async()=>{
+  const {PUB,BARTENDER_REPLY,facingBartender,facingBottles,behindBar,moveInPub}=await import('../neon-city/pub-interior.js');
+  const {bartender}=PUB;
+  assert.equal(BARTENDER_REPLY,'CLIENTS ON THE OTHER SIDE, PLEASE.');
+  // Walk up to the bartender from either side along the staff aisle.
+  for(const side of [-1,1]){
+    const p={x:bartender.x+side*2,z:bartender.z,angle:-side*Math.PI/2};
+    moveInPub(p,-side*2,0);
+    assert.ok(behindBar(p));
+    assert.equal(facingBartender(p),true);
+    assert.equal(facingBartender({...p,angle:side*Math.PI/2}),false,'turned away');
+  }
+  // In front of the bar that reply is not given.
+  const front={x:bartender.x,z:12.6,angle:0};
+  assert.equal(behindBar(front),false);
+  assert.equal(facingBartender(front),false);
+  assert.equal(facingBartender({x:bartender.x+4,z:bartender.z,angle:-Math.PI/2}),false,'out of reach');
+});
+
+test('the bartender is reached across the bar, though not as far without one',async()=>{
+  const {PUB,facingBartenderAcrossBar,facingNearest,moveInPub}=await import('../neon-city/pub-interior.js');
+  const {bartender,bar}=PUB;
+  // Pressed against the counter, straight on or from along it.
+  for(const x of [bartender.x,bartender.x-2.5,bartender.x+2.5]){
+    const p={x,z:11,angle:0};moveInPub(p,0,3);
+    assert.ok(p.z<bar.z,'held in front of the bar');
+    p.angle=Math.atan2(bartender.x-p.x,bartender.z-p.z);
+    assert.equal(facingNearest(p,[bartender]),null,'too far for the usual reach');
+    assert.equal(facingBartenderAcrossBar(p),true);
+    assert.equal(facingBartenderAcrossBar({...p,angle:p.angle+Math.PI/2}),false,'looking aside');
+  }
+  assert.equal(facingBartenderAcrossBar({x:bartender.x,z:9,angle:0}),false,'too far back in the room');
+  // Behind the bar, or past its open end, the counter does not stretch the reach.
+  assert.equal(facingBartenderAcrossBar({x:bartender.x+3,z:bartender.z,angle:-Math.PI/2}),false);
+  assert.equal(facingBartenderAcrossBar({x:16.5,z:12.6,angle:Math.atan2(bartender.x-16.5,bartender.z-12.6)}),false);
+});
+
+test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
+  const {BARTENDER_TALK,BartenderTalk}=await import('../neon-city/pub-interior.js');
+  assert.deepEqual(BARTENDER_TALK.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','ABOUT THE STAFF ROOM...','BYE!']);
+  const talk=new BartenderTalk();
+  assert.equal(talk.selected,0);assert.equal(talk.line,null);
+  talk.confirm();
+  assert.equal(talk.line,'HELLO THERE!');
+  talk.move(1);assert.equal(talk.selected,0,'no choosing while the bartender speaks');
+  talk.confirm();assert.equal(talk.line,null,'back to the choices');
+  talk.move(1);talk.confirm();
+  assert.equal(talk.line,'THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.');
+  talk.confirm();talk.move(1);talk.confirm();
+  assert.equal(talk.line,'THE STAFF ROOM IS A PRIVATE SPACE.');
+  talk.confirm();assert.equal(talk.line,'IT HIDES NO SECRET, ANYWAY.');
+  talk.confirm();assert.equal(talk.line,null);
+  assert.equal(talk.over,false);
+  talk.move(1);assert.equal(talk.selected,3);
+  talk.move(1);assert.equal(talk.selected,0,'the choices wrap around');
+  talk.move(-1);talk.confirm();
+  assert.equal(talk.line,'SEE YOU LATER!');
+  assert.equal(talk.over,false,'the goodbye is heard first');
+  talk.confirm();
+  assert.equal(talk.over,true,'then BYE! ends the chat');
+});
+
 test('small sign strokes retain coverage between pixels and respect foreground occlusion',async()=>{
   const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
   let frame;const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>frame=f},8,8);
@@ -2094,6 +2177,42 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   const press=()=>{events.keydown(space);tick(ms+=20);events.keyup(space);tick(ms+=20);};
   press();// starts the game
   sandbox.game.goToPub();
+  // Space at the bar, facing the backbar away from the bartender.
+  Object.assign(player,{x:3,z:12.6,angle:0});
+  press();
+  assert.equal(element('#message').textContent,'SO MANY BOTTLES!');
+  // Space behind the bar, facing the bartender.
+  Object.assign(player,{x:pubInterior.PUB.bartender.x+1.2,z:pubInterior.PUB.bartender.z,angle:-Math.PI/2});
+  press();
+  assert.equal(element('#message').textContent,'CLIENTS ON THE OTHER SIDE, PLEASE.');
+  // From the customers' side a chat begins, and the pub holds still for it.
+  const key=k=>{const e={key:k,code:k===' '?'Space':k,repeat:false,preventDefault(){}};events.keydown(e);tick(ms+=20);events.keyup(e);tick(ms+=20);};
+  Object.assign(player,{x:pubInterior.PUB.bartender.x,z:12.6,angle:0});
+  tick(ms+=20);
+  press();
+  const talkBox=element('#bartender-talk');
+  assert.equal(talkBox.hidden,false);
+  assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE TOILET\.\.\.[\s\S]*ABOUT THE STAFF ROOM\.\.\.[\s\S]*BYE!/);
+  key('ArrowDown');key('ArrowDown');
+  assert.match(talkBox.innerHTML,/aria-current="true">ABOUT THE STAFF ROOM/);
+  key('ArrowUp');events.keydown(space);tick(ms+=20);
+  assert.equal(talkBox.innerHTML,'<p class="talk-answer">THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.</p>');
+  for(let i=0;i<20;i++)tick(ms+=200);
+  assert.match(talkBox.innerHTML,/PARANORMAL/,'the answer waits for Space');
+  assert.equal(element('#message').textContent,'','answers stay in the box');
+  events.keyup(space);
+  press();key('ArrowDown');press();
+  assert.equal(talkBox.innerHTML,'<p class="talk-answer">THE STAFF ROOM IS A PRIVATE SPACE.</p>');
+  press();
+  assert.equal(talkBox.innerHTML,'<p class="talk-answer">IT HIDES NO SECRET, ANYWAY.</p>');
+  press();
+  key('ArrowUp');key('ArrowUp');
+  assert.match(talkBox.innerHTML,/aria-current="true">HEY!/);
+  key('4');
+  assert.equal(talkBox.innerHTML,'<p class="talk-answer">SEE YOU LATER!</p>');
+  press();
+  assert.equal(talkBox.hidden,true,'BYE! ends the chat');
+  assert.deepEqual({x:player.x,z:player.z},{x:pubInterior.PUB.bartender.x,z:12.6});
   Object.assign(player,{x:pubInterior.PUB.toiletDoor.x,z:16.5,angle:0});
   press();
   assert.equal(location(),'THE PUB / LAVATORY');

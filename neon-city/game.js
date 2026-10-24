@@ -12,11 +12,11 @@ import {WalkerTalk,talksHere} from './walker-talk.js?v=lavatory-talk-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=lavatory-1';
-import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=taps-2';
+import {PUB,BOTTLES_REPLY,BARTENDER_REPLY,BartenderTalk,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=bartender-3';
+import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=bartender-3';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
-import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=lavatory-1';
+import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=bartender-3';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
@@ -27,9 +27,9 @@ import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
-const pubMenu=document.querySelector('#pub-menu');
+const pubMenu=document.querySelector('#pub-menu'),talkBox=document.querySelector('#bartender-talk');
 let insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,lavatoryTaps=[],currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
-let banshee=null,bansheeMisses=0;
+let banshee=null,bansheeMisses=0,bartenderTalk=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
@@ -103,6 +103,32 @@ function togglePubMenu(){
   else{const pub=nearPubMenu();if(!pub)return;document.querySelector('#pub-menu .menu-eyebrow').textContent=`${pubName(pub)} · DRINKS`;pubMenu.showModal();arcadeAmbience.mute();parkBirds.mute();document.querySelector('#pace').hidden=true;}
 }
 pubMenu.addEventListener('cancel',e=>e.preventDefault());
+// Talking to the bartender holds the pub still, as the drinks menu holds the street.
+function talkToBartender(){
+  keys.clear();shiftKeys.clear();coverPressed=false;notice=0;
+  bartenderTalk=new BartenderTalk();document.querySelector('#pace').hidden=true;showBartenderTalk();
+}
+function answerBartender(choice){
+  bartenderTalk.confirm(choice);
+  if(bartenderTalk.over){bartenderTalk=null;canvas.focus();}
+  showBartenderTalk();
+}
+function showBartenderTalk(){
+  const talk=bartenderTalk;
+  talkBox.hidden=!talk;document.querySelector('#touch').hidden=!!talk;
+  document.querySelector('#message').textContent='';
+  if(!talk)return;
+  // The answer takes the place of the choices, in the same box.
+  talkBox.innerHTML=talk.line?`<p class="talk-answer">${talk.line}</p>`:
+    `<ol>${talk.script.map((option,i)=>`<li><button type="button" data-choice="${i}"${i===talk.selected?' aria-current="true"':''}>${option.ask}</button></li>`).join('')}</ol>`;
+}
+// A tap on a choice says it; a tap anywhere on an answer moves the chat on.
+talkBox.addEventListener('click',e=>{
+  const button=e.target.closest('button');
+  if(!bartenderTalk||!button&&!bartenderTalk.line)return;
+  canvas.focus();
+  answerBartender(button?.dataset.choice==null?undefined:Number(button.dataset.choice));
+});
 const city=new City(),player={x:10,z:4,angle:.12},keys=new Set(),shiftKeys=new Set();
 const roadTraffic=new Traffic();
 const W=640,H=360,F=355,horizon=164;
@@ -442,11 +468,20 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){if(banshee||pubMenu.open)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){if(pubMenu.open)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+function pause(){if(banshee||pubMenu.open||bartenderTalk)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function play(){if(pubMenu.open||bartenderTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
-window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
+window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}
+if(bartenderTalk){
+  e.preventDefault();
+  if(e.repeat)return;
+  if(k==='Escape'){bartenderTalk=null;canvas.focus();showBartenderTalk();}
+  else if(k===' '){answerBartender();startSpaceHeld=!bartenderTalk;}
+  else if(/^[1-9]$/.test(k)&&!bartenderTalk.line&&k<=bartenderTalk.script.length)answerBartender(Number(k)-1);
+  else{const step={ArrowUp:-1,w:-1,ArrowDown:1,s:1}[k];if(step){bartenderTalk.move(step);showBartenderTalk();}}
+  return;
+}if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
 if(k===' '&&!running){
   e.preventDefault();
   if(!e.repeat){play();startSpaceHeld=true;}
@@ -463,17 +498,17 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){if(useSeat())return;if(useDoor())return;if(insideHotel){if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(useSeat())return;if(useDoor())return;if(insideHotel){if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToBartender();else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
-window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open&&!banshee)syncShift(e);});
+window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open&&!banshee&&!bartenderTalk)syncShift(e);});
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 for(const button of document.querySelectorAll('[data-key]')){
-  button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||banshee)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
+  button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||banshee||bartenderTalk)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
 function tick(now){
@@ -486,7 +521,7 @@ function tick(now){
     document.querySelector('#message').textContent='';
     if(!bansheeFrame((now-banshee.started)/1000).active){banshee=null;notice=3.5;noticeText='WTF WAS THAT??...';}
   }
-  if(running&&!pubMenu.open&&!banshee){
+  if(running&&!pubMenu.open&&!banshee&&!bartenderTalk){
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     const pace=!playerSeat&&keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;

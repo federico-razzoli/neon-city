@@ -52,22 +52,23 @@ export function createPubPatrons(random=Math.random){
     return seats;
   });
 }
-export function facingDoorway(player,target,halfWidth){
+export function facingDoorway(player,target,halfWidth,reach=3){
   const dz=target.z-player.z,forwardZ=Math.cos(player.angle);
   // Aim at the whole doorway, rather than a shrinking cone around its centre.
   // The same facing direction stays valid as the player approaches the wall.
   if(dz*forwardZ<=0||Math.abs(forwardZ)<1e-6)return false;
   const distance=Math.hypot(Math.max(0,Math.abs(player.x-target.x)-halfWidth),dz);
-  if(distance>3)return false;
+  if(distance>reach)return false;
   const hitX=player.x+Math.sin(player.angle)*dz/forwardZ;
   return Math.abs(hitX-target.x)<=halfWidth+.15;
 }
 // The nearest round thing in reach and in view, with the same reach and cone as a pub chair.
+// A thing may stretch its reach, as the bartender does across the bar.
 export function facingNearest(player,things){
   let nearest=null,distance=Infinity;
   for(const thing of things){
     const dx=thing.x-player.x,dz=thing.z-player.z,gap=Math.hypot(dx,dz);
-    if(gap>thing.radius+1.2||gap>=distance)continue;
+    if(gap>thing.radius+(thing.reach??1.2)||gap>=distance)continue;
     const halfAngle=.45+Math.asin(Math.min(1,thing.radius/Math.max(gap,.001)));
     if(gap>thing.radius&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(halfAngle))continue;
     nearest=thing;distance=gap;
@@ -84,6 +85,39 @@ export function facingPubDoor(player,buildings){
 export const facingPubExit=player=>player.z>PUB.door.z&&facingDoorway(player,PUB.door,.7);
 export const facingStaffDoor=player=>player.z<PUB.staffDoor.z&&facingDoorway(player,PUB.staffDoor,.7);
 export const facingToiletDoor=player=>player.z<PUB.toiletDoor.z&&facingDoorway(player,PUB.toiletDoor,.7);
+// The bottles on the backbar, in view across the bar as well as behind it.
+export const BOTTLES_REPLY='SO MANY BOTTLES!';
+export const facingBottles=player=>player.z<PUB.shelves.z&&facingDoorway(player,{x:PUB.shelves.x+PUB.shelves.w/2,z:PUB.shelves.z},PUB.shelves.w/2,5);
+// Behind the bar the bartender waves the player back to the customers' side.
+export const BARTENDER_REPLY='CLIENTS ON THE OTHER SIDE, PLEASE.';
+export const behindBar=player=>player.z>PUB.bar.z+PUB.bar.d&&player.x<PUB.walls[0].x;
+export const facingBartender=player=>behindBar(player)&&facingNearest(player,[PUB.bartender])!=null;
+// From the customers' side the counter and the aisle behind it add to the usual reach.
+export function facingBartenderAcrossBar(player){
+  const {bar,bartender}=PUB;
+  if(player.z>=bar.z)return false;
+  // Talk across the counter itself, not around its open end.
+  const x=player.x+(bartender.x-player.x)*(bar.z-player.z)/(bartender.z-player.z);
+  if(x<bar.x||x>bar.x+bar.w)return false;
+  return facingNearest(player,[{...bartender,reach:1.2+bartender.z-bar.z}])!=null;
+}
+// Pick a line, hear the answer (Space for each further line), then pick again.
+// A line that ends the chat does so once its answer has been heard.
+export const BARTENDER_TALK=[
+  {ask:'HEY!',answer:['HELLO THERE!']},
+  {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.']},
+  {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.']},
+  {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
+export class BartenderTalk{
+  constructor(script=BARTENDER_TALK){this.script=script;this.selected=0;this.answer=[];this.over=false;}
+  get line(){return this.answer[0]??null;}
+  move(step){if(!this.line)this.selected=(this.selected+step+this.script.length)%this.script.length;}
+  confirm(choice=this.selected){
+    if(this.line)this.answer.shift();
+    else{this.selected=choice;this.answer=[...this.script[choice].answer];}
+    this.over=!this.line&&!!this.script[this.selected].ends;
+  }
+}
 export function pubPersonBlocks(start,end,person){
   if(!person)return false;
   const clearance=.85,dx=end.x-start.x,dz=end.z-start.z;
