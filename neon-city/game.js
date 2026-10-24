@@ -5,7 +5,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=staff-room-1';
-import {Traffic} from './traffic.js?v=hippie-van-1';
+import {Traffic} from './traffic.js?v=mercedes-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=start-sign-6';
@@ -318,6 +318,18 @@ function vanTexture(side){
   }
   return vanTextures[side]=canvas;
 }
+let mercedesGrilleTexture=null;
+function mercedesGrille(){
+  if(mercedesGrilleTexture)return mercedesGrilleTexture;
+  const canvas=document.createElement('canvas');canvas.width=192;canvas.height=96;
+  const g=canvas.getContext('2d');
+  g.fillStyle='#c9d0d6';g.fillRect(0,0,192,96);
+  g.fillStyle='#252c36';g.fillRect(6,6,180,84);
+  g.strokeStyle='#aebbc7';g.lineWidth=4;
+  for(const y of [22,39,56,73]){g.beginPath();g.moveTo(10,y);g.lineTo(182,y);g.stroke();}
+  g.beginPath();g.moveTo(96,6);g.lineTo(96,90);g.stroke();
+  return mercedesGrilleTexture=canvas;
+}
 function car(c){
   vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
   const base=groundHeight(c.x,c.z),slope=c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
@@ -338,6 +350,48 @@ function car(c){
       const a=side*1.051,start=side*(c.axis?-1:1)*2.35;
       face([point(a,start,.25,0,192),point(a,-start,.25,384,192),point(a,-start,2.1,384,0),point(a,start,2.1,0,0)],'#29a99c',vanTexture('side'));
       part(0,side*2.38,.29,2.1,.12,.14,'#deded1');
+    }
+  }else if(c.type==='mercedes'){
+    // Low white saloon with a long bonnet, dark glass, and chrome trim.
+    part(0,0,.25,2.1,4.7,.65,'#e5e9ee','#ffffff');
+    part(0,-.3,.9,1.82,2.55,.56,'#354653','#e8edf3');
+    part(0,-.3,1.46,1.86,2.58,.09,'#f1f3f6','#ffffff');
+    for(const side of [-1,1]){
+      for(const along of [-1.54,-.35,.94])part(side*.92,along,.9,.07,.09,.57,'#edf0f4');
+      part(side*1.055,0,.73,.04,4.25,.055,'#bcc9d4');
+      for(const along of [-.85,.45])part(side*.94,along,.85,.055,.23,.045,'#d8e2e9');
+      part(side*.98,.85,1.01,.22,.26,.13,'#f4f5f7');
+      part(side*.73,-2.37,.53,.46,.06,.22,'#c63448');
+    }
+    for(const along of [-2.38,2.38])part(0,along,.3,2.02,.1,.12,'#aebbc7');
+    const left=c.dir*(c.axis?-1:1)*.5;
+    const point=(across,y,u,v)=>({x:c.x+(c.axis?2.401*c.dir:across),z:c.z+(c.axis?across:2.401*c.dir),y,u,v});
+    face([point(left,.43,0,96),point(-left,.43,192,96),point(-left,.86,192,0),point(left,.86,0,0)],'#c9d0d6',mercedesGrille());
+    // Freestanding chrome ring and star mounted above the front of the bonnet.
+    part(0,2.16,.9,.14,.14,.035,'#bdcad5');
+    part(0,2.16,.935,.035,.035,.1,'#e4edf5');
+    const ornamentPoint=(across,y,along)=>({
+      x:c.x+(c.axis?along*c.dir:across),
+      z:c.z+(c.axis?across:along*c.dir),y
+    });
+    const radius=.15,inner=.127,centre=1.18;
+    for(const along of [2.14,2.18]){
+      for(let i=0;i<24;i++){
+        const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+        face([[radius,a],[radius,b],[inner,b],[inner,a]].map(([r,t])=>
+          ornamentPoint(Math.cos(t)*r,centre+Math.sin(t)*r,along)),'#e4edf5');
+      }
+      for(let i=0;i<3;i++){
+        const a=Math.PI/2+i*Math.PI*2/3,dx=Math.cos(a),dy=Math.sin(a),half=.012;
+        face([[0,-half],[inner,-half],[inner,half],[0,half]].map(([length,offset])=>
+          ornamentPoint(dx*length-dy*offset,centre+dy*length+dx*offset,along)),'#e4edf5');
+      }
+    }
+    // Give the ring depth so the upright ornament also reads from the side.
+    for(let i=0;i<24;i++){
+      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      face([[a,2.14],[b,2.14],[b,2.18],[a,2.18]].map(([t,along])=>
+        ornamentPoint(Math.cos(t)*radius,centre+Math.sin(t)*radius,along)),'#aebfcd');
     }
   }else if(c.type==='taxi'){
     part(0,0,.25,2.1,4.7,.78,'#14151c','#242630');

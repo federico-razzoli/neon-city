@@ -663,9 +663,9 @@ export function traffic(chunk,time) {
     const carId=(axis?chunk.x:chunk.z)-Math.floor(phase/64);
     const appearance=random(Math.imul(carId,73856093)^Math.imul(lane,19349663)^Math.imul(axis+1,83492791)^Math.imul(dir,2654435761));
     const colour=appearance();
-    // Relative weights: normal 10, London taxi 1, hippie van 1.
-    const model=appearance()*12;
-    const type=model<1?'taxi':model<2?'hippie-van':'normal';
+    // Relative weights: normal 10, London taxi 1, hippie van 1, Mercedes 1.
+    const model=appearance()*13;
+    const type=model<1?'taxi':model<2?'hippie-van':model<3?'mercedes':'normal';
     cars.push({x:chunk.x*64+(axis?t:dir*3),z:chunk.z*64+(axis?-dir*3:t),axis,dir,type,color:['#e94054','#397fe0','#f173bc','#43c18b'][Math.floor(colour*4)]});
   }
   return cars;
