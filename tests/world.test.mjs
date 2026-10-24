@@ -311,7 +311,8 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const {register}=await import('../neon-city/register.js');
   for(const key in register)delete register[key];
-  const events={},elements=new Map();let covers=0,bells=0;
+  const {LOBBY_MUSIC}=await import('../neon-city/lobby-music.js');
+  const events={},elements=new Map(),musicVolumes=[];let covers=0,bells=0;
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
@@ -320,7 +321,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},LobbyMusic:class{prepare(){}update(context,volume){musicVolumes.push(volume);}mute(){}},LOBBY_MUSIC,parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -333,9 +334,11 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   let ms=0;
   const press=()=>{events.keydown(space);tick(ms+=20);events.keyup(space);tick(ms+=20);};
   press();// starts the game
+  assert.equal(musicVolumes.at(-1),0,'no music on the street');
   Object.assign(player,{x:23,z:12.5,angle:0});
   press();
   assert.equal(location(),'HOTEL / LOBBY');
+  assert.ok(musicVolumes.at(-1)>0&&musicVolumes.at(-1)===LOBBY_MUSIC.volume,'ambient music in the lobby');
   assert.deepEqual({x:player.x,z:player.z,angle:player.angle},hotelInterior.HOTEL.spawn);
   const receptionist=hotel.receptionist;
   assert.ok(hotelInterior.RECEPTIONISTS.includes(receptionist),'a receptionist is on duty');
@@ -457,6 +460,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   Object.assign(player,{x:10,z:1.5,angle:Math.PI});
   press();
   assert.match(location(),/^MIDNIGHT DISTRICT/);
+  assert.equal(musicVolumes.at(-1),0,'the music stays in the hotel');
   assert.ok(Math.abs(player.x-23)<1e-9&&Math.abs(player.z-12.5)<.1,'back outside the doors');
   assert.ok(Math.abs(player.angle-Math.PI)<1e-9,'facing the street');
   Object.assign(player,{x:23,z:12.5,angle:0});
@@ -1051,7 +1055,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
   const sandbox={START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},LobbyMusic:class{prepare(){}update(){}mute(){}},LOBBY_MUSIC:(await import('../neon-city/lobby-music.js')).LOBBY_MUSIC,parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -1526,7 +1530,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {hotelLook}=await import('../neon-city/hotel.js');
   const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},LobbyMusic:class{prepare(){}update(){}mute(){}},LOBBY_MUSIC:(await import('../neon-city/lobby-music.js')).LOBBY_MUSIC,parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -2493,7 +2497,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(context,volume){tapVolumes.push(volume);}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(context,volume){tapVolumes.push(volume);}mute(){}},LobbyMusic:class{prepare(){}update(){}mute(){}},LOBBY_MUSIC:(await import('../neon-city/lobby-music.js')).LOBBY_MUSIC,parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -3743,4 +3747,46 @@ test('footpath walkers do not decide again on leaving, and can turn back when bl
   const last=positions.at(-1);
   assert.ok(walker.detour,'still on the footpath');
   assert.ok(Math.hypot(last.x-player.x,last.z-player.z)>2.5,'turned back along the footpath');
+});
+
+test('the hotel lobby plays a soft, seamless loop of ambient music',async()=>{
+  const {lobbyMusicSamples,LOBBY_MUSIC,LOOP_SECONDS}=await import('../neon-city/lobby-music.js');
+  const rate=LOBBY_MUSIC.rate,samples=lobbyMusicSamples();
+  assert.equal(samples.length,LOOP_SECONDS*rate);
+  assert.deepEqual(lobbyMusicSamples(),samples,'the same music every time');
+  let peak=0,step=0;
+  for(let i=0;i<samples.length;i++){
+    peak=Math.max(peak,Math.abs(samples[i]));
+    if(i)step=Math.max(step,Math.abs(samples[i]-samples[i-1]));
+  }
+  assert.ok(Math.abs(peak-LOBBY_MUSIC.peak)<1e-6,'quiet enough to talk over');
+  assert.ok(Math.abs(samples.at(-1)-samples[0])<step/4,'the loop joins up without a click');
+  // Never silent and never loud: the level drifts gently from second to second.
+  const levels=Array.from({length:LOOP_SECONDS},(_,s)=>Math.sqrt(samples.subarray(s*rate,(s+1)*rate).reduce((sum,v)=>sum+v*v,0)/rate));
+  assert.ok(Math.min(...levels)>.25*Math.max(...levels),'always some music');
+  for(let s=0;s<levels.length;s++)assert.ok(Math.abs(levels[s]-levels[(s+1)%levels.length])<.5*Math.max(...levels),'no sudden jumps in level');
+  // Written quickly enough to prepare when sound is switched on.
+  const started=performance.now();lobbyMusicSamples();
+  assert.ok(performance.now()-started<1000);
+});
+
+test('the lobby music is prepared ahead, fades in only in the lobby, and is muted on pause',async()=>{
+  const {LobbyMusic}=await import('../neon-city/lobby-music.js');
+  const calls=[];
+  const param=name=>({value:0,setTargetAtTime(v){calls.push([name,v]);}});
+  const context={state:'running',currentTime:0,destination:{},buffers:0,
+    createBuffer(channels,length){this.buffers++;return {getChannelData:()=>new Float32Array(length)};},
+    createGain:()=>({gain:param('gain'),connect(){}}),
+    createBufferSource:()=>({connect(){},start(){calls.push(['start']);}}),
+    createBiquadFilter:()=>({frequency:{value:0},connect(){}})};
+  const music=new LobbyMusic();
+  music.update(context,0);
+  assert.equal(context.buffers,0,'nothing is built before it is needed');
+  music.prepare(context);music.prepare(context);
+  assert.equal(context.buffers,1,'the loop is built once');
+  music.update(context,.8);
+  assert.deepEqual(calls,[['start'],['gain',.8]]);
+  music.update(context,0);music.mute();
+  assert.deepEqual(calls.slice(2),[['gain',0],['gain',0]]);
+  assert.equal(context.buffers,1);
 });
