@@ -1826,20 +1826,24 @@ test('staff door is reachable beside shelves, stays solid and requires facing it
   assert.equal(facingStaffDoor({...p,x:14}),false,'shelves are not the door');
 });
 
-test('the backbar bottles answer from across the bar and from behind it',async()=>{
+test('the backbar bottles answer from behind the bar, not from across it',async()=>{
   const {PUB,BOTTLES_REPLY,facingBottles,facingStaffDoor,moveInPub}=await import('../neon-city/pub-interior.js');
   const {shelves,bar}=PUB;
   assert.equal(BOTTLES_REPLY,'SO MANY BOTTLES!');
-  // At the bar, looking across it: anywhere along the shelves.
-  for(const x of [shelves.x+.3,9,shelves.x+shelves.w-.3]){
-    const p={x,z:12,angle:0};moveInPub(p,0,2);
-    assert.ok(p.z<bar.z,'still in front of the bar');
+  // In the staff aisle: anywhere along the shelves.
+  for(const x of [shelves.x+.3,shelves.x+shelves.w-.3]){
+    const p={x,z:15.5,angle:0};
     assert.equal(facingBottles(p),true);
     assert.equal(facingBottles({...p,angle:Math.PI}),false,'turned away');
   }
-  // Looking past either end of the shelves, or from too far back in the room.
-  assert.equal(facingBottles({x:9,z:12.5,angle:Math.atan2(-9,4.75)}),false);
-  assert.equal(facingBottles({x:9,z:8,angle:0}),false,'out of reach');
+  // At the bar, looking across it, the shelves are out of reach.
+  for(const x of [shelves.x+.3,9,shelves.x+shelves.w-.3]){
+    const p={x,z:12,angle:0};moveInPub(p,0,2);
+    assert.ok(p.z<bar.z,'still in front of the bar');
+    assert.equal(facingBottles(p),false);
+  }
+  // Looking past either end of the shelves.
+  assert.equal(facingBottles({x:9,z:15.5,angle:Math.atan2(-9,1.75)}),false);
   // Behind the bar, by the staff door, the door comes first; facing the shelves, the bottles.
   const door={x:PUB.staffDoor.x,z:16.5,angle:0};
   assert.equal(facingStaffDoor(door),true);
@@ -2211,8 +2215,12 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   const press=()=>{events.keydown(space);tick(ms+=20);events.keyup(space);tick(ms+=20);};
   press();// starts the game
   sandbox.game.goToPub();
-  // Space at the bar, facing the backbar away from the bartender.
+  // Space at the bar, facing the backbar away from the bartender: out of reach.
   Object.assign(player,{x:3,z:12.6,angle:0});
+  press();
+  assert.equal(element('#message').textContent,'');
+  // Space behind the bar, facing the backbar.
+  Object.assign(player,{x:3,z:15.5,angle:0});
   press();
   assert.equal(element('#message').textContent,'SO MANY BOTTLES!');
   // Space behind the bar, facing the bartender.

@@ -87,12 +87,13 @@ export function facingPubDoor(player,buildings){
 export const facingPubExit=player=>player.z>PUB.door.z&&facingDoorway(player,PUB.door,.7);
 export const facingStaffDoor=player=>player.z<PUB.staffDoor.z&&facingDoorway(player,PUB.staffDoor,.7);
 export const facingToiletDoor=player=>player.z<PUB.toiletDoor.z&&facingDoorway(player,PUB.toiletDoor,.7);
-// The bottles on the backbar, in view across the bar as well as behind it.
-export const BOTTLES_REPLY='SO MANY BOTTLES!';
-export const facingBottles=player=>player.z<PUB.shelves.z&&facingDoorway(player,{x:PUB.shelves.x+PUB.shelves.w/2,z:PUB.shelves.z},PUB.shelves.w/2,5);
 // Behind the bar the bartender waves the player back to the customers' side.
 export const BARTENDER_REPLY='CLIENTS ON THE OTHER SIDE, PLEASE.';
 export const behindBar=player=>player.z>PUB.bar.z+PUB.bar.d&&player.x<PUB.walls[0].x;
+// The bottles on the backbar. Across the bar only the bartender and what
+// stands on the counter are in reach, so they answer from behind it alone.
+export const BOTTLES_REPLY='SO MANY BOTTLES!';
+export const facingBottles=player=>behindBar(player)&&player.z<PUB.shelves.z&&facingDoorway(player,{x:PUB.shelves.x+PUB.shelves.w/2,z:PUB.shelves.z},PUB.shelves.w/2,5);
 export const facingBartender=player=>behindBar(player)&&facingNearest(player,[PUB.bartender])!=null;
 // From the customers' side the counter and the aisle behind it add to the usual reach.
 export function facingBartenderAcrossBar(player){

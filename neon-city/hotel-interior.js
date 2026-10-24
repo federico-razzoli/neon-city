@@ -1,4 +1,4 @@
-import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=pokeball-1';
+import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=pokeball-2';
 
 // Interior coordinates are local: the street entrance is centred on the south
 // wall. The staircase climbs the east wall to a landing; the receptionist
