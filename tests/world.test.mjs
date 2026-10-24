@@ -34,7 +34,7 @@ test('river ground visibility matches nearest surface from either bank and camer
   for(const row of RIVER_ROWS){
     const terrain=[];
     for(const part of [row,row+1])drawRiverTerrain(city.generate(0,part),{
-      quad:(x,elevation,z,w,d,color)=>terrain.push({x,elevation,z,w,d,color})
+      quad:(x,elevation,z,w,d,color)=>terrain.push({x,elevation,z,w,d,color}),face:()=>{}
     },0);
     for(const side of [0,1])for(const cameraX of [10,32,53])for(const offset of [9,13,16]){
       const camera={x:cameraX,y:1.65,z:row*BLOCK+(side?128-offset:offset)};
@@ -135,7 +135,7 @@ test('river geometry has recessed water, grassy banks, and elevated bridge decks
   const city=new City(1);
   for(const row of RIVER_ROWS)for(const part of [row,row+1]){
     const chunk=city.generate(0,part),quads=[],faces=[];
-    drawRiverTerrain(chunk,{quad:(...args)=>quads.push(args)},0);
+    drawRiverTerrain(chunk,{quad:(...args)=>quads.push(args),face:()=>{}},0);
     drawRiverStructures(chunk,{face:(vertices,color)=>faces.push({vertices,color}),box:()=>{} });
     assert.ok(quads.some(q=>q[1]===WATER_LEVEL));
     assert.ok(quads.some(q=>q[5]==='#345841'),'grass on each bank');
@@ -182,6 +182,63 @@ test('traffic moves, stays in roads and continues in neighboring blocks',()=>{
   const a=traffic({x:0,z:0},10),b=traffic({x:0,z:1},10),next=traffic({x:0,z:0},10.1);
   assert.equal(a.length,4);assert.notEqual(a[0].z,next[0].z);assert.equal(b[0].z-a[0].z,64);
   const colors=new Set();for(let i=-5;i<5;i++)for(const car of traffic({x:i,z:i},123)){colors.add(car.color);assert.ok(!new City(1).solid(car.x,car.z));}assert.equal(colors.size,4);
+});
+
+test('cars turn continuously onto either riverbank at streets without bridges',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  const city=new City(1);
+  for(const row of RIVER_ROWS)for(const dir of [-1,1])for(const street of [-64,64]){
+    const bank=(row+(dir<0?2:0))*BLOCK;
+    const car={x:street+dir*3,z:bank-dir*20,axis:0,dir,color:'#e94054'};
+    const simulation=new Traffic();simulation.cars=[car];
+    let curved=false;
+    for(let i=0;i<100;i++){
+      const before={...car};simulation.advance(.04);
+      curved||=!!car.turn;
+      assert.ok(Math.hypot(car.x-before.x,car.z-before.z)<=.401,'turn never teleports');
+      assert.ok(!city.solid(car.x,car.z,2.6),'car stays on road throughout the turn');
+      assert.equal(simulation.cars[0],car,'same car survives the junction');
+    }
+    assert.ok(curved,'steers around a curve');
+    assert.equal(car.axis,1);assert.equal(car.z,bank-dir*3);
+    assert.ok((car.x-street)*dir>20,'continues along the bank');
+    assert.equal(car.color,'#e94054');
+  }
+});
+
+test('riverside turns wait for approaching traffic, queue, and resume after a safe gap',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const dir of [-1,1]){
+    const bank=(4+(dir<0?2:0))*BLOCK,street=64;
+    const car={x:street+dir*3,z:bank-dir*9,axis:0,dir};
+    const follower={...car,z:car.z-dir*12};
+    const through={x:street-dir*10,z:bank-dir*3,axis:1,dir};
+    const simulation=new Traffic();simulation.cars=[car,follower,through];
+    simulation.advance(.04);
+    assert.equal(car.waiting,true);assert.equal(car.z,bank-dir*9);
+    assert.equal(car.turn,undefined,'does not enter the lane in front of a nearby car');
+    for(let i=0;i<200;i++){
+      simulation.advance(.04);
+      assert.ok(Math.hypot(car.x-follower.x,car.z-follower.z)>7,'queued cars keep space');
+      assert.ok(Math.hypot(car.x-through.x,car.z-through.z)>6,'merge clears through traffic');
+    }
+    assert.equal(car.axis,1);assert.equal(follower.axis,1);
+    assert.ok((car.x-street)*dir>30,'waiting car eventually proceeds');
+  }
+});
+
+test('persistent traffic crosses bridges and retains cars across loaded tile boundaries',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  const simulation=new Traffic(),car={x:3,z:4*BLOCK-10,axis:0,dir:1};
+  simulation.cars=[car];simulation.advance(15);
+  assert.equal(car.axis,0);assert.ok(car.z>6*BLOCK,'bridge traffic continues straight');
+  const chunks=[{x:0,z:0},{x:1,z:0}];
+  const crossing={x:63,z:3,axis:1,dir:-1,color:'red'};
+  simulation.cars=[crossing];simulation.loaded=new Set(['0,0','1,0']);
+  simulation.update(chunks,1,.04);
+  assert.ok(simulation.cars.includes(crossing));
+  crossing.dir=1;crossing.x=63.8;simulation.update(chunks,1.04,.04);
+  assert.ok(crossing.x>64);assert.ok(simulation.cars.includes(crossing));
 });
 
 test('pedestrians block walking, 3x running and large knockback without tunneling',()=>{
@@ -681,7 +738,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {pubLines}=await import('../neon-city/world.js');
   const sandbox={...pubInterior,PubLife,PubConversation,pubLines,pubName,CoverAttempt,facingPubMenu,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,traffic:()=>[],
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};

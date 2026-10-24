@@ -2,8 +2,9 @@ import {PubLife,PubConversation} from './pub-life.js?v=characters-12';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=characters-12';
-import {City, pedestrian, pedestrianShowsBack, traffic, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, pubLines} from './world.js?v=bridge-visibility-1';
-import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=bridge-visibility-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, pubLines} from './world.js?v=bridge-visibility-1';
+import {Traffic} from './traffic.js?v=riverside-turns-1';
+import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=river-waves-1';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-12';
@@ -57,6 +58,7 @@ function togglePubMenu(){
 }
 pubMenu.addEventListener('cancel',e=>e.preventDefault());
 const city=new City(),player={x:10,z:4,angle:.12},keys=new Set(),shiftKeys=new Set();
+const roadTraffic=new Traffic();
 const W=640,H=360,F=355,horizon=164;
 let eye=1.65;
 // Generate a fixed sky around the entire world, rather than wrapping the screen.
@@ -101,9 +103,13 @@ function camera(v){
 }
 function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
 function clip(vertices){const out=[];for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],ai=a.z>=.15,bi=b.z>=.15;if(ai)out.push(a);if(ai!==bi){const t=(.15-a.z)/(b.z-a.z),v={};for(const k of ['x','y','z','u','v'])v[k]=a[k]+(b[k]-a[k])*t;out.push(v);}}return out;}
-let vehicleSurface=null;
+let vehicleSurface=null,vehicleTurn=null;
 function face(vertices,color,texture=null,smooth=false){
   if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
+  if(vehicleTurn){
+    const {x,z,angle}=vehicleTurn,c=Math.cos(angle),s=Math.sin(angle);
+    vertices=vertices.map(v=>({...v,x:x+(v.x-x)*c+(v.z-z)*s,z:z-(v.x-x)*s+(v.z-z)*c}));
+  }
   const vs=vertices.map(camera),depth=vs.reduce((s,p)=>s+p.z,0)/vs.length;
   if(depth>RIVER_VIEW_DISTANCE||vs.every(p=>p.z<.15))return;
   const clipped=clip(vs);if(clipped.length<3)return;
@@ -166,6 +172,7 @@ function person(p){
   queue.push({detail:true,depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }
 function car(c){
+  vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
   const base=groundHeight(c.x,c.z),slope=c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
   vehicleSurface=z=>base+(z-c.z)*slope;
   const w=c.axis?4.7:2.1,d=c.axis?2.1:4.7,x=c.x-w/2,z=c.z-d/2;
@@ -174,7 +181,7 @@ function car(c){
   else{for(const side of [-1,1])for(const offset of [.8,3.5])box(c.x+side*1.05-.1,.12,z+offset,.2,.55,.7,'#10101b');}
   const frontX=c.x+(c.axis?c.dir*2.36:0),frontZ=c.z+(c.axis?0:c.dir*2.36);
   for(const side of [-1,1])box(frontX+(c.axis?-.04:side*.7-.2),.52,frontZ+(c.axis?side*.7-.2:-.04),c.axis?.08:.4,.2,c.axis?.4:.08,'#fff0b8');
-  vehicleSurface=null;
+  vehicleSurface=null;vehicleTurn=null;
 }
 let newspaperTexture;
 function newspaperMachine(m){
@@ -211,7 +218,7 @@ function newspaperMachine(m){
 }
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
-  if(chunk.river){drawRiverTerrain(chunk,{quad},time);return;}
+  if(chunk.river){drawRiverTerrain(chunk,{quad,face},time);return;}
   // Asphalt needs geometry to occlude the recessed river at street approaches.
   // The screen background alone cannot hide water projected over the road.
   quad(x,0,z,64,64,'#252233');
@@ -310,8 +317,8 @@ function render(){
     for(const b of chunk.buildings)building(b);
     for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
-    for(const c of traffic(chunk,time))car(c);
   }
+  for(const c of roadTraffic.cars)if(Math.hypot(c.x-player.x,c.z-player.z)<RIVER_VIEW_DISTANCE)car(c);
   queue=orderSurfaces(queue);
   ctx.save();if(!reduced)ctx.translate(shake?Math.sin(time*85)*shake:0,running?Math.sin(steps)*.65:0);
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
@@ -371,7 +378,7 @@ function tick(now){
     if(forward||side)steps+=dt*10*pace;
     city.update(player.x,player.z);
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
-    const cars=[...city.chunks.values()].flatMap(chunk=>traffic(chunk,time));
+    const cars=roadTraffic.update(city.chunks.values(),time,dt);
     if(hornWarning.update(dt,player,cars))playHorn(audioContext);
     collision: if(!hitCooldown)for(const c of cars){
       if(Math.abs(player.x-c.x)<(c.axis?2.8:1.5)&&Math.abs(player.z-c.z)<(c.axis?1.5:2.8)){

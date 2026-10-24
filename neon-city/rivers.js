@@ -1,7 +1,7 @@
 import {BLOCK,WATER_LEVEL,bridgeHeight,hasBridge,mod} from './world.js?v=bridge-visibility-1';
 
 // Each chunk owns half of a river, including its share of each bridge.
-export function drawRiverTerrain(chunk,{quad},time){
+export function drawRiverTerrain(chunk,{quad,face},time){
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const first=chunk.z===chunk.riverStart;
   const bank=first?start+8:start+110;
@@ -22,9 +22,23 @@ export function drawRiverTerrain(chunk,{quad},time){
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
     quad(x+a,WATER_LEVEL,b,8,Math.min(8,high-b),'#164957');
-    const offset=mod(a*.7+b*.3+time*.8,5);
-    quad(x+a+offset,WATER_LEVEL+.01,b+1,2,.13,'#377783');
-    quad(x+a+1,WATER_LEVEL+.012,b+3,3,.08,'#225d70');
+    // Tapered, curved ripples gently sway instead of sliding like road dashes.
+    const seed=mod(Math.sin((x+a)*12.9898+b*78.233)*43758.5453,1);
+    const phase=seed*Math.PI*2+time*.65;
+    for(let ripple=0;ripple<2;ripple++){
+      const length=2.4+seed*1.6;
+      const cx=x+a+1+seed*1.2+Math.sin(phase)*.35;
+      const cz=b+1.5+ripple*3+Math.cos(phase+ripple)*.25;
+      const point=(t,side)=>({
+        x:cx+t*length,y:WATER_LEVEL+.012,
+        z:cz+Math.sin(t*Math.PI*1.6+phase+ripple)*.38
+          +side*Math.sin(t*Math.PI)*.09
+      });
+      for(let segment=0;segment<6;segment++){
+        const t=segment/6,next=(segment+1)/6;
+        face([point(t,-1),point(next,-1),point(next,1),point(t,1)],ripple?'#225d70':'#306b78');
+      }
+    }
   }
   const road=first?start:start+120;
   quad(x,.015,road,64,8,'#252233');
