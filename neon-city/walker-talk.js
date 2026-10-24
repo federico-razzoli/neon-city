@@ -1,4 +1,4 @@
-import {PubConversation} from './pub-life.js?v=enter-talk-1';
+import {PubConversation} from './pub-life.js?v=staff-room-1';
 import {placeLines} from './world.js?v=lavatory-talk-1';
 
 // A walk away shorter than this keeps the conversation going; a longer one

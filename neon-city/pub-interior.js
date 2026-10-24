@@ -124,7 +124,7 @@ export function facingPokeBall(player,ball){
 export const BARTENDER_TALK=[
   {ask:'HEY!',answer:['HELLO THERE!']},
   {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.'],needs:'PUB_PARANORMAL_ACTIVITIES'},
-  {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.']},
+  {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.'],needs:'PUB_STAFF_ROOM_NOISES'},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
 export class StaffTalk{
   constructor(script=BARTENDER_TALK,record=register){this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}

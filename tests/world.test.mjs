@@ -2081,8 +2081,10 @@ test('Nurse Joy\'s Poké Ball stays on the counter, from either side of the bar 
 test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
   const {BARTENDER_TALK,StaffTalk}=await import('../neon-city/pub-interior.js');
   assert.deepEqual(BARTENDER_TALK.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','ABOUT THE STAFF ROOM...','BYE!']);
-  assert.deepEqual(new StaffTalk(BARTENDER_TALK,{}).script.map(o=>o.ask),['HEY!','ABOUT THE STAFF ROOM...','BYE!'],'nothing to ask about the toilet before the banshee');
-  const talk=new StaffTalk(BARTENDER_TALK,{PUB_PARANORMAL_ACTIVITIES:true});
+  assert.deepEqual(new StaffTalk(BARTENDER_TALK,{}).script.map(o=>o.ask),['HEY!','BYE!'],'nothing to ask about the toilet or the staff room at first');
+  assert.deepEqual(new StaffTalk(BARTENDER_TALK,{PUB_PARANORMAL_ACTIVITIES:true}).script.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','BYE!'],'the toilet once the banshee has appeared');
+  assert.deepEqual(new StaffTalk(BARTENDER_TALK,{PUB_STAFF_ROOM_NOISES:true}).script.map(o=>o.ask),['HEY!','ABOUT THE STAFF ROOM...','BYE!'],'the staff room once its noises are mentioned');
+  const talk=new StaffTalk(BARTENDER_TALK,{PUB_PARANORMAL_ACTIVITIES:true,PUB_STAFF_ROOM_NOISES:true});
   assert.equal(talk.selected,0);assert.equal(talk.line,null);
   talk.confirm();
   assert.equal(talk.line,'HELLO THERE!');
@@ -2614,22 +2616,19 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   press();
   const talkBox=element('#staff-talk');
   assert.equal(talkBox.hidden,false);
-  assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE STAFF ROOM\.\.\.[\s\S]*BYE!/);
-  assert.doesNotMatch(talkBox.innerHTML,/ABOUT THE TOILET/,'nothing to ask about the toilet before the banshee');
-  key('ArrowDown');key('ArrowDown');
+  assert.match(talkBox.innerHTML,/HEY![\s\S]*BYE!/);
+  assert.doesNotMatch(talkBox.innerHTML,/ABOUT THE/,'nothing to ask about the toilet or the staff room yet');
+  key('ArrowDown');
   assert.match(talkBox.innerHTML,/aria-current="true">BYE!/);
   key('ArrowUp');events.keydown(space);tick(ms+=20);
-  assert.equal(talkBox.innerHTML,'<p class="talk-answer">THE STAFF ROOM IS A PRIVATE SPACE.</p>');
+  assert.equal(talkBox.innerHTML,'<p class="talk-answer">HELLO THERE!</p>');
   for(let i=0;i<20;i++)tick(ms+=200);
-  assert.match(talkBox.innerHTML,/PRIVATE SPACE/,'the answer waits for Space');
+  assert.match(talkBox.innerHTML,/HELLO THERE!/,'the answer waits for Space');
   assert.equal(element('#message').textContent,'','answers stay in the box');
   events.keyup(space);
   press();
-  assert.equal(talkBox.innerHTML,'<p class="talk-answer">IT HIDES NO SECRET, ANYWAY.</p>');
-  press();
-  key('ArrowUp');
   assert.match(talkBox.innerHTML,/aria-current="true">HEY!/);
-  key('3');
+  key('2');
   assert.equal(talkBox.innerHTML,'<p class="talk-answer">SEE YOU LATER!</p>');
   press();
   assert.equal(talkBox.hidden,true,'BYE! ends the chat');
@@ -2717,7 +2716,8 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   Object.assign(player,{x:pubInterior.PUB.bartender.x,z:12.6,angle:0});
   tick(ms+=20);
   press();
-  assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE TOILET\.\.\.[\s\S]*ABOUT THE STAFF ROOM\.\.\.[\s\S]*BYE!/);
+  assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE TOILET\.\.\.[\s\S]*BYE!/);
+  assert.doesNotMatch(talkBox.innerHTML,/ABOUT THE STAFF ROOM/,'nobody has mentioned the staff room yet');
   key('2');
   assert.equal(talkBox.innerHTML,'<p class="talk-answer">THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.</p>');
 });
@@ -3171,8 +3171,15 @@ test('tall Black woman has waist-length hair, a pink shirt, jeans and pink shoes
     "I KNOW THEY'RE JUST WANKERS, BUT...",
     'SOMETIMES IT HURTS.',
     "WHEN I'M SAD, I GO TO THE NIGHT RIVER.",
-    "I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM..."
+    {say:"I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM...",sets:'PUB_STAFF_ROOM_NOISES'}
   ]);
+  const {PubConversation}=await import('../neon-city/pub-life.js');
+  const record={},talk=new PubConversation(pubLines(15),Math.random,record),said=[];
+  for(let i=0;i<5;i++)said.push(talk.advance());
+  assert.ok(said.every(line=>typeof line==='string'));
+  assert.deepEqual(record,{},'the staff room is not mentioned yet');
+  assert.equal(talk.advance(),"I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM...");
+  assert.deepEqual(record,{PUB_STAFF_ROOM_NOISES:true},'the register remembers the noises once mentioned');
 });
 
 test('street characters appear in proportion to their weights, but pubs ignore weights',async()=>{

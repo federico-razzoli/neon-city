@@ -1,4 +1,4 @@
-import {drawCylinder,drawRod,facingDoorway,facingNearest,pubPersonBlocks} from './pub-interior.js?v=paranormal-1';
+import {drawCylinder,drawRod,facingDoorway,facingNearest,pubPersonBlocks} from './pub-interior.js?v=staff-room-1';
 
 // The pub's lavatory, entered through the TOILET door at the back of the
 // lounge. Local coordinates: the way back to the pub is centred on the south

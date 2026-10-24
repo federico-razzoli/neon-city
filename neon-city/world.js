@@ -122,7 +122,7 @@ const CHARACTER_TRAITS={
     "I KNOW THEY'RE JUST WANKERS, BUT...",
     'SOMETIMES IT HURTS.',
     "WHEN I'M SAD, I GO TO THE NIGHT RIVER.",
-    "I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM..."
+    {say:"I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM...",sets:'PUB_STAFF_ROOM_NOISES'}
   ],riverLines:[
     "I COME HERE WHEN I'M SAD.",
     'NIGHT RIVER ALWAYS HELPS MY MOOD.',
@@ -140,6 +140,7 @@ export const characterHeight=type=>CHARACTER_TRAITS[type]?.height??1.85;
 // Horizontal stretch of the sprite; sprites are otherwise half as wide as tall.
 export const characterGirth=type=>CHARACTER_TRAITS[type]?.girth??1;
 // What a character says, in order, while the player shares their pub table.
+// A line given as {say,sets} adds its key to the register as it is said.
 export const pubLines=type=>CHARACTER_TRAITS[type]?.lines??[];
 // What a character says, in order, while the player blocks their way in one
 // of these places. Elsewhere, or without lines, they say the usual bump notice.

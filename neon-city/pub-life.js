@@ -1,5 +1,6 @@
 import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=bumps-1';
 import {PUB_TYPES} from './world.js?v=bumps-1';
+import {register} from './register.js';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 const sameSeat=(a,b)=>a&&b&&a.tableIndex===b.tableIndex&&a.seat===b.seat;
@@ -96,8 +97,8 @@ export class PubLife{
 }
 // Table talk after the greeting: one line every 3–5 seconds, looping until the player stands.
 export class PubConversation{
-  constructor(lines,random=Math.random){
-    this.lines=lines;this.random=random;this.index=0;this.wait=this.delay();
+  constructor(lines,random=Math.random,record=register){
+    this.lines=lines;this.random=random;this.record=record;this.index=0;this.wait=this.delay();
   }
   delay(){return 3+this.random()*2;}
   // Returns the line that is due now, if any.
@@ -112,6 +113,7 @@ export class PubConversation{
     this.wait=this.delay();
     const line=this.lines[this.index];
     this.index=(this.index+1)%this.lines.length;
-    return line;
+    if(line.sets)this.record[line.sets]=true;
+    return line.say??line;
   }
 }
