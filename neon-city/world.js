@@ -661,8 +661,11 @@ export function traffic(chunk,time) {
     if(axis&&isRiverRow(chunk.z)&&chunk.z!==riverStart(chunk.z))continue;
     const lane=axis?chunk.z:chunk.x, phase=time*10*dir+lane*17+dir*13, t=mod(phase,64);
     const carId=(axis?chunk.x:chunk.z)-Math.floor(phase/64);
-    const colour=random(Math.imul(carId,73856093)^Math.imul(lane,19349663)^Math.imul(axis+1,83492791)^Math.imul(dir,2654435761))();
-    cars.push({x:chunk.x*64+(axis?t:dir*3),z:chunk.z*64+(axis?-dir*3:t),axis,dir,color:['#e94054','#397fe0','#f173bc','#43c18b'][Math.floor(colour*4)]});
+    const appearance=random(Math.imul(carId,73856093)^Math.imul(lane,19349663)^Math.imul(axis+1,83492791)^Math.imul(dir,2654435761));
+    const colour=appearance();
+    // Normal cars have weight 1; London taxis have weight 1/10.
+    const type=appearance()<1/11?'taxi':'normal';
+    cars.push({x:chunk.x*64+(axis?t:dir*3),z:chunk.z*64+(axis?-dir*3:t),axis,dir,type,color:['#e94054','#397fe0','#f173bc','#43c18b'][Math.floor(colour*4)]});
   }
   return cars;
 }

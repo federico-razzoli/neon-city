@@ -936,6 +936,7 @@ test('cars in the same lane have varied colours that persist across tile crossin
       const next={x:chunk.x+(axis?dir:0),z:chunk.z+(axis?0:dir)};
       const before=pick(chunk,62.69),after=pick(next,62.71);
       assert.equal(before.color,after.color,'same car keeps its colour across the boundary');
+      assert.equal(before.type,after.type,'same car keeps its type across the boundary');
       assert.ok(Math.abs(Math.hypot(after.x-before.x,after.z-before.z)-.2)<1e-9);
       assert.equal(pick(chunk,10).color,pick(chunk,10.01).color);
     }
@@ -4002,4 +4003,16 @@ test('the pub plays seamless, swung twelve-bar boogie-woogies on the piano, each
   for(const place of ['cubicle','street'])assert.equal(pubMusicHeard(place).volume,0);
   const started=performance.now();for(const piece of PUB_PIECES)pubMusicSamples(piece);
   assert.ok(performance.now()-started<1500,'quick enough to prepare when sound is switched on');
+});
+
+
+test('London taxis appear once per ten normal cars on average',()=>{
+  let taxis=0,normal=0;
+  for(let x=-100;x<100;x++)for(let z=-25;z<25;z++){
+    for(const car of traffic({x,z},123)){
+      if(car.type==='taxi')taxis++;
+      else {assert.equal(car.type,'normal');normal++;}
+    }
+  }
+  assert.ok(Math.abs(taxis/normal-.1)<.01,`taxi to normal ratio: ${taxis/normal}`);
 });

@@ -5,7 +5,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=staff-room-1';
-import {Traffic} from './traffic.js?v=parks-4';
+import {Traffic} from './traffic.js?v=london-taxi-2';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=start-sign-6';
@@ -272,12 +272,55 @@ function person(p){
   if(pos.x+width<0||pos.x-width>W)return;
   queue.push({detail:true,depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }
+let taxiSignTexture=null;
+function taxiSign(){
+  if(!taxiSignTexture){
+    taxiSignTexture=document.createElement('canvas');
+    taxiSignTexture.width=160;taxiSignTexture.height=56;
+    const g=taxiSignTexture.getContext('2d');
+    g.fillStyle='#ffcb57';g.fillRect(0,0,160,56);
+    g.fillStyle='#171820';g.font='bold 44px sans-serif';
+    g.textAlign='center';g.textBaseline='middle';g.fillText('TAXI',80,30);
+  }
+  return taxiSignTexture;
+}
 function car(c){
   vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
   const base=groundHeight(c.x,c.z),slope=c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
   vehicleSurface=z=>base+(z-c.z)*slope;
   const w=c.axis?4.7:2.1,d=c.axis?2.1:4.7,x=c.x-w/2,z=c.z-d/2;
-  box(x,.25,z,w,.65,d,c.color);box(x+(c.axis?1:.15),.9,z+(c.axis?.15:1),c.axis?2.5:1.8,.6,c.axis?1.8:2.5,'#34445d','#657187');
+  if(c.type==='taxi'){
+    // Local coordinates: across the cab and along its direction of travel.
+    const part=(across,along,y,width,length,height,color,roof=color)=>{
+      const px=c.x+(c.axis?along*c.dir:across),pz=c.z+(c.axis?across:along*c.dir);
+      box(px-(c.axis?length:width)/2,y,pz-(c.axis?width:length)/2,c.axis?length:width,height,c.axis?width:length,color,roof);
+    };
+    part(0,0,.25,2.1,4.7,.78,'#14151c','#242630');
+    part(0,-.3,1.03,1.85,2.9,.8,'#455765','#171820');
+    part(0,-.3,1.83,1.98,3.05,.16,'#171820','#30313a');
+    // Window pillars, raised wheel arches, and chrome door handles.
+    for(const side of [-1,1]){
+      for(const along of [-1.7,-.3,1.1])part(side*.94,along,1.02,.1,.13,.82,'#191a22');
+      for(const along of [-1.55,1.5])part(side*1.03,along,.55,.16,1.05,.28,'#252630');
+      for(const along of [-.8,.5])part(side*.96,along,.91,.08,.28,.06,'#b8bdc5');
+    }
+    part(0,2.36,.42,1.02,.08,.48,'#a4aab3');
+    for(const across of [-.36,-.18,0,.18,.36])part(across,2.41,.47,.055,.03,.37,'#34343d');
+    for(const along of [-2.38,2.38])part(0,along,.29,1.95,.12,.12,'#a4aab3');
+    part(0,.5,1.99,.82,.36,.28,'#ffcb57','#ffe29a');
+    // Letter both faces; face() applies the same bridge slope and turn as the cab.
+    for(const side of [-1,1]){
+      const along=.5+side*.181,left=side*c.dir*(c.axis?-1:1)*.41;
+      const point=(across,y,u,v)=>({
+        x:c.x+(c.axis?along*c.dir:across),
+        z:c.z+(c.axis?across:along*c.dir),y,u,v
+      });
+      face([point(left,1.99,0,56),point(-left,1.99,160,56),
+        point(-left,2.27,160,0),point(left,2.27,0,0)],'#ffcb57',taxiSign());
+    }
+  }else{
+    box(x,.25,z,w,.65,d,c.color);box(x+(c.axis?1:.15),.9,z+(c.axis?.15:1),c.axis?2.5:1.8,.6,c.axis?1.8:2.5,'#34445d','#657187');
+  }
   if(c.axis){for(const side of [-1,1])for(const offset of [.8,3.5])box(x+offset,.12,c.z+side*1.05-.1,.7,.55,.2,'#10101b');}
   else{for(const side of [-1,1])for(const offset of [.8,3.5])box(c.x+side*1.05-.1,.12,z+offset,.2,.55,.7,'#10101b');}
   const frontX=c.x+(c.axis?c.dir*2.36:0),frontZ=c.z+(c.axis?0:c.dir*2.36);

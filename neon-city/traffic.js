@@ -1,4 +1,4 @@
-import {BLOCK,RIVER_ROWS,hasBridge,traffic} from './world.js?v=parks-4';
+import {BLOCK,RIVER_ROWS,hasBridge,traffic} from './world.js?v=london-taxi-2';
 
 const SPEED=10,RADIUS=6,HEADWAY=9;
 const tile=(x,z)=>`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`;
