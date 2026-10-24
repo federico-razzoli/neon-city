@@ -2,7 +2,7 @@ import {PubLife,PubConversation} from './pub-life.js?v=bumps-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=bumps-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=papers-1';
 import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
@@ -214,37 +214,44 @@ function car(c){
   for(const side of [-1,1])box(frontX+(c.axis?-.04:side*.7-.2),.52,frontZ+(c.axis?side*.7-.2:-.04),c.axis?.08:.4,.2,c.axis?.4:.08,'#fff0b8');
   vehicleSurface=null;vehicleTurn=null;
 }
-let newspaperTexture;
+// Cabinet colours per paper; any paper without an entry uses the Bugle's.
+// Papers without a subtitle print CITY NEWS.
+const NEWSPAPER_LOOKS={
+  'DAILY BUGLE':{paint:'#a93242',masthead:'#311d29',frame:'#501e30',price:'#f1d6b5',body:['#862c3d','#c44c55'],cap:['#ba4351','#d25b60']},
+  'NEON NEWS':{subtitle:'NIGHT EDITION',paint:'#2f8a4a',masthead:'#14301d',frame:'#1b4a2b',price:'#d8f2c6',body:['#246b3a','#43a35d'],cap:['#36994f','#58bd70']},
+  'THE RECORD':{subtitle:'2 + 2 = 5',paint:'#2f5aa3',masthead:'#15223f',frame:'#1b3262',price:'#d3e1f6',body:['#25488a','#4a74c0'],cap:['#3962ad','#5a86cc']}
+};
+const newspaperTextures={};
 function newspaperMachine(m){
-  const firstFace=queue.length;
-  if(!newspaperTexture){
+  const firstFace=queue.length,paper=m.paper??'DAILY BUGLE',look=NEWSPAPER_LOOKS[paper]??NEWSPAPER_LOOKS['DAILY BUGLE'];
+  if(!newspaperTextures[paper]){
     const c=document.createElement('canvas');c.width=160;c.height=224;
     const g=c.getContext('2d');
-    g.fillStyle='#a93242';g.fillRect(0,0,160,224);
+    g.fillStyle=look.paint;g.fillRect(0,0,160,224);
     g.fillStyle='#eee1bd';g.fillRect(7,9,146,38);
-    g.fillStyle='#311d29';g.textAlign='center';g.font='bold 20px serif';g.fillText('DAILY BUGLE',80,35,140);
-    g.fillStyle='#501e30';g.fillRect(9,56,142,130);
+    g.fillStyle=look.masthead;g.textAlign='center';g.font='bold 20px serif';g.fillText(paper,80,35,140);
+    g.fillStyle=look.frame;g.fillRect(9,56,142,130);
     g.fillStyle='#829395';g.fillRect(13,60,134,122);
     g.fillStyle='#e2d8b9';g.fillRect(22,69,106,103);
-    g.fillStyle='#292636';g.font='bold 13px serif';g.fillText('DAILY BUGLE',75,85,100);
-    g.font='bold 10px monospace';g.fillText('CITY NEWS',75,101);
+    g.fillStyle='#292636';g.font='bold 13px serif';g.fillText(paper,75,85,100);
+    g.font='bold 10px monospace';g.fillText(look.subtitle??'CITY NEWS',75,101);
     g.fillStyle='#626272';g.fillRect(29,109,43,31);
     for(let y=110;y<161;y+=6){g.fillRect(79,y,40,2);if(y>143)g.fillRect(29,y,43,2);}
     g.fillStyle='#e2d8b9';g.fillRect(133,98,8,36);
     g.fillStyle='#beb9ac';g.fillRect(15,195,33,19);
     g.fillStyle='#232231';g.fillRect(20,202,23,4);
-    g.fillStyle='#f1d6b5';g.font='bold 12px monospace';g.fillText('25¢',113,210);
-    newspaperTexture=c;
+    g.fillStyle=look.price;g.font='bold 12px monospace';g.fillText('25¢',113,210);
+    newspaperTextures[paper]=c;
   }
   const scale=.85,top=.08+1.45*.9*scale,front=.45*scale+.001;
-  box(m.x-m.w/2,.08,m.z-m.d/2,m.w,1.45*.9*scale,m.d,'#862c3d','#c44c55');
+  box(m.x-m.w/2,.08,m.z-m.d/2,m.w,1.45*.9*scale,m.d,...look.body);
   // The cap overhangs the front and sides, with its back flush to the wall.
   const dx=[0,0,-1,1][m.side],dz=[-1,1,0,0][m.side];
   const capW=m.w+(m.side<2?.06:.054)*scale,capD=m.d+(m.side<2?.054:.06)*scale;
-  box(m.x+dx*.027*scale-capW/2,top,m.z+dz*.027*scale-capD/2,capW,.08*.9*scale,capD,'#ba4351','#d25b60');
+  box(m.x+dx*.027*scale-capW/2,top,m.z+dz*.027*scale-capD/2,capW,.08*.9*scale,capD,...look.cap);
   // Front faces the street; texture follows the same perspective as buildings.
   const point=(u,y)=>m.side<2?{x:m.x+(m.side===0?u:-u),y,z:m.z+dz*front}:{x:m.x+dx*front,y,z:m.z+(m.side===2?-u:u)};
-  face([point(-.5*scale,.08),point(.5*scale,.08),point(.5*scale,top),point(-.5*scale,top)].map((p,i)=>({...p,u:[0,160,160,0][i],v:[224,224,0,0][i]})),'#a93242',newspaperTexture);
+  face([point(-.5*scale,.08),point(.5*scale,.08),point(.5*scale,top),point(-.5*scale,top)].map((p,i)=>({...p,u:[0,160,160,0][i],v:[224,224,0,0][i]})),look.paint,newspaperTextures[paper]);
   for(let i=firstFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;}
 }
 function street(chunk){

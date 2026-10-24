@@ -1847,12 +1847,12 @@ test('pub walkers wait for standing or seated players without admitting another 
 });
 
 test('newspaper machines vary by street, leave doors clear and block running',()=>{
-  const city=new City(381),counts=new Set(),sides=new Set();
+  const city=new City(381),counts=new Set(),sides=new Set(),papers=new Set();
   for(let x=-4;x<=4;x++)for(let z=-4;z<=4;z++){
     const chunk=city.generate(x,z);city.chunks.set(`${x},${z}`,chunk);
     counts.add(chunk.newspaperMachines.length);
     for(const m of chunk.newspaperMachines){
-      sides.add(m.side);
+      sides.add(m.side);papers.add(m.paper);
       assert.equal(city.solid(m.x,m.z),true);
       const along=m.side<2?m.x:m.z;
       const [a,b]=[[0,2],[1,3],[0,1],[2,3]][m.side].map(i=>chunk.buildings[i]);
@@ -1880,6 +1880,7 @@ test('newspaper machines vary by street, leave doors clear and block running',()
   }
   assert.ok(counts.has(0)&&counts.size>1,'only some streets have machines');
   assert.equal(sides.size,4);
+  assert.deepEqual([...papers].sort(),['DAILY BUGLE','NEON NEWS','THE RECORD'],'each machine sells one of the three papers');
 });
 
 test('machine surfaces use overlap depth so slanted walls cannot erase tops or labels',async()=>{

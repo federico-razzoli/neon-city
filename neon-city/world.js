@@ -120,6 +120,8 @@ function crossesPerson(a,b,person) {
 export function random(seed) {
   return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t ^= t + Math.imul(t ^ t >>> 7, 61 | t); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
+// Each vending machine sells one of these papers; game.js styles them.
+export const NEWSPAPERS = ['DAILY BUGLE', 'NEON NEWS', 'THE RECORD'];
 const signs = ['DISCO', 'HOTEL', 'COCKTAILS', 'NEON PUB', 'PARADISE', 'BLUE NOTE', 'DREAMS', 'ARCADE', 'MIDNIGHT', 'CLUB 87'];
 const neon = ['#ff46b5', '#55e8ef', '#af78ff', '#ffbc57'];
 export class City {
@@ -166,7 +168,7 @@ export class City {
       if(a.sign===b.sign)continue;
       const along=side<2?(a.x+a.w+b.x)/2:(a.z+a.d+b.z)/2;
       const across=(side<2?a.z:a.x)+(side===0||side===2?-.9*.85/2:(side<2?a.d:a.w)+.9*.85/2);
-      newspaperMachines.push({x:side<2?along:across,z:side<2?across:along,side,w:(side<2?1:.9)*.85,d:(side<2?.9:1)*.85});
+      newspaperMachines.push({x:side<2?along:across,z:side<2?across:along,side,w:(side<2?1:.9)*.85,d:(side<2?.9:1)*.85,paper:NEWSPAPERS[Math.floor(r()*NEWSPAPERS.length)]});
     }
     return { x, z, buildings, people, manholes, newspaperMachines, park };
   }
