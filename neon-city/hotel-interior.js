@@ -156,18 +156,18 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   const sofa=HOTEL.sofa;
   box(sofa.x,.12,sofa.z,sofa.w,.33,sofa.d,look.velvet[0]);
   box(sofa.x,.12,sofa.z,.28,.95,sofa.d,look.velvet[0],look.velvet[1]);
-  for(const z of [sofa.z,sofa.z+sofa.d-.25])box(sofa.x,.12,z,sofa.w,.6,.25,look.velvet[1]);
+  for(const z of [sofa.z-.01,sofa.z+sofa.d-.24])box(sofa.x,.12,z,sofa.w+.02,.6,.25,look.velvet[1]);
   for(let i=0;i<3;i++)box(sofa.x+.28,.45,sofa.z+.3+i*.95,.68,.12,.9,look.velvet[1]);
   for(const z of [sofa.z+.05,sofa.z+sofa.d-.15])for(const x of [sofa.x+.05,sofa.x+sofa.w-.15])box(x,0,z,.1,.12,.1,look.wood[1]);
 
-  // Potted palms either side of the sofa.
+  // Potted palms about 2.8 m tall either side of the sofa.
   for(const p of HOTEL.palms){
-    cylinder(p.x,0,p.z,.32,.6,look.metal,'#2a1c16',.4);
-    cylinder(p.x,.6,p.z,.06,1.1,'#5b4430');
+    cylinder(p.x,0,p.z,.32,.9,look.metal,'#2a1c16',.4);
+    cylinder(p.x,.9,p.z,.06,1.65,'#5b4430');
     for(let i=0;i<7;i++){
       const angle=i*2*Math.PI/7,c=Math.cos(angle),s=Math.sin(angle);
-      const tip={x:p.x+c*.95,y:1.25,z:p.z+s*.95},mid={x:p.x+c*.5,y:1.85,z:p.z+s*.5};
-      const base={x:p.x,y:1.7,z:p.z},w={x:-s*.13,z:c*.13};
+      const tip={x:p.x+c*.95,y:1.875,z:p.z+s*.95},mid={x:p.x+c*.5,y:2.775,z:p.z+s*.5};
+      const base={x:p.x,y:2.55,z:p.z},w={x:-s*.13,z:c*.13};
       const color=i%2?'#2a5a3c':'#356f4b';
       face([base,{x:mid.x+w.x,y:mid.y,z:mid.z+w.z},tip,{x:mid.x-w.x,y:mid.y,z:mid.z-w.z}],color);
     }
