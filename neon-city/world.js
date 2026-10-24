@@ -1,4 +1,4 @@
-export const PEDESTRIAN_TYPES=12;
+export const PEDESTRIAN_TYPES=13;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
   3:{lines:[
@@ -37,13 +37,23 @@ const CHARACTER_TRAITS={
     'THE MOST BEAUTIFUL LOVE POEMS WERE WRITTEN BY LADYBUGS.',
     'I ADMIRE LADYBUGS.',
     'I REALLY DO.'
-  ]}
+  ]},
+  12:{goesToPub:false,weight:.25}
 };
 export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;
 export const characterHeight=type=>CHARACTER_TRAITS[type]?.height??1.85;
 // What a character says, in order, while the player shares their pub table.
 export const pubLines=type=>CHARACTER_TRAITS[type]?.lines??[];
 export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
+// Relative chance of meeting each character on the street; pubs ignore it.
+export const streetWeight=type=>CHARACTER_TRAITS[type]?.weight??1;
+const STREET_WEIGHT_TOTAL=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>streetWeight(type)).reduce((a,b)=>a+b);
+// Maps one random draw in [0,1) to a character, in proportion to street weights.
+export function streetType(value){
+  let target=value*STREET_WEIGHT_TOTAL;
+  for(let type=0;type<PEDESTRIAN_TYPES;type++){target-=streetWeight(type);if(target<0)return type;}
+  return PEDESTRIAN_TYPES-1;
+}
 export const BLOCK = 64;
 // Each river occupies two rows; their centres are ten blocks apart.
 export const RIVER_ROWS = [-6, 4];
@@ -95,7 +105,7 @@ export class City {
     }
     // Jitter separated slots so new pedestrians never spawn inside each other.
     // Assign speed once, using a separate random draw from appearance.
-    for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:Math.floor(r()*PEDESTRIAN_TYPES),reverse:r()>.5,variant:r(),walkTime:0});
+    for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:streetType(r()),reverse:r()>.5,variant:r(),walkTime:0});
     if(isRiverRow(z)){
       const start=riverStart(z);
       // One shared loop follows both banks and the two bridge sidewalks.

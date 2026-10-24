@@ -242,8 +242,8 @@ test('a blocked sidestep on a straight sidewalk triggers the turnaround fallback
 test('individual pedestrian speeds stay within 1–2x and do not depend on appearance',()=>{
   const city=new City(42);city.update(0,0);
   const byType=Array.from({length:PEDESTRIAN_TYPES},()=>new Set());
-  // Sample beyond the loaded 5×5 area so every character type has enough walkers.
-  const sample=[];for(let x=-4;x<=4;x++)for(let z=-3;z<=3;z++)sample.push(city.generate(x,z));
+  // Sample beyond the loaded 5×5 area so even rare street characters have enough walkers.
+  const sample=[];for(let x=-10;x<=10;x++)for(let z=-3;z<=3;z++)sample.push(city.generate(x,z));
   for(const chunk of sample)for(const p of chunk.people){
     assert.ok(p.speed>=PEDESTRIAN_MIN_SPEED&&p.speed<=PEDESTRIAN_MAX_SPEED);
     byType[p.type].add(p.speed);
@@ -1107,8 +1107,10 @@ test('Muslim woman wears a hijab and long abaya, and never appears in pubs',asyn
   }finally{globalThis.document=previous;}
   const {goesToPub,PUB_TYPES}=await import('../neon-city/world.js');
   assert.equal(goesToPub(9),false);
-  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(type!==9)assert.equal(goesToPub(type),true,'characters default to going to the pub');
-  assert.deepEqual(PUB_TYPES,Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(type=>type!==9));
+  // Only the Muslim woman and the mummy stay out of pubs.
+  const stayOut=[9,12];
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(!stayOut.includes(type))assert.equal(goesToPub(type),true,'characters default to going to the pub');
+  assert.deepEqual(PUB_TYPES,Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(type=>!stayOut.includes(type)));
   const {PubLife}=await import('../neon-city/pub-life.js');
   const {PUB,createPubPatrons}=await import('../neon-city/pub-interior.js');
   const seen=new Set();
@@ -1227,6 +1229,55 @@ test('table partners say their lines in order every 3 to 5 seconds, looping',asy
   assert.ok(Math.abs(gaps[0]-3)<.011&&Math.abs(gaps[1]-5)<.011,'each gap is randomised separately');
   const quiet=new PubConversation([]);
   for(let i=0;i<100;i++)assert.equal(quiet.update(1),null,'characters without lines stay silent');
+});
+
+test('Egyptian mummy is wrapped in bandages with glowing eyes, and never appears in pubs',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite}=await import('../neon-city/sprites.js');
+    const strips=new Set();
+    for(const back of [false,true])for(let frame=0;frame<4;frame++){
+      const pixels=sprite(12,frame,back).pixels,colors=new Set(pixels.values());
+      assert.ok([...colors].every(c=>['#d8ccb0','#b5a688','#2a2228','#b8ff7a'].includes(c)),'only linen, wraps, gaps and eyes');
+      assert.equal(pixels.get(8*24+10)==='#b8ff7a',!back,'eyes glow only from the front');
+      for(const [x,y] of [[12,5],[12,20],[9,36],[4,30]])assert.ok(['#d8ccb0','#b5a688'].includes(pixels.get(y*24+x)),'wrapped head, body, legs and hands');
+      strips.add([1,2].find(x=>pixels.get(28*24+x)==='#d8ccb0'));
+    }
+    assert.deepEqual([...strips].sort(),[1,2],'loose strip flutters between frames');
+  }finally{globalThis.document=previous;}
+  const {goesToPub,PUB_TYPES}=await import('../neon-city/world.js');
+  assert.equal(goesToPub(12),false);
+  assert.ok(!PUB_TYPES.includes(12));
+});
+
+test('street characters appear in proportion to their weights, but pubs ignore weights',async()=>{
+  const {streetWeight,streetType,PUB_TYPES}=await import('../neon-city/world.js');
+  assert.equal(streetWeight(12),.25,'the mummy is rare');
+  for(let type=0;type<12;type++)assert.equal(streetWeight(type),1,'weights default to 1');
+  const total=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>streetWeight(type)).reduce((a,b)=>a+b);
+  const counts=new Array(PEDESTRIAN_TYPES).fill(0),steps=100000;
+  for(let i=0;i<steps;i++)counts[streetType(i/steps)]++;
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)assert.ok(Math.abs(counts[type]/steps-streetWeight(type)/total)<1e-3,`type ${type} share matches its weight`);
+  assert.equal(streetType(0),0);assert.equal(streetType(1-1e-12),PEDESTRIAN_TYPES-1);
+  const city=new City(7),seen=new Array(PEDESTRIAN_TYPES).fill(0);
+  for(let x=-20;x<=20;x++)for(let z=-3;z<=3;z++)for(const p of city.generate(x,z).people)seen[p.type]++;
+  const average=seen.slice(0,12).reduce((a,b)=>a+b)/12;
+  assert.ok(seen[12]>0&&seen[12]<average*.5,'generated streets have far fewer mummies than average');
+  const {PUB,createPubPatrons}=await import('../neon-city/pub-interior.js');
+  const pubCounts=new Map(PUB_TYPES.map(type=>[type,0]));
+  for(let i=0;i<1100;i++){
+    // Per table: two patrons, first seat 0, both characters from the sweep, then beer sides and variants.
+    const draws=[.6,0,(i+.5)/1100,(i+.5)/1100,.5,.5,.5,.5];let call=0;
+    for(const seats of createPubPatrons(()=>draws[call++%draws.length]))for(const type of seats)pubCounts.set(type,pubCounts.get(type)+1);
+  }
+  assert.equal(new Set(pubCounts.values()).size,1,'pub patrons stay uniform');
 });
 
 test('pub walkers wait for standing or seated players without admitting another walker',async()=>{

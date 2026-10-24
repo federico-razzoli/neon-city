@@ -1,4 +1,4 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
@@ -219,6 +219,28 @@ export function sprite(type,frame,back=false,variant=0){
       rect(dark,9,11,8,2);for(const x of [10,12,14])rect(light,x,11,1,2);
       rect(dark,8,19,10,7);rect('#ff5a4a',9,20,2,2);rect('#5aff8a',12,20,2,2);rect('#ffcf4a',15,20,2,2);
       rect(light,9,23,8,1);rect('#ff5a4a',13,23,1,1);
+    }
+    sprites[key]=c;return c;
+  }
+  if(type===12){
+    // Egyptian mummy: wrapped head to foot in worn linen, with glowing eyes.
+    const linen='#d8ccb0',wrap='#b5a688',gap='#2a2228',glow='#b8ff7a';
+    rect(linen,9,1,8,1);rect(linen,8,2,10,12);rect(wrap,10,14,6,2);
+    rect(linen,5,16,16,16);rect(linen,3,17,3,13);rect(linen,20,17,3,13);
+    rect(SHOE_COLORS[type],3,30,3,2);rect(SHOE_COLORS[type],20,30,3,2);
+    rect(linen,7,32,5,12+stride);rect(linen,14,32,5,12-stride);
+    rect(SHOE_COLORS[type],6,44+stride,7,3);rect(SHOE_COLORS[type],14,44-stride,7,3);
+    // Wrap lines alternate their offset so the bandages read as spiralling.
+    for(let y=3;y<14;y+=3)rect(wrap,y%2?8:10,y,8,1);
+    for(let y=18;y<32;y+=3){rect(wrap,y%2?5:9,y,12,1);rect(wrap,3,y,3,1);rect(wrap,20,y,3,1);}
+    for(let y=35;y<44;y+=3){rect(wrap,7,y,5,1);rect(wrap,14,y,5,1);}
+    rect(gap,16,22,2,1);rect(gap,8,27,1,1);rect(gap,15,38,1,1);
+    // A loose strip trails from his arm and flutters as he shuffles.
+    rect(linen,2,24,1,4);rect(linen,frame%2?1:2,28,1,6);
+    if(back){
+      rect(wrap,11,6,4,2);rect(wrap,12,8,2,10);
+    }else{
+      rect(gap,9,8,8,2);rect(glow,10,8,2,1);rect(glow,14,8,2,1);
     }
     sprites[key]=c;return c;
   }
