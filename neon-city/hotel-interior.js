@@ -1,4 +1,4 @@
-import {drawCylinder,drawRod,drawStaff,facingDoorway,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=hall-3';
+import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=lavatory-1';
 
 // Interior coordinates are local: the street entrance is centred on the south
 // wall. The staircase climbs the east wall to a landing; the receptionist
@@ -57,18 +57,6 @@ export function facingHotelDoor(player,buildings){
   });
 }
 export const facingHotelExit=player=>player.z>HOTEL.door.z&&facingDoorway(player,HOTEL.door,HOTEL.door.halfWidth);
-// The nearest round thing in reach and in view, with the same reach and cone as a pub chair.
-function facingNearest(player,things){
-  let nearest=null,distance=Infinity;
-  for(const thing of things){
-    const dx=thing.x-player.x,dz=thing.z-player.z,gap=Math.hypot(dx,dz);
-    if(gap>thing.radius+1.2||gap>=distance)continue;
-    const halfAngle=.45+Math.asin(Math.min(1,thing.radius/Math.max(gap,.001)));
-    if(gap>thing.radius&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(halfAngle))continue;
-    nearest=thing;distance=gap;
-  }
-  return nearest;
-}
 export const facingHotelPlant=player=>facingNearest(player,HOTEL.palms);
 // One place to sit per sofa cushion; seated players face the hall.
 export const sofaSeats=()=>[0,1,2].map(i=>({x:HOTEL.sofa.x+.62,z:HOTEL.sofa.z+.75+i*.95,radius:.3,angle:Math.PI/2}));

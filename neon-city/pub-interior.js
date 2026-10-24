@@ -62,6 +62,18 @@ export function facingDoorway(player,target,halfWidth){
   const hitX=player.x+Math.sin(player.angle)*dz/forwardZ;
   return Math.abs(hitX-target.x)<=halfWidth+.15;
 }
+// The nearest round thing in reach and in view, with the same reach and cone as a pub chair.
+export function facingNearest(player,things){
+  let nearest=null,distance=Infinity;
+  for(const thing of things){
+    const dx=thing.x-player.x,dz=thing.z-player.z,gap=Math.hypot(dx,dz);
+    if(gap>thing.radius+1.2||gap>=distance)continue;
+    const halfAngle=.45+Math.asin(Math.min(1,thing.radius/Math.max(gap,.001)));
+    if(gap>thing.radius&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(halfAngle))continue;
+    nearest=thing;distance=gap;
+  }
+  return nearest;
+}
 export function facingPubDoor(player,buildings){
   return buildings.find(b=>{
     if(b.sign!=='NEON PUB')return false;

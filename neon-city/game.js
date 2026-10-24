@@ -11,8 +11,9 @@ import {WalkerTalk,talksHere} from './walker-talk.js?v=enter-talk-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=hall-3';
-import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=bell-1';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=lavatory-1';
+import {LAVATORY,facingLavatoryExit,lavatoryReply,moveInLavatory,drawLavatory} from './lavatory.js?v=lavatory-4';
+import {HOTEL,RECEPTIONISTS,BELL_ANSWER,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=lavatory-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
@@ -24,12 +25,17 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu');
-let insidePub=false,insideHotel=false,currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
+let insidePub=false,insideHotel=false,insideLavatory=false,currentHotel=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
-const indoors=()=>insidePub||insideHotel;
+const indoors=()=>insidePub||insideHotel||insideLavatory;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
+// The pub's TOILET door leads to its lavatory and back.
 function useDoor(){
-  if(indoors()){
+  if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;}
+  else if(insideLavatory){
+    if(!facingLavatoryExit(player))return false;
+    Object.assign(player,{x:PUB.toiletDoor.x,z:PUB.toiletDoor.z-.9,angle:Math.PI});insideLavatory=false;insidePub=true;
+  }else if(indoors()){
     if(!(insidePub?facingPubExit(player):facingHotelExit(player)))return false;
     Object.assign(player,streetPosition);insidePub=insideHotel=false;
   }else{
@@ -52,7 +58,8 @@ function useSeat(){
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
     playerSeat=null;eye=1.65;pubTalk=null;
-  }else if(!insidePub){
+  }else if(insideLavatory)return false;
+  else if(!insidePub){
     // Park benches outside; the sofa in a hotel lobby.
     const seat=insideHotel?facingHotelSeat(player):facingBench(player,city.chunks.values());
     if(!seat)return false;
@@ -335,12 +342,17 @@ let interiorRenderer;
 function render(){
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
   else if(!playerSeat)eye=1.65+(insideHotel?hotelFloorHeight(player.x,player.z):0);
-  document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub);
+  document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
   if(insideHotel){
     queue=[];drawHotelInterior({face,quad,box,look:hotelLook(currentHotel),receptionist:currentHotel.receptionist,lampOn:currentHotel.lampOn});
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue,'#3a2d36');return;
+  }
+  if(insideLavatory){
+    queue=[];drawLavatory({face,quad,box});
+    interiorRenderer??=new DepthRenderer(ctx,W,H);
+    interiorRenderer.render(queue);return;
   }
   if(insidePub){
     queue=[];drawPubInterior({face,quad,box,patrons:pubPatrons,seatedPatron,bartenderType});
@@ -413,7 +425,7 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
-  const conversation=insidePub?pubTalk:!insideHotel&&walkerTalk.apart===0?walkerTalk.conversation:null;
+  const conversation=insidePub?pubTalk:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;
   if(e.key==='Enter'&&conversation?.lines.length){
     if(!e.repeat){
       const line=conversation.advance();
@@ -421,7 +433,7 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){if(useSeat())return;if(useDoor())return;if(insideHotel){if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingToiletDoor(player)){notice=2.5;noticeText="SOMEONE'S IN!";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(useSeat())return;if(useDoor())return;if(insideHotel){if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insideLavatory){const reply=lavatoryReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -459,6 +471,11 @@ function tick(now){
       if(bumpedPerson){notice=2.5;noticeText='HEY! WATCH OUT!';}
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=`${currentPubName} / ${player.x<18?'BAR ROOM':'LOUNGE'}`;
+    }else if(insideLavatory){
+      // The pub waits, as it was, for the player to come back through.
+      moveInLavatory(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
+      document.querySelector('#message').textContent=notice?noticeText:'';
+      document.querySelector('#location').textContent=`${currentPubName} / LAVATORY`;
     }else if(insideHotel){
       if(!playerSeat)moveInHotel(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
       document.querySelector('#message').textContent=notice?noticeText:'';

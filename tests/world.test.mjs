@@ -1851,6 +1851,46 @@ test('toilet door is reachable between lounge tables and requires looking at it'
   assert.equal(facingToiletDoor({...p,x:PUB.staffDoor.x}),false);
 });
 
+test('the lavatory has two dry sinks on the right and three occupied cubicles ahead',async()=>{
+  const {LAVATORY,CUBICLE_REPLIES,SINK_REPLY,moveInLavatory,lavatoryReply,facingLavatoryExit}=await import('../neon-city/lavatory.js');
+  const {width,depth,sinks,cubicles,spawn}=LAVATORY;
+  assert.deepEqual(CUBICLE_REPLIES,["SORRY, I'M IN!",'JUST A MINUTE, PLEASE!']);
+  assert.equal(SINK_REPLY,"THERE'S NO WATER.");
+  // Walking in faces +z: the sinks are on the right-hand (+x) wall.
+  assert.equal(spawn.angle,0);
+  assert.equal(sinks.length,2);
+  for(const sink of sinks)assert.ok(sink.x+sink.w===width&&sink.x>width/2);
+  assert.deepEqual(cubicles.map(c=>c.icon),['gents','ladies','disabled']);
+  // Doors stay apart, inside the wall, and are all the same size.
+  for(let i=1;i<cubicles.length;i++)assert.ok(cubicles[i].x-cubicles[i].halfWidth>cubicles[i-1].x+cubicles[i-1].halfWidth+.3);
+  assert.ok(cubicles.at(-1).x+cubicles.at(-1).halfWidth<width-.3);
+  for(const door of [LAVATORY.door,...cubicles])assert.equal(door.halfWidth,cubicles[1].halfWidth);
+  // Each cubicle answers with one of the two lines, chosen at random.
+  for(const c of cubicles){
+    const p={x:c.x,z:depth-1.5,angle:0};
+    assert.equal(lavatoryReply(p,()=>0),CUBICLE_REPLIES[0]);
+    assert.equal(lavatoryReply(p,()=>.99),CUBICLE_REPLIES[1]);
+    assert.equal(lavatoryReply({...p,angle:Math.PI},()=>0),null,'turned away from the door');
+  }
+  for(const sink of sinks){
+    // Each sink, from in front and at an angle; never while looking away.
+    const front={x:sink.x-.9,z:sink.z+sink.d/2,angle:Math.PI/2};
+    assert.equal(lavatoryReply(front),SINK_REPLY);
+    assert.equal(lavatoryReply({...front,z:front.z-.6,angle:Math.PI/2-.4}),SINK_REPLY);
+    assert.equal(lavatoryReply({...front,angle:-Math.PI/2}),null);
+    assert.equal(lavatoryReply({...front,x:.5}),null,'out of reach');
+    // The sinks are solid.
+    const p={...front};moveInLavatory(p,3,0);
+    assert.ok(p.x<=sink.x-.3+1e-9,'stopped by the sink');
+  }
+  const q={...spawn};moveInLavatory(q,0,9);moveInLavatory(q,-9,0);
+  assert.ok(q.z<=depth-.3+1e-9&&q.x>=.3-1e-9,'stopped by the walls');
+  // The way back to the pub is behind the player on the way in.
+  assert.equal(facingLavatoryExit({...spawn,angle:Math.PI}),true);
+  assert.equal(facingLavatoryExit(spawn),false);
+  assert.equal(lavatoryReply({...spawn,angle:Math.PI}),null);
+});
+
  test('pub names use the requested list and stay consistent per address',async()=>{
   const {PUB_NAMES,pubName}=await import('../neon-city/pub.js');
   assert.deepEqual(PUB_NAMES,["THE CLANSMAN","HARRY'S PUB","PUBLIC HOUSE","JOIN TABLES","THE LEPRECHAUN","OLD RIVER","APACHE PUB"]);
