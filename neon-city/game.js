@@ -1,8 +1,8 @@
-import {PubLife,PubConversation} from './pub-life.js?v=beer-1';
+import {PubLife,PubConversation} from './pub-life.js?v=characters-13';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {sprite,outfit} from './sprites.js?v=characters-12';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, pubLines} from './world.js?v=parks-4';
+import {sprite,outfit} from './sprites.js?v=characters-13';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=characters-13';
 import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
@@ -10,7 +10,7 @@ import {drawParkGround,drawParkStructures,facingBench} from './parks.js?v=parks-
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=beer-1';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-13';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
@@ -198,7 +198,7 @@ function person(p){
   // Project the head too, so a seated player's pitched view keeps true heights.
   const foot={x:p.x,y:groundHeight(p.x,p.z)+.075,z:p.z},v=camera(foot);if(v.z<.3||v.z>105)return;
   const head=camera({...foot,y:foot.y+characterHeight(p.type)});if(head.z<.3)return;
-  const pos=project(v),height=pos.y-project(head).y,width=characterHeight(p.type)*F/v.z/2;if(height<=0)return;
+  const pos=project(v),height=pos.y-project(head).y,width=characterHeight(p.type)*characterGirth(p.type)*F/v.z/2;if(height<=0)return;
   if(pos.x+width<0||pos.x-width>W)return;
   queue.push({detail:true,depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
 }
@@ -296,7 +296,7 @@ function seatedPatron(p,walking=false){
   // Standing patrons use the pub's larger scale, with their feet on the floor.
   const scale=walking?.05:.0375,headHeight=walking?48*scale:1.87;
   for(const run of seatedPixels.get(key)){
-    const left=(run.x-12)*scale,right=(run.end-12)*scale,top=headHeight-run.y*scale,bottom=top-scale;
+    const girth=characterGirth(p.type),left=(run.x-12)*scale*girth,right=(run.end-12)*scale*girth,top=headHeight-run.y*scale,bottom=top-scale;
     const point=(offset,y)=>({x:p.x+Math.cos(player.angle)*offset,y,z:p.z-Math.sin(player.angle)*offset});
     face([point(left,bottom),point(right,bottom),point(right,top),point(left,top)],run.color);
   }

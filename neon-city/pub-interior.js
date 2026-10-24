@@ -1,5 +1,5 @@
-import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-12';
-import {PUB_TYPES} from './world.js?v=characters-12';
+import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-13';
+import {PUB_TYPES} from './world.js?v=characters-13';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
@@ -198,13 +198,15 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     const type=patrons[tableIndex]?.[seat],variant=patrons[tableIndex]?.variants?.[seat]??0;
     if(type!=null){
       const shoes=type===4?TEEN_OUTFITS[outfit(type,variant)].shoes:SHOE_COLORS[type];
-      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80','#5a3d5c','#2f3e5e','#9aa0a8'][type];
+      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80','#5a3d5c','#2f3e5e','#9aa0a8','#d8ccb0','#c7b07a'][type];
+      // Shorts leave the shins bare.
+      const shins={13:'#e9b08f'}[type]??trousers;
       // Her pencil skirt wraps both thighs and stops just short of the knees.
       if(type===8)box(x+.13,.51,z+(side<0?.2:.33),.54,.2,.42,'#2a2638');
       for(const dx of [.15,.48]){
         if(type===8)box(x+dx,.52,z+(side<0?.62:.2),.17,.17,.13,trousers);
         else box(x+dx,.52,z+.2,.17,.17,.55,trousers);
-        box(x+dx,.12,z+(side<0?.57:.06),.17,.46,.17,trousers);
+        box(x+dx,.12,z+(side<0?.57:.06),.17,.46,.17,shins);
         if(type===3){
           // The punk's street outfit has tall black shafts and chunky soles.
           const bootZ=z+(side<0?.57:.06);

@@ -1,4 +1,4 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688','#7a5232'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
@@ -241,6 +241,35 @@ export function sprite(type,frame,back=false,variant=0){
       rect(wrap,11,6,4,2);rect(wrap,12,8,2,10);
     }else{
       rect(gap,9,8,8,2);rect(glow,10,8,2,1);rect(glow,14,8,2,1);
+    }
+    sprites[key]=c;return c;
+  }
+  if(type===13){
+    // Short, fat bald man: wide-open eyes, a teal Hawaiian shirt over his belly, khaki shorts and sandals.
+    const skin='#e9b08f',shine='#f8d6bf',crease='#c98d6e',shirt='#1f9fb8',hem='#177a8e',collar='#f4ead2',shorts='#c7b07a';
+    rect(skin,8,2,9,1);rect(skin,7,3,11,11);rect(skin,8,14,9,1);rect(crease,9,14,7,1);
+    rect(skin,6,7,1,3);rect(skin,18,7,1,3);rect(shine,9,3,3,2);
+    rect(shirt,4,15,16,4);rect(shirt,3,19,18,11);rect(shirt,4,30,16,2);
+    rect(shirt,0,16,4,5);rect(shirt,20,16,4,5);rect(hem,0,20,4,1);rect(hem,20,20,4,1);
+    rect(skin,0,21,3,9);rect(skin,21,21,3,9);
+    rect(shorts,5,32,14,2);rect(shorts,5,34,6,4);rect(shorts,13,34,6,4);rect('#a68f5c',5,32,14,1);
+    rect(skin,6,38,4,6+stride);rect(skin,14,38,4,6-stride);
+    // Bare toes under a single strap, on flat soles.
+    rect(skin,5,44+stride,6,2);rect(skin,13,44-stride,6,2);
+    rect(SHOE_COLORS[type],5,44+stride,6,1);rect(SHOE_COLORS[type],13,44-stride,6,1);
+    rect(SHOE_COLORS[type],4,46+stride,7,1);rect(SHOE_COLORS[type],13,46-stride,7,1);
+    const flower=(x,y)=>{rect('#ff5e6c',x,y-1,1,3);rect('#ff5e6c',x-1,y,3,1);rect('#ffe066',x,y,1,1);rect('#4fc26e',x+2,y+1,2,1);};
+    if(back){
+      rect(shine,13,5,3,2);rect(crease,9,12,7,1);rect(collar,8,15,8,2);
+      for(const [x,y] of [[6,20],[15,19],[10,24],[17,26],[6,28],[2,17],[21,17]])flower(x,y);
+    }else{
+      // Raised brows over wide white eyes with small pupils.
+      rect('#6b4a3a',8,5,3,1);rect('#6b4a3a',14,5,3,1);
+      rect('#ffffff',8,7,3,3);rect('#ffffff',14,7,3,3);rect('#1a1418',9,8,1,1);rect('#1a1418',15,8,1,1);
+      rect(crease,12,10,1,2);rect('#9a5248',11,12,3,1);
+      rect(skin,10,15,4,2);rect(skin,11,17,2,1);rect(collar,8,15,2,3);rect(collar,14,15,2,3);
+      rect(hem,12,18,1,14);
+      for(const [x,y] of [[6,20],[16,20],[8,25],[17,26],[5,29],[15,30],[2,17],[21,17]])flower(x,y);
     }
     sprites[key]=c;return c;
   }

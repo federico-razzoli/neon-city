@@ -1,5 +1,5 @@
-import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=beer-1';
-import {PUB_TYPES} from './world.js?v=characters-12';
+import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-13';
+import {PUB_TYPES} from './world.js?v=characters-13';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 const sameSeat=(a,b)=>a&&b&&a.tableIndex===b.tableIndex&&a.seat===b.seat;

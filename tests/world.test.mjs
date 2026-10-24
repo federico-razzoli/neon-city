@@ -1574,7 +1574,7 @@ test('table partners say their lines in order every 3 to 5 seconds, looping',asy
   assert.equal(punk[0],'DO YOU KNOW THE RADIOACTIVE COWS?');
   assert.equal(punk[2],"THEIR DRUMMER COMPOSED ALL SEPULTURA'S SONGS.");
   assert.equal(punk.at(-1),'I PROMISE.');
-  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![3,4,5,6,11].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![3,4,5,6,11,13].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
   const values=[0,1,.5,.25,.75,0,1,.5,.1],random=()=>values.shift()??.5;
   const talk=new PubConversation(lines,random),said=[],gaps=[];
   let since=0;
@@ -1616,6 +1616,37 @@ test('Egyptian mummy is wrapped in bandages with glowing eyes, and never appears
   assert.ok(!PUB_TYPES.includes(12));
 });
 
+test('short, fat bald man wears a Hawaiian shirt, stares wide-eyed, and talks about his family',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite,SHOE_COLORS}=await import('../neon-city/sprites.js');
+    for(const back of [false,true])for(let frame=0;frame<4;frame++){
+      const pixels=sprite(13,frame,back).pixels,colors=new Set(pixels.values());
+      for(const x of [8,12,16])assert.ok(['#e9b08f','#f8d6bf'].includes(pixels.get(2*24+x)),'bald crown');
+      assert.equal(colors.has('#ffffff'),!back,'eyes show only from the front');
+      assert.ok(colors.has('#ff5e6c')&&colors.has('#ffe066')&&colors.has('#4fc26e'),'hibiscus print front and back');
+      assert.ok(['#1f9fb8','#ff5e6c','#ffe066','#4fc26e'].includes(pixels.get(24*24+3))&&['#1f9fb8','#ff5e6c','#ffe066','#4fc26e'].includes(pixels.get(24*24+20)),'belly spans the sprite');
+      assert.equal(pixels.get(40*24+7),'#e9b08f','bare shins below the shorts');
+      assert.ok(colors.has(SHOE_COLORS[13]),'sandals');
+    }
+    const front=sprite(13,0,false).pixels;
+    for(const x of [8,9,10,14,15,16])for(const y of [7,8,9])assert.ok(['#ffffff','#1a1418'].includes(front.get(y*24+x)),'wide-open 3×3 eyes');
+  }finally{globalThis.document=previous;}
+  const {characterHeight,characterGirth,goesToPub,pubLines}=await import('../neon-city/world.js');
+  assert.ok(characterHeight(13)<characterHeight(4),'shorter than the teen girl');
+  assert.ok(characterHeight(13)*characterGirth(13)>characterHeight(0),'wider than an average-height character');
+  for(let type=0;type<13;type++)assert.equal(characterGirth(type),1,'girth defaults to 1');
+  assert.equal(goesToPub(13),true);
+  assert.deepEqual(pubLines(13),['MY WIFE HAS ANOTHER MAN AND ANOTHER WOMAN.','MY DAUGHTER HAS ANOTHER DAD.',"BUT I DON'T MIND.",'FANCY ANOTHER PINT?']);
+});
+
 test('street characters appear in proportion to their weights, but pubs ignore weights',async()=>{
   const {streetWeight,streetType,PUB_TYPES}=await import('../neon-city/world.js');
   assert.equal(streetWeight(12),.25,'the mummy is rare');
@@ -1631,9 +1662,9 @@ test('street characters appear in proportion to their weights, but pubs ignore w
   assert.ok(seen[12]>0&&seen[12]<average*.5,'generated streets have far fewer mummies than average');
   const {PUB,createPubPatrons}=await import('../neon-city/pub-interior.js');
   const pubCounts=new Map(PUB_TYPES.map(type=>[type,0]));
-  for(let i=0;i<1100;i++){
+  for(let i=0;i<1200;i++){
     // Per table: two patrons, first seat 0, both characters from the sweep, then beer sides, variants, and beer colours.
-    const draws=[.6,0,(i+.5)/1100,(i+.5)/1100,.5,.5,.5,.5,.5,.5];let call=0;
+    const draws=[.6,0,(i+.5)/1200,(i+.5)/1200,.5,.5,.5,.5,.5,.5];let call=0;
     for(const seats of createPubPatrons(()=>draws[call++%draws.length]))for(const type of seats)pubCounts.set(type,pubCounts.get(type)+1);
   }
   assert.equal(new Set(pubCounts.values()).size,1,'pub patrons stay uniform');

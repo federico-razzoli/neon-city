@@ -1,4 +1,4 @@
-export const PEDESTRIAN_TYPES=13;
+export const PEDESTRIAN_TYPES=14;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
   3:{lines:[
@@ -38,10 +38,18 @@ const CHARACTER_TRAITS={
     'I ADMIRE LADYBUGS.',
     'I REALLY DO.'
   ]},
-  12:{goesToPub:false,weight:.25}
+  12:{goesToPub:false,weight:.25},
+  13:{height:1.6,girth:1.25,lines:[
+    'MY WIFE HAS ANOTHER MAN AND ANOTHER WOMAN.',
+    'MY DAUGHTER HAS ANOTHER DAD.',
+    "BUT I DON'T MIND.",
+    'FANCY ANOTHER PINT?'
+  ]}
 };
 export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;
 export const characterHeight=type=>CHARACTER_TRAITS[type]?.height??1.85;
+// Horizontal stretch of the sprite; sprites are otherwise half as wide as tall.
+export const characterGirth=type=>CHARACTER_TRAITS[type]?.girth??1;
 // What a character says, in order, while the player shares their pub table.
 export const pubLines=type=>CHARACTER_TRAITS[type]?.lines??[];
 export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
