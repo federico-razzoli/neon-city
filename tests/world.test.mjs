@@ -1887,3 +1887,77 @@ test('bird calls are varied, bounded, separated by quiet and stop on pause',asyn
   birds.mute();assert.equal(lastVolume,0);assert.equal(stops,1,'pause cuts a call short');
   birds.update(context,.8,.1);assert.equal(starts,1,'no call straight after resuming');
 });
+
+// Advance one walker on a park block as the city does when nothing blocks it.
+const stepWalker=(city,chunk,p,dt)=>{
+  const route=city.footpathStep(chunk,p,dt);
+  p.walkTime+=dt;
+  if(route){Object.assign(p,route);if(!p.detour)delete p.detour;delete p.footpathChoice;}
+};
+test('sidewalk walkers take the footpath one time in four, then leave left or right at random',async()=>{
+  const {footpathJunctions,FOOTPATH_CHANCE}=await import('../neon-city/world.js');
+  assert.equal(FOOTPATH_CHANCE,.25);
+  for(let seed=1;seed<12;seed++){
+    const {city,chunk}=parkChunk(seed),{path}=chunk.park;
+    const junctions=footpathJunctions(chunk);
+    // Each junction is the sidewalk point level with that end of the footpath.
+    for(const j of junctions){
+      const at=pedestrian(chunk,{phase:j.at,speed:1,reverse:false,walkTime:0,type:0,variant:0},0);
+      const end=j.end?path.at(-1):path[0];
+      assert.ok(Math.hypot(at.x-end.x,at.z-end.z)-3<1e-9,'three units from the lawn edge, across the sidewalk');
+      assert.ok(Math.abs(at.x-end.x)<1e-9||Math.abs(at.z-end.z)<1e-9);
+    }
+    for(const reverse of [false,true])for(const j of junctions){
+      // Approach the junction, then cross it with chosen random draws.
+      const walk=(draws,steps)=>{
+        const p={phase:0,speed:1.2,reverse,walkTime:0,type:0,variant:0},dir=reverse?-1:1;
+        p.phase=j.at-.5*dir;
+        city.rng=()=>draws.length?draws.shift():.9;
+        const trace=[pedestrian(chunk,p,0)];
+        for(let i=0;i<steps;i++){stepWalker(city,chunk,p,.02);trace.push(pedestrian(chunk,p,0));}
+        return {p,trace};
+      };
+      assert.ok(!walk([FOOTPATH_CHANCE],40).p.detour,'a draw of 1/4 or more keeps to the sidewalk');
+      const {p,trace}=walk([FOOTPATH_CHANCE-1e-6],30);
+      assert.ok(p.detour,'a draw below 1/4 takes the footpath');
+      // Walk the whole footpath; the walker never jumps and avoids trees and benches.
+      const left=walk([0,.2],3000),right=walk([0,.7],3000);
+      for(const {p,trace} of [left,right]){
+        assert.ok(!p.detour,'back on the sidewalk after the footpath');
+        for(let i=1;i<trace.length;i++)assert.ok(Math.hypot(trace[i].x-trace[i-1].x,trace[i].z-trace[i-1].z)<=.02*1.2+1e-6,'continuous walking');
+        assert.ok(trace.every(q=>!city.solid(q.x,q.z,.3)),'footpath walkers avoid trees and benches');
+        const far=trace.findIndex(q=>{const e=j.end?path[0]:path.at(-1);return Math.hypot(q.x-e.x,q.z-e.z)<.05;});
+        assert.ok(far>0,'walks the whole footpath to its other end');
+      }
+      assert.equal(left.p.reverse,true);assert.equal(right.p.reverse,false,'either direction afterwards');
+    }
+  }
+});
+
+test('footpath walkers do not decide again on leaving, and can turn back when blocked',async()=>{
+  const {footpathJunctions}=await import('../neon-city/world.js');
+  const {city,chunk}=parkChunk(4),[j]=footpathJunctions(chunk);
+  const p={phase:j.at-.3,speed:1.5,reverse:false,walkTime:0,type:0,variant:0};
+  let draws=0;city.rng=()=>{draws++;return 0;};
+  for(let i=0;i<20;i++){stepWalker(city,chunk,p,.02);}
+  assert.ok(p.detour);assert.equal(draws,1);
+  for(let i=0;i<4000&&p.detour;i++){stepWalker(city,chunk,p,.02);}
+  assert.ok(!p.detour);
+  const decided=draws;
+  for(let i=0;i<20;i++){stepWalker(city,chunk,p,.02);}
+  assert.equal(draws,decided,'no new decision on stepping off the footpath');
+  // Block a walker mid-footpath with the player: they wait, then turn back.
+  const walker={phase:j.at-.2,speed:1.2,reverse:false,walkTime:0,type:0,variant:0,stuckTime:0};
+  chunk.people=[walker];city.rng=()=>0;
+  for(let i=0;i<10;i++){stepWalker(city,chunk,walker,.02);}
+  assert.ok(walker.detour);
+  walker.walkTime+=8/1.2;
+  const ahead=pedestrian(chunk,{...walker,walkTime:walker.walkTime+1.5/1.2},0),player={x:ahead.x,z:ahead.z};
+  let time=0,positions=[];
+  for(let i=0;i<200;i++){city.advancePedestrians(.02,player,time+=.02);positions.push(pedestrian(chunk,walker,time));}
+  for(let i=1;i<positions.length;i++)assert.ok(Math.hypot(positions[i].x-positions[i-1].x,positions[i].z-positions[i-1].z)<.05,'no teleporting');
+  assert.ok(positions.every(q=>Math.hypot(q.x-player.x,q.z-player.z)>=PERSON_CLEARANCE-1e-9),'never walks through the player');
+  const last=positions.at(-1);
+  assert.ok(walker.detour,'still on the footpath');
+  assert.ok(Math.hypot(last.x-player.x,last.z-player.z)>2.5,'turned back along the footpath');
+});

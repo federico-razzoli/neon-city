@@ -79,6 +79,8 @@ export function groundHeight(x,z) {
 export const PARK_CHANCE = .1;
 export const PARK_GAP = 2;
 export const PARK_PATH_WIDTH = 3;
+// A walker reaching either end of the footpath takes it one time in four.
+export const FOOTPATH_CHANCE = .25;
 export const LOAD_RADIUS = 2;
 export const KEEP_RADIUS = 3;
 export const RIVER_VIEW_DISTANCE = 260;
@@ -179,7 +181,7 @@ export class City {
       // frozen until they have stepped out, let the other pass, and returned.
       for(let i=0;i<chunk.people.length;i++)for(let j=i+1;j<chunk.people.length;j++){
         const a=chunk.people[i],b=chunk.people[j];
-        if(a.yielding||b.yielding||a.reverse===b.reverse)continue;
+        if(a.yielding||b.yielding||a.detour||b.detour||a.reverse===b.reverse)continue;
         const pa=pedestrian(chunk,a,time),pb=pedestrian(chunk,b,time);
         const gap=Math.hypot(pa.x-pb.x,pa.z-pb.z);
         if(gap>1.2)continue;
@@ -217,8 +219,11 @@ export class City {
         const waitingForSideStep=chunk.people.some(q=>q.yielding?.partner===p&&q.yielding.stage==='out');
         if(y?.stage==='wait'&&y.partner&&(y.partner.walkTime-y.partnerTime)*y.partner.speed>=y.passDistance)y.stage='back';
         const offset=y?(y.stage==='out'?Math.min(1.3,y.offset+dt*1.8):y.stage==='back'?Math.max(0,y.offset-dt*1.8):y.offset):0;
-        const after=pedestrian(chunk,{...p,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
-        return {p,before,after,offset,waitingForSideStep,blocked:crossesPerson(before,after,player)||this.solid(after.x,after.z)};
+        // Turning onto or off the footpath is part of the planned step, so the
+        // collision checks below see where the walker will really be.
+        const route=!y&&!waitingForSideStep&&chunk.park?this.footpathStep(chunk,p,dt):null;
+        const after=pedestrian(chunk,{...p,...route,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
+        return {p,before,after,offset,waitingForSideStep,route,blocked:crossesPerson(before,after,player)||this.solid(after.x,after.z)};
       });
       // Resolve from one shared snapshot. Repeat so a stop propagates backwards
       // through a queue in this frame, regardless of array order.
@@ -251,7 +256,12 @@ export class City {
       }
       for(const move of moves)if(!move.blocked){
         const y=move.p.yielding;
-        if(!y){if(!move.waitingForSideStep)move.p.walkTime+=dt;continue;}
+        if(!y){
+          if(move.waitingForSideStep)continue;
+          move.p.walkTime+=dt;
+          if(move.route){Object.assign(move.p,move.route);if(!move.p.detour)delete move.p.detour;delete move.p.footpathChoice;}
+          continue;
+        }
         if(y.stage==='escape')move.p.walkTime+=dt;
         y.offset=move.offset;
         if(y.stage==='out'&&y.offset===1.3)y.stage='wait';
@@ -259,16 +269,17 @@ export class City {
       }
       const turnAround=p=>{
         if((p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5)return false;
-        const phase=mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168);
+        // On the footpath, walk back the way they came.
+        const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=pedestrian(chunk,p,time);
-        const next=pedestrian(chunk,{...p,phase,reverse:!p.reverse,walkTime:p.walkTime+.2},time);
+        const next=pedestrian(chunk,{...p,...turned,walkTime:p.walkTime+.2},time);
         if(this.solid(next.x,next.z)||crossesPerson(origin,next,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,next,pedestrian(chunk,q,time))))return false;
-        p.phase=phase;p.reverse=!p.reverse;p.stuckTime=0;p.turnCooldown=3;
+        Object.assign(p,turned);p.stuckTime=0;p.turnCooldown=3;delete p.footpathChoice;
         return true;
       };
       for(let i=0;i<chunk.people.length;i++)for(let j=i+1;j<chunk.people.length;j++){
         const a=chunk.people[i],b=chunk.people[j];
-        if(a.reverse===b.reverse||a.stuckTime<1.5||b.stuckTime<1.5||a.turnCooldown||b.turnCooldown)continue;
+        if(a.detour||b.detour||a.reverse===b.reverse||a.stuckTime<1.5||b.stuckTime<1.5||a.turnCooldown||b.turnCooldown)continue;
         const pa=pedestrian(chunk,a,time),pb=pedestrian(chunk,b,time);
         if(Math.hypot(pa.x-pb.x,pa.z-pb.z)>2.6)continue;
         // Prefer the forward walker; never teleport someone out of a sidestep.
@@ -283,6 +294,33 @@ export class City {
       // is required. The clearance check lets a queue unwind from its free end.
       for(const move of moves)if(move.p.stuckTime>=1.5)turnAround(move.p);
     }
+  }
+  // Plans a walker's next dt on a park block: the state to adopt if the step
+  // goes ahead, or null to keep walking as before. A choice made at a blocked
+  // step is kept, so waiting at a junction does not roll the dice again.
+  footpathStep(chunk,p,dt) {
+    const walkTime=p.walkTime+dt,step=dt*p.speed;
+    if(p.detour){
+      const walked=(walkTime-p.detour.start)*p.speed;
+      if(walked<p.detour.total)return null;
+      // Back on the sidewalk at the far end, heading left or right at random.
+      p.footpathChoice??={reverse:this.rng()<.5};
+      const {reverse}=p.footpathChoice,dir=reverse?-1:1;
+      return {detour:undefined,reverse,phase:p.detour.exit+(walked-p.detour.total)*dir-walkTime*p.speed*dir};
+    }
+    // Did this step reach a footpath end? Ties at the start of a step do not
+    // count, so a walker leaving the footpath does not decide again at once.
+    const dir=p.reverse?-1:1,now=mod(p.phase+walkTime*p.speed*dir,168);
+    for(const junction of footpathJunctions(chunk)){
+      const passed=mod((junction.at-now)*-dir,168);
+      if(passed>=step-1e-9)continue;
+      if(p.footpathChoice?.at!==junction.at)p.footpathChoice={at:junction.at,take:this.rng()<FOOTPATH_CHANCE};
+      if(!p.footpathChoice.take)return {};
+      const detour=footpathDetour(chunk,junction.end);
+      detour.start=walkTime-passed/p.speed;
+      return {detour};
+    }
+    return null;
   }
   move(p,dx,dz,people=[]) {
     let bumpedPedestrian=false;
@@ -363,6 +401,40 @@ function parkLayout(x,z,r){
   }
   return {axis,path,benches,trees,cones};
 }
+// Loop positions of the sidewalk points level with each footpath end.
+export function footpathJunctions(chunk){
+  const {axis,path}=chunk.park,lx=q=>q.x-chunk.x*BLOCK,lz=q=>q.z-chunk.z*BLOCK;
+  const first=path[0],last=path.at(-1);
+  // Axis 0 joins the x=11 and x=53 sidewalks; axis 1 joins z=11 and z=53.
+  return axis
+    ?[{end:0,at:lx(first)-11},{end:1,at:84+53-lx(last)}]
+    :[{end:0,at:126+53-lz(first)},{end:1,at:42+lz(last)-11}];
+}
+// The walk from one sidewalk, along the whole footpath, to the opposite one.
+function footpathDetour(chunk,end){
+  const {axis,path}=chunk.park,points=end?[...path].reverse():[...path];
+  const out=(q,toward)=>axis?{x:q.x,z:q.z+toward*3}:{x:q.x+toward*3,z:q.z};
+  const outward=end?1:-1;
+  points.unshift(out(points[0],outward));points.push(out(points.at(-1),-outward));
+  const lengths=[0];
+  for(let i=1;i<points.length;i++)lengths.push(lengths[i-1]+Math.hypot(points[i].x-points[i-1].x,points[i].z-points[i-1].z));
+  const exit=footpathJunctions(chunk)[1-end].at;
+  return {points,lengths,total:lengths.at(-1),exit,entry:footpathJunctions(chunk)[end].at};
+}
+const detourDistance=(detour,p)=>(p.walkTime-detour.start)*p.speed;
+function reverseDetour(detour,p){
+  const walked=Math.min(detour.total,detourDistance(detour,p));
+  const points=[...detour.points].reverse(),lengths=detour.lengths.map(l=>detour.total-l).reverse();
+  return {points,lengths,total:detour.total,exit:detour.entry,entry:detour.exit,start:p.walkTime-(detour.total-walked)/p.speed};
+}
+function detourPosition(detour,distance){
+  const d=Math.max(0,Math.min(detour.total,distance)),{points,lengths}=detour;
+  let i=1;
+  while(i<points.length-1&&lengths[i]<d)i++;
+  const a=points[i-1],b=points[i],t=(d-lengths[i-1])/((lengths[i]-lengths[i-1])||1);
+  const length=Math.hypot(b.x-a.x,b.z-a.z)||1;
+  return {x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,facingX:(b.x-a.x)/length,facingZ:(b.z-a.z)/length};
+}
 function pedestrianRoute(chunk,p,time){
   const length=chunk.river?106:42;
   const width=chunk.river?170:42;
@@ -374,6 +446,10 @@ function pedestrianRoute(chunk,p,time){
 }
 export function pedestrian(chunk,p,time) {
   time=p.walkTime??time;
+  if(p.detour){
+    const at=detourPosition(p.detour,(time-p.detour.start)*p.speed);
+    return {...at,type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
+  }
   const {side,t,length,width}=pedestrianRoute(chunk,p,time);
   return {x:chunk.x*64+[11+t,11+width,11+width-t,11][side]+(p.yielding?p.yielding.dx*p.yielding.offset:0),z:(chunk.river?chunk.riverStart:chunk.z)*64+[11,11+t,11+length,11+length-t][side]+(p.yielding?p.yielding.dz*p.yielding.offset:0),facingX:[1,0,-1,0][side]*(p.reverse?-1:1),facingZ:[0,1,0,-1][side]*(p.reverse?-1:1),type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
 }
