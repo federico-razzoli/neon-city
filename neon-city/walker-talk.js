@@ -1,4 +1,4 @@
-import {PubConversation} from './pub-life.js?v=bumps-1';
+import {PubConversation} from './pub-life.js?v=enter-talk-1';
 import {placeLines} from './world.js?v=talk-13';
 
 // A walk away shorter than this keeps the conversation going; a longer one
@@ -12,6 +12,7 @@ export const talksHere=({walker,place})=>placeLines(walker.type,place).length>0;
 // carry on as a pub conversation does while the player stays in their way.
 export class WalkerTalk{
   constructor(random=Math.random){this.random=random;this.walker=null;this.place=null;this.conversation=null;this.apart=0;}
+  advance(){return this.apart===0?this.conversation?.advance()??null:null;}
   // Contacts are the walkers the player bumped or blocked this frame.
   // Returns the line that is due now, if any.
   update(dt,contacts){

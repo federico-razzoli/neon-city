@@ -1,4 +1,4 @@
-import {PubLife,PubConversation} from './pub-life.js?v=bumps-1';
+import {PubLife,PubConversation} from './pub-life.js?v=enter-talk-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
@@ -7,7 +7,7 @@ import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
 import {drawParkGround,drawParkStructures,facingBench,paintRiverSign,RIVER_SIGN_TEXTURE} from './parks.js?v=talk-13';
-import {WalkerTalk,talksHere} from './walker-talk.js?v=talk-13';
+import {WalkerTalk,talksHere} from './walker-talk.js?v=enter-talk-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
@@ -404,7 +404,7 @@ function pause(){if(pubMenu.open)return;startSpaceHeld=false;running=false;arcad
 function play(){if(pubMenu.open)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
-window.addEventListener('keydown',e=>{const k=e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
+window.addEventListener('keydown',e=>{const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}if(!valid.has(k))return;if(k==='Escape'){if(running)pause();return;}
 if(k===' '&&!running){
   e.preventDefault();
   if(!e.repeat){play();startSpaceHeld=true;}
@@ -413,6 +413,14 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
+  const conversation=insidePub?pubTalk:!insideHotel&&walkerTalk.apart===0?walkerTalk.conversation:null;
+  if(e.key==='Enter'&&conversation?.lines.length){
+    if(!e.repeat){
+      const line=conversation.advance();
+      if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;}
+    }
+    return;
+  }
   if(k===' '&&!e.repeat){if(useSeat())return;if(useDoor())return;if(insideHotel){if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingToiletDoor(player)){notice=2.5;noticeText="SOMEONE'S IN!";}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
@@ -420,7 +428,7 @@ function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
-window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' ')startSpaceHeld=false;keys.delete(e.code==='Space'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open)syncShift(e);});
+window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open)syncShift(e);});
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 for(const button of document.querySelectorAll('[data-key]')){
   button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});

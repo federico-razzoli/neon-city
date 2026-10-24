@@ -924,6 +924,17 @@ test('bumping into a talker in their place shows their line instead of the bump 
   wait();
   bumpedPerson={type:15,place:'river',walker:{type:15}};tick(ms+=20);
   assert.equal(message(),"I COME HERE WHEN I'M SAD.");
+  const {placeLines}=await import('../neon-city/world.js');
+  const lines=placeLines(15,'river');
+  const enter=repeat=>events.keydown({key:'Enter',code:'Enter',repeat,preventDefault(){}});
+  enter(false);
+  assert.equal(message(),lines[1],'Enter replaces the current sentence immediately');
+  enter(true);
+  assert.equal(message(),lines[1],'holding Enter does not skip more sentences');
+  for(const end=ms+2600;ms<end;)tick(ms+=20);
+  assert.equal(message(),'','the sentence ends before the next automatic line');
+  enter(false);
+  assert.equal(message(),lines[2],'Enter skips the pause immediately');
   wait();
   bumpedPerson={type:13,place:'footpath',walker:{type:13}};tick(ms+=20);
   assert.equal(message(),'HAVE YOU SEEN MY WIFE AROUND?');
@@ -1381,12 +1392,13 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
   const key={key:' ',code:'Space',repeat:false,preventDefault(){}};
-  events.keydown(key);tick(0);
-  assert.equal(element('#overlay').hidden,true,'Space starts the game');
-  events.keydown({...key,repeat:true});tick(0);
-  assert.equal(sounds,0,'starting Space does not also lift a cover');
-  events.keyup(key);
-  events.keydown(key);events.keyup(key);tick(20);
+  const enter={...key,key:'Enter',code:'Enter'};
+  events.keydown(enter);tick(0);
+  assert.equal(element('#overlay').hidden,true,'Enter starts the game like Space');
+  events.keydown({...enter,repeat:true});tick(0);
+  assert.equal(sounds,0,'starting Enter does not also lift a cover');
+  events.keyup(enter);
+  events.keydown(enter);events.keyup(enter);tick(20);
   assert.equal(sounds,1);assert.equal(element('#message').textContent,"IT'S TOO HEAVY.");
   events.keydown(key);events.keyup(key);tick(40);assert.equal(sounds,2,'second tap works even between frames');
   events.keydown(key);tick(60);assert.equal(sounds,3);
@@ -1422,8 +1434,8 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(moves,previousMoves,'menu freezes world updates and movement');
   assert.equal(player.angle,previousAngle);
   assert.equal(sounds,7,'menu does not lift a nearby cover');
-  events.keyup(key);events.keydown(key);
-  assert.equal(element('#pub-menu').open,false);
+  events.keyup(key);events.keydown(enter);
+  assert.equal(element('#pub-menu').open,false,'Enter closes the menu like Space');
   events.keydown({...key,repeat:true});tick(6180);
   assert.equal(sounds,7,'closing Space does not lift a cover');
   assert.equal(player.angle,previousAngle,'turn input while reading is discarded');
@@ -1431,7 +1443,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   events.keyup(key);
   city.chunks.get('0,0').buildings[0].pubPatrons=[[null,0]];
   player.x=21;player.z=-7;player.angle=0;
-  events.keydown(key);tick(6200);
+  events.keydown(enter);tick(6200);
   assert.equal(player.x,9);assert.equal(player.z,1.8);
   assert.match(element('#location').textContent,/BAR ROOM/);
   events.keydown({...key,repeat:true});tick(6220);
@@ -2094,6 +2106,17 @@ test('old-style robot has an antenna, glowing eyes and pincers, with a wind-up k
   const legs=boxes.filter(b=>b.x>=chair.x&&b.x<chair.x+chair.w);
   assert.equal(legs.filter(b=>b.color==='#9aa0a8').length,4,'metal thighs and shins');
   assert.equal(legs.filter(b=>b.color==='#585e68').length,2,'block feet');
+});
+
+test('manual conversation advance resets the pause and loops through sentences',async()=>{
+  const {PubConversation}=await import('../neon-city/pub-life.js');
+  const talk=new PubConversation(['FIRST','SECOND'],()=>0);
+  assert.equal(talk.advance(),'FIRST');
+  assert.equal(talk.update(2.6),null);
+  assert.equal(talk.advance(),'SECOND');
+  assert.equal(talk.update(2.9),null,'manual advance restarts the full delay');
+  assert.equal(talk.update(.2),'FIRST');
+  assert.equal(new PubConversation([]).advance(),null);
 });
 
 test('table partners say their lines in order every 3 to 5 seconds, looping',async()=>{

@@ -105,6 +105,10 @@ export class PubConversation{
     if(!this.lines.length)return null;
     this.wait-=dt;
     if(this.wait>0)return null;
+    return this.advance();
+  }
+  advance(){
+    if(!this.lines.length)return null;
     this.wait=this.delay();
     const line=this.lines[this.index];
     this.index=(this.index+1)%this.lines.length;
