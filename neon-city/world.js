@@ -199,11 +199,20 @@ const RIVER_LOAD_RADIUS = 4;
 export const PEDESTRIAN_MIN_SPEED = .9;
 export const PEDESTRIAN_MAX_SPEED = PEDESTRIAN_MIN_SPEED * 2;
 export const PERSON_CLEARANCE = .85; // Player radius plus pedestrian radius.
+const STREET_BUMP_RADIUS = PERSON_CLEARANCE * 1.5; // 50% larger player–NPC collision radius.
 export const mod = (n, d) => ((n % d) + d) % d;
-function crossesPerson(a,b,person) {
+function crossesPerson(a,b,person,clearance=PERSON_CLEARANCE) {
   const dx=b.x-a.x,dz=b.z-a.z,length=dx*dx+dz*dz;
   const t=length?Math.max(0,Math.min(1,((person.x-a.x)*dx+(person.z-a.z)*dz)/length)):0;
-  return Math.hypot(a.x+dx*t-person.x,a.z+dz*t-person.z)<PERSON_CLEARANCE;
+  return Math.hypot(a.x+dx*t-person.x,a.z+dz*t-person.z)<clearance;
+}
+// Let an actor already inside the collision area retreat without getting stuck.
+function crossesPlayer(a,b,person){
+  const dx=b.x-a.x,dz=b.z-a.z;
+  if(Math.hypot(a.x-person.x,a.z-person.z)<STREET_BUMP_RADIUS&&
+    (a.x-person.x)*dx+(a.z-person.z)*dz>=0&&
+    Math.hypot(b.x-person.x,b.z-person.z)>Math.hypot(a.x-person.x,a.z-person.z))return false;
+  return crossesPerson(a,b,person,STREET_BUMP_RADIUS);
 }
 export function random(seed) {
   return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t ^= t + Math.imul(t ^ t >>> 7, 61 | t); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -311,7 +320,7 @@ export class City {
         const {side}=pedestrianRoute(chunk,p,p.walkTime);
         const dx=[0,1,0,-1][side],dz=[-1,0,1,0][side];
         const origin=pedestrian(chunk,p,time),target={x:origin.x+dx*1.3,z:origin.z+dz*1.3};
-        if(crossesPerson(origin,target,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,target,pedestrian(chunk,q,time))))continue;
+        if(crossesPlayer(origin,target,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,target,pedestrian(chunk,q,time))))continue;
         p.yielding={dx,dz,offset:0,stage:'out',partner,partnerTime:partner.walkTime,passDistance:gap+1.2};
       }
       // Recover interrupted sidesteps too: their route clocks are deliberately
@@ -326,7 +335,7 @@ export class City {
         }
         if(y.stage==='escape'){
           const origin=pedestrian(chunk,p,time),target=pedestrian(chunk,{...p,yielding:undefined},time);
-          if(!crossesPerson(origin,target,player)&&!chunk.people.some(q=>q!==p&&crossesPerson(origin,target,pedestrian(chunk,q,time))))y.stage='back';
+          if(!crossesPlayer(origin,target,player)&&!chunk.people.some(q=>q!==p&&crossesPerson(origin,target,pedestrian(chunk,q,time))))y.stage='back';
         }
         if(y.stage==='back'&&y.offset===0){delete p.yielding;p.stuckTime=0;}
       }
@@ -341,7 +350,7 @@ export class City {
         // collision checks below see where the walker will really be.
         const route=!y&&!waitingForSideStep&&chunk.park?this.footpathStep(chunk,p,dt):null;
         const after=pedestrian(chunk,{...p,...route,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
-        const held=crossesPerson(before,after,player);
+        const held=crossesPlayer(before,after,player);
         return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)};
       });
       // Walkers with lines for their place stay to talk while the player blocks them.
@@ -400,7 +409,7 @@ export class City {
         const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=pedestrian(chunk,p,time);
         const next=pedestrian(chunk,{...p,...turned,walkTime:p.walkTime+.2},time);
-        if(this.solid(next.x,next.z)||crossesPerson(origin,next,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,next,pedestrian(chunk,q,time))))return false;
+        if(this.solid(next.x,next.z)||crossesPlayer(origin,next,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,next,pedestrian(chunk,q,time))))return false;
         Object.assign(p,turned);p.stuckTime=0;p.turnCooldown=3;delete p.footpathChoice;
         return true;
       };
@@ -453,16 +462,18 @@ export class City {
   // Bumped people are also added to the optional bumped list.
   move(p,dx,dz,people=[],bumped=[]) {
     let bumpedPedestrian=false;
-    const reach=Math.hypot(dx,dz)+PERSON_CLEARANCE;
+    const reach=Math.hypot(dx,dz)+STREET_BUMP_RADIUS;
     const nearby=people.filter(person=>Math.hypot(person.x-p.x,person.z-p.z)<=reach);
     const blocked=(x,z)=>{
       if(this.solid(x,z))return true;
-      const hit=x!==p.x||z!==p.z?nearby.filter(person=>crossesPerson(p,{x,z},person)):[];
+      const hit=x!==p.x||z!==p.z?nearby.filter(person=>
+        Math.hypot(x-person.x,z-person.z)<=Math.hypot(p.x-person.x,p.z-person.z)&&
+        crossesPerson(p,{x,z},person,STREET_BUMP_RADIUS)):[];
       if(hit.length){
         for(const person of hit)if(!bumped.includes(person))bumped.push(person);
-        bumpedPedestrian=true;return true;
+        bumpedPedestrian=true;
       }
-      return false;
+      return nearby.some(person=>crossesPlayer(p,{x,z},person));
     };
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.3));
     for(let i=0;i<steps;i++){if(!blocked(p.x+dx/steps,p.z))p.x+=dx/steps;if(!blocked(p.x,p.z+dz/steps))p.z+=dz/steps;}

@@ -691,7 +691,8 @@ test('pedestrians stop around corners, and generated crowds start separated even
 
 test('a blocked sidestep on a straight sidewalk triggers the turnaround fallback',()=>{
   const {city,people,chunk}=crowd([{phase:10},{phase:14,reverse:true}]);
-  const player={x:22.4,z:9.9};
+  // Block the sidestep while leaving the straight sidewalk clear at the larger radius.
+  const player={x:22.4,z:9.4};
   for(let i=1;i<=150;i++){
     city.advancePedestrians(.04,player,i*.04);separated(chunk);
     for(const p of city.pedestrians(0))assert.ok(Math.hypot(p.x-player.x,p.z-player.z)>=PERSON_CLEARANCE);
@@ -946,6 +947,29 @@ test('movement reports pedestrian bumps but not idle, clear movement or building
   assert.equal(city.move({x:11,z:10},0,.1,[npc]),false);
   assert.equal(city.move({x:13,z:20},2,0,[]),false);
   assert.equal(city.move({x:10.5,z:19.2},.1,.2,[npc]),true,'sliding contact also reports a bump');
+});
+
+test('street bump trigger and physical clearance have a 50% larger radius',()=>{
+  const city=new City(1),npc={x:11,z:20},radius=1.275;
+  for(const [gap,expected] of [[radius-.001,true],[radius+.001,false]]){
+    const player={x:11,z:20-gap-.02},bumped=[];
+    assert.equal(city.move(player,0,.02,[npc],bumped),expected);
+    assert.deepEqual(bumped,expected?[npc]:[]);
+    assert.ok(Math.abs(player.z-(20-gap-(expected?.02:0)))<1e-9,'physical collision matches the bump radius');
+    assert.equal(city.move(player,0,0,[npc]),false,'idle is not a bump');
+    assert.equal(city.move(player,0,-.1,[npc]),false,'backing away is not a bump');
+  }
+});
+
+test('NPC movement respects the enlarged player clearance',()=>{
+  for(const gap of [1.25,1.3]){
+    const {city,people,chunk}=crowd([{phase:8}]),npc=people[0];
+    const before=pedestrian(chunk,npc,0),next=pedestrian(chunk,{...npc,walkTime:.02},0);
+    const distance=Math.hypot(next.x-before.x,next.z-before.z);
+    const player={x:before.x+(next.x-before.x)/distance*gap,z:before.z+(next.z-before.z)/distance*gap};
+    city.advancePedestrians(.02,player,.02);
+    assert.equal(npc.walkTime,gap<1.275?0:.02,'NPC stops inside the enlarged radius but walks outside it');
+  }
 });
 
 test('arcade ambience fades with distance and only comes from arcade buildings',async()=>{
