@@ -96,14 +96,14 @@ export const BOTTLES_REPLY='SO MANY BOTTLES!';
 export const facingBottles=player=>behindBar(player)&&player.z<PUB.shelves.z&&facingDoorway(player,{x:PUB.shelves.x+PUB.shelves.w/2,z:PUB.shelves.z},PUB.shelves.w/2,5);
 export const facingBartender=player=>behindBar(player)&&facingNearest(player,[PUB.bartender])!=null;
 // From the customers' side the counter and the aisle behind it add to the usual reach.
-export function facingBartenderAcrossBar(player){
-  const {bar,bartender}=PUB;
-  if(player.z>=bar.z)return false;
+export function facingAcrossCounter(player,counter,staff){
+  if(player.z>=counter.z)return false;
   // Talk across the counter itself, not around its open end.
-  const x=player.x+(bartender.x-player.x)*(bar.z-player.z)/(bartender.z-player.z);
-  if(x<bar.x||x>bar.x+bar.w)return false;
-  return facingNearest(player,[{...bartender,reach:1.2+bartender.z-bar.z}])!=null;
+  const x=player.x+(staff.x-player.x)*(counter.z-player.z)/(staff.z-player.z);
+  if(x<counter.x||x>counter.x+counter.w)return false;
+  return facingNearest(player,[{...staff,reach:1.2+staff.z-counter.z}])!=null;
 }
+export const facingBartenderAcrossBar=player=>facingAcrossCounter(player,PUB.bar,PUB.bartender);
 // Staff who keep a Poké Ball on the counter in front of them, and won't part with it.
 export const POKE_BALL_REPLY="I SHOULDN'T TAKE IT.";
 // The crosshair has to sit on the ball itself, so the staff beside it can
@@ -115,20 +115,25 @@ export function facingPokeBall(player,ball){
   return Math.abs(dx*Math.cos(player.angle)-dz*Math.sin(player.angle))<=ball.radius+.12;
 }
 // Pick a line, hear the answer (Space for each further line), then pick again.
-// A line that ends the chat does so once its answer has been heard.
+// A line that ends the chat does so once its answer has been heard; one with
+// a next block offers that block's lines instead, once its answer is over.
+// A script is a list of lines, or a list of blocks of lines starting at the first.
 export const BARTENDER_TALK=[
   {ask:'HEY!',answer:['HELLO THERE!']},
   {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.']},
   {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.']},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
-export class BartenderTalk{
-  constructor(script=BARTENDER_TALK){this.script=script;this.selected=0;this.answer=[];this.over=false;}
+export class StaffTalk{
+  constructor(script=BARTENDER_TALK){this.blocks=Array.isArray(script[0])?script:[script];this.block=0;this.selected=0;this.answer=[];this.over=false;}
+  get script(){return this.blocks[this.block];}
   get line(){return this.answer[0]??null;}
   move(step){if(!this.line)this.selected=(this.selected+step+this.script.length)%this.script.length;}
   confirm(choice=this.selected){
     if(this.line)this.answer.shift();
-    else{this.selected=choice;this.answer=[...this.script[choice].answer];}
-    this.over=!this.line&&!!this.script[this.selected].ends;
+    else{this.selected=choice;this.chosen=this.script[choice];this.answer=[...this.chosen.answer];}
+    if(this.line)return;
+    this.over=!!this.chosen.ends;
+    if(this.chosen.next!=null){this.block=this.chosen.next;this.selected=0;}
   }
 }
 export function pubPersonBlocks(start,end,person){

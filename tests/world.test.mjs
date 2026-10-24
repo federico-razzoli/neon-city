@@ -323,7 +323,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;}};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},get hotelLife(){return hotelLife;}};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   const hotel={x:14,z:14,w:18,d:18,j:0,sign:'HOTEL'};
   city.chunks.set('0,0',{buildings:[hotel],manholes:[],newspaperMachines:[]});
@@ -382,6 +382,31 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   press();
   assert.equal(element('#message').textContent,"I CAN'T TAKE A KEY FOR FREE...");
   for(let i=0;i<200;i++)tick(ms+=20);
+  // From the lobby a chat with the receptionist begins, in the same box as the bartender's.
+  const key=k=>{const e={key:k,code:k===' '?'Space':k,repeat:false,preventDefault(){}};events.keydown(e);tick(ms+=20);events.keyup(e);tick(ms+=20);};
+  const answer=line=>`<p class="talk-answer">${line}</p>`;
+  Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x,z:11.7,angle:0});
+  press();
+  const talkBox=element('#staff-talk');
+  assert.equal(talkBox.hidden,false);assert.equal(talkBox.ariaLabel,'Talk to the receptionist');
+  assert.match(talkBox.innerHTML,/HEY![\s\S]*WHAT TIME DO YOU CLOSE THE DOOR\?[\s\S]*I'M NEW TO NEON CITY\.\.\.[\s\S]*BYE!/);
+  key('3');
+  assert.equal(talkBox.innerHTML,answer('WELCOME TO OUR CITY! HOW CAN I HELP YOU?'));
+  press();
+  assert.match(talkBox.innerHTML,/aria-current="true">CAN YOU RECOMMEND SOME PLACES TO VISIT\?[\s\S]*NEVER MIND\./);
+  assert.doesNotMatch(talkBox.innerHTML,/BYE!/);
+  press();
+  assert.equal(talkBox.innerHTML,answer("WELL, LET'S SEE..."));
+  press();press();press();
+  assert.equal(talkBox.innerHTML,answer("AND THE LOCAL PEOPLE ALSO LOVE THE NIGHT RIVER'S AREA. FOLLOW THE SIGNS AND YOU'LL FIND IT."));
+  press();
+  key('ArrowDown');press();
+  assert.match(talkBox.innerHTML,/aria-current="true">HEY![\s\S]*BYE!/,'NEVER MIND. goes back to the first choices');
+  key('4');
+  assert.equal(talkBox.innerHTML,answer('HAVE AN UNFORGETTABLE NIGHT IN NEON CITY!'));
+  press();
+  assert.equal(talkBox.hidden,true,'BYE! ends the chat');
+  for(let i=0;i<200;i++)tick(ms+=20);
   // Space at the reception lamp switches it on and off again, silently.
   Object.assign(player,{x:hotelInterior.HOTEL.lamp.x,z:11.5,angle:0});
   press();
@@ -393,6 +418,23 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     press();
     assert.equal(hotel.lampOn,on);assert.equal(element('#message').textContent,'CAN YOU NOT, PLEASE?');
   }
+  // A robot from the rooms stops for the player in its way on the stairs,
+  // and Space then starts a chat with it. Once the way is clear it walks out.
+  const life=sandbox.game.hotelLife,{ROBOT_ROUTE}=hotelInterior;
+  life.walker=null;life.wait=.01;
+  Object.assign(player,{x:ROBOT_ROUTE[0].x,z:8,angle:0});
+  for(let i=0;i<400&&!life.held;i++)tick(ms+=20);
+  assert.equal(life.held,true,'waits for the player');
+  press();
+  assert.equal(talkBox.hidden,false);assert.equal(talkBox.ariaLabel,'Talk to the robot');
+  assert.match(talkBox.innerHTML,/HEY![\s\S]*WOULD YOU RECOMMEND THIS HOTEL\?[\s\S]*IS THIS HOTEL ROBOT-FRIENDLY\?[\s\S]*BYE!/);
+  key('4');
+  assert.equal(talkBox.innerHTML,answer('SEE YOU LATER, HUMAN!'));
+  press();
+  assert.equal(talkBox.hidden,true,'BYE! ends the chat');
+  Object.assign(player,{x:2,z:8,angle:0});
+  for(let i=0;i<1000&&life.walker;i++)tick(ms+=20);
+  assert.equal(life.walker,null,'gone out to the street');
   Object.assign(player,{x:10,z:1.5,angle:Math.PI});
   press();
   assert.match(location(),/^MIDNIGHT DISTRICT/);
@@ -2005,9 +2047,9 @@ test('Nurse Joy\'s Poké Ball stays on the counter, from either side of the bar 
 });
 
 test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
-  const {BARTENDER_TALK,BartenderTalk}=await import('../neon-city/pub-interior.js');
+  const {BARTENDER_TALK,StaffTalk}=await import('../neon-city/pub-interior.js');
   assert.deepEqual(BARTENDER_TALK.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','ABOUT THE STAFF ROOM...','BYE!']);
-  const talk=new BartenderTalk();
+  const talk=new StaffTalk();
   assert.equal(talk.selected,0);assert.equal(talk.line,null);
   talk.confirm();
   assert.equal(talk.line,'HELLO THERE!');
@@ -2027,6 +2069,142 @@ test('a chat with the bartender answers each line, in sequence where it has more
   assert.equal(talk.over,false,'the goodbye is heard first');
   talk.confirm();
   assert.equal(talk.over,true,'then BYE! ends the chat');
+});
+
+test('a chat with the receptionist moves to recommendations and back, and ends with BYE!',async()=>{
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const {RECEPTIONIST_TALK}=await import('../neon-city/hotel-interior.js');
+  const talk=new StaffTalk(RECEPTIONIST_TALK);
+  const asks=()=>talk.script.map(o=>o.ask);
+  const first=['HEY!','WHAT TIME DO YOU CLOSE THE DOOR?',"I'M NEW TO NEON CITY...",'BYE!'];
+  assert.deepEqual(asks(),first);
+  talk.confirm(0);assert.equal(talk.line,'GOOD EVENING! HOW CAN I HELP YOU?');
+  talk.confirm();assert.deepEqual(asks(),first,'still the first choices');
+  talk.confirm(1);assert.equal(talk.line,"WE'RE OPEN 24/7!");
+  talk.confirm();
+  talk.confirm(2);assert.equal(talk.line,'WELCOME TO OUR CITY! HOW CAN I HELP YOU?');
+  assert.deepEqual(asks(),first,'the new choices wait for the welcome to be heard');
+  talk.confirm();
+  assert.equal(talk.line,null);
+  assert.deepEqual(asks(),['CAN YOU RECOMMEND SOME PLACES TO VISIT?','NEVER MIND.']);
+  assert.equal(talk.selected,0,'the first new choice is picked');
+  talk.confirm();
+  const heard=[];while(talk.line){heard.push(talk.line);talk.confirm();}
+  assert.deepEqual(heard,["WELL, LET'S SEE...",
+    "WE HAVE MANY GREAT PUBS HERE. YOU'LL MEET THE NEON CITY PEOPLE THERE.",
+    "WE HAVE SEVERAL CUTE PARKS, TOO. THEY'RE NOT ALWAYS EASY TO FIND, THOUGH.",
+    "AND THE LOCAL PEOPLE ALSO LOVE THE NIGHT RIVER'S AREA. FOLLOW THE SIGNS AND YOU'LL FIND IT."]);
+  assert.equal(talk.script.length,2,'recommendations heard, the same choices again');
+  talk.move(1);talk.confirm();
+  assert.equal(talk.line,null,'NEVER MIND. gets no answer');
+  assert.deepEqual(asks(),first,'back to the first choices');
+  assert.equal(talk.over,false);
+  talk.confirm(3);assert.equal(talk.line,'HAVE AN UNFORGETTABLE NIGHT IN NEON CITY!');
+  assert.equal(talk.over,false,'the goodbye is heard first');
+  talk.confirm();assert.equal(talk.over,true);
+});
+
+test('the receptionist is talked to across the desk from the lobby, not round its end',async()=>{
+  const {HOTEL,facingReceptionistAcrossDesk,facingReceptionist,hotelReply}=await import('../neon-city/hotel-interior.js');
+  const {facingPokeBall}=await import('../neon-city/pub-interior.js');
+  const {receptionist:r,desk}=HOTEL;
+  const aim=(p,t)=>({...p,angle:Math.atan2(t.x-p.x,t.z-p.z)});
+  for(const p of [{x:r.x,z:11.7},{x:r.x-.4,z:11.7},{x:r.x+.3,z:11.7},{x:r.x+2,z:11.7}]){
+    const facing=aim(p,r);
+    assert.equal(facingReceptionistAcrossDesk(facing),true,`from ${p.x},${p.z}`);
+    assert.equal(hotelReply(facing),null,'nothing else answers first');
+    assert.equal(facingPokeBall(facing,HOTEL.pokeBall),false);
+    assert.equal(facingReceptionistAcrossDesk({...facing,angle:facing.angle+Math.PI}),false,'turned away');
+  }
+  assert.equal(facingReceptionistAcrossDesk(aim({x:r.x,z:8},r)),false,'too far back in the lobby');
+  assert.equal(facingReceptionistAcrossDesk(aim({x:desk.x+desk.w+.5,z:desk.z+desk.d+.2},r)),false,'round the end of the desk');
+  const behind=aim({x:r.x+1.2,z:r.z},r);
+  assert.equal(facingReceptionistAcrossDesk(behind),false);assert.equal(facingReceptionist(behind),true);
+});
+
+test('every 20-30 seconds a robot comes out of the rooms, down the stairs and out of the hotel',async()=>{
+  const {HOTEL,ROBOT_ROUTE,HotelLife,hotelFloorHeight,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  const {landing,stairs,door}=HOTEL,away={x:2,z:8};
+  const run=(life,player,seconds)=>{for(let t=0;t<seconds;t+=.02)life.update(.02,player);};
+  assert.equal(new HotelLife(()=>0).wait,20);
+  assert.equal(new HotelLife(()=>.5).wait,25);
+  assert.ok(new HotelLife(()=>.999).wait<30);
+  const life=new HotelLife(()=>0);
+  run(life,away,19.9);
+  assert.equal(life.walker,null,'not yet');
+  run(life,away,.2);
+  // It steps out of the door on the landing, at the landing's height.
+  const w=life.walker;
+  assert.equal(w.type,11);
+  assert.ok(w.x>landing.x&&w.x<landing.x+landing.w&&w.z>HOTEL.depth-1);
+  assert.equal(w.y,landing.y);
+  const path=[];
+  for(let i=0;i<2000&&life.walker;i++){life.update(.02,away);if(life.walker)path.push({x:w.x,y:w.y,z:w.z});}
+  assert.equal(life.walker,null,'reached the exit');
+  // Straight down the middle of the stairs, feet on each step, then over to the doors.
+  for(const p of path){
+    assert.ok(Math.abs(p.y-hotelFloorHeight(p.x,p.z))<1e-9);
+    if(p.z>stairs.z)assert.ok(Math.abs(p.x-(stairs.x+stairs.w/2))<1e-9,'on the stairs, it keeps to the middle');
+  }
+  assert.ok(path.some(p=>p.y>0&&p.y<landing.y),'walks down the stairs');
+  assert.ok(Math.abs(path.at(-1).x-door.x)<.1&&path.at(-1).z<.5,'out through the street doors');
+  assert.equal(life.wait,20,'the next one is due 20-30 seconds after');
+  // The player in its path stops it; stepping aside lets it go on.
+  const held=new HotelLife(()=>0);
+  held.wait=.01;held.update(.02,away);
+  const blocker={x:ROBOT_ROUTE[0].x,z:9};
+  run(held,blocker,8);
+  const stopped={x:held.walker.x,z:held.walker.z};
+  assert.ok(Math.hypot(stopped.x-blocker.x,stopped.z-blocker.z)>=.85,'keeps its distance');
+  run(held,blocker,3);
+  assert.deepEqual({x:held.walker.x,z:held.walker.z},stopped,'waits');
+  assert.equal(held.held,true,'reports that it is held');
+  run(held,away,.02);
+  assert.equal(held.held,false);
+  run(held,away,20);
+  assert.equal(held.walker,null,'goes on once the way is clear');
+  // Nor can the player walk through it.
+  const robot={x:10,z:5},player={x:10,z:3};
+  moveInHotel(player,0,1,robot);
+  assert.ok(player.z>3.5&&robot.z-player.z>=.85,'stops short of it');
+  const close=player.z;moveInHotel(player,0,-.5,robot);
+  assert.ok(Math.abs(player.z-(close-.5))<1e-9,'free to back away');
+  // Standing at the rooms' door keeps it shut until the player steps aside.
+  const shut=new HotelLife(()=>0);
+  shut.wait=.01;shut.update(.02,{x:ROBOT_ROUTE[0].x,z:HOTEL.depth-.6});
+  assert.equal(shut.walker,null);
+  shut.update(.02,away);
+  assert.ok(shut.walker);
+});
+
+test('a chat with a waiting robot moves to robot-friendly hotels and back, and ends with BYE!',async()=>{
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const {ROBOT_TALK,facingHotelRobot}=await import('../neon-city/hotel-interior.js');
+  const talk=new StaffTalk(ROBOT_TALK);
+  const asks=()=>talk.script.map(o=>o.ask);
+  const hear=choice=>{talk.confirm(choice);const heard=[];while(talk.line){heard.push(talk.line);talk.confirm();}return heard;};
+  const first=['HEY!','WOULD YOU RECOMMEND THIS HOTEL?','IS THIS HOTEL ROBOT-FRIENDLY?','BYE!'];
+  const second=['WHAT DO YOU MEAN?','YEAH, I GUESS THAT ROBOTS PAY WELL.'];
+  assert.deepEqual(asks(),first);
+  assert.deepEqual(hear(0),['HELLO THERE, HUMAN!']);
+  assert.deepEqual(hear(1),['NOT REALLY.','BUT MY CREATORS HAVE PAID THIS HOTEL FOR ME.']);
+  assert.deepEqual(asks(),first);
+  assert.deepEqual(hear(2),['ALL HOTELS ARE ROBOT-FRIENDLY.','THEY BETTER BE.']);
+  assert.deepEqual(asks(),second);
+  assert.deepEqual(hear(0),['OH, NOTHING SPECIAL.',"YOU DON'T WANT TO KNOW, ANYWAY."]);
+  assert.deepEqual(asks(),first,'back to the first choices');
+  hear(2);
+  assert.deepEqual(hear(1),["ERR... SURE. THAT'S EXACTLY WHAT I MEANT."]);
+  assert.deepEqual(asks(),first,'back to the first choices');
+  assert.equal(talk.over,false);
+  talk.confirm(3);assert.equal(talk.line,'SEE YOU LATER, HUMAN!');
+  assert.equal(talk.over,false,'the goodbye is heard first');
+  talk.confirm();assert.equal(talk.over,true);
+  // The chat needs the player to face the robot.
+  const robot={x:18.2,z:9.85};
+  assert.equal(facingHotelRobot({x:18.2,z:9,angle:0},robot),true);
+  assert.equal(facingHotelRobot({x:18.2,z:9,angle:Math.PI},robot),false,'turned away');
+  assert.equal(facingHotelRobot({x:18.2,z:9,angle:0},null),false,'no robot about');
 });
 
 test('small sign strokes retain coverage between pixels and respect foreground occlusion',async()=>{
@@ -2314,7 +2492,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   Object.assign(player,{x:pubInterior.PUB.bartender.x,z:12.6,angle:0});
   tick(ms+=20);
   press();
-  const talkBox=element('#bartender-talk');
+  const talkBox=element('#staff-talk');
   assert.equal(talkBox.hidden,false);
   assert.match(talkBox.innerHTML,/HEY![\s\S]*ABOUT THE TOILET\.\.\.[\s\S]*ABOUT THE STAFF ROOM\.\.\.[\s\S]*BYE!/);
   key('ArrowDown');key('ArrowDown');

@@ -1,4 +1,4 @@
-import {drawCylinder,drawRod,drawStaff,facingDoorway,facingNearest,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=pokeball-2';
+import {drawCylinder,drawRod,drawStaff,facingAcrossCounter,facingDoorway,facingNearest,pubPersonBlocks,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=receptionist-talk-1';
 
 // Interior coordinates are local: the street entrance is centred on the south
 // wall. The staircase climbs the east wall to a landing; the receptionist
@@ -35,9 +35,10 @@ export function hotelFloorHeight(x,z){
 }
 // The stairs are entered from their bottom step only: the banister runs the
 // length of their open side and round the landing, so nobody climbs over it.
-export function moveInHotel(player,dx,dz){
+// A robot walking out is in the way, as people are in the pub.
+export function moveInHotel(player,dx,dz,walker){
   const radius=.3,boxes=obstacles(),{stairs:s}=HOTEL;
-  const clear=(x,z)=>x>=radius&&x<=HOTEL.width-radius&&z>=radius&&z<=HOTEL.depth-radius&&
+  const clear=(x,z)=>!pubPersonBlocks(player,{x,z},walker)&&x>=radius&&x<=HOTEL.width-radius&&z>=radius&&z<=HOTEL.depth-radius&&
     !boxes.some(b=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius)&&
     ![...HOTEL.palms,HOTEL.receptionist].some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+radius)&&
     !(z>s.z-.02&&Math.abs(x-s.x)<radius);
@@ -74,6 +75,62 @@ export const BELL_ANSWER="I'M HERE...";
 // and the key cabinet on the wall there is in reach.
 export const behindDesk=player=>player.z>HOTEL.desk.z+HOTEL.desk.d;
 export const facingReceptionist=player=>behindDesk(player)&&facingNearest(player,[HOTEL.receptionist])!=null;
+// From the lobby, across the desk, the receptionist has a chat (see StaffTalk).
+export const facingReceptionistAcrossDesk=player=>facingAcrossCounter(player,HOTEL.desk,HOTEL.receptionist);
+export const RECEPTIONIST_TALK=[
+  [{ask:'HEY!',answer:['GOOD EVENING! HOW CAN I HELP YOU?']},
+    {ask:'WHAT TIME DO YOU CLOSE THE DOOR?',answer:["WE'RE OPEN 24/7!"]},
+    {ask:"I'M NEW TO NEON CITY...",answer:['WELCOME TO OUR CITY! HOW CAN I HELP YOU?'],next:1},
+    {ask:'BYE!',answer:['HAVE AN UNFORGETTABLE NIGHT IN NEON CITY!'],ends:true}],
+  [{ask:'CAN YOU RECOMMEND SOME PLACES TO VISIT?',answer:["WELL, LET'S SEE...",
+      "WE HAVE MANY GREAT PUBS HERE. YOU'LL MEET THE NEON CITY PEOPLE THERE.",
+      "WE HAVE SEVERAL CUTE PARKS, TOO. THEY'RE NOT ALWAYS EASY TO FIND, THOUGH.",
+      "AND THE LOCAL PEOPLE ALSO LOVE THE NIGHT RIVER'S AREA. FOLLOW THE SIGNS AND YOU'LL FIND IT."]},
+    {ask:'NEVER MIND.',answer:[],next:0}]];
+// Every 20–30 seconds a robot guest comes out of the door to the rooms on
+// the landing, walks down the middle of the stairs, steps off them and
+// crosses the hall to the street doors. It waits while the player is in its
+// path, and held reports that it is waiting.
+const ROBOT=11,ROBOT_SPEED=1.3;
+export const ROBOT_ROUTE=(()=>{
+  const {landing:l,stairs:s,door}=HOTEL,x=l.x+l.w/2;
+  return [{x,z:HOTEL.depth-.4},{x,z:s.z-1},{x:door.x,z:.4}];
+})();
+export class HotelLife{
+  constructor(random=Math.random){this.random=random;this.wait=this.delay();this.walker=null;this.held=false;}
+  delay(){return 20+this.random()*10;}
+  update(dt,player){
+    this.held=false;
+    if(this.walker){
+      const w=this.walker;let travel=dt*ROBOT_SPEED;
+      while(travel>0){
+        const target=ROBOT_ROUTE[w.leg],dx=target.x-w.x,dz=target.z-w.z,d=Math.hypot(dx,dz);
+        if(!d){if(++w.leg===ROBOT_ROUTE.length){this.walker=null;return;}continue;}
+        w.facingX=dx/d;w.facingZ=dz/d;
+        const move=Math.min(d,travel,.05),next={x:w.x+dx/d*move,z:w.z+dz/d*move};
+        if(pubPersonBlocks(w,next,player)){this.held=true;return;}
+        w.x=next.x;w.z=next.z;w.y=hotelFloorHeight(w.x,w.z);w.walkTime+=move/ROBOT_SPEED;travel-=move;
+      }
+      return;
+    }
+    this.wait-=dt;
+    if(this.wait>0)return;
+    const [start]=ROBOT_ROUTE;
+    // Someone standing at that door keeps it shut until they step aside.
+    if(pubPersonBlocks(start,start,player))return;
+    this.wait=this.delay();
+    this.walker={...start,y:hotelFloorHeight(start.x,start.z),leg:1,type:ROBOT,variant:0,walkTime:0,facingX:0,facingZ:-1};
+  }
+}
+// A robot kept waiting by the player has a chat with them (see StaffTalk).
+export const facingHotelRobot=(player,walker)=>!!walker&&facingNearest(player,[{x:walker.x,z:walker.z,radius:.4}])!=null;
+export const ROBOT_TALK=[
+  [{ask:'HEY!',answer:['HELLO THERE, HUMAN!']},
+    {ask:'WOULD YOU RECOMMEND THIS HOTEL?',answer:['NOT REALLY.','BUT MY CREATORS HAVE PAID THIS HOTEL FOR ME.']},
+    {ask:'IS THIS HOTEL ROBOT-FRIENDLY?',answer:['ALL HOTELS ARE ROBOT-FRIENDLY.','THEY BETTER BE.'],next:1},
+    {ask:'BYE!',answer:['SEE YOU LATER, HUMAN!'],ends:true}],
+  [{ask:'WHAT DO YOU MEAN?',answer:['OH, NOTHING SPECIAL.',"YOU DON'T WANT TO KNOW, ANYWAY."],next:0},
+    {ask:'YEAH, I GUESS THAT ROBOTS PAY WELL.',answer:["ERR... SURE. THAT'S EXACTLY WHAT I MEANT."],next:0}]];
 export const KEYS_REPLY="I CAN'T TAKE A KEY FOR FREE...";
 export const facingKeys=player=>{
   const {keys}=HOTEL;
