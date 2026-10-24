@@ -1,4 +1,4 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688','#7a5232','#d8d4cc'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688','#7a5232','#d8d4cc','#f06aa8'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
@@ -307,6 +307,34 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#f4f2ee',9,16,3,2);rect('#f4f2ee',14,16,3,2);rect(seam,12,18,1,12);
       rect('#f4f2ee',14,19,4,3);rect('#d8414a',15,18,1,2);rect('#3f62c8',16,17,1,3);
       rect('#c9b46a',12,30,2,1);
+    }
+    sprites[key]=c;return c;
+  }
+  if(type===15){
+    // Tall, beautiful Black woman: waist-length black hair, fitted pink shirt, blue jeans and pink sneakers.
+    const skin='#6e412c',hair='#16121a',sheen='#3a2f3f',shirt='#ec6fa6',fold='#c9558a',jeans='#3d5f9e',seam='#2c4878';
+    rect(skin,9,5,8,9);rect(skin,11,14,4,2);
+    rect(shirt,7,16,12,13);rect(shirt,4,16,3,4);rect(shirt,19,16,3,4);rect(fold,4,19,3,1);rect(fold,19,19,3,1);
+    rect(skin,4,20,3,12);rect(skin,19,20,3,12);
+    rect(jeans,8,29,10,2);rect(jeans,8,31,4,13+stride);rect(jeans,14,31,4,13-stride);
+    rect(seam,10,32,1,11+stride);rect(seam,15,32,1,11-stride);
+    rect(SHOE_COLORS[type],7,44+stride,6,2);rect(SHOE_COLORS[type],14,44-stride,6,2);
+    rect('#fbe6f0',7,46+stride,6,1);rect('#fbe6f0',14,46-stride,6,1);
+    rect(hair,7,1,12,4);rect(hair,6,3,14,3);rect(sheen,12,1,1,3);
+    if(back){
+      // From behind her hair hides her head and falls past her waist.
+      rect(hair,6,5,14,10);rect(hair,7,15,12,19);rect(hair,8,34,10,1);rect(hair,10,35,6,1);
+      rect(sheen,10,6,1,26);rect(sheen,15,8,1,25);rect(sheen,12,20,1,12);
+    }else{
+      // Long hair frames her face and drapes over both shoulders down to the waist.
+      rect(hair,6,5,3,11);rect(hair,17,5,3,11);rect(hair,7,16,2,14);rect(hair,17,16,2,14);
+      rect(hair,7,30,1,1);rect(hair,18,30,1,1);rect(sheen,7,8,1,18);rect(sheen,18,10,1,16);
+      rect(hair,9,5,3,1);
+      // Soft brows, and dark almond eyes under lash lines that sweep past the outer corners.
+      rect('#4a2a1e',10,6,2,1);rect('#4a2a1e',14,6,2,1);
+      rect('#0d090c',9,8,3,1);rect('#0d090c',14,8,3,1);rect('#24140e',10,9,2,1);rect('#24140e',14,9,2,1);
+      rect('#5a3322',12,10,2,1);rect('#c2456e',11,12,4,1);
+      rect(fold,12,16,2,2);rect('#e8c35a',12,18,2,1);
     }
     sprites[key]=c;return c;
   }

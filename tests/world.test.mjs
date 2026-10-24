@@ -1574,7 +1574,7 @@ test('table partners say their lines in order every 3 to 5 seconds, looping',asy
   assert.equal(punk[0],'DO YOU KNOW THE RADIOACTIVE COWS?');
   assert.equal(punk[2],"THEIR DRUMMER COMPOSED ALL SEPULTURA'S SONGS.");
   assert.equal(punk.at(-1),'I PROMISE.');
-  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![3,4,5,6,11,13,14].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![3,4,5,6,11,13,14,15].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
   const values=[0,1,.5,.25,.75,0,1,.5,.1],random=()=>values.shift()??.5;
   const talk=new PubConversation(lines,random),said=[],gaps=[];
   let since=0;
@@ -1691,6 +1691,47 @@ test('teen nerd has messy black or blonde hair, glasses and a pocket protector, 
     "A LANGUAGE IS MORE THAN GRAMMAR. IT'S A WAY OF THINKING.",
     "PITY ONE CAN'T PROGRAM ROBOTS WITH PERL.",
     'perl -e \'print "PERL IS GOOD\\n"\''
+  ]);
+});
+
+test('tall Black woman has waist-length hair, a pink shirt, jeans and pink shoes, and opens up about being judged',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite,SHOE_COLORS}=await import('../neon-city/sprites.js');
+    assert.equal(SHOE_COLORS[15],'#f06aa8','pink shoes');
+    const hair=['#16121a','#3a2f3f'];
+    for(const back of [false,true])for(let frame=0;frame<4;frame++){
+      const pixels=sprite(15,frame,back).pixels,colors=new Set(pixels.values());
+      assert.ok(colors.has('#ec6fa6')&&colors.has('#3d5f9e')&&colors.has(SHOE_COLORS[15]),'pink shirt, blue jeans, pink shoes');
+      assert.equal(pixels.get(10*24+12),back?'#16121a':'#5a3322','face only from the front');
+      if(!back){
+        // Almond eyes: lash lines wider than the dark eyes, symmetric, with no staring whites.
+        for(const x of [9,10,11,14,15,16])assert.equal(pixels.get(8*24+x),'#0d090c','lash line');
+        for(const x of [10,11,14,15])assert.equal(pixels.get(9*24+x),'#24140e','dark eye');
+        assert.ok(!colors.has('#f4ece8'),'no eye whites');
+      }
+      for(const y of [20,28])for(const x of back?[12,15]:[7,18])assert.ok(hair.includes(pixels.get(y*24+x)),'hair reaches the waist');
+      if(back)assert.ok(hair.includes(pixels.get(34*24+12)),'hair falls past the waist from behind');
+      else assert.equal(pixels.get(22*24+12),'#ec6fa6','shirt shows between the locks');
+    }
+  }finally{globalThis.document=previous;}
+  const {characterHeight,goesToPub,pubLines}=await import('../neon-city/world.js');
+  for(let type=0;type<15;type++)assert.ok(characterHeight(15)>characterHeight(type),'tallest character');
+  assert.equal(goesToPub(15),true);
+  assert.deepEqual(pubLines(15),[
+    'PEOPLE KEEP JUDGING ME.',
+    'MY SKIN, MY OPINION, MY... SEXUAL ORIENTATION.',
+    "I KNOW THEY'RE JUST WANKERS, BUT...",
+    'SOMETIMES IT HURTS.',
+    "WHEN I'M SAD, I GO TO THE NIGHT RIVER.",
+    "I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM..."
   ]);
 });
 

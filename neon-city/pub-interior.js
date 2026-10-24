@@ -1,5 +1,5 @@
-import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-14';
-import {PUB_TYPES} from './world.js?v=characters-14';
+import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-15';
+import {PUB_TYPES} from './world.js?v=characters-15';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
@@ -198,7 +198,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     const type=patrons[tableIndex]?.[seat],variant=patrons[tableIndex]?.variants?.[seat]??0;
     if(type!=null){
       const shoes=type===4?TEEN_OUTFITS[outfit(type,variant)].shoes:SHOE_COLORS[type];
-      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80','#5a3d5c','#2f3e5e','#9aa0a8','#d8ccb0','#c7b07a','#6a5040'][type];
+      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80','#5a3d5c','#2f3e5e','#9aa0a8','#d8ccb0','#c7b07a','#6a5040','#3d5f9e'][type];
       // Shorts leave the shins bare.
       const shins={13:'#e9b08f'}[type]??trousers;
       // Her pencil skirt wraps both thighs and stops just short of the knees.
