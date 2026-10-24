@@ -1712,10 +1712,10 @@ test('tall Black woman has waist-length hair, a pink shirt, jeans and pink shoes
       assert.ok(colors.has('#ec6fa6')&&colors.has('#3d5f9e')&&colors.has(SHOE_COLORS[15]),'pink shirt, blue jeans, pink shoes');
       assert.equal(pixels.get(10*24+12),back?'#16121a':'#5a3322','face only from the front');
       if(!back){
-        // Almond eyes: lash lines wider than the dark eyes, symmetric, with no staring whites.
-        for(const x of [9,10,11,14,15,16])assert.equal(pixels.get(8*24+x),'#0d090c','lash line');
+        // Symmetric dark almond eyes, with no staring whites.
         for(const x of [10,11,14,15])assert.equal(pixels.get(9*24+x),'#24140e','dark eye');
         assert.ok(!colors.has('#f4ece8'),'no eye whites');
+        for(const y of [6,7,8])for(const x of [9,10,11,14,15,16])assert.equal(pixels.get(y*24+x),'#6e412c','no brows or lash lines');
       }
       for(const y of [20,28])for(const x of back?[12,15]:[7,18])assert.ok(hair.includes(pixels.get(y*24+x)),'hair reaches the waist');
       if(back)assert.ok(hair.includes(pixels.get(34*24+12)),'hair falls past the waist from behind');

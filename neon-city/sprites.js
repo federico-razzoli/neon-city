@@ -330,9 +330,8 @@ export function sprite(type,frame,back=false,variant=0){
       rect(hair,6,5,3,11);rect(hair,17,5,3,11);rect(hair,7,16,2,14);rect(hair,17,16,2,14);
       rect(hair,7,30,1,1);rect(hair,18,30,1,1);rect(sheen,7,8,1,18);rect(sheen,18,10,1,16);
       rect(hair,9,5,3,1);
-      // Soft brows, and dark almond eyes under lash lines that sweep past the outer corners.
-      rect('#4a2a1e',10,6,2,1);rect('#4a2a1e',14,6,2,1);
-      rect('#0d090c',9,8,3,1);rect('#0d090c',14,8,3,1);rect('#24140e',10,9,2,1);rect('#24140e',14,9,2,1);
+      // Dark almond eyes, with no brows or lash lines above them.
+      rect('#24140e',10,9,2,1);rect('#24140e',14,9,2,1);
       rect('#5a3322',12,10,2,1);rect('#c2456e',11,12,4,1);
       rect(fold,12,16,2,2);rect('#e8c35a',12,18,2,1);
     }
