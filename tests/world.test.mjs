@@ -2,6 +2,45 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {drawArcade} from '../neon-city/arcade.js';
 
+test('hotel windows show varied empty lobbies in per-hotel colours, with the reception only behind the entrance',async()=>{
+  const {drawHotel,hotelLook,hotelScenes,HALL_SCENES,NOOK_SCENES,HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  const render=(building,side,height=160)=>{
+    const rects=[];
+    const g={fillStyle:'',globalAlpha:1,fillRect(x,y,w,h){rects.push({x,y,w,h,color:this.fillStyle});}};
+    drawHotel(g,height,building,side);
+    for(const r of rects)assert.ok(r.x>=0&&r.x+r.w<=160&&r.y>=height-39&&r.y+r.h<=height,'only the ground floor is painted');
+    return rects;
+  };
+  const looks=new Set(),halls=new Set(),nooks=new Set();
+  for(let n=0;n<40;n++)for(const j of [0,1]){
+    const building={x:14+n*64,z:14+j*18,j},front=j===1?1:0,look=hotelLook(building);
+    looks.add(look.name);
+    for(let side=0;side<4;side++){
+      const scenes=hotelScenes(building,side),rects=render(building,side);
+      assert.deepEqual(render(building,side),rects,'the same furnishings after a redraw');
+      // Every wall of a hotel shares its colours.
+      assert.ok(rects.some(r=>r.color===look.metal&&r.x===6&&r.w===58),'window frames in the hotel colours');
+      if(side===front){
+        assert.equal(scenes.left,'desk');assert.equal(scenes.middle,'entrance');
+        assert.ok(HALL_SCENES.includes(scenes.right));
+      }else{
+        assert.ok(HALL_SCENES.includes(scenes.left)&&HALL_SCENES.includes(scenes.right));
+        assert.notEqual(scenes.left,scenes.right,'two different views on one wall');
+        assert.ok(NOOK_SCENES.includes(scenes.middle));
+        assert.ok(rects.some(r=>r.color===look.metal&&r.x===68&&r.w===24&&r.h===33),'a narrow window between them');
+        halls.add(scenes.left);nooks.add(scenes.middle);
+      }
+      halls.add(scenes.right);
+      // The banker's lamp marks the reception; brass handles mark the doors.
+      assert.equal(rects.some(r=>r.color==='#2a5a40'),side===front);
+      assert.equal(rects.some(r=>r.color==='#d2b678'&&r.h===6),side===front);
+    }
+  }
+  assert.equal(looks.size,HOTEL_LOOKS.length,'hotels differ in colour');
+  assert.deepEqual([...halls].sort(),[...HALL_SCENES].sort());
+  assert.deepEqual([...nooks].sort(),[...NOOK_SCENES].sort());
+});
+
 test('arcade windows and sides vary while retaining their layout on redraw',()=>{
   const render=(building,side)=>{
     const positions=[];

@@ -16,7 +16,7 @@ import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
 import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=street-1';
-import {hotelHIsDim,dimHotelH} from './hotel.js';
+import {hotelHIsDim,dimHotelH,drawHotel} from './hotel.js?v=hall-2';
 import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
@@ -163,6 +163,7 @@ function wallTexture(b,side,dim=hotelHIsDim(b,time)){
   for(let x=8;x<160;x+=50){g.fillStyle='#253046';g.fillRect(x,c.height-28,37,26);g.fillStyle='#121525';g.fillRect(x+2,c.height-26,33,22);g.fillStyle=b.neon;g.globalAlpha=.3;g.fillRect(x+3,c.height-25,31,2);g.globalAlpha=1;}
   if(b.sign==='ARCADE')drawArcade(g,c.height,b,side);
   if(b.sign==='NEON PUB')drawPub(g,c.height,b,side);
+  if(b.sign==='HOTEL')drawHotel(g,c.height,b,side);
   g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign==='NEON PUB'?pubName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
   // The vertical hotel sign must fit entirely below the roofline.
   if(b.sign==='HOTEL'&&c.height>=137){g.fillStyle='#160c24';g.fillRect(132,c.height-137,24,72);g.fillStyle=b.neon;g.font='bold 12px monospace';for(let i=0;i<5;i++)g.fillText('HOTEL'[i],144,c.height-124+i*13);}
