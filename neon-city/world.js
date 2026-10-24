@@ -1,4 +1,4 @@
-export const PEDESTRIAN_TYPES=14;
+export const PEDESTRIAN_TYPES=15;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
   3:{lines:[
@@ -44,6 +44,13 @@ const CHARACTER_TRAITS={
     'MY DAUGHTER HAS ANOTHER DAD.',
     "BUT I DON'T MIND.",
     'FANCY ANOTHER PINT?'
+  ]},
+  14:{height:1.7,lines:[
+    "I'M LEARNING THE PERL PROGRAMMING LANGUAGE.",
+    "DO YOU KNOW THAT PERL'S AUTHOR IS A LINGUIST?",
+    "A LANGUAGE IS MORE THAN GRAMMAR. IT'S A WAY OF THINKING.",
+    "PITY ONE CAN'T PROGRAM ROBOTS WITH PERL.",
+    `perl -e 'print "PERL IS GOOD\\n"'`
   ]}
 };
 export const goesToPub=type=>CHARACTER_TRAITS[type]?.goesToPub??true;

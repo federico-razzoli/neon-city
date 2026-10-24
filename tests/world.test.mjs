@@ -794,7 +794,7 @@ test('the Black teen girl has three outfits that change only shirt and shoe colo
     const {sprite,outfit,TEEN_OUTFITS}=await import('../neon-city/sprites.js');
     assert.equal(TEEN_OUTFITS.length,3);
     assert.deepEqual([0,.2,.34,.5,.67,.99].map(v=>outfit(4,v)),[0,0,1,1,2,2]);
-    for(let type=0;type<PEDESTRIAN_TYPES;type++)if(type!==4)assert.equal(sprite(type,0,false,.9),sprite(type,0,false),'other characters ignore variant');
+    for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![4,14].includes(type))assert.equal(sprite(type,0,false,.9),sprite(type,0,false),'other characters ignore variant');
     for(const back of [false,true])for(let frame=0;frame<4;frame++){
       const looks=TEEN_OUTFITS.map((_,i)=>sprite(4,frame,back,(i+.5)/TEEN_OUTFITS.length).pixels);
       assert.equal(sprite(4,frame,back,0),sprite(4,frame,back),'variant 0 is the original outfit');
@@ -1574,7 +1574,7 @@ test('table partners say their lines in order every 3 to 5 seconds, looping',asy
   assert.equal(punk[0],'DO YOU KNOW THE RADIOACTIVE COWS?');
   assert.equal(punk[2],"THEIR DRUMMER COMPOSED ALL SEPULTURA'S SONGS.");
   assert.equal(punk.at(-1),'I PROMISE.');
-  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![3,4,5,6,11,13].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
+  for(let type=0;type<PEDESTRIAN_TYPES;type++)if(![3,4,5,6,11,13,14].includes(type))assert.deepEqual(pubLines(type),[],'no lines by default');
   const values=[0,1,.5,.25,.75,0,1,.5,.1],random=()=>values.shift()??.5;
   const talk=new PubConversation(lines,random),said=[],gaps=[];
   let since=0;
@@ -1647,6 +1647,53 @@ test('short, fat bald man wears a Hawaiian shirt, stares wide-eyed, and talks ab
   assert.deepEqual(pubLines(13),['MY WIFE HAS ANOTHER MAN AND ANOTHER WOMAN.','MY DAUGHTER HAS ANOTHER DAD.',"BUT I DON'T MIND.",'FANCY ANOTHER PINT?']);
 });
 
+test('teen nerd has messy black or blonde hair, glasses and a pocket protector, and talks about Perl',async()=>{
+  const previous=globalThis.document;
+  globalThis.document={createElement(){
+    const pixels=new Map();
+    const context={fillStyle:'',fillRect(x,y,w,h){
+      for(let py=Math.max(0,y);py<Math.min(48,y+h);py++)for(let px=Math.max(0,x);px<Math.min(24,x+w);px++)pixels.set(py*24+px,this.fillStyle);
+    }};
+    return {pixels,getContext:()=>context};
+  }};
+  try{
+    const {sprite,outfit,NERD_HAIR,SHOE_COLORS}=await import('../neon-city/sprites.js');
+    assert.deepEqual(NERD_HAIR,['#1b1820','#e6c25a'],'black, then blonde');
+    assert.deepEqual([0,.3,.49,.5,.99].map(v=>outfit(14,v)),[0,0,0,1,1]);
+    assert.equal(sprite(14,0,false,0),sprite(14,0,false),'variant 0 is black hair');
+    for(const back of [false,true])for(let frame=0;frame<4;frame++){
+      const looks=NERD_HAIR.map((_,i)=>sprite(14,frame,back,(i+.5)/NERD_HAIR.length).pixels);
+      for(const [i,pixels] of looks.entries()){
+        const colors=new Set(pixels.values()),other=NERD_HAIR[1-i];
+        assert.ok(colors.has(NERD_HAIR[i])&&!colors.has(other),'one hair colour per look');
+        for(const [x,y] of [[7,1],[11,0],[15,1],[17,3]])assert.equal(pixels.get(y*24+x),NERD_HAIR[i],'messy tufts');
+        assert.equal(colors.has('#cfeaf4'),!back,'lens glints only from the front');
+        if(!back){
+          // Big regular glasses: thin rims wider than the face, with eyes visible through clear lenses.
+          for(const [x,y] of [[7,9],[11,9],[14,9],[18,9],[9,7],[16,11],[12,8],[13,8]])assert.equal(pixels.get(y*24+x),'#1d1a22','rim');
+          for(const x of [9,16])assert.equal(pixels.get(9*24+x),'#241c2c','pupil behind the lens');
+          for(const x of [8,10,15,17])assert.equal(pixels.get(9*24+x),'#f4f2ee','eye white behind the lens');
+          for(const x of [8,9,15,16])assert.equal(pixels.get(10*24+x),'#e6ab8a','skin shows through the lens');
+        }
+        assert.equal(colors.has('#3f62c8'),!back,'pens in the front pocket');
+        assert.ok(colors.has(SHOE_COLORS[14]),'sneakers');
+        for(const [pixel,color] of pixels)if(color!==looks[0].get(pixel))assert.equal(color,NERD_HAIR[i],'only the hair colour differs');
+        assert.deepEqual([...pixels.keys()].sort(),[...looks[0].keys()].sort(),'same silhouette');
+      }
+    }
+  }finally{globalThis.document=previous;}
+  const {characterHeight,goesToPub,pubLines}=await import('../neon-city/world.js');
+  assert.ok(characterHeight(14)>characterHeight(4)&&characterHeight(14)<characterHeight(0),'teen height');
+  assert.equal(goesToPub(14),true);
+  assert.deepEqual(pubLines(14),[
+    "I'M LEARNING THE PERL PROGRAMMING LANGUAGE.",
+    "DO YOU KNOW THAT PERL'S AUTHOR IS A LINGUIST?",
+    "A LANGUAGE IS MORE THAN GRAMMAR. IT'S A WAY OF THINKING.",
+    "PITY ONE CAN'T PROGRAM ROBOTS WITH PERL.",
+    'perl -e \'print "PERL IS GOOD\\n"\''
+  ]);
+});
+
 test('street characters appear in proportion to their weights, but pubs ignore weights',async()=>{
   const {streetWeight,streetType,PUB_TYPES}=await import('../neon-city/world.js');
   assert.equal(streetWeight(12),.25,'the mummy is rare');
@@ -1662,9 +1709,10 @@ test('street characters appear in proportion to their weights, but pubs ignore w
   assert.ok(seen[12]>0&&seen[12]<average*.5,'generated streets have far fewer mummies than average');
   const {PUB,createPubPatrons}=await import('../neon-city/pub-interior.js');
   const pubCounts=new Map(PUB_TYPES.map(type=>[type,0]));
-  for(let i=0;i<1200;i++){
+  const sweep=PUB_TYPES.length*100;
+  for(let i=0;i<sweep;i++){
     // Per table: two patrons, first seat 0, both characters from the sweep, then beer sides, variants, and beer colours.
-    const draws=[.6,0,(i+.5)/1200,(i+.5)/1200,.5,.5,.5,.5,.5,.5];let call=0;
+    const draws=[.6,0,(i+.5)/sweep,(i+.5)/sweep,.5,.5,.5,.5,.5,.5];let call=0;
     for(const seats of createPubPatrons(()=>draws[call++%draws.length]))for(const type of seats)pubCounts.set(type,pubCounts.get(type)+1);
   }
   assert.equal(new Set(pubCounts.values()).size,1,'pub patrons stay uniform');

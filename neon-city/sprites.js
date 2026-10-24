@@ -1,12 +1,15 @@
-export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688','#7a5232'];
+export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688','#7a5232','#d8d4cc'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[
   {shirt:'#e5b447',print:'#fff0c0',panel:'#c89235',shoes:SHOE_COLORS[4]},
   {shirt:'#3fb6a8',print:'#d9fff4',panel:'#2c8a80',shoes:'#f05b7a'},
   {shirt:'#9a5fd6',print:'#f0d8ff',panel:'#7442ab',shoes:'#f2d16b'}
 ];
-// Only she varies; variant 0 keeps the original outfit.
-export const outfit=(type,variant=0)=>type===4?Math.min(TEEN_OUTFITS.length-1,Math.floor(variant*TEEN_OUTFITS.length)):0;
+// The teen nerd's hair colours: black, then blonde.
+export const NERD_HAIR=['#1b1820','#e6c25a'];
+// How many looks each character has; others have one. Variant 0 keeps the original look.
+const LOOKS={4:TEEN_OUTFITS.length,14:NERD_HAIR.length};
+export const outfit=(type,variant=0)=>{const looks=LOOKS[type]??1;return Math.min(looks-1,Math.floor(variant*looks));};
 const sprites=[];
 export function sprite(type,frame,back=false,variant=0){
   const look=outfit(type,variant),key=`${type}:${frame}:${back}:${look}`;if(sprites[key])return sprites[key];
@@ -270,6 +273,40 @@ export function sprite(type,frame,back=false,variant=0){
       rect(skin,10,15,4,2);rect(skin,11,17,2,1);rect(collar,8,15,2,3);rect(collar,14,15,2,3);
       rect(hem,12,18,1,14);
       for(const [x,y] of [[6,20],[16,20],[8,25],[17,26],[5,29],[15,30],[2,17],[21,17]])flower(x,y);
+    }
+    sprites[key]=c;return c;
+  }
+  if(type===14){
+    // Teen nerd: messy hair, thick-rimmed glasses, short-sleeved shirt with a pocket protector, high-water cords.
+    const skin='#e6ab8a',hair=NERD_HAIR[look],frame='#1d1a22',shirt='#b9d3e6',seam='#8eaecb',pants='#6a5040';
+    rect(skin,9,6,8,9);rect(skin,8,9,1,2);rect(skin,17,9,1,2);rect(skin,11,15,4,1);
+    rect(shirt,6,16,14,14);rect(shirt,4,16,3,5);rect(shirt,19,16,3,5);rect(seam,4,20,3,1);rect(seam,19,20,3,1);
+    rect(skin,4,21,3,10);rect(skin,19,21,3,10);
+    rect('#2a2224',6,30,14,1);
+    // Short trouser legs show white socks above the sneakers.
+    rect(pants,7,31,5,11+stride);rect(pants,14,31,5,11-stride);
+    rect('#f4f2ee',7,42+stride,5,1);rect('#f4f2ee',14,42-stride,5,1);
+    rect(SHOE_COLORS[type],6,43+stride,7,3);rect(SHOE_COLORS[type],14,43-stride,7,3);
+    rect('#8f8a84',6,45+stride,7,1);rect('#8f8a84',14,45-stride,7,1);
+    // Uneven tufts stick out in every direction.
+    rect(hair,8,2,10,4);rect(hair,7,1,2,2);rect(hair,11,0,2,2);rect(hair,15,1,2,2);rect(hair,17,3,2,2);rect(hair,6,4,2,3);
+    rect(hair,7,5,2,4);rect(hair,17,5,2,3);
+    if(back){
+      rect(hair,8,4,10,10);rect(hair,9,14,2,1);rect(hair,14,14,2,1);rect(hair,18,6,1,2);
+      rect(frame,7,9,1,1);rect(frame,18,9,1,1);
+      rect(seam,9,16,8,1);rect(seam,12,18,1,12);
+    }else{
+      rect(hair,9,6,3,1);rect(hair,13,6,2,1);rect(hair,10,7,1,1);
+      // Big clear lenses, wider than his face, in thin rims with rounded corners.
+      for(const x of [7,14]){
+        rect(frame,x+1,7,3,1);rect(frame,x+1,11,3,1);rect(frame,x,8,1,3);rect(frame,x+4,8,1,3);
+        rect(skin,x+1,8,3,3);rect('#f4f2ee',x+1,9,3,1);rect('#241c2c',x+2,9,1,1);rect('#cfeaf4',x+3,8,1,1);
+      }
+      rect(frame,12,8,2,1);
+      rect('#a0625a',11,12,3,1);
+      rect('#f4f2ee',9,16,3,2);rect('#f4f2ee',14,16,3,2);rect(seam,12,18,1,12);
+      rect('#f4f2ee',14,19,4,3);rect('#d8414a',15,18,1,2);rect('#3f62c8',16,17,1,3);
+      rect('#c9b46a',12,30,2,1);
     }
     sprites[key]=c;return c;
   }
