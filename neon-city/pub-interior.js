@@ -1,5 +1,5 @@
-import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=characters-17';
-import {PUB_TYPES} from './world.js?v=characters-17';
+import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=bumps-1';
+import {PUB_TYPES} from './world.js?v=bumps-1';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
@@ -81,7 +81,8 @@ export function pubPersonBlocks(start,end,person){
   const length=dx*dx+dz*dz,t=length?Math.max(0,Math.min(1,((person.x-start.x)*dx+(person.z-start.z)*dz)/length)):0;
   return Math.hypot(start.x+dx*t-person.x,start.z+dz*t-person.z)<clearance;
 }
-export function moveInPub(player,dx,dz,patrons=[],walker){
+// Occupied chairs the player runs into are added to bumpedSeats, once each.
+export function moveInPub(player,dx,dz,patrons=[],walker,bumpedSeats=[]){
   const radius=.3,obstacles=[...PUB.walls,PUB.bar,PUB.shelves],chairs=pubChairs();
   let bumpedPerson=false;
   const overlaps=(x,z,b)=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius;
@@ -91,7 +92,9 @@ export function moveInPub(player,dx,dz,patrons=[],walker){
     if(obstacles.some(b=>overlaps(x,z,b))||PUB.tables.some(b=>Math.hypot(x-b.x,z-b.z)<b.radius+radius))return false;
     const hitChairs=chairs.filter(b=>overlaps(x,z,b));
     const hitBartender=Math.hypot(x-PUB.bartender.x,z-PUB.bartender.z)<PUB.bartender.radius+radius;
-    if(hitBartender||hitChairs.some(b=>patrons[b.tableIndex]?.[b.seat]!=null))bumpedPerson=true;
+    const hitPatrons=hitChairs.filter(b=>patrons[b.tableIndex]?.[b.seat]!=null);
+    for(const chair of hitPatrons)if(!bumpedSeats.includes(chair))bumpedSeats.push(chair);
+    if(hitBartender||hitPatrons.length)bumpedPerson=true;
     return !hitBartender&&!hitChairs.length;
   };
   // Substeps keep running and diagonal motion from crossing furniture or walls.

@@ -1,8 +1,9 @@
-import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=characters-17';
-import {PUB_TYPES} from './world.js?v=characters-17';
+import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=bumps-1';
+import {PUB_TYPES} from './world.js?v=bumps-1';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 const sameSeat=(a,b)=>a&&b&&a.tableIndex===b.tableIndex&&a.seat===b.seat;
+const seatKey=c=>`${c.tableIndex}:${c.seat}`;
 
 // Shortest walking routes around the furniture, simplified to straight segments.
 export function pubRoute(start,end,chair){
@@ -32,7 +33,7 @@ export function pubRoute(start,end,chair){
   return result;
 }
 export class PubLife{
-  constructor(random=Math.random){this.random=random;this.arrival=this.delay();this.departure=this.delay();this.walker=null;}
+  constructor(random=Math.random){this.random=random;this.arrival=this.delay();this.departure=this.delay();this.walker=null;this.bumps=new Map();this.touching=new Set();}
   delay(){return 30+this.random()*30;}
   update(dt,patrons,playerSeat,player){
     this.arrival-=dt;this.departure-=dt;
@@ -66,11 +67,31 @@ export class PubLife{
       const chair=occupied[Math.floor(this.random()*occupied.length)];
       if(!chair)return;
       if(pubPersonBlocks(center(chair),center(chair),player))return;
-      const start=center(chair),route=pubRoute(start,entrance,chair);
-      if(!route)return;
-      this.walker={...start,type:patrons[chair.tableIndex][chair.seat],variant:patrons[chair.tableIndex].variants?.[chair.seat]??0,route,walkTime:0,facingX:0,facingZ:-1};
-      patrons[chair.tableIndex][chair.seat]=null;
+      this.leave(chair,patrons);
     }
+  }
+  // The patron in this chair stands up and walks out.
+  leave(chair,patrons){
+    const start=center(chair),route=pubRoute(start,entrance,chair);
+    if(!route)return;
+    this.walker={...start,type:patrons[chair.tableIndex][chair.seat],variant:patrons[chair.tableIndex].variants?.[chair.seat]??0,route,walkTime:0,facingX:0,facingZ:-1};
+    patrons[chair.tableIndex][chair.seat]=null;
+    this.bumps.delete(seatKey(chair));
+  }
+  // Counts each fresh bump per seat; keeping in contact is still one bump.
+  // On a seat's third bump its patron leaves half the time, unless someone is
+  // already walking about, and the count starts over either way.
+  bump(seats,patrons){
+    const touching=new Set(seats.map(seatKey));
+    for(const chair of seats){
+      const key=seatKey(chair);
+      if(this.touching.has(key))continue;
+      const count=(this.bumps.get(key)??0)+1;
+      if(count<3){this.bumps.set(key,count);continue;}
+      this.bumps.delete(key);
+      if(!this.walker&&this.random()<.5)this.leave(chair,patrons);
+    }
+    this.touching=touching;
   }
 }
 // Table talk after the greeting: one line every 3–5 seconds, looping until the player stands.

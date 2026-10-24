@@ -1,8 +1,8 @@
-import {PubLife,PubConversation} from './pub-life.js?v=characters-17';
+import {PubLife,PubConversation} from './pub-life.js?v=bumps-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {sprite,outfit} from './sprites.js?v=characters-17';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=characters-17';
+import {sprite,outfit} from './sprites.js?v=bumps-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines} from './world.js?v=bumps-1';
 import {Traffic} from './traffic.js?v=parks-4';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
@@ -10,7 +10,7 @@ import {drawParkGround,drawParkStructures,facingBench} from './parks.js?v=parks-
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
-import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=characters-17';
+import {PUB,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=bumps-1';
 import {facingPubMenu} from './pub-menu.js';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
@@ -409,7 +409,9 @@ function tick(now){
       pubLife?.update(dt,pubPatrons,playerSeat,player);
       const line=pubTalk?.update(dt);
       if(line){notice=2.5;noticeText=line;}
-      const bumpedPerson=!playerSeat&&moveInPub(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,pubLife?.walker);
+      const bumpedSeats=[];
+      const bumpedPerson=!playerSeat&&moveInPub(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,pubLife?.walker,bumpedSeats);
+      pubLife?.bump(bumpedSeats,pubPatrons);
       if(bumpedPerson){notice=2.5;noticeText='HEY! WATCH OUT!';}
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=`${currentPubName} / ${player.x<18?'BAR ROOM':'LOUNGE'}`;

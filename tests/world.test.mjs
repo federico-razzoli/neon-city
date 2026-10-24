@@ -1254,6 +1254,65 @@ test('pub collisions report seated patrons and bartender but not empty furniture
   assert.equal(moveInPub(p,2,0,patrons),true);
   assert.ok(p.x<=b.x-b.radius-.3+1e-8,'bartender stays solid');
   assert.equal(moveInPub({x:8,z:12},0,2,patrons),false,'bar blocks approach before bartender');
+  const seats=[];moveInPub(start(),1,0,patrons,null,seats);
+  assert.deepEqual(seats,[chair],'reports the occupied chair once, despite several substeps');
+  const empty=[];moveInPub(start(),1,0,[],null,empty);
+  assert.deepEqual(empty,[],'empty chairs are not reported');
+});
+
+test('three bumps into a seated patron make them leave half the time, counted per seat',async()=>{
+  const {PubLife}=await import('../neon-city/pub-life.js');
+  const {PUB,pubChairs}=await import('../neon-city/pub-interior.js');
+  const [a,b]=pubChairs();
+  const setup=values=>{
+    const patrons=PUB.tables.map(()=>[null,null]);patrons[a.tableIndex][a.seat]=5;patrons[b.tableIndex][b.seat]=7;
+    const draws=[...values],life=new PubLife(()=>draws.length?draws.shift():.9);
+    // One bump is a frame of contact followed by a frame without it.
+    const hit=(...chairs)=>{life.bump(chairs,patrons);life.bump([],patrons);};
+    return {patrons,life,hit,draws};
+  };
+  {
+    const {patrons,life,hit}=setup([0,0,.4]);
+    hit(a);
+    for(let i=0;i<50;i++)life.bump([a],patrons);
+    life.bump([],patrons);
+    assert.equal(life.walker,null,'staying in contact is one bump');
+    hit(a);
+    assert.equal(patrons[a.tableIndex][a.seat],null,'third bump with a low roll empties the seat');
+    assert.equal(life.walker.type,5,'the bumped patron walks out');
+    assert.deepEqual(life.walker.route.at(-1),{x:PUB.door.x,z:.4},'heading for the door');
+    assert.equal(patrons[b.tableIndex][b.seat],7,'other seats are untouched');
+  }
+  {
+    const {patrons,life,hit}=setup([0,0,.6,.4]);
+    hit(a);hit(a);hit(a);
+    assert.equal(patrons[a.tableIndex][a.seat],5,'a high roll keeps them seated');
+    assert.equal(life.walker,null);
+    hit(a);hit(a);
+    assert.equal(patrons[a.tableIndex][a.seat],5,'the count started over');
+    hit(a);
+    assert.equal(patrons[a.tableIndex][a.seat],null,'three more bumps roll again');
+  }
+  {
+    const {patrons,life,hit}=setup([0,0,.4]);
+    hit(a);hit(a);hit(b);hit(b);
+    assert.equal(life.walker,null,'two bumps on each of two seats do not add up');
+    hit(b);
+    assert.equal(patrons[b.tableIndex][b.seat],null,'third bump on the second seat counts on its own');
+    assert.equal(patrons[a.tableIndex][a.seat],5);
+  }
+  {
+    const {patrons,life,hit,draws}=setup([0,0,.4]);
+    const other={x:9,z:2,type:1,route:[{x:9,z:6}],walkTime:0};life.walker=other;
+    hit(a);hit(a);hit(a);
+    assert.equal(life.walker,other,'nobody leaves while someone else is walking about');
+    assert.equal(patrons[a.tableIndex][a.seat],5);
+    assert.deepEqual(draws,[.4],'no roll is made then');
+    life.walker=null;hit(a);hit(a);
+    assert.equal(patrons[a.tableIndex][a.seat],5,'the count started over');
+    hit(a);
+    assert.equal(patrons[a.tableIndex][a.seat],null);
+  }
 });
 
 test('staff door is reachable beside shelves, stays solid and requires facing it nearby',async()=>{
