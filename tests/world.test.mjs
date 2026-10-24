@@ -2065,6 +2065,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   assert.equal(screams,1);
   tick(ms+=7100);
   assert.equal(location(),'THE PUB / GENTS','event ends in the cubicle');
+  assert.equal(element('#message').textContent,'WTF WAS THAT??...','reaction once the banshee is gone');
   events.keydown(arrow('ArrowLeft'));tick(ms+=20);events.keyup(arrow('ArrowLeft'));
   assert.notEqual(player.angle,frozen.angle,'controls restored');
 });

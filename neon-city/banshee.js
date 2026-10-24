@@ -31,9 +31,9 @@ export function playBansheeScream(context,delay=0,random=Math.random){
   source.start(context.currentTime+delay);source.onended=()=>source.disconnect();
   return source;
 }
-// Preload the transparent photographic apparition when the game module loads.
+// Preload the transparent veiled-spirit illustration when the game module loads.
 const portrait=typeof Image==='undefined'?null:new Image();
-if(portrait)portrait.src=new URL('./assets/banshee.png',import.meta.url).href;
+if(portrait)portrait.src=new URL('./assets/banshee.png?v=veiled',import.meta.url).href;
 export function drawBanshee(ctx,width,height,seconds,opacity){
   if(!portrait?.complete||!portrait.naturalWidth||opacity<=0)return;
   const h=height*.98,w=h*portrait.naturalWidth/portrait.naturalHeight;

@@ -1,4 +1,4 @@
-import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=5';
+import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {PubLife,PubConversation} from './pub-life.js?v=enter-talk-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
@@ -480,7 +480,7 @@ function tick(now){
     keys.clear();shiftKeys.clear();coverPressed=false;
     document.querySelector('#pace').hidden=true;
     document.querySelector('#message').textContent='';
-    if(!bansheeFrame((now-banshee.started)/1000).active)banshee=null;
+    if(!bansheeFrame((now-banshee.started)/1000).active){banshee=null;notice=3.5;noticeText='WTF WAS THAT??...';}
   }
   if(running&&!pubMenu.open&&!banshee){
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
