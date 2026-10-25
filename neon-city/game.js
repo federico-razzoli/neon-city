@@ -6,7 +6,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=staff-room-1';
-import {Traffic} from './traffic.js?v=traffic-7s-1';
+import {Traffic} from './traffic.js?v=traffic-random-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=start-sign-6';

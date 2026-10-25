@@ -660,11 +660,15 @@ export function traffic(chunk,time) {
     if(!axis&&isRiverRow(chunk.z)&&!hasBridge(chunk.x))continue;
     if(axis&&isRiverRow(chunk.z)&&chunk.z!==riverStart(chunk.z))continue;
     const lane=axis?chunk.z:chunk.x, phase=time*10*dir+lane*17+dir*13;
-    // Normal lanes pass a car every seven seconds at 10 metres per second.
+    // Stable per-car jitter gives normal lanes 65–70m gaps (6.5–7s).
     // Bank roads retain their 64m stream, thinned to 128m by Traffic.
     const riverside=axis&&RIVER_ROWS.some(row=>lane===row||lane===row+2);
-    const spacing=riverside?64:70,origin=(axis?chunk.x:chunk.z)*BLOCK;
-    const carId=Math.ceil((origin-phase)/spacing),position=phase+carId*spacing;
+    const spacing=riverside?64:67.5,origin=(axis?chunk.x:chunk.z)*BLOCK;
+    const offset=id=>riverside?0:random(Math.imul(id,1597334677)^Math.imul(lane,3812015801)^Math.imul(axis+1,958282807)^Math.imul(dir,1103515245))()*2.5;
+    // Include a car whose jitter moves it across the nominal tile boundary.
+    let carId=Math.ceil((origin-phase-(riverside?0:2.5))/spacing);
+    let position=phase+carId*spacing+offset(carId);
+    if(position<origin){carId++;position=phase+carId*spacing+offset(carId);}
     if(position>=origin+BLOCK)continue;
     const t=position-origin;
     const appearance=random(Math.imul(carId,73856093)^Math.imul(lane,19349663)^Math.imul(axis+1,83492791)^Math.imul(dir,2654435761));

@@ -661,7 +661,7 @@ test('pedestrian loops remain on sidewalks',()=>{
 });
 test('traffic moves, stays in roads and continues in neighboring blocks',()=>{
   const a=traffic({x:0,z:0},10),b=traffic({x:0,z:1},10),next=traffic({x:0,z:0},10.1);
-  assert.equal(a.length,4);assert.notEqual(a[0].z,next[0].z);assert.equal(b[0].z-a[0].z,70);
+  assert.equal(a.length,4);assert.notEqual(a[0].z,next[0].z);assert.ok(b[0].z-a[0].z>=65&&b[0].z-a[0].z<=70);
   const colors=new Set();for(let i=-5;i<5;i++)for(const car of traffic({x:i,z:i},123)){colors.add(car.color);assert.ok(!new City(1).solid(car.x,car.z));}assert.equal(colors.size,4);
 });
 
@@ -935,10 +935,10 @@ test('cars in the same lane have varied colours that persist across tile crossin
     for(const tile of [-3,0,3]){
       const chunk={x:axis?tile:0,z:axis?0:tile};
       const next={x:chunk.x+(axis?dir:0),z:chunk.z+(axis?0:dir)};
-      // Find a crossing of this boundary for the 70m stream.
       const boundary=(tile+(dir>0?1:0))*BLOCK;
-      let crossing=(boundary-dir*13)/(10*dir);
-      while(crossing<1)crossing+=7;
+      let sampleTime=0,car=pick(chunk,sampleTime);
+      while(!car){sampleTime+=.1;car=pick(chunk,sampleTime);}
+      const crossing=sampleTime+(boundary-(axis?car.x:car.z))/(10*dir);
       const before=pick(chunk,crossing-.01),after=pick(next,crossing+.01);
       assert.equal(before.color,after.color,'same car keeps its colour across the boundary');
       assert.equal(before.type,after.type,'same car keeps its type across the boundary');
@@ -4064,14 +4064,18 @@ test('shooting stars stay on river walks and choose visible paths every 10–30 
   }
 });
 
-test('normal traffic repeats every seven seconds while riverside spacing stays unchanged',async()=>{
+test('normal traffic has varied 6.5–7 second gaps while riverside spacing stays unchanged',async()=>{
   const {Traffic}=await import('../neon-city/traffic.js');
   for(const axis of [0,1])for(const dir of [-1,1]){
     const chunks=Array.from({length:30},(_,i)=>({x:axis?i-15:0,z:axis?0:i-15}));
     const positions=time=>chunks.flatMap(chunk=>traffic(chunk,time)).filter(c=>c.axis===axis&&c.dir===dir).map(c=>axis?c.x:c.z).sort((a,b)=>a-b);
     const initial=positions(1.25);
-    for(let i=1;i<initial.length;i++)assert.ok(Math.abs(initial[i]-initial[i-1]-70)<1e-8);
-    assert.deepEqual(positions(8.25),initial,'a new car occupies each position seven seconds later');
+    const gaps=initial.slice(1).map((p,i)=>p-initial[i]);
+    assert.ok(gaps.every(gap=>gap>=65&&gap<=70));
+    assert.ok(new Set(gaps.map(gap=>gap.toFixed(2))).size>10,'gaps vary between cars');
+    assert.deepEqual(positions(1.25),initial,'reloading preserves the stream');
+    const later=positions(1.26);
+    for(const p of initial.slice(1,-1))assert.ok(later.some(next=>Math.abs(next-p-dir*.1)<1e-8),'speed stays at 10m/s');
   }
   const chunks=Array.from({length:30},(_,i)=>[RIVER_ROWS[0]-1,RIVER_ROWS[0]].map(z=>({x:i-15,z}))).flat();
   const cars=new Traffic().update(chunks,0,0).filter(c=>c.axis===1&&c.dir===1).sort((a,b)=>a.x-b.x);
