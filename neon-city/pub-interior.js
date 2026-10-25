@@ -131,13 +131,23 @@ export const BARTENDER_TALK=[
   {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.'],needs:'PUB_STAFF_ROOM_NOISES'},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
 export class StaffTalk{
-  constructor(script=BARTENDER_TALK,record=register){this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
-  get script(){return this.blocks[this.block].filter(option=>option.needs==null||option.needs in this.record);}
+  constructor(script=BARTENDER_TALK,record=register,inventory=null){this.inventory=inventory;this.giving=false;this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
+  get script(){
+    if(this.giving)return [...this.inventory.items.map(item=>({ask:item.name,answer:['NO, THANK YOU.']})),{ask:'BACK',action:'back'}];
+    const options=this.blocks[this.block].filter(option=>option.needs==null||option.needs in this.record);
+    return this.inventory?[...options,{ask:'GIVE',action:'give',separator:true}]:options;
+  }
   get line(){const said=this.answer[0];return said?.say??said??null;}
   move(step){if(!this.line)this.selected=(this.selected+step+this.script.length)%this.script.length;}
   confirm(choice=this.selected){
     if(this.line)this.answer.shift();
-    else{this.selected=choice;this.chosen=this.script[choice];this.answer=[...this.chosen.answer];}
+    else{
+      const option=this.script[choice];
+      if(!option)return;
+      if(option.action==='give'){this.returnSelection=choice;this.giving=true;this.selected=0;return;}
+      if(option.action==='back'){this.giving=false;this.selected=this.returnSelection;return;}
+      this.selected=choice;this.chosen=option;this.answer=[...option.answer];
+    }
     if(this.answer[0]?.sets)this.record[this.answer[0].sets]=true;
     if(this.line)return;
     this.over=!!this.chosen.ends;

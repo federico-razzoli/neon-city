@@ -405,6 +405,12 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   press();
   const talkBox=element('#staff-talk');
   assert.equal(talkBox.hidden,false);assert.equal(talkBox.ariaLabel,'Talk to the receptionist');
+  assert.match(talkBox.innerHTML,/class="talk-separator"[\s\S]*>GIVE</);
+  key('ArrowUp');press();
+  assert.match(talkBox.innerHTML,/SELECT AN OBJECT TO GIVE[\s\S]*>BACK</);
+  press();
+  assert.doesNotMatch(talkBox.innerHTML,/SELECT AN OBJECT TO GIVE/);
+
   assert.match(talkBox.innerHTML,/HEY![\s\S]*WHAT TIME DO YOU CLOSE THE DOOR\?[\s\S]*I'M NEW TO NEON CITY\.\.\.[\s\S]*BYE!/);
   key('3');
   assert.equal(talkBox.innerHTML,answer('WELCOME TO OUR CITY! HOW CAN I HELP YOU?'));
@@ -4493,4 +4499,27 @@ test('park and promenade flowers share one inventory slot, disappear when picked
     assert.equal(takeOutdoorItem({x:otherFlower.x,z:otherFlower.z-.2,angle:0},[other],inventory),'I ALREADY HAVE ONE.');
     dropItem(inventory,player,chunk);
   }
+});
+
+test('NPC GIVE lists inventory, refuses without taking items, and BACK restores conversation',async()=>{
+  const {StaffTalk,BARTENDER_TALK}=await import('../neon-city/pub-interior.js');
+  const {Inventory,PINE_CONE,FLOWER}=await import('../neon-city/inventory.js');
+  const inventory=new Inventory();inventory.take(PINE_CONE);inventory.take(FLOWER);
+  const talk=new StaffTalk(BARTENDER_TALK,{},inventory);
+  assert.deepEqual(talk.script.map(o=>o.ask),['HEY!','BYE!','GIVE']);
+  assert.equal(talk.script.at(-1).separator,true);
+  talk.move(-1);talk.confirm();
+  assert.equal(talk.giving,true);
+  assert.deepEqual(talk.script.map(o=>o.ask),['PINE CONE','FLOWER','BACK']);
+  for(const choice of [0,1]){
+    talk.confirm(choice);assert.equal(talk.line,'NO, THANK YOU.');
+    assert.deepEqual(inventory.items,[PINE_CONE,FLOWER]);
+    talk.confirm();assert.equal(talk.line,null);assert.equal(talk.over,false);
+  }
+  talk.confirm(2);assert.equal(talk.giving,false);assert.equal(talk.script[talk.selected].ask,'GIVE');
+  talk.confirm(0);assert.equal(talk.line,'HELLO THERE!');talk.confirm();
+  talk.confirm(1);talk.confirm();assert.equal(talk.over,true);
+  const empty=new StaffTalk(BARTENDER_TALK,{},new Inventory());
+  empty.confirm(2);assert.deepEqual(empty.script.map(o=>o.ask),['BACK']);
+  empty.move(1);empty.confirm();assert.equal(empty.giving,false);
 });

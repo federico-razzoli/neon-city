@@ -17,7 +17,7 @@ import {WalkerTalk,talksHere} from './walker-talk.js?v=walker-space-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
 import {drawPub,pubName} from './pub.js?v=park-entrances-1';
-import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,BAR_BEER_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=park-entrances-1';
+import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,BAR_BEER_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=give-1';
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
@@ -170,7 +170,7 @@ pubMenu.addEventListener('cancel',e=>e.preventDefault());
 // still, as the drinks menu holds the street.
 function talkToStaff(script,label){
   keys.clear();shiftKeys.clear();coverPressed=false;notice=0;
-  staffTalk=new StaffTalk(script);talkBox.ariaLabel=label;document.querySelector('#pace').hidden=true;showStaffTalk();
+  staffTalk=new StaffTalk(script,undefined,inventory);talkBox.ariaLabel=label;document.querySelector('#pace').hidden=true;showStaffTalk();
 }
 function answerStaff(choice){
   staffTalk.confirm(choice);
@@ -184,7 +184,7 @@ function showStaffTalk(){
   if(!talk)return;
   // The answer takes the place of the choices, in the same box.
   talkBox.innerHTML=talk.line?`<p class="talk-answer">${talk.line}</p>`:
-    `<ol>${talk.script.map((option,i)=>`<li><button type="button" data-choice="${i}"${i===talk.selected?' aria-current="true"':''}>${option.ask}</button></li>`).join('')}</ol>`;
+    `${talk.giving?'<p class="give-prompt">SELECT AN OBJECT TO GIVE</p>':''}<ol>${talk.script.map((option,i)=>`<li${option.separator?' class="talk-separator"':''}><button type="button" data-choice="${i}"${i===talk.selected?' aria-current="true"':''}>${option.ask}</button></li>`).join('')}</ol>`;
 }
 // A tap on a choice says it; a tap anywhere on an answer moves the chat on.
 talkBox.addEventListener('click',e=>{
