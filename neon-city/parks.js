@@ -1,4 +1,4 @@
-import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,mod,pathDistance} from './world.js?v=start-sign-6';
+import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,START_SIGN,mod,pathDistance} from './world.js?v=start-sign-6';
 
 // Ground terrain is painted in order of elevation, so each layer sits above
 // the one it must cover: the footpath always paints over the lawn and its decals.
@@ -99,9 +99,9 @@ function bench(b,face,viewer){
 const CONE=['#2b1d17','#3b291e','#4f3626','#654530','#7a5739'];
 // A fallen cone: an egg-shaped spindle lying on the lawn, wide near its stalk
 // and pointed at the tip, with overlapping scales suggested by faceted shading.
-function pineCone(c,face,viewer){
+export function pineCone(c,face,viewer){
   // Its widest ring has a flat facet underneath, which rests on the grass.
-  const ax=Math.cos(c.angle),az=Math.sin(c.angle),y=PARK_LAYERS.grass+c.radius*Math.cos(Math.PI/6),sides=6;
+  const ax=Math.cos(c.angle),az=Math.sin(c.angle),y=(c.ground??PARK_LAYERS.grass)+c.radius*Math.cos(Math.PI/6),sides=6;
   const rings=[[-.5,.45],[-.25,1],[.15,.8],[.5,0]].map(([u,scale])=>Array.from({length:sides},(_,i)=>{
     const a=i*2*Math.PI/sides,r=c.radius*scale;
     // Across the cone axis: one horizontal direction and up.
@@ -178,7 +178,7 @@ export function drawFingerpost(s,boards,{face,signTexture},viewer){
 }
 
 export function drawParkStructures(chunk,{face,signTexture},viewer){
-  for(const c of chunk.park.cones)pineCone(c,face,viewer);
+  for(const c of chunk.park.cones)if(!c.taken)pineCone(c,face,viewer);
   for(const b of chunk.park.benches)bench(b,face,viewer);
   const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
   if(sign)drawFingerpost(sign,[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}],{face,signTexture},viewer);
@@ -198,4 +198,26 @@ export function facingBench(player,chunks){
     nearest=seat;distance=gap;
   }
   return nearest;
+}
+
+const TREE_REPLIES=["IT'S JUST A TREE","I LIKE TREES","I CAN'T CLIMB TREES"];
+const SIGN_REPLIES=["JUST A SIGN.","I LIKE SIGNS.","I CAN'T TAKE THE SIGN."];
+function facingParkObject(player,object){
+  const dx=object.x-player.x,dz=object.z-player.z,gap=Math.hypot(dx,dz),radius=object.radius;
+  if(gap>radius+3)return false;
+  const halfAngle=.45+Math.asin(Math.min(1,radius/Math.max(gap,.001)));
+  return gap<=radius||(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap>=Math.cos(halfAngle);
+}
+export function treeReply(player,chunks,random=Math.random){
+  for(const chunk of chunks)for(const tree of chunk.park?.trees??[]){
+    if(facingParkObject(player,tree))return TREE_REPLIES[Math.floor(random()*TREE_REPLIES.length)];
+  }
+  return null;
+}
+export function signReply(player,chunks,random=Math.random){
+  const signs=[START_SIGN];
+  for(const chunk of chunks)if(chunk.park?.sign)signs.push(chunk.park.sign);
+  // Allow the same targeting area as a tree trunk, despite the narrow pole.
+  if(signs.some(sign=>facingParkObject(player,{...sign,radius:.5})))return SIGN_REPLIES[Math.floor(random()*SIGN_REPLIES.length)];
+  return null;
 }

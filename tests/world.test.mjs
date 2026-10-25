@@ -317,7 +317,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
+  const sandbox={...await import('../neon-city/inventory.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -1077,7 +1077,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     return elements.get(id);
   };
   let bumpedPerson=null;
-  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+  const sandbox={...await import('../neon-city/inventory.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -1541,7 +1541,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {facingPubMenu}=await import('../neon-city/pub-menu.js');
   const events={},elements=new Map();let sounds=0,moves=0;
   const element=id=>{
-    if(!elements.has(id))elements.set(id,{textContent:'',open:false,showModal(){this.open=true;},close(){this.open=false;},focus(){},getContext:()=>({}),addEventListener(name,fn){events[id+name]=fn;}});
+    if(!elements.has(id))elements.set(id,{textContent:'',querySelector:()=>null,open:false,showModal(){this.open=true;},close(){this.open=false;},focus(){},getContext:()=>({}),addEventListener(name,fn){events[id+name]=fn;}});
     return elements.get(id);
   };
   const pubInterior=await import('../neon-city/pub-interior.js');
@@ -1549,24 +1549,44 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {PubLife,PubConversation}=await import('../neon-city/pub-life.js');
   const {pubLines}=await import('../neon-city/world.js');
   const {RiverLook}=await import('../neon-city/river-look.js');
-  const {facingBench}=await import('../neon-city/parks.js');
+  const {facingBench,treeReply,signReply}=await import('../neon-city/parks.js');
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
-  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const sandbox={...await import('../neon-city/inventory.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,treeReply,signReply,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera,get seat(){return playerSeat;}};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera,inventory,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
   const key={key:' ',code:'Space',repeat:false,preventDefault(){}};
   const enter={...key,key:'Enter',code:'Enter'};
   events.keydown(enter);tick(0);
   assert.equal(element('#overlay').hidden,true,'Enter starts the game like Space');
+  const inventoryKey={...key,key:'i',code:'KeyI'};
+  events.keydown(inventoryKey);
+  assert.equal(element('#inventory').open,true);
+  assert.equal(element('#inventory-empty').hidden,false);
+  sandbox.game.inventory.take((await import('../neon-city/inventory.js')).PINE_CONE);
+  events.keydown({...key,key:'d',code:'KeyD'});
+  assert.equal(sandbox.game.inventory.items.length,0);
+  assert.equal(city.chunks.get('0,0').droppedItems.length,1);
+  assert.equal(element('#inventory-description').textContent,'DROPPED');
+  events.keydown({...key,key:'d',code:'KeyD',repeat:true});
+  assert.equal(city.chunks.get('0,0').droppedItems.length,1);
+  city.chunks.get('0,0').droppedItems=[];
+
+  events.keydown({...key,key:'ArrowDown',code:'ArrowDown'});tick(0);
+  events.keydown(enter);
+  assert.equal(element('#inventory-description').textContent,'');
+  assert.equal(sounds,0,'inventory controls do not interact with the world');
+  events.keydown(inventoryKey);
+  assert.equal(element('#inventory').open,false);
+
   events.keydown({...enter,repeat:true});tick(0);
   assert.equal(sounds,0,'starting Enter does not also lift a cover');
   events.keyup(enter);
@@ -1626,6 +1646,23 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(player.x,4);assert.ok(Math.abs(player.z-1.95)<1e-9);
   assert.equal(player.angle,0,'sitting faces the opposite seat');
   assert.equal(element('#message').textContent,'HI THERE!');
+  sandbox.game.inventory.take((await import('../neon-city/inventory.js')).PINE_CONE);
+  events.keydown(inventoryKey);
+  events.keydown({...key,key:'d',code:'KeyD'});
+  assert.equal(sandbox.game.inventory.items.length,1,'seated dropping keeps the item');
+  assert.equal(city.chunks.get('0,0').droppedItems.length,0,'seated dropping creates no ground object');
+  assert.equal(element('#inventory-description').textContent,'I NEED TO STAND UP FIRST.');
+  events.keydown(inventoryKey);
+  events.keyup(key);
+  for(const closeKey of [inventoryKey,{...key,key:'Escape',code:'Escape'}]){
+    events.keydown(inventoryKey);events.keyup(inventoryKey);
+    events.keydown(closeKey);events.keyup(closeKey);
+    events.keydown(key);
+    assert.equal(sandbox.game.seat,null,'first Space after closing inventory stands up');
+    events.keyup(key);
+    events.keydown(key);events.keyup(key);
+    assert.ok(sandbox.game.seat,'can sit again normally');
+  }
   const seatedZ=player.z;
   for(const movement of ['ArrowUp','ArrowDown','w','s','a','d']){
     events.keydown({key:movement,preventDefault(){}});tick(6260);
@@ -2541,7 +2578,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
+  const sandbox={...await import('../neon-city/inventory.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
     ...await import('../neon-city/pub-life.js'),CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'THE PUB',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -2616,7 +2653,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={...await import('../neon-city/inventory.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -2625,7 +2662,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,tick,goToPub(){insidePub=true;currentPubName='THE PUB';},get seat(){return playerSeat;}};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,tick,goToPub(){currentVenue={x:14,z:14};insidePub=true;currentPubName='THE PUB';},get seat(){return playerSeat;}};",sandbox);
   const {player,tick}=sandbox.game,location=()=>element('#location').textContent;
   const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
   let ms=0;
@@ -4330,4 +4367,94 @@ test('city orients venues after generating neighboring parks and remembers unloa
   city.update(100*BLOCK,100*BLOCK);
   assert.equal(city.chunks.has(key),false);
   assert.equal(city.parkBlocks.has(key),true);
+});
+
+test('interacting with a nearby tree chooses a reply only while facing it',async()=>{
+  const {treeReply}=await import('../neon-city/parks.js');
+  const chunks=[{},{park:{trees:[{x:0,z:2,radius:.5}]}}];
+  const player={x:0,z:0,angle:0};
+  for(const [roll,line] of [[0,"IT'S JUST A TREE"],[.5,'I LIKE TREES'],[.999,"I CAN'T CLIMB TREES"]]){
+    assert.equal(treeReply(player,chunks,()=>roll),line);
+  }
+  const unused=()=>{assert.fail('no random draw without a tree in reach and view');};
+  assert.equal(treeReply({...player,angle:Math.PI},chunks,unused),null);
+  assert.equal(treeReply({...player,z:-1.5},chunks,()=>0),"IT'S JUST A TREE");
+  assert.equal(treeReply({...player,z:-1.51},chunks,unused),null);
+  assert.equal(treeReply(player,[{}],unused),null);
+  assert.equal(treeReply({x:1.5,z:2,angle:-Math.PI/2},chunks,()=>0),"IT'S JUST A TREE");
+});
+
+test('signs offer all three replies with tree-sized reach, including the starting sign',async()=>{
+  const {signReply,treeReply}=await import('../neon-city/parks.js');
+  const {START_SIGN}=await import('../neon-city/world.js');
+  const sign={x:100,z:100},chunks=[{park:{sign,trees:[{...sign,radius:.5}]}}];
+  const player={x:100,z:97,angle:0};
+  for(const [roll,line] of [[0,'JUST A SIGN.'],[.5,'I LIKE SIGNS.'],[.999,"I CAN'T TAKE THE SIGN."]])assert.equal(signReply(player,chunks,()=>roll),line);
+  for(const z of [96.49,96.5,97,99])for(const angle of [0,.4,Math.PI]){
+    const at={...player,z,angle};
+    assert.equal(signReply(at,chunks,()=>0)!==null,treeReply(at,chunks,()=>0)!==null);
+  }
+  assert.equal(signReply({x:START_SIGN.x,z:START_SIGN.z-3,angle:0},[],()=>0),'JUST A SIGN.');
+  assert.equal(signReply(player,[{}],()=>0),null);
+});
+
+test('pine cones can be taken once and inventory selection exposes item descriptions',async()=>{
+  const {Inventory,takePineCone,PINE_CONE,TAKEN,ALREADY_HAVE_ONE}=await import('../neon-city/inventory.js');
+  const inventory=new Inventory(),cone={x:0,z:1},other={x:0,z:1.5};
+  const chunks=[{park:{cones:[cone,other]}}],player={x:0,z:0,angle:0};
+  assert.equal(takePineCone({...player,angle:Math.PI},chunks,inventory),null);
+  assert.equal(takePineCone({...player,z:-5},chunks,inventory),null);
+  assert.equal(takePineCone({x:0,z:-2.51,angle:0},[{park:{cones:[{x:0,z:1}]}}],new Inventory()),null);
+  assert.equal(takePineCone({x:0,z:-2.5,angle:0},[{park:{cones:[{x:0,z:1}]}}],new Inventory()),TAKEN);
+  assert.equal(takePineCone(player,chunks,inventory),TAKEN);
+  assert.equal(cone.taken,true);
+  assert.equal(inventory.current.name,'PINE CONE');
+  assert.equal(inventory.current.description,'A PINE CONE. MOST PROBABLY, FALLEN FROM A PINE.');
+  assert.equal(takePineCone(player,chunks,inventory),ALREADY_HAVE_ONE);
+  assert.equal(other.taken,undefined);
+  assert.equal(inventory.items.length,1);
+  assert.equal(inventory.take({...PINE_CONE}),ALREADY_HAVE_ONE);
+  inventory.take({id:'test-item',name:'TEST ITEM',description:'Another item.'});
+  inventory.move(1);assert.equal(inventory.current.id,'test-item');
+  inventory.description=true;inventory.move(1);
+  assert.equal(inventory.current.id,'pine-cone');assert.equal(inventory.description,false);
+  inventory.move(-1);assert.equal(inventory.current.id,'test-item');
+  const empty=new Inventory();empty.move(-1);assert.equal(empty.current,undefined);
+});
+
+test('dropped inventory items stay in their room, can be retaken, and unload with their block',async()=>{
+  const {Inventory,PINE_CONE,dropItem,takeDroppedItem}=await import('../neon-city/inventory.js');
+  const {City,BLOCK}=await import('../neon-city/world.js');
+  const inventory=new Inventory(),city=new City(42),player={x:17,z:17,angle:0};
+  city.update(player.x,player.z);
+  const chunk=city.chunks.get('0,0');
+  inventory.take(PINE_CONE);
+  const cone=dropItem(inventory,player,chunk);
+  assert.equal(inventory.items.length,0);
+  assert.equal(cone.x,player.x);assert.equal(cone.z,player.z);
+  assert.equal(dropItem(inventory,player,chunk),null);
+  assert.equal(takeDroppedItem(player,city.chunks.values(),inventory,'hotel'),null);
+  assert.equal(takeDroppedItem({...player,z:30},city.chunks.values(),inventory),null);
+  assert.equal(takeDroppedItem(player,city.chunks.values(),inventory),'TAKEN');
+  assert.equal(chunk.droppedItems.length,0);assert.equal(inventory.current,PINE_CONE);
+  dropItem(inventory,player,chunk,'hotel',4);
+  assert.equal(takeDroppedItem(player,city.chunks.values(),inventory,'hotel',0),null);
+  assert.equal(takeDroppedItem(player,city.chunks.values(),inventory,'hotel',4),'TAKEN');
+  dropItem(inventory,player,chunk);
+  inventory.take(PINE_CONE);
+  assert.equal(takeDroppedItem(player,city.chunks.values(),inventory),'I ALREADY HAVE ONE.');
+  assert.equal(chunk.droppedItems.length,1);
+  city.update(100*BLOCK,100*BLOCK);
+  assert.equal(city.chunks.has('0,0'),false);
+  city.update(17,17);
+  assert.equal(city.chunks.get('0,0').droppedItems,undefined);
+  assert.equal(inventory.current,PINE_CONE,'carried objects survive unloading');
+});
+
+test('dropped pine cones render at their floor elevation',async()=>{
+  const {pineCone}=await import('../neon-city/parks.js');
+  const cone={x:0,z:0,angle:0,length:.22,radius:.07,ground:4},faces=[];
+  pineCone(cone,(vertices)=>faces.push(vertices),{x:1,y:6,z:1});
+  assert.ok(faces.length>0);
+  assert.ok(faces.flat().every(v=>v.y>=4-1e-9&&v.y<4.2));
 });

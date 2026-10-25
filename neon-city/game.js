@@ -1,3 +1,4 @@
+import {Inventory,takePineCone,dropItem,takeDroppedItem} from './inventory.js?v=drop-1';
 import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_DOOR_REPLY,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=storage-2';
 import {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=park-entrances-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
@@ -10,7 +11,7 @@ import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundH
 import {Traffic} from './traffic.js?v=traffic-random-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
-import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=park-sign-green-1';
+import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=drop-1';
 import {WalkerTalk,talksHere} from './walker-talk.js?v=walker-space-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
@@ -33,9 +34,10 @@ import {HornWarning,playHorn} from './horn.js';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
+const inventory=new Inventory(),inventoryBox=document.querySelector('#inventory');
 const pubMenu=document.querySelector('#pub-menu'),talkBox=document.querySelector('#staff-talk');
 let insideArcade=false,currentArcadeName='',insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,lavatoryTaps=[],currentHotel=null,hotelLife=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
-let hotelStairs=null;
+let hotelStairs=null,currentVenue=null;
 let banshee=null,bansheeMisses=0,staffTalk=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insideArcade||insidePub||insideHotel||insideLavatory||insideCubicle!=null;
@@ -63,6 +65,7 @@ function useDoor(){
     const pub=facingPubDoor(player,pubBuildings()),hotel=!pub&&facingHotelDoor(player,pubBuildings());
     const arcade=!pub&&!hotel&&facingArcadeDoor(player,pubBuildings());
     if(!pub&&!hotel&&!arcade)return false;
+    currentVenue=pub||hotel||arcade;
     streetPosition={...player,angle:player.angle+Math.PI};
     if(pub){pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);Object.assign(player,PUB.spawn);insidePub=true;}
     // Each hotel keeps the receptionist first seen on duty there.
@@ -112,6 +115,48 @@ function useSeat(){
   if(greet)noticeText='HI THERE!';
   return true;
 }
+function itemRoom(){
+  if(!indoors())return 'street';
+  const room=insideCubicle?`cubicle:${insideCubicle.x},${insideCubicle.z}`:insideLavatory?'lavatory':insidePub?'pub':insideArcade?'arcade':hotelStairs?'hotel-stairs':'hotel';
+  return `${currentVenue.x},${currentVenue.z}:${room}`;
+}
+function itemGround(){
+  return !indoors()?groundHeight(player.x,player.z)+.085:insideHotel?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0;
+}
+function dropSelectedItem(){
+  if(playerSeat){document.querySelector('#inventory-description').textContent="I NEED TO STAND UP FIRST.";return;}
+  const position=indoors()?currentVenue:player;
+  const chunk=city.chunks.get(`${Math.floor(position.x/64)},${Math.floor(position.z/64)}`);
+  const dropped=dropItem(inventory,player,chunk,itemRoom(),itemGround());
+  showInventory();
+  if(dropped)document.querySelector('#inventory-description').textContent='DROPPED';
+}
+function drawDroppedItems(chunks){
+  const room=itemRoom();
+  for(const chunk of chunks)for(const item of chunk.droppedItems??[]){
+    if(item.room!==room)continue;
+    const first=queue.length;
+    pineCone(item,face,{x:player.x,y:eye,z:player.z});
+    for(let i=first;i<queue.length;i++)queue[i].detail=true;
+  }
+}
+function showInventory(){
+  const list=document.querySelector('#inventory-items');
+  list.innerHTML=inventory.items.map((item,i)=>`<li${i===inventory.selected?' aria-current="true"':''}>${item.name}</li>`).join('');
+  document.querySelector('#inventory-empty').hidden=inventory.items.length>0;
+  document.querySelector('#inventory-description').textContent=inventory.description?(inventory.current?.description??''):'';
+  list.querySelector('[aria-current]')?.scrollIntoView({block:'nearest'});
+}
+function toggleInventory(){
+  keys.clear();shiftKeys.clear();coverPressed=false;
+  if(inventoryBox.open){inventoryBox.close();canvas.focus();}
+  else{
+    inventory.description=false;showInventory();inventoryBox.showModal();
+    arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();
+    document.querySelector('#pace').hidden=true;
+  }
+}
+inventoryBox.addEventListener('cancel',e=>{e.preventDefault();toggleInventory();});
 const nearPubMenu=()=>!indoors()&&pubBuildings().find(b=>facingPubMenu(player,[b]));
 function togglePubMenu(){
   keys.clear();shiftKeys.clear();coverPressed=false;
@@ -554,6 +599,7 @@ function render(){
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
   if(insideArcade){
     queue=[];drawArcadeInterior({face,quad,box});
+    drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue,'#17172b');return;
   }
@@ -563,11 +609,13 @@ function render(){
     else drawHotelInterior({face,quad,box,look:hotelLook(currentHotel),receptionist:currentHotel.receptionist,lampOn:currentHotel.lampOn});
     // The lobby is built to true size, so the robot is too, on the stairs as well.
     if(!hotelStairs&&hotelLife?.walker)seatedPatron(hotelLife.walker,true,characterHeight(hotelLife.walker.type));
+    drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue,'#3a2d36');return;
   }
   if(insideCubicle){
     queue=[];drawCubicle({face,quad,box});
+    drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue);
     if(banshee){
@@ -581,12 +629,14 @@ function render(){
     queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle},taps:lavatoryTaps,time:performance.now()/1000});
     // The lavatory is built to true size, unlike the pub, so the robot is too.
     if(lavatoryLife?.walker)seatedPatron(lavatoryLife.walker,true,characterHeight(lavatoryLife.walker.type));
+    drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue);return;
   }
   if(insidePub){
     queue=[];drawPubInterior({face,quad,box,patrons:pubPatrons,seatedPatron,bartenderType});
     if(pubLife?.walker)seatedPatron(pubLife.walker,true);
+    drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue);return;
   }
@@ -637,6 +687,7 @@ function render(){
     }
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
   }
+  drawDroppedItems(visible);
   const firstSignFace=queue.length;
   drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z});
   for(let i=firstSignFace;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
@@ -646,11 +697,20 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){if(banshee||pubMenu.open||staffTalk)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){if(pubMenu.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function play(){if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
 window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}
+if(inventoryBox.open){
+  e.preventDefault();
+  if(k==='i'||k==='Escape'){if(!e.repeat)toggleInventory();}
+  else if(k==='d'){if(!e.repeat)dropSelectedItem();}
+  else if(k===' '){if(!e.repeat){inventory.description=true;showInventory();}}
+  else{const step={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1}[k];if(step){inventory.move(step);showInventory();}}
+  return;
+}
+if(k==='i'&&running&&!staffTalk){e.preventDefault();if(!e.repeat)toggleInventory();return;}
 if(staffTalk){
   e.preventDefault();
   if(e.repeat)return;
@@ -688,17 +748,17 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(useSeat())return;if(useDoor())return;if(insideArcade)return;if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist');return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){notice=2.5;noticeText=pickedUp;return;}if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(useSeat())return;if(useDoor())return;if(insideArcade)return;if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist');return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const reply=takePineCone(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
-window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open&&!banshee&&!staffTalk)syncShift(e);});
+window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk)syncShift(e);});
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 for(const button of document.querySelectorAll('[data-key]')){
-  button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||banshee||staffTalk)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
+  button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||inventoryBox.open||banshee||staffTalk)return;e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.key);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
 function tick(now){
@@ -711,7 +771,7 @@ function tick(now){
     document.querySelector('#message').textContent='';
     if(!bansheeFrame((now-banshee.started)/1000).active){banshee=null;notice=3.5;noticeText='WTF WAS THAT??...';}
   }
-  if(running&&!pubMenu.open&&!banshee&&!staffTalk){
+  if(running&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk){
     shootingStars.update(cameraDt,!indoors()&&onRiverWalk(player),skyView());
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     const pace=!playerSeat&&keys.has('Shift')?3:1;
@@ -791,10 +851,10 @@ function tick(now){
     }
   }
   // Running taps are heard only in the lavatory, louder nearer the sinks.
-  if(running&&!pubMenu.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
+  if(running&&!pubMenu.open&&!inventoryBox.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
   // Ambient music plays throughout the hotel lobby, and boogie-woogie in the
   // pub, heard faintly from the lavatory but not from inside a cubicle.
-  if(running){
+  if(running&&!inventoryBox.open){
     lobbyMusic.update(audioContext,insideHotel?LOBBY_MUSIC.volume:0);
     const pubHeard=pubMusicHeard(insidePub?'pub':insideLavatory?'lavatory':insideCubicle?'cubicle':'street');
     pubMusic.update(audioContext,pubHeard.volume,pubHeard.lowpass);
