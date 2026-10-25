@@ -1,3 +1,4 @@
+import {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=2';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=staff-room-1';
@@ -11,7 +12,7 @@ import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascia
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=start-sign-6';
 import {WalkerTalk,talksHere} from './walker-talk.js?v=staff-room-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
-import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=names-1';
+import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=window-colours-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
 import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=staff-room-1';
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=staff-room-1';
@@ -31,10 +32,10 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const pubMenu=document.querySelector('#pub-menu'),talkBox=document.querySelector('#staff-talk');
-let insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,lavatoryTaps=[],currentHotel=null,hotelLife=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
+let insideArcade=false,currentArcadeName='',insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,lavatoryTaps=[],currentHotel=null,hotelLife=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
 let banshee=null,bansheeMisses=0,staffTalk=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
-const indoors=()=>insidePub||insideHotel||insideLavatory||insideCubicle!=null;
+const indoors=()=>insideArcade||insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
 // The pub's TOILET door leads to its lavatory, where a free cubicle opens.
 function useDoor(){
@@ -48,14 +49,16 @@ function useDoor(){
     if(!facingCubicleExit(player))return false;
     Object.assign(player,outsideCubicle(insideCubicle));insideCubicle=null;insideLavatory=true;
   }else if(indoors()){
-    if(!(insidePub?facingPubExit(player):facingHotelExit(player)))return false;
-    Object.assign(player,streetPosition);insidePub=insideHotel=false;
+    if(!(insideArcade?facingArcadeExit(player):insidePub?facingPubExit(player):facingHotelExit(player)))return false;
+    Object.assign(player,streetPosition);insideArcade=insidePub=insideHotel=false;
   }else{
     const pub=facingPubDoor(player,pubBuildings()),hotel=!pub&&facingHotelDoor(player,pubBuildings());
-    if(!pub&&!hotel)return false;
+    const arcade=!pub&&!hotel&&facingArcadeDoor(player,pubBuildings());
+    if(!pub&&!hotel&&!arcade)return false;
     streetPosition={...player,angle:player.angle+Math.PI};
     if(pub){pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);Object.assign(player,PUB.spawn);insidePub=true;}
     // Each hotel keeps the receptionist first seen on duty there.
+    else if(arcade){Object.assign(player,ARCADE.spawn);insideArcade=true;currentArcadeName=arcadeName(arcade);}
     else{currentHotel=hotel;hotel.receptionist??=RECEPTIONISTS[Math.floor(Math.random()*RECEPTIONISTS.length)];Object.assign(player,HOTEL.spawn);insideHotel=true;hotelLife=new HotelLife();lobbyMusic.choose(LOBBY_PIECES[Math.floor(Math.random()*LOBBY_PIECES.length)]);}
   }
   keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=0;shake=0;steps=0;arcadeAmbience.mute();parkBirds.mute();
@@ -66,6 +69,7 @@ function useDoor(){
 // player to their feet. Getting up from the toilet flushes it.
 const SEATED_EYE=1.5;
 function useSeat(){
+  if(insideArcade)return false;
   let greet=false;
   if(playerSeat){
     // Return to the clear position from which the player sat down.
@@ -537,6 +541,11 @@ function render(){
   else if(!playerSeat)eye=1.65+(insideHotel?hotelFloorHeight(player.x,player.z):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
+  if(insideArcade){
+    queue=[];drawArcadeInterior({face,quad,box});
+    interiorRenderer??=new DepthRenderer(ctx,W,H);
+    interiorRenderer.render(queue,'#17172b');return;
+  }
   if(insideHotel){
     queue=[];drawHotelInterior({face,quad,box,look:hotelLook(currentHotel),receptionist:currentHotel.receptionist,lampOn:currentHotel.lampOn});
     // The lobby is built to true size, so the robot is too, on the stairs as well.
@@ -653,7 +662,7 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(useSeat())return;if(useDoor())return;if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist');return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(useSeat())return;if(useDoor())return;if(insideArcade)return;if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist');return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -710,6 +719,11 @@ function tick(now){
       if(!playerSeat)moveInCubicle(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=`${currentPubName} / ${insideCubicle.icon.toUpperCase()}`;
+    }else if(insideArcade){
+      moveInArcade(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
+      arcadeAmbience.update(audioContext,1,dt);
+      document.querySelector('#message').textContent='';
+      document.querySelector('#location').textContent=currentArcadeName;
     }else if(insideHotel){
       hotelLife.update(dt,player);
       if(!playerSeat)moveInHotel(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelLife.walker);

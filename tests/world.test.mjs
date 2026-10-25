@@ -317,7 +317,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
+  const sandbox={...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -482,8 +482,9 @@ test('arcade windows and sides vary while retaining their layout on redraw',()=>
     const positions=[];
     const g={fillRect(){},beginPath(){},moveTo(x){positions.push(x);},lineTo(){},closePath(){},fill(){}};
     drawArcade(g,160,building,side);
-    assert.equal(positions.length,2,'one pinball in each window');
-    return positions.map((x,i)=>(x-[13,103][i])/17);
+    assert.equal(positions.length,2,'two pinballs on each facade');
+    const entrance=side===(building.j===1?1:0);
+    return positions.map((x,i)=>entrance?(x-[13,103][i])/17:(x-13)/17-i*4);
   };
   const layouts=new Set();
   for(let n=-30;n<30;n++){
@@ -1062,7 +1063,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     return elements.get(id);
   };
   let bumpedPerson=null;
-  const sandbox={START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+  const sandbox={...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -1538,7 +1539,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
-  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const sandbox={...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -2507,7 +2508,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
+  const sandbox={...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
     ...await import('../neon-city/pub-life.js'),CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'THE PUB',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -2582,7 +2583,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -4019,4 +4020,19 @@ test('taxis, hippie vans, and Mercedes each appear once per ten normal cars on a
   assert.ok(Math.abs(taxis/normal-.1)<.01,`taxi to normal ratio: ${taxis/normal}`);
   assert.ok(Math.abs(vans/normal-.1)<.01,`van to normal ratio: ${vans/normal}`);
   assert.ok(Math.abs(mercedes/normal-.1)<.01,`Mercedes to normal ratio: ${mercedes/normal}`);
+});
+
+
+test('arcade doors work on both street sides and furniture blocks running',async()=>{
+  const {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior}=await import('../neon-city/arcade-interior.js');
+  for(const j of [0,1]){
+    const b={x:14,z:14,w:18,d:18,j,sign:'ARCADE'};
+    assert.equal(facingArcadeDoor({x:23,z:j?33:13,angle:j?Math.PI:0},[b]),b);
+  }
+  assert.ok(facingArcadeExit({x:ARCADE.door.x,z:.35,angle:Math.PI}));
+  const p={...ARCADE.spawn,x:9};moveInArcade(p,0,30);assert.ok(p.z<7.3);
+  const q={x:14.5,z:10};moveInArcade(q,0,20);assert.ok(q.z<12.6);
+  const r={...ARCADE.spawn};moveInArcade(r,0,-20);assert.ok(r.z>=.3);
+  let faces=0;drawArcadeInterior({face(points){faces++;assert.ok(points.every(p=>Number.isFinite(p.x+p.y+p.z)));},quad(){},box(){}});
+  assert.ok(faces>100);
 });

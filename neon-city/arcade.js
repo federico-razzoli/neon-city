@@ -32,25 +32,27 @@ function arcadeLayout(building,side){
     const j=Math.floor(random()*(i+1));
     [pairs[i],pairs[j]]=[pairs[j],pairs[i]];
   }
-  return pairs[side];
+  const colours=['#ee47b8','#53ddea','#ffd166'];
+  return {pinballs:pairs[side],palettes:[pairs[side],pairs[(side+1)%pairs.length]].map(([a,b])=>[a,b,3-a-b].map(i=>colours[i]))};
 }
 
 export function drawArcade(g,height,building={x:0,z:0},side=0){
-  const layout=arcadeLayout(building,side);
+  const {pinballs:layout,palettes}=arcadeLayout(building,side),entrance=side===(building.j===1?1:0);
   const y=height-39;
   const rect=(colour,x,z,w,h)=>{g.fillStyle=colour;g.fillRect(x,y+z,w,h);};
   rect('#191329',0,0,160,39);
   // Glazed display windows reveal rows of cabinets and a chequered floor.
-  for(const x of [6,96]){
-    const pinball=layout[x===6?0:1];
-    rect('#72648b',x,3,58,33);rect('#090e25',x+2,5,54,29);
-    rect('#3d2358',x+3,6,52,2);
-    for(let row=0;row<3;row++)for(let col=0;col<13;col++){
+  const windows=entrance?[{x:6,width:58,count:3,pinballs:[layout[0]]},{x:96,width:58,count:3,pinballs:[layout[1]]}]:
+    [{x:6,width:148,count:8,pinballs:[layout[0],4+layout[1]]}];
+  for(const {x,width,count,pinballs} of windows){
+    rect('#72648b',x,3,width,33);rect('#090e25',x+2,5,width-4,29);
+    rect('#3d2358',x+3,6,width-6,2);
+    for(let row=0;row<3;row++)for(let col=0;col<Math.floor((width-6)/4);col++){
       rect((row+col)%2?'#292540':'#48405e',x+3+col*4,28+row*2,4,2);
     }
-    for(let i=0;i<3;i++){
-      const cx=x+5+i*17,colour=['#ee47b8','#53ddea','#ffd166'][i];
-      if(i===pinball){
+    for(let i=0;i<count;i++){
+      const cx=x+5+i*17,palette=palettes[entrance?(x===6?0:1):Math.floor(i/4)],colour=palette[i%3];
+      if(pinballs.includes(i)){
         // Raised score backbox, a sloping playfield, bumpers, ball and flippers.
         rect('#30233d',cx+1,10,11,10);rect(colour,cx+1,10,11,2);
         rect('#101525',cx+2,13,9,5);rect('#ffe285',cx+3,14,2,2);rect('#ffe285',cx+7,14,3,2);
@@ -65,16 +67,18 @@ export function drawArcade(g,height,building={x:0,z:0},side=0){
       rect('#30233d',cx,10,13,21);rect(colour,cx+1,10,11,3);
       rect('#111827',cx+1,14,11,10);rect('#17394b',cx+2,15,9,7);
       // Distinct tiny game screens: invaders, a maze, and a racer.
-      if(i===0){for(let n=0;n<3;n++)rect('#7bff9b',cx+3+n*3,16,2,2);rect('#ff80cd',cx+5,20,3,1);}
-      if(i===1){rect('#63a4ff',cx+3,16,7,1);rect('#63a4ff',cx+3,16,1,5);rect('#ffe285',cx+6,19,2,2);}
-      if(i===2){rect('#8c92bc',cx+4,15,1,7);rect('#8c92bc',cx+9,15,1,7);rect('#ff6584',cx+6,19,2,3);}
+      if(i%3===0){for(let n=0;n<3;n++)rect('#7bff9b',cx+3+n*3,16,2,2);rect('#ff80cd',cx+5,20,3,1);}
+      if(i%3===1){rect('#63a4ff',cx+3,16,7,1);rect('#63a4ff',cx+3,16,1,5);rect('#ffe285',cx+6,19,2,2);}
+      if(i%3===2){rect('#8c92bc',cx+4,15,1,7);rect('#8c92bc',cx+9,15,1,7);rect('#ff6584',cx+6,19,2,3);}
       rect(colour,cx,24,13,2);rect('#111322',cx+1,26,11,5);
       rect('#f4e4eb',cx+3,23,1,2);rect('#fa678d',cx+8,24,2,1);
     }
     // Subtle glass reflections leave the interior readable.
-    g.globalAlpha=.13;rect('#a9e9ff',x+4,7,2,25);rect('#a9e9ff',x+49,7,3,25);g.globalAlpha=1;
-    rect('#79698a',x+28,4,2,31);
+    g.globalAlpha=.13;rect('#a9e9ff',x+4,7,2,25);rect('#a9e9ff',x+width-9,7,3,25);g.globalAlpha=1;
+    if(entrance)rect('#79698a',x+28,4,2,31);
   }
+  // Only the usable street entrance has a door. Other walls have one wide display.
+  if(!entrance)return;
   // Solid closed door with inset glass, frame, threshold and handle.
   rect('#8d7799',68,2,24,37);rect('#30243e',70,4,20,34);
   rect('#111b31',73,7,14,19);rect('#4b415c',74,8,2,17);
