@@ -659,8 +659,14 @@ export function traffic(chunk,time) {
     // The street through the middle of a wide river is removed.
     if(!axis&&isRiverRow(chunk.z)&&!hasBridge(chunk.x))continue;
     if(axis&&isRiverRow(chunk.z)&&chunk.z!==riverStart(chunk.z))continue;
-    const lane=axis?chunk.z:chunk.x, phase=time*10*dir+lane*17+dir*13, t=mod(phase,64);
-    const carId=(axis?chunk.x:chunk.z)-Math.floor(phase/64);
+    const lane=axis?chunk.z:chunk.x, phase=time*10*dir+lane*17+dir*13;
+    // Normal lanes pass a car every seven seconds at 10 metres per second.
+    // Bank roads retain their 64m stream, thinned to 128m by Traffic.
+    const riverside=axis&&RIVER_ROWS.some(row=>lane===row||lane===row+2);
+    const spacing=riverside?64:70,origin=(axis?chunk.x:chunk.z)*BLOCK;
+    const carId=Math.ceil((origin-phase)/spacing),position=phase+carId*spacing;
+    if(position>=origin+BLOCK)continue;
+    const t=position-origin;
     const appearance=random(Math.imul(carId,73856093)^Math.imul(lane,19349663)^Math.imul(axis+1,83492791)^Math.imul(dir,2654435761));
     const colour=appearance();
     // Relative weights: normal 10, London taxi 1, hippie van 1, Mercedes 1.

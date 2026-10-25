@@ -543,7 +543,7 @@ test('only Night River remains through district 0, 4, with ordinary city blocks 
     assert.ok(!chunk.river,'former river is ordinary city terrain');
     assert.ok(chunk.buildings.length>0||chunk.park,'city buildings or a park fill the removed river');
     assert.equal(groundHeight(x*BLOCK+11,row*BLOCK+32),0,'no remaining bridge slope');
-    assert.equal(traffic(chunk,0).length,4,'ordinary streets retain traffic in both directions');
+    assert.ok(traffic(chunk,0).length>0,'ordinary streets retain traffic');
   }
   assert.ok(RIVER_WIDTH>BLOCK);
   assert.ok(WATER_LEVEL<=-5);
@@ -661,7 +661,7 @@ test('pedestrian loops remain on sidewalks',()=>{
 });
 test('traffic moves, stays in roads and continues in neighboring blocks',()=>{
   const a=traffic({x:0,z:0},10),b=traffic({x:0,z:1},10),next=traffic({x:0,z:0},10.1);
-  assert.equal(a.length,4);assert.notEqual(a[0].z,next[0].z);assert.equal(b[0].z-a[0].z,64);
+  assert.equal(a.length,4);assert.notEqual(a[0].z,next[0].z);assert.equal(b[0].z-a[0].z,70);
   const colors=new Set();for(let i=-5;i<5;i++)for(const car of traffic({x:i,z:i},123)){colors.add(car.color);assert.ok(!new City(1).solid(car.x,car.z));}assert.equal(colors.size,4);
 });
 
@@ -930,12 +930,16 @@ test('cars in the same lane have varied colours that persist across tile crossin
   for(const axis of [0,1])for(const dir of [-1,1]){
     const pick=(chunk,time)=>traffic(chunk,time).find(c=>c.axis===axis&&c.dir===dir);
     const colours=new Set();
-    for(let i=-10;i<=10;i++)colours.add(pick({x:axis?i:0,z:axis?0:i},10).color);
+    for(let i=-10;i<=10;i++){const car=pick({x:axis?i:0,z:axis?0:i},10);if(car)colours.add(car.color);}
     assert.equal(colours.size,4);
     for(const tile of [-3,0,3]){
       const chunk={x:axis?tile:0,z:axis?0:tile};
       const next={x:chunk.x+(axis?dir:0),z:chunk.z+(axis?0:dir)};
-      const before=pick(chunk,62.69),after=pick(next,62.71);
+      // Find a crossing of this boundary for the 70m stream.
+      const boundary=(tile+(dir>0?1:0))*BLOCK;
+      let crossing=(boundary-dir*13)/(10*dir);
+      while(crossing<1)crossing+=7;
+      const before=pick(chunk,crossing-.01),after=pick(next,crossing+.01);
       assert.equal(before.color,after.color,'same car keeps its colour across the boundary');
       assert.equal(before.type,after.type,'same car keeps its type across the boundary');
       assert.ok(Math.abs(Math.hypot(after.x-before.x,after.z-before.z)-.2)<1e-9);
@@ -4058,4 +4062,19 @@ test('shooting stars stay on river walks and choose visible paths every 10–30 
     effect.update(0,false,view);assert.equal(effect.remaining,null);
     effect.update(1,true,view);assert.equal(effect.star,null);
   }
+});
+
+test('normal traffic repeats every seven seconds while riverside spacing stays unchanged',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const axis of [0,1])for(const dir of [-1,1]){
+    const chunks=Array.from({length:30},(_,i)=>({x:axis?i-15:0,z:axis?0:i-15}));
+    const positions=time=>chunks.flatMap(chunk=>traffic(chunk,time)).filter(c=>c.axis===axis&&c.dir===dir).map(c=>axis?c.x:c.z).sort((a,b)=>a-b);
+    const initial=positions(1.25);
+    for(let i=1;i<initial.length;i++)assert.ok(Math.abs(initial[i]-initial[i-1]-70)<1e-8);
+    assert.deepEqual(positions(8.25),initial,'a new car occupies each position seven seconds later');
+  }
+  const chunks=Array.from({length:30},(_,i)=>[RIVER_ROWS[0]-1,RIVER_ROWS[0]].map(z=>({x:i-15,z}))).flat();
+  const cars=new Traffic().update(chunks,0,0).filter(c=>c.axis===1&&c.dir===1).sort((a,b)=>a.x-b.x);
+  assert.ok(cars.length>5);
+  for(let i=1;i<cars.length;i++)assert.equal(cars[i].x-cars[i-1].x,128);
 });
