@@ -1,6 +1,7 @@
 import {facingDoorway,drawStaff,BLONDE_RECEPTIONIST,drawCylinder} from './pub-interior.js?v=staff-room-1';
 
 export const ARCADE={width:18,depth:16,height:4.5,door:{x:11,z:0},spawn:{x:11,z:1.8,angle:0},
+  bridgeConsole:{x:12.4,z:.15,w:5.1,d:1.25},
   desk:{x:11.5,z:12.8,w:6.5,d:1.3},attendant:{x:14.5,z:14.8,radius:.55},
   cabinets:[...Array.from({length:5},(_,i)=>({x:.5+i*2,z:14,w:1.5,d:1.5})),
     ...Array.from({length:4},(_,i)=>({x:.5+i*2.3,z:7.5,w:1.5,d:1.5}))],
@@ -14,7 +15,7 @@ export function facingArcadeDoor(player,buildings){
 }
 export const facingArcadeExit=player=>player.z>0&&facingDoorway(player,ARCADE.door,.85);
 export function moveInArcade(player,dx,dz){
-  const r=.3,obstacles=[ARCADE.desk,...ARCADE.cabinets,...ARCADE.pinballs];
+  const r=.3,obstacles=[ARCADE.bridgeConsole,ARCADE.desk,...ARCADE.cabinets,...ARCADE.pinballs];
   const clear=(x,z)=>x>=r&&x<=ARCADE.width-r&&z>=r&&z<=ARCADE.depth-r&&
     !obstacles.some(b=>x>b.x-r&&x<b.x+b.w+r&&z>b.z-r&&z<b.z+b.d+r)&&
     Math.hypot(x-ARCADE.attendant.x,z-ARCADE.attendant.z)>=r+ARCADE.attendant.radius;
@@ -93,6 +94,57 @@ export function drawArcadeInterior({face,quad,box}){
   box(12.3,1.34,13,.7,.3,.55,'#a8a8b8');box(12.4,1.64,13.25,.5,.22,.17,'#34394c');panel(12.45,1.7,13.24,.4,.1,'#a0eac7');
   box(15.4,1.34,13,.8,.06,.5,'#242437');
   for(let i=0;i<4;i++)drawCylinder(face,15.53+i*.17,1.4,13.2,.065,.035*(i+1),'#d6b975');
+  // A decorative original-series bridge station faces the pinball aisle.
+  // Raised grey surround, red fascia and black sloping control surfaces.
+  const console=ARCADE.bridgeConsole;
+  box(12.3,1.9,.025,5.3,2.25,.16,'#959aa6');
+  panel(12.46,2.06,.19,4.98,1.93,'#060d20');
+  for(let i=0;i<42;i++){
+    const x=12.55+(i*37%479)/100,y=2.15+(i*29%173)/100;
+    panel(x,y,.195,i%7===0?.025:.013,i%7===0?.025:.013,i%3?'#a4bfd9':'#fbecd3');
+  }
+  const ellipse=(x,y,rx,ry,z,color)=>face(Array.from({length:40},(_,i)=>({x:x+Math.cos(i*Math.PI/20)*rx,y:y+Math.sin(i*Math.PI/20)*ry,z})),color);
+  // Ringed amber planet and a blue ocean world, with a tiny moon.
+  ellipse(13.62,3.12,.92,.19,.20,'#88799a');
+  ellipse(13.62,3.12,.66,.66,.205,'#bb7754');
+  ellipse(13.55,3.18,.55,.56,.21,'#e3b57b');
+  for(const [dy,color] of [[-.3,'#c48c63'],[-.08,'#f1c992'],[.17,'#c9976c']]){
+    const radius=.58,low=dy,high=dy+.07;
+    face([{x:13.62-Math.sqrt(radius*radius-low*low),y:3.12+low,z:.215},{x:13.62+Math.sqrt(radius*radius-low*low),y:3.12+low,z:.215},{x:13.62+Math.sqrt(radius*radius-high*high),y:3.12+high,z:.215},{x:13.62-Math.sqrt(radius*radius-high*high),y:3.12+high,z:.215}],color);
+  }
+  // Near half of the rings passes across the planet's lower hemisphere.
+  for(let i=20;i<40;i++){
+    const point=(t,r)=>({x:13.62+Math.cos(t)*r,y:3.12+Math.sin(t)*r*.21,z:.22});
+    const a=i*Math.PI/20,b=(i+1)*Math.PI/20;
+    face([point(a,.75),point(a,.98),point(b,.98),point(b,.75)],'#d1b8b4');
+  }
+  ellipse(16.01,2.94,.52,.52,.205,'#25436d');
+  ellipse(15.93,3,.42,.44,.21,'#4f96b8');
+  ellipse(15.79,3.15,.17,.12,.215,'#93c4a3');ellipse(16.07,2.85,.13,.22,.215,'#7da894');
+  ellipse(15.95,3.3,.24,.025,.22,'#d8e7dc');ellipse(15.86,2.77,.2,.025,.22,'#d8e7dc');
+  ellipse(16.85,3.6,.13,.13,.205,'#c8c8d3');
+  box(console.x,0,console.z,console.w,1,console.d,'#747b89');
+  box(console.x,.86,console.z+console.d,console.w,.17,.06,'#b84643');
+  for(let station=0;station<3;station++){
+    const x=console.x+station*1.7;
+    // Wedge sides enclose the inclined panel; controls sit on the same plane.
+    const top=(px,pz,lift=0)=>({x:px,y:1.48-(pz-console.z)*.36+lift,z:pz});
+    for(const edge of [x,x+1.7])face([{x:edge,y:1,z:console.z},{x:edge,y:1,z:console.z+console.d},top(edge,console.z+console.d),top(edge,console.z)],'#a3a7ae');
+    const control=(px,pz,w,d,color,lift=.008)=>face([top(px,pz,lift),top(px+w,pz,lift),top(px+w,pz+d,lift),top(px,pz+d,lift)],color);
+    control(x+.035,console.z,1.63,console.d,'#151c29',0);
+    control(x+.16,.28,.63,.38,'#293d49');
+    // Small rectangular telemetry lights and the characteristic coloured keys.
+    for(let j=0;j<4;j++)control(x+.2+j*.13,.34,.07,.025+j*.045,'#97cbd1',.016);
+    for(let row=0;row<3;row++)for(let col=0;col<5;col++)control(x+.87+col*.13,.29+row*.14,.09,.085,['#df5b51','#e8c779','#91bcc7','#e5e2ca'][(row+col+station)%4]);
+    for(let j=0;j<7;j++)control(x+.17+j*.19,1.02,.12,.13,j%3?'#d8dbca':'#db6454');
+    for(let j=0;j<3;j++){
+      control(x+.18+j*.19,.78,.12,.08,'#8997a2');
+      control(x+.21+j*.19,.76,.035,.13,'#f0e9d7',.035);
+    }
+    // Recessed front panel and vent slots finish each station's cabinet.
+    panel(x+.16,.2,1.41,1.38,.47,'#414a5c');
+    for(let j=0;j<6;j++)panel(x+.35+j*.17,.34,1.415,.09,.025,'#171f30');
+  }
   // Space-themed wall art and ceiling light bars.
   for(const x of [2,6]){
     panel(x,1.65,.03,2.2,1.65,'#d794bd');panel(x+.08,1.73,.04,2.04,1.49,'#151d36');

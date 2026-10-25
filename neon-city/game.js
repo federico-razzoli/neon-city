@@ -1,4 +1,4 @@
-import {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=2';
+import {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=bridge-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=staff-room-1';
