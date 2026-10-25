@@ -1,4 +1,5 @@
-import {PubConversation} from './pub-life.js?v=staff-room-1';
+import {followupFor} from './npc-dialogue.js';
+import {PubConversation} from './pub-life.js?v=npc-followup-1';
 import {placeLines} from './world.js?v=lavatory-talk-1';
 
 // A walk away shorter than this keeps the conversation going; a longer one
@@ -22,7 +23,7 @@ export class WalkerTalk{
     if(!target)return null;
     if(target.walker!==this.walker||target.place!==this.place){
       this.walker=target.walker;this.place=target.place;
-      this.conversation=new PubConversation(placeLines(target.walker.type,target.place),this.random);
+      this.conversation=new PubConversation(placeLines(target.walker.type,target.place),this.random,undefined,followupFor(target.walker.type,target.place));
     }
     this.apart=0;
     return this.conversation.advance();
@@ -43,7 +44,7 @@ export class WalkerTalk{
     const {walker,place}=contact;
     if(walker!==this.walker||place!==this.place){
       this.walker=walker;this.place=place;
-      this.conversation=new PubConversation(placeLines(walker.type,place),this.random);
+      this.conversation=new PubConversation(placeLines(walker.type,place),this.random,undefined,followupFor(walker.type,place));
       this.conversation.wait=0;
     }
     return this.conversation.update(dt);

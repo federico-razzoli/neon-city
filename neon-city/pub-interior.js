@@ -131,9 +131,9 @@ export const BARTENDER_TALK=[
   {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.'],needs:'PUB_STAFF_ROOM_NOISES'},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
 export class StaffTalk{
-  constructor(script=BARTENDER_TALK,record=register,inventory=null){this.inventory=inventory;this.giving=false;this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
+  constructor(script=BARTENDER_TALK,record=register,inventory=null,gifts={}){this.gifts=gifts;this.inventory=inventory;this.giving=false;this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
   get script(){
-    if(this.giving)return [...this.inventory.items.map(item=>({ask:item.name,answer:['NO, THANK YOU.']})),{ask:'BACK',action:'back'}];
+    if(this.giving)return [...this.inventory.items.map(item=>({ask:item.name,answer:this.gifts[item.id]??['NO, THANK YOU.']})),{ask:'BACK',action:'back'}];
     const options=this.blocks[this.block].filter(option=>option.needs==null||option.needs in this.record);
     return this.inventory?[...options,{ask:'GIVE',action:'give',separator:true}]:options;
   }

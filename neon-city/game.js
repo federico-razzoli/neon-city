@@ -1,10 +1,11 @@
+import {followupFor} from './npc-dialogue.js';
 import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem} from './inventory.js?v=flowers-1';
 import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_DOOR_REPLY,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=storage-2';
 import {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=park-entrances-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
-import {PubLife,PubConversation} from './pub-life.js?v=staff-room-1';
+import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
@@ -13,11 +14,11 @@ import {Traffic} from './traffic.js?v=traffic-random-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=flowers-1';
-import {WalkerTalk,talksHere} from './walker-talk.js?v=walker-space-1';
+import {WalkerTalk,talksHere} from './walker-talk.js?v=npc-followup-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
 import {drawPub,pubName} from './pub.js?v=park-entrances-1';
-import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,BAR_BEER_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=give-1';
+import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,BAR_BEER_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=npc-followup-1';
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
@@ -110,7 +111,7 @@ function useSeat(){
     eye=SEATED_EYE;
     const partner=pubPatrons[chair.tableIndex]?.[1-chair.seat];
     greet=partner!=null;
-    pubTalk=greet?new PubConversation(pubLines(partner)):null;
+    pubTalk=greet?new PubConversation(pubLines(partner),Math.random,undefined,followupFor(partner,'pub')):null;
   }
   keys.clear();shiftKeys.clear();startSpaceHeld=true;notice=greet?2.5:0;steps=0;
   if(greet)noticeText='HI THERE!';
@@ -168,9 +169,20 @@ function togglePubMenu(){
 pubMenu.addEventListener('cancel',e=>e.preventDefault());
 // Talking to the bartender, the receptionist or a hotel robot holds the room
 // still, as the drinks menu holds the street.
-function talkToStaff(script,label){
+function talkToStaff(script,label,gifts={}){
   keys.clear();shiftKeys.clear();coverPressed=false;notice=0;
-  staffTalk=new StaffTalk(script,undefined,inventory);talkBox.ariaLabel=label;document.querySelector('#pace').hidden=true;showStaffTalk();
+  staffTalk=new StaffTalk(script,undefined,inventory,gifts);talkBox.ariaLabel=label;document.querySelector('#pace').hidden=true;showStaffTalk();
+}
+function passiveConversation(){
+  return insidePub?pubTalk:insideLavatory?lavatoryTalk.apart===0?lavatoryTalk.conversation:null:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;
+}
+function startFollowup(){
+  const conversation=passiveConversation();
+  if(!conversation?.ready||conversation.opened)return false;
+  conversation.opened=true;
+  const {script,label,gifts}=conversation.followup;
+  talkToStaff(script,label,gifts);
+  return true;
 }
 function answerStaff(choice){
   staffTalk.confirm(choice);
@@ -732,6 +744,7 @@ if(running){
   e.preventDefault();
   if(k===' '&&!e.repeat&&!indoors()){
     const line=walkerTalk.interact(player,city.pedestrians(time));
+    if(startFollowup())return;
     if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;return;}
   }
   if(k===' '&&!e.repeat&&insideHotel&&hotelStairs){
@@ -742,10 +755,11 @@ if(running){
     else if(facingStorageDoor(player,hotelStairs)){notice=2.5;noticeText=STORAGE_DOOR_REPLY;document.querySelector('#message').textContent=noticeText;}
     return;
   }
-  const conversation=insidePub?pubTalk:insideLavatory?lavatoryTalk.apart===0?lavatoryTalk.conversation:null:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;
+  const conversation=passiveConversation();
   if(e.key==='Enter'&&conversation?.lines.length){
     if(!e.repeat){
       const line=conversation.advance();
+      if(startFollowup())return;
       if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;}
     }
     return;
@@ -852,6 +866,7 @@ function tick(now){
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
     }
   }
+  if(running&&!staffTalk&&!inventoryBox.open&&!pubMenu.open&&!banshee)startFollowup();
   // Running taps are heard only in the lavatory, louder nearer the sinks.
   if(running&&!pubMenu.open&&!inventoryBox.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
   // Ambient music plays throughout the hotel lobby, and boogie-woogie in the

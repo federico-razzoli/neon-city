@@ -97,22 +97,24 @@ export class PubLife{
 }
 // Table talk after the greeting: one line every 3–5 seconds, looping until the player stands.
 export class PubConversation{
-  constructor(lines,random=Math.random,record=register){
+  constructor(lines,random=Math.random,record=register,followup=null){
+    this.followup=followup;this.ready=false;this.opened=false;
     this.lines=lines;this.random=random;this.record=record;this.index=0;this.wait=this.delay();
   }
   delay(){return 3+this.random()*2;}
   // Returns the line that is due now, if any.
   update(dt){
-    if(!this.lines.length)return null;
+    if(!this.lines.length||this.ready)return null;
     this.wait-=dt;
     if(this.wait>0)return null;
     return this.advance();
   }
   advance(){
-    if(!this.lines.length)return null;
+    if(!this.lines.length||this.ready)return null;
+    if(this.followup&&this.index===this.lines.length){this.ready=true;return null;}
     this.wait=this.delay();
     const line=this.lines[this.index];
-    this.index=(this.index+1)%this.lines.length;
+    this.index=this.followup?this.index+1:(this.index+1)%this.lines.length;
     if(line.sets)this.record[line.sets]=true;
     return line.say??line;
   }
