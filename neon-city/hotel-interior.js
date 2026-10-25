@@ -226,7 +226,51 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   if(lampOn){quad(lamp.x-.45,1.302,desk.z+.05,.9,.75,'#c4b494');quad(lamp.x-.25,1.303,desk.z+.2,.5,.42,'#dccb9f');}
   const {vase}=HOTEL;
   cylinder(vase.x,1.3,vase.z,.09,.3,'#7f95a0','#9fb3bd',.06);
-  for(const [dx,dz,color] of [[0,0,'#9c2a3e'],[-.07,.04,'#ad3c52'],[.07,-.03,'#9c2a3e']])box(vase.x-.04+dx,1.62,vase.z-.04+dz,.09,.09,.09,color);
+  // Slender stems, folded pointed leaves and cupped petals around a tight bud.
+  // The blooms lean towards the visitor so the layered centres can be seen.
+  for(const [dx,dz,top,phase] of [[0,-.025,1.86,0],[-.105,.025,1.79,1.7],[.105,.035,1.81,3.4]]){
+    const base={x:vase.x+dx*.2,y:1.56,z:vase.z};
+    const middle={x:vase.x+dx*.55,y:(1.56+top)/2,z:vase.z+dz*.4};
+    const head={x:vase.x+dx,y:top,z:vase.z+dz};
+    rod(base,middle,.009,'#365b32');rod(middle,head,.008,'#48743c');
+    for(const side of [-1,1]){
+      const root={x:middle.x,y:middle.y+side*.025,z:middle.z};
+      const tip={x:root.x+side*.095,y:root.y+.065,z:root.z-.025};
+      const ridge={x:root.x+side*.052,y:root.y+.043,z:root.z-.015};
+      const edge=z=>({x:root.x+side*.05,y:root.y+.025,z:root.z+z});
+      face([root,edge(-.04),tip,ridge],'#527c40');
+      face([root,ridge,tip,edge(.018)],'#294c2c');
+      rod(root,tip,.0025,'#78934f');
+    }
+    // Green sepals curl away from the underside of each flower.
+    for(let i=0;i<5;i++){
+      const a=phase+i*Math.PI*2/5,p=(r,y,angle)=>({x:head.x+Math.cos(angle)*r,y:head.y+y,z:head.z+Math.sin(angle)*r});
+      face([p(.018,-.025,a-.5),p(.075,-.015,a),p(.018,-.025,a+.5)],'#355b32');
+    }
+    const point=(r,a,y)=>({x:head.x+Math.cos(a)*r,y:head.y+y*.94+Math.sin(a)*r*.34,z:head.z+Math.sin(a)*r*.94-y*.34});
+    for(const [ring,count,radius,height] of [[0,7,.105,.005],[1,6,.076,.025],[2,5,.045,.047]]){
+      for(let petal=0;petal<count;petal++){
+        const angle=phase+petal*Math.PI*2/count+ring*.55,spread=Math.PI/count*1.25;
+        // Three radial bands round the petal and turn its rim gently outward.
+        const vertex=(row,t)=>{
+          const arch=Math.sin(t*Math.PI),a=angle+(t*2-1)*spread;
+          const r=radius*[.2,.72,1][row];
+          const y=height+[0,.035,.035][row]+[.008,.024,.04][row]*arch;
+          return point(r,a,y);
+        };
+        for(let band=0;band<2;band++)for(let segment=0;segment<4;segment++){
+          const a=segment/4,b=(segment+1)/4;
+          const shades=band?['#a52443','#c53b57','#df5870','#b92d4c']:['#68172e','#8e203a','#a92b46','#801b32'];
+          face([vertex(band,a),vertex(band,b),vertex(band+1,b),vertex(band+1,a)],shades[(segment+petal)%4]);
+        }
+      }
+    }
+    // A curled central petal closes the flower instead of a flat coloured cap.
+    for(let i=0;i<12;i++){
+      const a=phase+i*.48,b=a+.48,r=.025*(1-i/16),next=.025*(1-(i+1)/16);
+      face([point(r,a,.085),point(next,b,.087),point(next*.65,b,.11),point(r*.65,a,.108)],i%3?'#b12b48':'#e3637a');
+    }
+  }
   drawStaff({face,box},at,receptionist,{...HOTEL.pokeBall,y:1.48});
 
   // A velvet sofa against the west wall, facing the hall.
