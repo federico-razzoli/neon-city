@@ -3,7 +3,9 @@ import {facingDoorway,facingNearest,drawStaff,BLONDE_RECEPTIONIST,BARTENDER_REPL
 
 // The room runs a metre deeper than the bridge console needs, so its chairs
 // leave the aisle behind them as wide as before.
-export const ARCADE={width:18,depth:17,height:4.5,door:{x:11,z:0},spawn:{x:11,z:1.8,angle:0},
+// The door is midway between the nearer planet picture (x 6–8.2) and the
+// bridge console (from x 12.4), with 1.25 m of wall either side.
+export const ARCADE={width:18,depth:17,height:4.5,door:{x:10.3,z:0},spawn:{x:10.3,z:1.8,angle:0},
   bridgeConsole:{x:12.4,z:.15,w:5.1,d:1.25},
   // One swivel chair per station, seated facing the console.
   bridgeChairs:[0,1,2].map(i=>({x:13.25+i*1.7,z:2.05,radius:.38,angle:Math.PI})),

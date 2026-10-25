@@ -3,7 +3,7 @@ import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem} from './inventory.js?v=hotel-note-1';
 import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=drop-spot-1';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
-import {ARCADE,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=tokens-desk-1';
+import {ARCADE,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=door-centred-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
