@@ -1,7 +1,7 @@
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem} from './inventory.js?v=hotel-note-1';
-import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=storage-room-1';
+import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=drop-spot-1';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=park-entrances-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
@@ -25,7 +25,7 @@ import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=pub-music-2';
 import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=pub-music-4';
-import {HOTEL,HOTEL_STAIR_DOOR,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=hotel-note-1';
+import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=drop-spot-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=1';
@@ -128,14 +128,19 @@ function itemRoom(){
   const room=insideCubicle?`cubicle:${insideCubicle.x},${insideCubicle.z}`:insideLavatory?'lavatory':insidePub?'pub':insideArcade?'arcade':hotelStorage?'hotel-storage':hotelStairs?'hotel-stairs':'hotel';
   return `${currentVenue.x},${currentVenue.z}:${room}`;
 }
-function itemGround(){
-  return !indoors()?groundHeight(player.x,player.z)+.085:insideHotel&&!hotelStorage?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0;
+// Where something dropped here comes to rest, and the height it rests at.
+function dropSpot(){
+  if(!indoors())return {x:player.x,z:player.z,ground:groundHeight(player.x,player.z)+.085};
+  if(insideHotel&&!hotelStorage)return hotelStairs?stairwellDropSpot(player,hotelStairs):hotelDropSpot(player);
+  return {x:player.x,z:player.z,ground:0};
 }
+const itemGround=()=>dropSpot().ground;
 function dropSelectedItem(){
   if(playerSeat){document.querySelector('#inventory-description').textContent="I NEED TO STAND UP FIRST.";return;}
   const position=indoors()?currentVenue:player;
   const chunk=city.chunks.get(`${Math.floor(position.x/64)},${Math.floor(position.z/64)}`);
-  const dropped=dropItem(inventory,player,chunk,itemRoom(),itemGround());
+  const {x,z,ground}=dropSpot();
+  const dropped=dropItem(inventory,{...player,x,z},chunk,itemRoom(),ground);
   showInventory();
   if(dropped)document.querySelector('#inventory-description').textContent='DROPPED';
 }

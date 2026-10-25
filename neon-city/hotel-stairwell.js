@@ -12,6 +12,14 @@ export function stairwellHeight(player,state){
   if(state.flight===2)return R+(E-player.z)*R/RUN;
   return (state.floor-1)*R;
 }
+// Where a dropped item comes to rest: on the tread underfoot, centred along
+// it, just above the carpet, rather than on the smooth ramp the view follows.
+export function stairwellDropSpot(player,state){
+  const tread=RUN/N,lift=.015,step=z=>Math.max(0,Math.min(N-1,Math.floor(z/tread)));
+  if(state.flight===1){const i=step(player.z-S);return {x:player.x,z:S+(i+.5)*tread,ground:(i+1)*R/N+lift};}
+  if(state.flight===2){const i=step(E-player.z);return {x:player.x,z:E-(i+.5)*tread,ground:R+(i+1)*R/N+lift};}
+  return {x:player.x,z:player.z,ground:(state.floor-1)*R+lift};
+}
 export const facingStairwellExit=(player,state)=>state.floor===1&&state.flight===null&&facingDoorway(player,{x:4,z:0},1.2);
 export const facingHotelCorridor=(player,state)=>state.flight===null&&facingDoorway(player,{x:4,z:D},1.2);
 

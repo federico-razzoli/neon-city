@@ -36,6 +36,15 @@ export function hotelFloorHeight(x,z){
   if(x<s.x||z<s.z)return 0;
   return Math.min(l.y,(z-s.z)*s.rise/s.run);
 }
+// Where a dropped item comes to rest: on the step underfoot, centred along
+// it, and just above the carpets, rather than on the smooth ramp the view follows.
+export function hotelDropSpot(player){
+  const {stairs:s,landing:l}=HOTEL,lift=.015,{x,z}=player;
+  if(x<s.x||z<s.z)return {x,z,ground:lift};
+  if(z>=l.z)return {x,z,ground:l.y+lift};
+  const i=Math.min(s.steps-1,Math.floor((z-s.z)/s.run));
+  return {x,z:s.z+(i+.5)*s.run,ground:(i+1)*s.rise+lift};
+}
 // The stairs are entered from their bottom step only: the banister runs the
 // length of their open side and round the landing, so nobody climbs over it.
 // A robot walking out is in the way, as people are in the pub.

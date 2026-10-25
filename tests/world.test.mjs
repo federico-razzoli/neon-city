@@ -4752,3 +4752,32 @@ test('HOTEL NOTE is a droppable inventory item that lies flat on the floor',asyn
   assert.equal(takeDroppedItem({x:1.2,z:1.6,angle:0},[chunk],inventory,'0,0:hotel-storage',0),TAKEN);
   assert.deepEqual(inventory.items[0],HOTEL_NOTE);
 });
+
+test('items dropped on hotel stairs rest on the tread underfoot, above the carpet',async()=>{
+  const {HOTEL_STAIRWELL,stairwellDropSpot,stairwellHeight}=await import('../neon-city/hotel-stairwell.js');
+  const {HOTEL,hotelDropSpot,hotelFloorHeight}=await import('../neon-city/hotel-interior.js');
+  const {rise:R,steps:N,stairStart:S,stairEnd:E}=HOTEL_STAIRWELL,tread=(E-S)/N;
+  // Carpet runners and stair rods sit up to 12mm above the floor and treads.
+  for(const floor of [1,2,3]){
+    const spot=stairwellDropSpot({x:4,z:8,angle:0},{floor,flight:null});
+    assert.deepEqual({x:spot.x,z:spot.z},{x:4,z:8});assert.ok(Math.abs(spot.ground-((floor-1)*R+.015))<1e-9);
+  }
+  for(const [flight,x] of [[1,6.5],[2,1.5]])for(let i=0;i<N;i++){
+    const base=flight===1?S+i*tread:E-(i+1)*tread,top=(flight-1)*R+(i+1)*R/N;
+    for(const along of [.05,.5,.95]){
+      const player={x,z:base+along*tread,angle:0},state={floor:flight,flight};
+      const spot=stairwellDropSpot(player,state);
+      assert.ok(Math.abs(spot.z-(base+tread/2))<1e-9,'centred on the tread');
+      assert.ok(Math.abs(spot.ground-top-.015)<1e-9,'on the tread, above its carpet');
+      assert.ok(spot.ground>stairwellHeight(player,state),'never inside the step under the view ramp');
+    }
+  }
+  const {stairs:s,landing:l}=HOTEL;
+  assert.equal(hotelDropSpot({x:10,z:4}).ground,.015,'above the hall carpet runner');
+  assert.equal(hotelDropSpot({x:18,z:13}).ground,l.y+.015,'above the landing carpet');
+  for(let i=0;i<s.steps;i++){
+    const spot=hotelDropSpot({x:18,z:s.z+(i+.9)*s.run});
+    assert.ok(Math.abs(spot.z-(s.z+(i+.5)*s.run))<1e-9&&Math.abs(spot.ground-(i+1)*s.rise-.015)<1e-9);
+    assert.ok(spot.ground>hotelFloorHeight(18,s.z+(i+.9)*s.run));
+  }
+});
