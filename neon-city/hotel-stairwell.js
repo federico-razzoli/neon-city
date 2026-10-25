@@ -86,6 +86,26 @@ export function drawHotelStairwell({face,quad,box,look:facade}){
   }
   for(let x=0;x<8;x++)for(let z=0;z<D;z++)quad(x,3*R,z,1,1,look.panel);
   drawHotelDoubleDoor(box,4,0,.06,look,1);
+  // A plain service door in the recess beyond the upward flight on floor 2.
+  const storageX=1.5;
+  box(storageX-.57,R,.015,1.14,2.18,.1,'#514d46');
+  box(storageX-.5,R+.025,.12,1,2.08,.045,'#777568');
+  box(storageX+.36,R+.91,.17,.075,.2,.025,'#444642');
+  box(storageX+.29,R+1.02,.195,.13,.035,.045,'#a3a397');
+  box(storageX-.4,R+1.58,.17,.8,.22,.025,'#c4c1ad');
+  // Lettering faces into the room: screen-right is decreasing world x here.
+  const letters={
+    S:['111','100','111','001','111'],T:['111','010','010','010','010'],
+    O:['111','101','101','101','111'],R:['110','101','110','101','101'],
+    A:['010','101','111','101','101'],G:['111','100','101','101','111'],
+    E:['111','100','110','100','111']
+  },word='STORAGE',size=.024;
+  for(const [i,char] of [...word].entries())for(let row=0;row<5;row++)for(let col=0;col<3;col++){
+    if(letters[char][row][col]!=='1')continue;
+    const x=storageX+(word.length*4-1)*size/2-(i*4+col+1)*size,y=R+1.75-(row+1)*size;
+    face([{x,y,z:.2},{x:x+size,y,z:.2},{x:x+size,y:y+size,z:.2},{x,y:y+size,z:.2}],'#30332e');
+  }
+
   for(const flight of [1,2]){
     const x=flight===1?5:0,base=(flight-1)*R,railX=flight===1?5.04:2.96;
     for(let i=0;i<N;i++){
