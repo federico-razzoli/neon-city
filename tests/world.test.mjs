@@ -4590,3 +4590,55 @@ test('tattooed man answers each option and refuses flowers and pine cones in two
   talk.confirm(2);talk.confirm(2);
   assert.equal(talk.line,'IT WAS GREAT TALKING TO YOU!');talk.confirm();assert.equal(talk.over,true);
 });
+
+test('punk girl follows her monologue with a place-specific conversation and refuses any gift',async()=>{
+  const {followupFor}=await import('../neon-city/npc-dialogue.js');
+  const {PubConversation}=await import('../neon-city/pub-life.js');
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const {Inventory,FLOWER,PINE_CONE}=await import('../neon-city/inventory.js');
+  const {pubLines,placeLines}=await import('../neon-city/world.js');
+  assert.equal(followupFor(3,'lavatory'),null);
+  for(const place of ['pub','river','footpath']){
+    const lines=place==='pub'?pubLines(3):placeLines(3,place),talk=new PubConversation(lines,()=>0,{},followupFor(3,place));
+    for(const line of lines)assert.equal(talk.advance(),line);
+    assert.equal(talk.advance(),null);assert.equal(talk.ready,true);
+  }
+  const hear=(talk,choice)=>{talk.confirm(choice);const said=[];while(talk.line){said.push(talk.line);talk.confirm();}return said;};
+  const open=place=>{
+    const inventory=new Inventory();inventory.take(FLOWER);inventory.take(PINE_CONE);
+    const {script,gifts}=followupFor(3,place);
+    return {inventory,talk:new StaffTalk(script,{},inventory,gifts)};
+  };
+  const asks=talk=>talk.script.map(o=>o.ask);
+
+  let {inventory,talk}=open('pub');
+  assert.deepEqual(asks(talk),["WHAT'S YOUR FAVOURITE GENRE?","WHAT'S YOUR FAVOURITE ALBUM?","WHAT'S YOUR FAVOURITE SONG?",'BYE!','GIVE']);
+  assert.deepEqual(hear(talk,0),['POLKA METAL!','BUT I ALSO LIKE TRIBAL TANGO.','AND PROGRESSIVE LOUNGE.']);
+  assert.deepEqual(hear(talk,1),['"CONTAMINATING THE FARM", BY THE RADIOACTIVE COWS.']);
+  assert.deepEqual(hear(talk,2),['THE PURPLE COW.']);
+  talk.confirm(4);
+  for(const choice of [0,1])assert.deepEqual(hear(talk,choice),['THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!','FIND ME ONE, IF YOU WANT TO MARRY ME.']);
+  assert.deepEqual(inventory.items,[FLOWER,PINE_CONE]);
+  talk.confirm(2);
+  assert.deepEqual(hear(talk,3),['MOO-BYE!']);assert.equal(talk.over,true);
+
+  ({inventory,talk}=open('river'));
+  assert.deepEqual(asks(talk),['I LOVE BLACK RIVER.','DO YOU COME HERE OFTEN?','BYE!','GIVE']);
+  assert.deepEqual(hear(talk,0),['I LOVE IT, TOO.',"I WONDER IF IT'S RADIOACTIVE?"]);
+  assert.deepEqual(asks(talk),["I DON'T THINK SO.",'GIVE']);
+  assert.deepEqual(hear(talk,0),["OH, WELL. IT'S STILL BEAUTIFUL."]);
+  assert.deepEqual(asks(talk),['I LOVE BLACK RIVER.','DO YOU COME HERE OFTEN?','BYE!','GIVE']);
+  assert.deepEqual(hear(talk,1),['YEAH. THIS PLACE IS SPECIAL.']);
+  talk.confirm(3);assert.deepEqual(hear(talk,0),['THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!','FIND ME ONE, IF YOU WANT TO MARRY ME.']);
+  assert.deepEqual(inventory.items,[FLOWER,PINE_CONE]);
+  talk.confirm(2);
+  assert.deepEqual(hear(talk,2),['MOO-MOO-BYE!']);assert.equal(talk.over,true);
+
+  ({inventory,talk}=open('footpath'));
+  assert.deepEqual(asks(talk),['DO YOU LIKE THIS PARK?','BYE!','GIVE']);
+  assert.deepEqual(hear(talk,0),["YEAH. IT'S A BIT SMALL, THOUGH."]);
+  talk.confirm(2);assert.deepEqual(hear(talk,1),['THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!','FIND ME ONE, IF YOU WANT TO MARRY ME.']);
+  assert.deepEqual(inventory.items,[FLOWER,PINE_CONE]);
+  talk.confirm(2);
+  assert.deepEqual(hear(talk,1),['MOO-MOO-BYE!']);assert.equal(talk.over,true);
+});

@@ -1,4 +1,4 @@
-import {followupFor} from './npc-dialogue.js';
+import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {PubConversation} from './pub-life.js?v=npc-followup-1';
 import {placeLines} from './world.js?v=lavatory-talk-1';
 
