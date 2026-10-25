@@ -1,3 +1,4 @@
+import {flowersFor,drawFlower} from './flowers.js';
 import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,START_SIGN,mod,pathDistance} from './world.js?v=start-sign-6';
 
 // Ground terrain is painted in order of elevation, so each layer sits above
@@ -24,15 +25,12 @@ export function drawParkGround(chunk,{quad,face}){
   }
   // Address-based tufts and flowers stay fixed while the block is cached.
   const scatter=n=>mod(Math.sin(chunk.x*127.1+chunk.z*311.7+n*74.7)*43758.5453,1);
-  const petals=['#d38aa9','#d9c47b','#aaa0d1','#d9d3c5'];
   for(let i=0;i<40;i++){
     const fx=x+15.5+scatter(i*3)*33,fz=z+15.5+scatter(i*3+1)*33;
     if(pathDistance(path,fx,fz)<half+.8)continue;
     if(i%3){quad(fx,PARK_LAYERS.decal,fz,.9,.3,i%2?'#2b4b37':'#3e6649');continue;}
-    const size=.24+scatter(i*3+2)*.12,color=petals[i%petals.length];
-    quad(fx-size/2,PARK_LAYERS.decal,fz-size/6,size,size/3,color);
-    quad(fx-size/6,PARK_LAYERS.decal,fz-size/2,size/3,size,color);
   }
+  for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   ribbon(path,face,-half,half,PARK_LAYERS.path,'#93704f');
   for(const s of [-1,1])ribbon(path,face,s*(half-.18),s*half,PARK_LAYERS.pathEdge,'#634a38');
 }

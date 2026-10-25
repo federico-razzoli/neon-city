@@ -1,3 +1,4 @@
+import {flowersFor,drawFlower} from './flowers.js';
 import {BLOCK,WATER_LEVEL,bridgeHeight,hasBridge,mod} from './world.js?v=parks-4';
 
 // Each chunk owns half of a river, including its share of each bridge.
@@ -7,18 +8,7 @@ export function drawRiverTerrain(chunk,{quad,face},time){
   const bank=first?start+8:start+110;
   quad(x,.04,bank,64,10,'#345841');
   quad(x,.06,first?bank:bank+4,64,6,'#757380');
-  // Small flowers scatter across an otherwise uniform green lawn.
-  // Address-based placement stays fixed as the camera moves and chunks reload.
-  const scatter=n=>mod(Math.sin(chunk.x*127.1+chunk.z*311.7+n*74.7)*43758.5453,1);
-  const petals=['#d38aa9','#d9c47b','#aaa0d1','#d9d3c5'];
-  for(let i=0;i<12;i++){
-    const fx=x+15.5+scatter(i*3)*32.5;
-    const fz=bank+(first?6.5:.5)+scatter(i*3+1)*2.6;
-    const size=.24+scatter(i*3+2)*.12,color=petals[i%petals.length];
-    quad(fx-size/2,.065,fz-size/6,size,size/3,color);
-    quad(fx-size/6,.065,fz-size/2,size/3,size,color);
-    quad(fx-size/6,.066,fz-size/6,size/3,size/3,'#e5bb60');
-  }
+  for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
     quad(x+a,WATER_LEVEL,b,8,Math.min(8,high-b),'#164957');

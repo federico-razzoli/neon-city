@@ -1,6 +1,8 @@
+import {flowersFor} from './flowers.js';
 export const TAKEN='TAKEN';
 export const ALREADY_HAVE_ONE='I ALREADY HAVE ONE.';
 export const PINE_CONE={id:'pine-cone',name:'PINE CONE',description:'A PINE CONE. MOST PROBABLY, FALLEN FROM A PINE.'};
+export const FLOWER={id:'flower',name:'FLOWER',description:'A FLOWER.'};
 export class Inventory{
   items=[];
   selected=0;
@@ -17,8 +19,14 @@ export class Inventory{
   get current(){return this.items[this.selected];}
 }
 export function takePineCone(player,chunks,inventory){
+  return takeNaturalItem(player,chunks,inventory,false);
+}
+export function takeOutdoorItem(player,chunks,inventory){
+  return takeNaturalItem(player,chunks,inventory,true);
+}
+function takeNaturalItem(player,chunks,inventory,includeFlowers){
   let nearest=null,distance=3.5;
-  for(const chunk of chunks)for(const cone of chunk.park?.cones??[]){
+  for(const chunk of chunks)for(const cone of [...(chunk.park?.cones??[]),...(includeFlowers?flowersFor(chunk):[])]){
     if(cone.taken)continue;
     const dx=cone.x-player.x,dz=cone.z-player.z,gap=Math.hypot(dx,dz);
     if(gap>distance)continue;
@@ -26,7 +34,8 @@ export function takePineCone(player,chunks,inventory){
     nearest=cone;distance=gap;
   }
   if(!nearest)return null;
-  const reply=inventory.take(PINE_CONE);
+  const item=nearest.size?{...FLOWER,color:nearest.color,size:nearest.size,centre:nearest.centre}:PINE_CONE;
+  const reply=inventory.take(item);
   if(reply===TAKEN)nearest.taken=true;
   return reply;
 }

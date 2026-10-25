@@ -1721,7 +1721,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(sounds,7,'door use never lifts a manhole');
   // Park benches use the same seated mode as pub chairs.
   events.keyup(key);
-  city.chunks.set('0,0',{buildings:[],manholes:[],park:{benches:[{x:40,z:30,tx:1,tz:0,nx:0,nz:1}]}});
+  city.chunks.set('0,0',{buildings:[],manholes:[],flowers:[],park:{benches:[{x:40,z:30,tx:1,tz:0,nx:0,nz:1}]}});
   player.x=39.4;player.z=28.6;player.angle=Math.PI;
   events.keydown(key);tick(ms+=20);
   assert.equal(sandbox.game.seat,null,'facing away from a bench does not sit');
@@ -4457,4 +4457,40 @@ test('dropped pine cones render at their floor elevation',async()=>{
   pineCone(cone,(vertices)=>faces.push(vertices),{x:1,y:6,z:1});
   assert.ok(faces.length>0);
   assert.ok(faces.flat().every(v=>v.y>=4-1e-9&&v.y<4.2));
+});
+
+test('park and promenade flowers share one inventory slot, disappear when picked, and can be dropped',async()=>{
+  const {City}=await import('../neon-city/world.js');
+  const {flowersFor,drawFlower}=await import('../neon-city/flowers.js');
+  const {drawParkGround}=await import('../neon-city/parks.js');
+  const {drawRiverTerrain}=await import('../neon-city/rivers.js');
+  const {Inventory,takeOutdoorItem,dropItem,takeDroppedItem}=await import('../neon-city/inventory.js');
+  const city=new City(42);city.update(0,0);
+  const park=city.chunks.get(`${city.startPark.x},${city.startPark.z}`),river=city.generate(0,(await import('../neon-city/world.js')).RIVER_ROWS[0]);
+  const inventory=new Inventory();
+  for(const chunk of [park,river]){
+    const flowers=flowersFor(chunk),flower=flowers[0];
+    assert.ok(flowers.length>0);assert.equal(flowersFor(chunk),flowers);
+    const player={x:flower.x,z:flower.z-.2,angle:0};
+    const render=()=>{
+      const quads=[];
+      (chunk.park?drawParkGround:drawRiverTerrain)(chunk,{quad:(...args)=>quads.push(args),face:()=>{}},0);
+      return quads;
+    };
+    const before=render().length;
+    assert.equal(takeOutdoorItem(player,[chunk],inventory),'TAKEN');
+    assert.equal(inventory.current.name,'FLOWER');assert.equal(flower.taken,true);
+    assert.equal(render().length,before-(chunk.park?2:3),'picked petals no longer render');
+    const another=flowers[1];
+    assert.equal(takeOutdoorItem({x:another.x,z:another.z-.2,angle:0},[chunk],inventory),'I ALREADY HAVE ONE.');
+    assert.equal(another.taken,undefined);
+    const dropped=dropItem(inventory,player,chunk,'street',flower.ground);
+    const quads=[];drawFlower({...dropped.item,...dropped},(...args)=>quads.push(args));
+    assert.equal(quads[0][5],flower.color,'dropped flower keeps its petal colour');
+    assert.equal(takeDroppedItem(player,[chunk],inventory,'street',flower.ground),'TAKEN');
+    // The other environment must reject a second flower too.
+    const other=chunk===park?river:park,otherFlower=flowersFor(other).find(f=>!f.taken);
+    assert.equal(takeOutdoorItem({x:otherFlower.x,z:otherFlower.z-.2,angle:0},[other],inventory),'I ALREADY HAVE ONE.');
+    dropItem(inventory,player,chunk);
+  }
 });
