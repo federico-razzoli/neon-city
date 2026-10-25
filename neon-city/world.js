@@ -340,8 +340,31 @@ export class City {
   }
   // Returns {walker, place} for each walker on the promenade or a footpath
   // that the player is standing in the way of.
-  advancePedestrians(dt,player,time) {
+  advancePedestrians(dt,player,time,speaker=null) {
     const heldInPlace=[];
+    // Keep an encounter stopped until the player clears every participant's
+    // forward route, even if they have already cleared the original speaker.
+    this.conversationWaiters??=new Map();
+    const waiters=this.conversationWaiters,walkers=new Map();
+    for(const chunk of this.chunks.values())for(const p of chunk.people){
+      p.walkTime??=time-dt;
+      walkers.set(p,chunk);
+    }
+    for(const p of waiters.keys())if(!walkers.has(p))waiters.delete(p);
+    const routeBlocked=(p,chunk,clearance)=>{
+      const a=pedestrian(chunk,p,time);
+      return crossesPerson(a,{x:a.x+a.facingX*4,z:a.z+a.facingZ*4},player,clearance);
+    };
+    if(waiters.size&&![...waiters].some(([p,chunk])=>routeBlocked(p,chunk,1.6)))waiters.clear();
+    const speakerChunk=walkers.get(speaker);
+    if(speakerChunk&&routeBlocked(speaker,speakerChunk,1.6))waiters.set(speaker,speakerChunk);
+    if(waiters.size){
+      for(const [p,chunk] of walkers){
+        const at=pedestrian(chunk,p,time);
+        // Extra space around the player leaves an exit between approaching NPCs.
+        if(Math.hypot(at.x-player.x,at.z-player.z)<=2.4+p.speed*dt&&routeBlocked(p,chunk,1.6))waiters.set(p,chunk);
+      }
+    }
     // Sidewalk loops in separate blocks are at least 22 units apart.
     for(const chunk of this.chunks.values()){
       for(const p of chunk.people)p.walkTime??=time-dt;
@@ -349,7 +372,7 @@ export class City {
       // frozen until they have stepped out, let the other pass, and returned.
       for(let i=0;i<chunk.people.length;i++)for(let j=i+1;j<chunk.people.length;j++){
         const a=chunk.people[i],b=chunk.people[j];
-        if(a.yielding||b.yielding||a.detour||b.detour||a.reverse===b.reverse)continue;
+        if(waiters.has(a)||waiters.has(b)||a.yielding||b.yielding||a.detour||b.detour||a.reverse===b.reverse)continue;
         const pa=pedestrian(chunk,a,time),pb=pedestrian(chunk,b,time);
         const gap=Math.hypot(pa.x-pb.x,pa.z-pb.z);
         if(gap>1.2)continue;
@@ -368,7 +391,7 @@ export class City {
       // frozen, so ordinary blocked-walker recovery cannot release them.
       for(const p of chunk.people){
         const y=p.yielding;
-        if(!y)continue;
+        if(!y||waiters.has(p))continue;
         if((p.stuckTime??0)>=1.5){
           if(y.stage==='out')y.stage='back';
           else if(y.stage==='wait'&&(!chunk.people.includes(y.partner)||y.partner.reverse===p.reverse||(y.partner.stuckTime??0)>=1.5))y.stage='back';
@@ -391,7 +414,7 @@ export class City {
         // collision checks below see where the walker will really be.
         const route=!y&&!waitingForSideStep&&chunk.park?this.footpathStep(chunk,p,dt):null;
         const after=pedestrian(chunk,{...p,...route,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
-        const held=crossesPlayer(before,after,player);
+        const held=waiters.has(p)||crossesPlayer(before,after,player);
         return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)};
       });
       // Walkers with lines for their place stay to talk while the player blocks them.
@@ -445,7 +468,7 @@ export class City {
         if(y.stage==='back'&&y.offset===0)delete move.p.yielding;
       }
       const turnAround=p=>{
-        if((p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5||talking.has(p))return false;
+        if(waiters.has(p)||(p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5||talking.has(p))return false;
         // On the footpath, walk back the way they came.
         const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=pedestrian(chunk,p,time);

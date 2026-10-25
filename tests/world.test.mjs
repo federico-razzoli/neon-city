@@ -2513,7 +2513,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     return elements.get(id);
   };
   const sandbox={...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
-    ...await import('../neon-city/pub-life.js'),CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},WalkerTalk:class{update(){}},talksHere:()=>false,
+    ...await import('../neon-city/pub-life.js'),CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'THE PUB',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -2588,7 +2588,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     return elements.get(id);
   };
   const sandbox={...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
-    CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}},talksHere:()=>false,
+    CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(context,volume){tapVolumes.push(volume);}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -4081,4 +4081,72 @@ test('normal traffic has varied 6.5–7 second gaps while riverside spacing stay
   const cars=new Traffic().update(chunks,0,0).filter(c=>c.axis===1&&c.dir===1).sort((a,b)=>a.x-b.x);
   assert.ok(cars.length>5);
   for(let i=1;i<cars.length;i++)assert.equal(cars[i].x-cars[i-1].x,128);
+});
+
+test('approaching walkers leave space and the whole encounter waits until every route is clear',()=>{
+  for(const reversed of [false,true]){
+    const city=new City(1),z=RIVER_ROWS[0]*BLOCK+11;
+    const first={phase:7.7,speed:1,type:15,reverse:false,walkTime:0};
+    const second={phase:16,speed:1.5,type:13,reverse:true,walkTime:0};
+    const chunk={x:0,z:RIVER_ROWS[0],river:true,riverStart:RIVER_ROWS[0],people:reversed?[second,first]:[first,second]};
+    city.chunks.set('river',chunk);
+    const player={x:20,z};
+    const start=pedestrian(chunk,first,0);
+    for(let i=1;i<=300;i++)city.advancePedestrians(.02,player,i*.02,first);
+    const stopped=pedestrian(chunk,second,0);
+    assert.ok(stopped.x-player.x>=2.4,'incoming walker leaves extra space');
+    assert.ok(stopped.x-player.x<2.5,'incoming walker approaches before waiting');
+    assert.equal(pedestrian(chunk,first,0).x,start.x);
+    assert.equal(second.reverse,true,'waiting walkers never turn around to escape');
+    player.x=17;
+    for(let i=301;i<=500;i++)city.advancePedestrians(.02,player,i*.02,first);
+    assert.equal(pedestrian(chunk,first,0).x,start.x,'first stays put after its own path is clear');
+    assert.equal(pedestrian(chunk,second,0).x,stopped.x,'second stays put while its path is blocked');
+    player.z+=3;
+    city.advancePedestrians(.02,player,10.02,first);
+    assert.ok(pedestrian(chunk,first,0).x>start.x,'both resume when all paths are clear');
+    assert.ok(pedestrian(chunk,second,0).x<stopped.x);
+  }
+});
+
+test('a second talker cannot interrupt, but SPACE facing them switches the only speaker',async()=>{
+  const {WalkerTalk}=await import('../neon-city/walker-talk.js');
+  const {placeLines}=await import('../neon-city/world.js');
+  const first={walker:{type:15},place:'river',x:0,z:1.3};
+  const second={walker:{type:13},place:'river',x:0,z:-2.4};
+  const player={x:0,z:0,angle:0},talk=new WalkerTalk(()=>0);
+  assert.equal(talk.update(.02,[first]),placeLines(15,'river')[0]);
+  assert.equal(talk.update(3,[second,first]),placeLines(15,'river')[1]);
+  assert.equal(talk.walker,first.walker);
+  assert.equal(talk.interact(player,[second]),null,'cannot select someone behind the player');
+  assert.equal(talk.interact({...player,angle:Math.PI},[{...second,z:-4}]),null,'must be nearby');
+  assert.equal(talk.interact({...player,angle:Math.PI},[first,second]),placeLines(13,'river')[0]);
+  assert.equal(talk.walker,second.walker);
+  assert.equal(talk.update(.1,[first,second]),null,'old conversation stops immediately');
+  assert.equal(talk.update(3,[first,second]),placeLines(13,'river')[1]);
+});
+
+test('footpath conversations leave a walkable exit and also hold silent approaching NPCs',()=>{
+  const city=new City(1);
+  // Two footpaths meet at the player. Isolate walker movement from park furniture.
+  city.solid=()=>false;
+  const walker=(type,points)=>({type,phase:0,speed:1,walkTime:0,detour:{points,lengths:[0,10],total:10,start:0}});
+  const first=walker(15,[{x:18.7,z:20},{x:28.7,z:20}]);
+  const second=walker(0,[{x:20,z:16},{x:20,z:26}]);
+  const chunk={x:0,z:0,people:[first,second]};
+  city.chunks.set('paths',chunk);
+  const player={x:20,z:20};
+  for(let i=1;i<=200;i++)city.advancePedestrians(.02,player,i*.02,first);
+  const clocks=[first.walkTime,second.walkTime];
+  assert.ok(20-pedestrian(chunk,second,0).z>=2.4);
+  // Walk away from the first path while still standing on the second path.
+  for(let i=0;i<20;i++){
+    city.move(player,0,.1,city.pedestrians(4));
+    city.advancePedestrians(.02,player,4+i*.02,first);
+  }
+  assert.ok(player.z>21.9,'NPCs leave enough room to walk out');
+  assert.deepEqual([first.walkTime,second.walkTime],clocks,'clearing only one path does not release either NPC');
+  for(let i=0;i<20;i++)city.move(player,.1,0,city.pedestrians(5));
+  city.advancePedestrians(.02,player,5,first);
+  assert.ok(first.walkTime>clocks[0]&&second.walkTime>clocks[1],'silent NPCs also wait for the whole encounter to clear');
 });

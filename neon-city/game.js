@@ -5,12 +5,12 @@ import {PubLife,PubConversation} from './pub-life.js?v=staff-room-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=staff-room-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=walker-space-1';
 import {Traffic} from './traffic.js?v=traffic-random-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=parks-4';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,paintSign,SIGN_TEXTURE} from './parks.js?v=start-sign-6';
-import {WalkerTalk,talksHere} from './walker-talk.js?v=staff-room-1';
+import {WalkerTalk,talksHere} from './walker-talk.js?v=walker-space-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=window-colours-1';
 import {drawPub,pubName} from './pub.js?v=names-1';
@@ -658,6 +658,10 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
+  if(k===' '&&!e.repeat&&!indoors()){
+    const line=walkerTalk.interact(player,city.pedestrians(time));
+    if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;return;}
+  }
   const conversation=insidePub?pubTalk:insideLavatory?lavatoryTalk.apart===0?lavatoryTalk.conversation:null:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;
   if(e.key==='Enter'&&conversation?.lines.length){
     if(!e.repeat){
@@ -760,7 +764,7 @@ function tick(now){
       playCoverGrunt(audioContext);
     }
     coverPressed=false;
-    const held=city.advancePedestrians(dt,player,time)??[];
+    const held=city.advancePedestrians(dt,player,time,walkerTalk.apart===0?walkerTalk.walker:null)??[];
     const line=walkerTalk.update(dt,[...bumped,...held]);
     if(line){notice=2.5;noticeText=line;}
     document.querySelector('#message').textContent=notice?noticeText:'';
