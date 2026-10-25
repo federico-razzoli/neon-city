@@ -1,5 +1,5 @@
 import {facesEntrance} from './entrances.js';
-import {drawCylinder,drawRod,drawStaff,facingAcrossCounter,facingDoorway,facingNearest,pubPersonBlocks,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=staff-room-1';
+import {drawCylinder,drawRod,drawStaff,facingAcrossCounter,facingDoorway,facingNearest,pubPersonBlocks,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=court-shoes-1';
 
 // Interior coordinates are local: the street entrance is centred on the south
 // wall. The staircase climbs the east wall to a landing; the receptionist

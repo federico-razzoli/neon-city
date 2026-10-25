@@ -1,12 +1,18 @@
 import {facesEntrance} from './entrances.js';
-import {facingDoorway,drawStaff,BLONDE_RECEPTIONIST,drawCylinder} from './pub-interior.js?v=staff-room-1';
+import {facingDoorway,facingNearest,drawStaff,BLONDE_RECEPTIONIST,BARTENDER_REPLY,drawCylinder,drawRod} from './pub-interior.js?v=court-shoes-1';
 
-export const ARCADE={width:18,depth:16,height:4.5,door:{x:11,z:0},spawn:{x:11,z:1.8,angle:0},
+// The room runs a metre deeper than the bridge console needs, so its chairs
+// leave the aisle behind them as wide as before.
+export const ARCADE={width:18,depth:17,height:4.5,door:{x:11,z:0},spawn:{x:11,z:1.8,angle:0},
   bridgeConsole:{x:12.4,z:.15,w:5.1,d:1.25},
-  desk:{x:11.5,z:12.8,w:6.5,d:1.3},attendant:{x:14.5,z:14.8,radius:.55},
-  cabinets:[...Array.from({length:5},(_,i)=>({x:.5+i*2,z:14,w:1.5,d:1.5})),
-    ...Array.from({length:4},(_,i)=>({x:.5+i*2.3,z:7.5,w:1.5,d:1.5}))],
-  pinballs:[{x:13,z:6,w:1.5,d:2.7},{x:15.4,z:6,w:1.5,d:2.7}]};
+  // One swivel chair per station, seated facing the console.
+  bridgeChairs:[0,1,2].map(i=>({x:13.25+i*1.7,z:2.05,radius:.38,angle:Math.PI})),
+  desk:{x:11.5,z:13.8,w:6.5,d:1.3},attendant:{x:14.5,z:15.8,radius:.55},
+  // The cash register and the tray of coins drawn on the desk.
+  deskThings:[{x:12.65,z:14.3,radius:.4},{x:15.8,z:14.25,radius:.4}],
+  cabinets:[...Array.from({length:5},(_,i)=>({x:.5+i*2,z:15,w:1.5,d:1.5})),
+    ...Array.from({length:4},(_,i)=>({x:.5+i*2.3,z:8.5,w:1.5,d:1.5}))],
+  pinballs:[{x:13,z:7,w:1.5,d:2.7},{x:15.4,z:7,w:1.5,d:2.7}]};
 export function facingArcadeDoor(player,buildings){
   return buildings.find(b=>{
     if(b.sign!=='ARCADE')return false;
@@ -14,24 +20,42 @@ export function facingArcadeDoor(player,buildings){
   });
 }
 export const facingArcadeExit=player=>player.z>0&&facingDoorway(player,ARCADE.door,.85);
+export const facingArcadeSeat=player=>facingNearest(player,ARCADE.bridgeChairs);
+export const DESK_THING_REPLY="DON'T TOUCH IT, PLEASE.";
+// The attendant only answers from her own side of the desk, sending the player
+// back round; the things on the desk are off limits from either side.
+export function arcadeReply(player){
+  const {desk,attendant,deskThings}=ARCADE,behind=player.z>desk.z+desk.d;
+  const thing=facingNearest(player,behind?[attendant,...deskThings]:deskThings);
+  return thing===attendant?BARTENDER_REPLY:thing?DESK_THING_REPLY:null;
+}
 export function moveInArcade(player,dx,dz){
   const r=.3,obstacles=[ARCADE.bridgeConsole,ARCADE.desk,...ARCADE.cabinets,...ARCADE.pinballs];
   const clear=(x,z)=>x>=r&&x<=ARCADE.width-r&&z>=r&&z<=ARCADE.depth-r&&
     !obstacles.some(b=>x>b.x-r&&x<b.x+b.w+r&&z>b.z-r&&z<b.z+b.d+r)&&
-    Math.hypot(x-ARCADE.attendant.x,z-ARCADE.attendant.z)>=r+ARCADE.attendant.radius;
+    [ARCADE.attendant,...ARCADE.bridgeChairs].every(c=>Math.hypot(x-c.x,z-c.z)>=r+c.radius);
   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
   for(let i=0;i<count;i++){
     if(dx&&clear(player.x+dx/count,player.z))player.x+=dx/count;
     if(dz&&clear(player.x,player.z+dz/count))player.z+=dz/count;
   }
 }
-const FONT={A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['101','111','111','111','101'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
+// The black shell catches more light where it curves away at the sides.
+const SHELL_SHADES=['#121318','#14151b','#18191f','#1e1f26','#25272f','#2d2f38'];
+const FONT={A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
 export function drawArcadeInterior({face,quad,box}){
   const panel=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   const label=(word,x,y,z,s,color,direction=1)=>{
-    for(const [i,c] of [...word].entries())for(let row=0;row<5;row++)for(let col=0;col<3;col++)if(FONT[c]?.[row][col]==='1')panel(x+direction*(i*4+col)*s,y+(4-row)*s,z,direction*s,s,color);
+    // Glyphs are 3 columns wide unless drawn wider (N needs 4 for its diagonal).
+    let start=0;
+    for(const c of word){
+      const glyph=FONT[c];
+      for(let row=0;row<5;row++)for(let col=0;col<(glyph?.[row].length??0);col++)if(glyph[row][col]==='1')panel(x+direction*(start+col)*s,y+(4-row)*s,z,direction*s,s,color);
+      start+=(glyph?.[0].length??3)+1;
+    }
   };
-  for(let x=0;x<18;x+=2)for(let z=0;z<16;z+=2){quad(x,0,z,2,2,(x+z)%4?'#302944':'#49405a');quad(x,4.5,z,2,2,'#16182b');}
+  const {width,depth}=ARCADE;
+  for(let x=0;x<width;x+=2)for(let z=0;z<depth;z+=2){const d=Math.min(2,depth-z);quad(x,0,z,2,d,(x+z)%4?'#302944':'#49405a');quad(x,4.5,z,2,d,'#16182b');}
   const wall=(x,z,dx,dz)=>{
     for(let i=0;i<8;i++){
       const strip=(low,high,color)=>face([{x:x+dx*i/8,y:low,z:z+dz*i/8},{x:x+dx*(i+1)/8,y:low,z:z+dz*(i+1)/8},{x:x+dx*(i+1)/8,y:high,z:z+dz*(i+1)/8},{x:x+dx*i/8,y:high,z:z+dz*i/8}],color);
@@ -39,7 +63,7 @@ export function drawArcadeInterior({face,quad,box}){
     }
   };
   const doorX=ARCADE.door.x,left=doorX-.85,right=doorX+.85;
-  wall(0,0,left,0);wall(right,0,ARCADE.width-right,0);wall(0,16,18,0);wall(0,0,0,16);wall(18,0,0,16);
+  wall(0,0,left,0);wall(right,0,width-right,0);wall(0,depth,width,0);wall(0,0,0,depth);wall(width,0,0,depth);
   panel(left,0,0,1.7,3,'#262a43');panel(left,3,0,1.7,1.5,'#40304f');
   box(doorX+.55,1.05,.02,.09,.3,.08,'#d9c58e');
   // Viewed toward -z, screen-right runs toward decreasing world x.
@@ -88,12 +112,12 @@ export function drawArcadeInterior({face,quad,box}){
   }
   const b=ARCADE.desk;
   box(b.x,0,b.z,b.w,1.2,b.d,'#353148');box(b.x,1.2,b.z-.08,b.w,.14,b.d+.16,'#ad78ab');
-  panel(b.x+.2,.25,b.z-.02,b.w-.4,.72,'#20263b');label('CHANGE',b.x+1.65,.45,b.z-.03,.12,'#ffdf89');
+  panel(b.x+.2,.25,b.z-.02,b.w-.4,.72,'#20263b');label('TOKENS',b.x+(b.w-2.88)/2,.45,b.z-.03,.12,'#ffdf89');
   drawStaff({face,box},ARCADE.attendant,BLONDE_RECEPTIONIST);
-  // Cash register and trays of coins on the change desk.
-  box(12.3,1.34,13,.7,.3,.55,'#a8a8b8');box(12.4,1.64,13.25,.5,.22,.17,'#34394c');panel(12.45,1.7,13.24,.4,.1,'#a0eac7');
-  box(15.4,1.34,13,.8,.06,.5,'#242437');
-  for(let i=0;i<4;i++)drawCylinder(face,15.53+i*.17,1.4,13.2,.065,.035*(i+1),'#d6b975');
+  // Cash register and trays of coins on the token desk (see ARCADE.deskThings).
+  box(12.3,1.34,b.z+.2,.7,.3,.55,'#a8a8b8');box(12.4,1.64,b.z+.45,.5,.22,.17,'#34394c');panel(12.45,1.7,b.z+.44,.4,.1,'#a0eac7');
+  box(15.4,1.34,b.z+.2,.8,.06,.5,'#242437');
+  for(let i=0;i<4;i++)drawCylinder(face,15.53+i*.17,1.4,b.z+.4,.065,.035*(i+1),'#d6b975');
   // A decorative original-series bridge station faces the pinball aisle.
   // Raised grey surround, red fascia and black sloping control surfaces.
   const console=ARCADE.bridgeConsole;
@@ -145,11 +169,40 @@ export function drawArcadeInterior({face,quad,box}){
     panel(x+.16,.2,1.41,1.38,.47,'#414a5c');
     for(let j=0;j<6;j++)panel(x+.35+j*.17,.34,1.415,.09,.025,'#171f30');
   }
+  // Original-series bridge chairs, at pub-chair scale: a black pedestal on a
+  // four-footed star base, a pale blue-grey cushion in a black bowl, and a
+  // tall black shell that wraps the seat and rises above the console's edge.
+  for(const {x,z} of ARCADE.bridgeChairs){
+    for(let i=0;i<4;i++){
+      const t=Math.PI/4+i*Math.PI/2,fx=x+Math.cos(t)*.36,fz=z+Math.sin(t)*.36;
+      drawRod(face,{x,y:.08,z},{x:fx,y:.04,z:fz},.03,'#24262d');
+      box(fx-.04,0,fz-.04,.08,.04,.08,'#9aa1ad');
+    }
+    drawCylinder(face,x,0,z,.09,.1,'#24262d');
+    drawCylinder(face,x,.1,z,.055,.36,'#24262d');
+    drawCylinder(face,x,.44,z,.08,.05,'#9aa1ad');
+    drawCylinder(face,x,.49,z,.2,.13,'#121318','#121318',.36);
+    drawCylinder(face,x,.62,z,.33,.07,'#8ea7ba','#b3c6d4');
+    // The shell's arc is centred on +z, away from the console; each level
+    // gives its height, how far it wraps round, and its radius.
+    const levels=[[.6,1.45,.37],[.72,1.3,.36],[.9,1,.34],[1.1,1,.34],[1.28,1,.35],[1.4,.85,.35],[1.47,.5,.35]];
+    const n=12,point=(level,i,inset=0)=>{const [y,spread,r]=level,t=Math.PI/2-spread+i*2*spread/n;return {x:x+Math.cos(t)*(r-inset),y,z:z+Math.sin(t)*(r-inset)};};
+    for(let l=0;l+1<levels.length;l++){
+      const a=levels[l],b=levels[l+1],padded=a[0]>=.72&&b[0]<=1.4;
+      for(let i=0;i<n;i++){
+        face([point(a,i),point(a,i+1),point(b,i+1),point(b,i)],SHELL_SHADES[Math.floor(Math.abs(i+.5-n/2))]);
+        face([point(a,i,.04),point(a,i+1,.04),point(b,i+1,.04),point(b,i,.04)],padded?'#8ea7ba':'#1d1f26');
+      }
+      for(const i of [0,n])face([point(a,i),point(a,i,.04),point(b,i,.04),point(b,i)],'#2a2c34');
+    }
+    const top=levels.at(-1);
+    for(let i=0;i<n;i++)face([point(top,i),point(top,i+1),point(top,i+1,.04),point(top,i,.04)],'#2a2c34');
+  }
   // Space-themed wall art and ceiling light bars.
   for(const x of [2,6]){
     panel(x,1.65,.03,2.2,1.65,'#d794bd');panel(x+.08,1.73,.04,2.04,1.49,'#151d36');
     for(let i=0;i<9;i++)panel(x+.2+(i*7%17)*.1,1.9+(i*3%11)*.1,.05,.035,.035,'#e5dbef');
     panel(x+.8,2.2,.06,.65,.4,'#67c9d9');panel(x+.5,2.35,.07,1.25,.07,'#e9b6ec');
   }
-  for(const x of [4,10,15])for(const z of [4,11])box(x,4.35,z,2,.08,.15,'#a6dcf2');
+  for(const x of [4,10,15])for(const z of [5,12])box(x,4.35,z,2,.08,.15,'#a6dcf2');
 }

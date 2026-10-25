@@ -4165,11 +4165,84 @@ test('arcade doors work on both street sides and furniture blocks running',async
     assert.equal(facingArcadeDoor({x:23,z:j?33:13,angle:j?Math.PI:0},[b]),b);
   }
   assert.ok(facingArcadeExit({x:ARCADE.door.x,z:.35,angle:Math.PI}));
-  const p={...ARCADE.spawn,x:9};moveInArcade(p,0,30);assert.ok(p.z<7.3);
-  const q={x:14.5,z:10};moveInArcade(q,0,20);assert.ok(q.z<12.6);
+  const p={...ARCADE.spawn,x:9};moveInArcade(p,0,30);assert.ok(p.z<8.3);
+  const q={x:14.5,z:11};moveInArcade(q,0,20);assert.ok(q.z<13.6);
   const r={...ARCADE.spawn};moveInArcade(r,0,-20);assert.ok(r.z>=.3);
+  // The chairs block walking, and the deeper room keeps the aisle behind them
+  // as wide as it was from the console before they came (4.5 m).
+  for(const chair of ARCADE.bridgeChairs){const c={x:chair.x,z:5};moveInArcade(c,0,-5);assert.ok(c.z>chair.z+chair.radius);}
+  const backOfChairs=Math.max(...ARCADE.bridgeChairs.map(c=>c.z+c.radius));
+  assert.ok(Math.min(...ARCADE.pinballs.map(b=>b.z))-backOfChairs>=4.5);
+  assert.equal(ARCADE.depth,17);
   let faces=0;drawArcadeInterior({face(points){faces++;assert.ok(points.every(p=>Number.isFinite(p.x+p.y+p.z)));},quad(){},box(){}});
   assert.ok(faces>100);
+});
+
+test('Space sits at an arcade bridge chair facing its console and stands up again',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {runInNewContext}=await import('node:vm');
+  const arcadeInterior=await import('../neon-city/arcade-interior.js');
+  const {register}=await import('../neon-city/register.js');
+  for(const key in register)delete register[key];
+  const events={},elements=new Map();
+  const element=id=>{
+    if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
+    return elements.get(id);
+  };
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
+    ...await import('../neon-city/walker-talk.js'),arcadeName:()=>'ARCADIA',
+    CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+    pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
+    City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
+    window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
+    requestAnimationFrame(){},performance:{now:()=>0}};
+  const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;}};",sandbox);
+  const {player,city,tick}=sandbox.game;
+  city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'ARCADE'}],manholes:[],newspaperMachines:[]});
+  const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
+  let ms=0;
+  const press=()=>{events.keydown(space);tick(ms+=20);events.keyup(space);tick(ms+=20);};
+  press();// starts the game
+  Object.assign(player,{x:23,z:12.5,angle:0});press();
+  assert.equal(element('#location').textContent,'ARCADIA');
+  const chair=arcadeInterior.ARCADE.bridgeChairs[1];
+  assert.equal(arcadeInterior.facingArcadeSeat({x:chair.x,z:3.2,angle:0}),null,'turned away');
+  Object.assign(player,{x:chair.x,z:3.2,angle:Math.PI});press();
+  assert.ok(sandbox.game.seat,'seated');
+  assert.deepEqual({x:player.x,z:player.z,angle:player.angle},{x:chair.x,z:chair.z,angle:Math.PI});
+  const arrow=key=>({key,code:key,preventDefault(){}});
+  events.keydown(arrow('ArrowUp'));for(let i=0;i<20;i++)tick(ms+=20);events.keyup(arrow('ArrowUp'));
+  assert.deepEqual({x:player.x,z:player.z},{x:chair.x,z:chair.z},'no walking while seated');
+  assert.ok(sandbox.game.seat.pitch>0,'up looks up');
+  press();
+  assert.equal(sandbox.game.seat,null,'standing again');
+  assert.deepEqual({x:player.x,z:player.z},{x:chair.x,z:3.2});
+  // The things on the token desk are off limits; the attendant sends staff-side visitors back round.
+  const {desk,attendant,deskThings}=arcadeInterior.ARCADE;
+  for(let i=0;i<200;i++)tick(ms+=20);
+  Object.assign(player,{x:deskThings[0].x,z:desk.z-.35,angle:0});press();
+  assert.equal(element('#message').textContent,"DON'T TOUCH IT, PLEASE.");
+  for(let i=0;i<200;i++)tick(ms+=20);
+  assert.equal(element('#message').textContent,'');
+  Object.assign(player,{x:attendant.x-1.1,z:attendant.z,angle:Math.PI/2});press();
+  assert.equal(element('#message').textContent,'CLIENTS ON THE OTHER SIDE, PLEASE.');
+});
+
+test('arcade desk replies depend on what is faced and from which side',async()=>{
+  const {ARCADE,arcadeReply,DESK_THING_REPLY}=await import('../neon-city/arcade-interior.js');
+  const {BARTENDER_REPLY}=await import('../neon-city/pub-interior.js');
+  const {desk,attendant,deskThings}=ARCADE,front=desk.z-.35,behind=desk.z+desk.d+.35;
+  for(const thing of deskThings){
+    assert.equal(arcadeReply({x:thing.x,z:front,angle:0}),DESK_THING_REPLY,'from the clients\' side');
+    assert.equal(arcadeReply({x:thing.x,z:behind,angle:Math.PI}),DESK_THING_REPLY,'from behind the desk');
+    assert.equal(arcadeReply({x:thing.x,z:front,angle:Math.PI}),null,'turned away');
+  }
+  assert.equal(arcadeReply({x:attendant.x-1.1,z:attendant.z,angle:Math.PI/2}),BARTENDER_REPLY);
+  assert.equal(arcadeReply({x:attendant.x,z:front,angle:0}),null,'no reply from her across the desk');
+  assert.equal(arcadeReply({x:attendant.x,z:10,angle:0}),null,'out of reach');
 });
 
 test('shooting stars stay on river walks and choose visible paths every 10–30 seconds',async()=>{

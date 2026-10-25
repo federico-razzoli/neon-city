@@ -234,7 +234,17 @@ export function drawStaff({face,box},at,type,counter){
   const hair=type===0?'#201e26':nurse?'#ee7c9e':blonde?'#d9b45a':large?'#88553d':'#49352c';
   const width=large?.86:.56,depth=large?.5:.34,head=large?.23:.19;
   const shirt=nurse?'#f29bb7':blonde?'#2b3150':large?'#729083':'#eee5cf';
-  for(const dx of [-.16,.08])staffBox(x+dx,0,z-.1,.16,.82,.22,nurse?'#f5eee5':'#282731');
+  if(blonde){
+    // Trousers over high-heeled court shoes that match her blazer: the toe
+    // on the floor in front, the heel raised on a thin stiletto behind.
+    for(const dx of [-.16,.08]){
+      staffBox(x+dx,.11,z-.1,.16,.71,.22,'#282731');
+      staffBox(x+dx+.01,0,z-.2,.14,.05,.12,'#2b3150');
+      staffBox(x+dx+.01,.04,z-.12,.14,.07,.08,'#2b3150');
+      staffBox(x+dx+.01,.08,z-.06,.14,.03,.16,'#2b3150');
+      staffBox(x+dx+.055,0,z+.06,.05,.08,.04,'#2b3150');
+    }
+  }else for(const dx of [-.16,.08])staffBox(x+dx,0,z-.1,.16,.82,.22,nurse?'#f5eee5':'#282731');
   staffBox(x-width/2,.8,z-depth/2,width,.57,depth,shirt);
   if(nurse||large){
     staffBox(x-width/2,.48,z-depth/2,width,.38,depth,shirt);
