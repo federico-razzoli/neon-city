@@ -4225,3 +4225,22 @@ test('stairwell uses every hotel palette and draws two flights, three closed cor
     for(const {points} of faces)for(const p of points)assert.ok(Number.isFinite(p.x+p.y+p.z));
   }
 });
+
+test('stairwell lights unlock the street-light question in the receptionist recommendations menu',async()=>{
+  const {interactStairwellLight,STAIRWELL_LIGHT_REPLY}=await import('../neon-city/hotel-stairwell.js');
+  const {RECEPTIONIST_TALK}=await import('../neon-city/hotel-interior.js');
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const record={},menu=()=>{const talk=new StaffTalk(RECEPTIONIST_TALK,record);talk.confirm(2);talk.confirm();return talk;};
+  assert.deepEqual(menu().script.map(o=>o.ask),['CAN YOU RECOMMEND SOME PLACES TO VISIT?','NEVER MIND.']);
+  for(const player of [{x:1.2,z:12,angle:0},{x:1.2,z:15,angle:Math.PI}])assert.equal(interactStairwellLight(player,{floor:1,flight:null},record),null);
+  assert.equal(interactStairwellLight({x:1.2,z:15,angle:0},{floor:2,flight:1},record),null);
+  assert.deepEqual(record,{});
+  for(const floor of [1,2,3])for(const x of [1.2,6.8])assert.equal(interactStairwellLight({x,z:15,angle:0},{floor,flight:null},record),STAIRWELL_LIGHT_REPLY);
+  assert.deepEqual(record,{STREETS_HAVE_NO_LIGHTS:true});
+  const talk=menu();
+  assert.deepEqual(talk.script.map(o=>o.ask),['CAN YOU RECOMMEND SOME PLACES TO VISIT?','THE STREETS HAVE NO LIGHTS... HOW IS IT POSSIBLE?','NEVER MIND.']);
+  talk.confirm(1);
+  const heard=[];while(talk.line){heard.push(talk.line);talk.confirm();}
+  assert.deepEqual(heard,["I'M GLAD YOU'VE NOTICED THIS UNIQUE FEATURE OF OUR CITY!",'THERE IS NO UNIVERSALLY ACCEPTED EXPLANATION FOR IT.',"SOME SAY THAT WE HAVE SO MANY NEON SIGNS THAT WE DON'T NEED OTHER LIGHTS.",'OTHERS JUST THINK THAT OUR CITY IS MAGICAL.','WHICH WOULD ALSO EXPLAIN WHY OUR NIGHT NEVER ENDS.']);
+  assert.equal(talk.block,1,'answers return to the same submenu');
+});

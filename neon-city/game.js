@@ -1,4 +1,4 @@
-import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,facingStairwellExit,facingHotelCorridor,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=3';
+import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,facingStairwellExit,facingHotelCorridor,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=lights-1';
 import {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=bridge-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
@@ -21,7 +21,7 @@ import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=pub-music-2';
 import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=pub-music-4';
-import {HOTEL,HOTEL_STAIR_DOOR,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=stairwell-1';
+import {HOTEL,HOTEL_STAIR_DOOR,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=street-lights-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=1';
@@ -674,7 +674,9 @@ if(running){
   }
   if(k===' '&&!e.repeat&&insideHotel&&hotelStairs){
     if(useDoor())return;
-    if(facingHotelCorridor(player,hotelStairs)){notice=2.5;noticeText="IT'S LOCKED...";document.querySelector('#message').textContent=noticeText;}
+    const lightReply=interactStairwellLight(player,hotelStairs);
+    if(lightReply){notice=4.5;noticeText=lightReply;document.querySelector('#message').textContent=lightReply;}
+    else if(facingHotelCorridor(player,hotelStairs)){notice=2.5;noticeText="IT'S LOCKED...";document.querySelector('#message').textContent=noticeText;}
     return;
   }
   const conversation=insidePub?pubTalk:insideLavatory?lavatoryTalk.apart===0?lavatoryTalk.conversation:null:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;

@@ -1,5 +1,6 @@
-import {facingDoorway,drawRod} from './pub-interior.js?v=taps-turned-1';
-import {hotelInteriorLook,drawHotelDoubleDoor,STAIR_CARPET} from './hotel-interior.js?v=stairwell-1';
+import {register} from './register.js';
+import {facingDoorway,facingNearest,drawRod} from './pub-interior.js?v=taps-turned-1';
+import {hotelInteriorLook,drawHotelDoubleDoor,STAIR_CARPET} from './hotel-interior.js?v=street-lights-1';
 
 // Door frames are 2.65m tall: the former 1.35m gap above them is now 2.025m.
 export const HOTEL_STAIRWELL={width:8,depth:16,rise:4.675,floors:3,steps:24,stairStart:3,stairEnd:13,spawn:{x:4,z:1.2,angle:0}};
@@ -13,6 +14,14 @@ export function stairwellHeight(player,state){
 }
 export const facingStairwellExit=(player,state)=>state.floor===1&&state.flight===null&&facingDoorway(player,{x:4,z:0},1.2);
 export const facingHotelCorridor=(player,state)=>state.flight===null&&facingDoorway(player,{x:4,z:D},1.2);
+
+export const STAIRWELL_LIGHT_REPLY='THIS REMINDS ME... WHY DO THE STREETS HAVE NO LIGHTS?';
+const stairwellLights=()=>[1.2,6.8].map(x=>({x,z:D-.2,radius:.25,reach:1.8}));
+export function interactStairwellLight(player,state,record=register){
+  if(state.flight!==null||!facingNearest(player,stairwellLights()))return null;
+  record.STREETS_HAVE_NO_LIGHTS=true;
+  return STAIRWELL_LIGHT_REPLY;
+}
 
 // The two flights share one continuous space: east rises northwards to floor 2,
 // west rises southwards to floor 3. Railings prevent entering either from the side.
@@ -69,7 +78,7 @@ export function drawHotelStairwell({face,quad,box,look:facade}){
     box(3.65,y+2.76,D-.11,.7,.25,.05,look.wood[0]);
     for(let i=0;i<=level;i++)box(4-level*.07+i*.14-.02,y+2.8,D-.18,.04,.16,.04,look.metal);
     // Warm wall lights and a coffered border use the lobby's own finishes.
-    for(const x of [1.2,6.8]){
+    for(const {x} of stairwellLights()){
       box(x-.1,y+1.75,D-.17,.2,.45,.06,look.metal);
       box(x-.14,y+1.95,D-.28,.28,.28,.18,'#d8bd8d','#f4ddae');
     }
