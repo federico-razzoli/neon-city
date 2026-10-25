@@ -317,7 +317,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
+  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -341,6 +341,16 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   assert.ok(musicVolumes.at(-1)>0&&musicVolumes.at(-1)===LOBBY_MUSIC.volume,'ambient music in the lobby');
   assert.equal(musicChoices.length,1,'a piece is chosen on entering');assert.ok(LOBBY_PIECES.includes(musicChoices[0]));
   assert.deepEqual({x:player.x,z:player.z,angle:player.angle},hotelInterior.HOTEL.spawn);
+  // The double doors above the lobby stairs open into the first-floor stairwell.
+  Object.assign(player,{x:18.2,z:15.1,angle:0});press();
+  assert.equal(location(),'HOTEL / FLOOR 1 / STAIRWELL');
+  Object.assign(player,{x:4,z:15,angle:0});press();
+  assert.equal(element('#message').textContent,"IT'S LOCKED...");
+  assert.equal(location(),'HOTEL / FLOOR 1 / STAIRWELL','corridor door never leaves the stairwell');
+  Object.assign(player,{x:4,z:1.2,angle:Math.PI});press();
+  assert.equal(location(),'HOTEL / LOBBY');
+  assert.equal(player.x,18.2);assert.equal(player.z,15.1);
+  assert.equal(musicChoices.length,1,'returning from the stairs preserves the current hotel');
   const receptionist=hotel.receptionist;
   assert.ok(hotelInterior.RECEPTIONISTS.includes(receptionist),'a receptionist is on duty');
   // Space at the lift gets a reply; elsewhere it does nothing in the lobby.
@@ -1067,7 +1077,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     return elements.get(id);
   };
   let bumpedPerson=null;
-  const sandbox={...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -1543,7 +1553,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
-  const sandbox={...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -2512,7 +2522,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
+  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
     ...await import('../neon-city/pub-life.js'),CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'THE PUB',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -2587,7 +2597,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -4149,4 +4159,69 @@ test('footpath conversations leave a walkable exit and also hold silent approach
   for(let i=0;i<20;i++)city.move(player,.1,0,city.pedestrians(5));
   city.advancePedestrians(.02,player,5,first);
   assert.ok(first.walkTime>clocks[0]&&second.walkTime>clocks[1],'silent NPCs also wait for the whole encounter to clear');
+});
+
+test('hotel stairwell connects all three floors smoothly and permits the complete return trip',async()=>{
+  const {HOTEL_STAIRWELL,createHotelStairwell,moveInHotelStairwell,stairwellHeight,facingStairwellExit,facingHotelCorridor}=await import('../neon-city/hotel-stairwell.js');
+  const player={...HOTEL_STAIRWELL.spawn},state=createHotelStairwell();
+  const walk=(dx,dz)=>{
+    const count=Math.ceil(Math.hypot(dx,dz)/.05);
+    for(let i=0;i<count;i++){
+      const before=stairwellHeight(player,state);
+      moveInHotelStairwell(player,dx/count,dz/count,state);
+      assert.ok(Math.abs(stairwellHeight(player,state)-before)<.03,'camera height remains continuous');
+    }
+  };
+  walk(2.5,0);walk(0,13);
+  assert.equal(state.floor,2);assert.equal(state.flight,null);assert.equal(stairwellHeight(player,state),4.675);
+  walk(-5,0);walk(0,-13);
+  assert.equal(state.floor,3);assert.equal(state.flight,null);assert.equal(stairwellHeight(player,state),9.35);
+  // Third floor has no upward flight; the east side is ordinary level floor.
+  walk(5,0);walk(0,13);
+  assert.equal(state.floor,3);assert.equal(stairwellHeight(player,state),9.35);
+  walk(-2.5,0);player.angle=0;
+  assert.ok(facingHotelCorridor(player,state));
+  assert.ok(!facingStairwellExit(player,state));
+  walk(0,20);assert.ok(player.z<=15.7,'the corridor door and wall remain solid');
+  walk(0,-14.4);walk(-2.5,0);walk(0,13);
+  assert.equal(state.floor,2);assert.equal(stairwellHeight(player,state),4.675);
+  walk(5,0);walk(0,-13);
+  assert.equal(state.floor,1);assert.equal(stairwellHeight(player,state),0);
+  walk(-2.5,0);player.angle=Math.PI;
+  assert.ok(facingStairwellExit(player,state));
+});
+
+test('stairwell railings block sideways entry, falling through wells and upper-floor shortcuts',async()=>{
+  const {moveInHotelStairwell,stairwellHeight}=await import('../neon-city/hotel-stairwell.js');
+  for(const floor of [1,2,3]){
+    const player={x:4,z:6,angle:0},state={floor,flight:null};
+    moveInHotelStairwell(player,floor===3?-20:20,0,state);
+    assert.ok(floor===3?player.x>=3.3:player.x<=4.7);
+    assert.equal(stairwellHeight(player,state),(floor-1)*4.675);
+  }
+  for(const [floor,x,z,dz] of [[2,6.5,1,8],[3,1.5,15,-8]]){
+    const player={x,z},state={floor,flight:null};
+    moveInHotelStairwell(player,0,dz,state);
+    assert.equal(state.flight,null);
+    assert.ok(floor===2?player.z<=2.7:player.z>=13.3);
+  }
+});
+
+test('stairwell uses every hotel palette and draws two flights, three closed corridor doors and lobby double doors',async()=>{
+  const {drawHotelStairwell}=await import('../neon-city/hotel-stairwell.js');
+  const {HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  const {hotelInteriorLook,facingHotelStairDoor}=await import('../neon-city/hotel-interior.js');
+  assert.ok(facingHotelStairDoor({x:18.2,z:15,angle:0}));
+  assert.ok(!facingHotelStairDoor({x:15,z:15,angle:0}),'must stand on the lobby landing');
+  assert.ok(!facingHotelStairDoor({x:18.2,z:15,angle:Math.PI}));
+  for(const look of HOTEL_LOOKS){
+    const boxes=[],faces=[];
+    drawHotelStairwell({look,box:(...args)=>boxes.push(args),quad(){},face:(points,color)=>faces.push({points,color})});
+    const palette=hotelInteriorLook(look);
+    assert.ok(boxes.some(b=>b[6]===palette.wall));
+    assert.ok(boxes.some(b=>b[6]===palette.panel));
+    assert.equal(boxes.filter(b=>b[3]===1.165&&b[4]===2.49).length,8,'all four doors have two identical leaves');
+    assert.equal(boxes.filter(b=>b[3]===3&&b[5]===10/24).length,48,'two twenty-four-step flights only');
+    for(const {points} of faces)for(const p of points)assert.ok(Number.isFinite(p.x+p.y+p.z));
+  }
 });

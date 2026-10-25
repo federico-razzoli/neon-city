@@ -15,11 +15,13 @@ export const HOTEL={width:20,depth:16,height:7,
   lamp:{x:1.42,z:12.38,radius:.3},bell:{x:6,z:12.5,radius:.25},
   pokeBall:{x:4.4,z:12.55,radius:.18},vase:{x:2.6,z:12.5,radius:.2},
   chandelier:{x:10,z:7}};
+export const HOTEL_STAIR_DOOR={x:18.2,z:16,halfWidth:1.2};
+export const facingHotelStairDoor=player=>hotelFloorHeight(player.x,player.z)===HOTEL.landing.y&&facingDoorway(player,HOTEL_STAIR_DOOR,HOTEL_STAIR_DOOR.halfWidth);
 export const RECEPTIONISTS=[NURSE_JOY,BLONDE_RECEPTIONIST];
 // Lobby walls are lit up from their dark facade colours, as if by the chandelier.
 const brighter=(color,factor)=>'#'+[1,3,5].map(i=>Math.min(255,Math.round(parseInt(color.slice(i,i+2),16)*factor)).toString(16).padStart(2,'0')).join('');
 // The same red carpet runs up the stairs in every hotel.
-const STAIR_CARPET=['#6e2030','#7a2636'];
+export const STAIR_CARPET=['#6e2030','#7a2636'];
 
 // Furniture the player cannot walk through, including the banister's newel post.
 const obstacles=()=>{
@@ -158,9 +160,23 @@ export function hotelReply(player){
   return null;
 }
 
+export const hotelInteriorLook=facade=>({...facade,wall:brighter(facade.wall,1.6),panel:brighter(facade.panel,1.35),wood:facade.wood.map(color=>brighter(color,1.25))});
+
+// Matching panelled double doors, with separate leaves and brass handles.
+export function drawHotelDoubleDoor(box,x,y,z,look,facing=-1){
+  const front=z+facing*.09;
+  box(x-1.3,y,z-.06,2.6,2.65,.12,look.metal);
+  for(const side of [-1,1]){
+    const left=x+(side<0?-1.19:.025);
+    box(left,y+.03,front,1.165,2.49,.035,look.wood[0]);
+    for(const bottom of [.22,1.35])box(left+.12,y+bottom,front+facing*.025,.925,.9,.025,look.wood[1]);
+    box(x+side*.14-.025,y+1.05,front+facing*.06,.05,.25,.05,look.metal);
+  }
+}
+
 // The lobby in the hotel's own colours (see hotelLook), empty but for the receptionist.
 export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false}){
-  const look={...facade,wall:brighter(facade.wall,1.6),panel:brighter(facade.panel,1.35),wood:facade.wood.map(color=>brighter(color,1.25))};
+  const look=hotelInteriorLook(facade);
   const {width:W,depth:D,height:H}=HOTEL;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const rod=(...args)=>drawRod(face,...args);
@@ -312,9 +328,8 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   rod({x:railX,y:1.2,z:st.z-.16},{x:railX,y:ld.y+railHeight,z:ld.z},.04,look.wood[0]);
   for(let z=ld.z+.5;z<D;z+=.6)box(railX-.03,ld.y,z,.06,railHeight,.06,look.metal);
   rod({x:railX,y:ld.y+railHeight,z:ld.z},{x:railX,y:ld.y+railHeight,z:D},.04,look.wood[0]);
-  // The way to the rooms is closed off by a black panel in a brass frame.
-  box(ld.x+.4,ld.y,D-.06,ld.w-.8,2.5,.04,look.metal);
-  box(ld.x+.55,ld.y,D-.08,ld.w-1.1,2.35,.03,'#050406');
+  // Double doors lead from the lobby landing into the upper-floor stairwell.
+  drawHotelDoubleDoor(box,HOTEL_STAIR_DOOR.x,ld.y,D-.08,look);
 
   // The lift: brass doors under a floor dial, with a call button.
   const {lift}=HOTEL;
