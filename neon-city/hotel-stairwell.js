@@ -17,7 +17,8 @@ export const facingHotelCorridor=(player,state)=>state.flight===null&&facingDoor
 
 // The storage door stands on the west wall, so swap axes to reuse the doorway test.
 const STORAGE_DOOR={z:1.5,halfWidth:.5};
-export const STORAGE_DOOR_REPLY="IT'S LOCKED.";
+// Leaving the storeroom puts the player back before its door, facing east.
+export const STORAGE_EXIT={x:.9,z:STORAGE_DOOR.z,angle:Math.PI/2};
 export const facingStorageDoor=(player,state)=>state.floor===2&&state.flight===null&&
   facingDoorway({x:player.z,z:player.x,angle:Math.PI/2-player.angle},{x:STORAGE_DOOR.z,z:0},STORAGE_DOOR.halfWidth);
 

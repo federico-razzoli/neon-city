@@ -96,6 +96,8 @@ export const RECEPTIONIST_TALK=[
       'OTHERS JUST THINK THAT OUR CITY IS MAGICAL.',
       'WHICH WOULD ALSO EXPLAIN WHY OUR NIGHT NEVER ENDS.']},
     {ask:'NEVER MIND.',answer:[],next:0}]];
+// Offered items the receptionist answers differently from a plain refusal; the item is kept.
+export const RECEPTIONIST_GIFTS={'hotel-note':["I'LL PRETEND I HAVEN'T SEEN THIS. PUT IT AWAY."]};
 // Every 20–30 seconds a robot guest comes out of the door to the rooms on
 // the landing, walks down the middle of the stairs, steps off them and
 // crosses the hall to the street doors. It waits while the player is in its

@@ -3,6 +3,7 @@ export const TAKEN='TAKEN';
 export const ALREADY_HAVE_ONE='I ALREADY HAVE ONE.';
 export const PINE_CONE={id:'pine-cone',name:'PINE CONE',description:'A PINE CONE. MOST PROBABLY, FALLEN FROM A PINE.'};
 export const FLOWER={id:'flower',name:'FLOWER',description:'A FLOWER.'};
+export const HOTEL_NOTE={id:'hotel-note',name:'HOTEL NOTE',description:'IT READS: LISA HAS THE KEY.'};
 export class Inventory{
   items=[];
   selected=0;
