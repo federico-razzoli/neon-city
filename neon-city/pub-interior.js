@@ -431,16 +431,16 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     box(PUB.shelves.x,y,PUB.shelves.z,PUB.shelves.w,.12,PUB.shelves.d,'#9c704b','#c09564');
     for(let i=0;i<28;i++)bottle(2.35+i*.44,y+.12,17.55,i);
   }
-  // Brass beer towers, forward-facing spouts, dark handles and drip trays.
+  // Brass beer towers, with spouts, handles and drip trays facing the bartender.
   for(const x of [5,6.1,11.6]){
-    box(x-.24,1.3,13.05,.48,.025,.55,'#44484a','#a7a9a7');
-    for(let i=0;i<5;i++)box(x-.2+i*.09,1.325,13.08,.025,.01,.48,'#363a3a');
+    box(x-.24,1.3,13.7,.48,.025,.55,'#44484a','#a7a9a7');
+    for(let i=0;i<5;i++)box(x+.175-i*.09,1.325,13.74,.025,.01,.48,'#363a3a');
     cylinder(x,1.3,13.65,.14,.07,'#c4a76b');
     cylinder(x,1.37,13.65,.065,.48,'#ba995d','#e0cb95');
-    box(x-.06,1.76,13.32,.12,.12,.35,'#d4bd83');
-    cylinder(x,1.67,13.32,.045,.12,'#d4bd83');
-    cylinder(x,1.88,13.4,.035,.14,'#c7a973');
-    cylinder(x,2.02,13.4,.065,.2,'#312a2a','#6a513a');
+    box(x-.06,1.76,13.63,.12,.12,.35,'#d4bd83');
+    cylinder(x,1.67,13.98,.045,.12,'#d4bd83');
+    cylinder(x,1.88,13.9,.035,.14,'#c7a973');
+    cylinder(x,2.02,13.9,.065,.2,'#312a2a','#6a513a');
   }
   pint(7.1,1.3,13.35);
   // Four regulars behind the bar: chosen once when this pub is first entered.
