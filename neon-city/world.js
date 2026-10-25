@@ -1,3 +1,4 @@
+import {orientEntrances} from './entrances.js';
 export const PEDESTRIAN_TYPES=16;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
@@ -258,6 +259,7 @@ export class City {
     this.rng = random(seed); this.chunks = new Map();
     this.startPark = START_PARKS[Math.floor(this.rng() * START_PARKS.length)];
     this.startSignBoards = startSignBoards(this.startPark);
+    this.parkBlocks = new Set([`${this.startPark.x},${this.startPark.z}`]);
   }
   update(x, z) {
     const cx = Math.floor(x / BLOCK), cz = Math.floor(z / BLOCK);
@@ -267,6 +269,8 @@ export class City {
       const key = `${i},${j}`;
       if (!this.chunks.has(key)) this.chunks.set(key, this.generate(i, j));
     }
+    // Remember discovered parks even when their chunks leave the loaded area.
+    for(const chunk of this.chunks.values())orientEntrances(chunk,this.parkBlocks);
   }
   generate(x, z) {
     const r = this.rng, buildings = [], people = [];
@@ -283,7 +287,8 @@ export class City {
     }
     const startPark=x===this.startPark.x&&z===this.startPark.z;
     const park=startPark||r()<PARK_CHANCE&&!this.parkNear(x,z)?parkLayout(x,z,r):null;
-    if(park)buildings.length=0;
+    if(park){buildings.length=0;this.parkBlocks.add(`${x},${z}`);}
+    else this.parkBlocks.delete(`${x},${z}`);
     const manholes=[],slots=Array.from({length:32},(_,i)=>i);
     const count=Math.floor(r()*4);
     for(let i=0;i<count;i++){

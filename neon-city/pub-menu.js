@@ -1,3 +1,4 @@
+import {entranceSide} from './entrances.js';
 // Menus occupy the centre of every pub wall except the entrance wall.
 export function facingPubMenu(player,buildings){
   for(const b of buildings){
@@ -9,7 +10,7 @@ export function facingPubMenu(player,buildings){
       {x:b.x+b.w,z:b.z+b.d/2,nx:1,nz:0},
     ];
     for(let side=0;side<walls.length;side++){
-      if(side===(b.j===1?1:0))continue;
+      if(side===entranceSide(b))continue;
       const wall=walls[side],dx=wall.x-player.x,dz=wall.z-player.z;
       const distance=Math.hypot(dx,dz);
       // Require the outside of this wall, close proximity and a centred view.

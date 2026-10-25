@@ -1,3 +1,4 @@
+import {facesEntrance} from './entrances.js';
 import {facingDoorway,drawStaff,BLONDE_RECEPTIONIST,drawCylinder} from './pub-interior.js?v=staff-room-1';
 
 export const ARCADE={width:18,depth:16,height:4.5,door:{x:11,z:0},spawn:{x:11,z:1.8,angle:0},
@@ -9,8 +10,7 @@ export const ARCADE={width:18,depth:16,height:4.5,door:{x:11,z:0},spawn:{x:11,z:
 export function facingArcadeDoor(player,buildings){
   return buildings.find(b=>{
     if(b.sign!=='ARCADE')return false;
-    const south=b.j===1,z=south?b.z+b.d:b.z;
-    return (south?player.z>z:player.z<z)&&facingDoorway(player,{x:b.x+b.w/2,z},b.w*10/160);
+    return facesEntrance(player,b,facingDoorway);
   });
 }
 export const facingArcadeExit=player=>player.z>0&&facingDoorway(player,ARCADE.door,.85);

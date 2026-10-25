@@ -125,15 +125,18 @@ function pineCone(c,face,viewer){
 }
 
 const SIGN_POST=['#1d2230','#272d3d','#323a4c','#3e475b'];
-const SIGN_BOARD='#1f5bb5',SIGN_EDGE='#123a78',SIGN_TEXT='#ffffff';
+const SIGN_BLUE={board:'#1f5bb5',edge:'#123a78',light:'#3d7fd6',dark:'#184a99'};
+const SIGN_GREEN={board:'#278344',edge:'#14502a',light:'#4aaa68',dark:'#1b6033'};
+const signPalette=text=>text==='PARK'?SIGN_GREEN:SIGN_BLUE;
+const SIGN_TEXT='#ffffff';
 export const SIGN_TEXTURE={width:300,height:72};
-// One face of a board: white on glossy blue. The tip is on the right or the
+// One face of a board: white on glossy enamel. The tip is on the right or the
 // left, so the words read forwards from either side of the sign.
 export function paintSign(g,text,tipRight){
   const {width:w,height:h}=SIGN_TEXTURE,tip=w*RIVER_SIGN.tip/(RIVER_SIGN.reach-RIVER_SIGN.start);
   // Enamel catches the moonlight near the top and darkens towards the bottom.
-  const enamel=g.createLinearGradient(0,0,0,h);
-  enamel.addColorStop(0,'#3d7fd6');enamel.addColorStop(.45,SIGN_BOARD);enamel.addColorStop(1,'#184a99');
+  const palette=signPalette(text),enamel=g.createLinearGradient(0,0,0,h);
+  enamel.addColorStop(0,palette.light);enamel.addColorStop(.45,palette.board);enamel.addColorStop(1,palette.dark);
   g.fillStyle=enamel;g.fillRect(0,0,w,h);
   // A faint diagonal sheen crosses the board.
   const sheen=g.createLinearGradient(w*.25,0,w*.45,h);
@@ -151,7 +154,7 @@ export function paintSign(g,text,tipRight){
 // An arrow-shaped board hanging off a pole at s, pointing along the street
 // direction (dx,dz) between heights bottom and top.
 function signBoard(s,{text,dx,dz,bottom,top},face,viewer,texture){
-  const {start,reach,tip}=RIVER_SIGN,half=.035,{width,height:rows}=SIGN_TEXTURE;
+  const {start,reach,tip}=RIVER_SIGN,half=.035,{width,height:rows}=SIGN_TEXTURE,palette=signPalette(text);
   // The board outline as (along, y), anticlockwise; along runs towards the tip.
   const outline=[[start,bottom],[reach-tip,bottom],[reach,(bottom+top)/2],[reach-tip,top],[start,top]];
   const at=(a,y,side)=>({x:s.x+side*half*dz+dx*a,y,z:s.z-side*half*dx+dz*a});
@@ -159,12 +162,12 @@ function signBoard(s,{text,dx,dz,bottom,top},face,viewer,texture){
     if(!visible(viewer,at(start,bottom,side),{x:side*dz,y:0,z:-side*dx}))continue;
     // Seen from side 1, the tip is on the viewer's right. Texture u grows rightwards.
     const tipRight=side>0;
-    face(outline.map(([a,y])=>({...at(a,y,side),u:(tipRight?a-start:reach-a)/(reach-start)*width,v:(top-y)/(top-bottom)*rows})),SIGN_BOARD,texture?.(text,tipRight)??null);
+    face(outline.map(([a,y])=>({...at(a,y,side),u:(tipRight?a-start:reach-a)/(reach-start)*width,v:(top-y)/(top-bottom)*rows})),palette.board,texture?.(text,tipRight)??null);
   }
   for(let i=0;i<outline.length;i++){
     const [a0,y0]=outline[i],[a1,y1]=outline[(i+1)%outline.length],n={x:(y1-y0)*dx,y:a0-a1,z:(y1-y0)*dz};
     if(!visible(viewer,at(a0,y0,1),n))continue;
-    face([at(a0,y0,-1),at(a1,y1,-1),at(a1,y1,1),at(a0,y0,1)],SIGN_EDGE);
+    face([at(a0,y0,-1),at(a1,y1,-1),at(a1,y1,1),at(a0,y0,1)],palette.edge);
   }
 }
 

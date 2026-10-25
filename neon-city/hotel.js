@@ -1,3 +1,4 @@
+import {entranceSide} from './entrances.js';
 // Choose once per address so all walls agree, including after a block reloads.
 export function hotelSignSeed(building){
   let hash=2166136261;
@@ -39,7 +40,7 @@ const hash=text=>{
   return h>>>0;
 };
 export const hotelLook=building=>HOTEL_LOOKS[hash(`lobby:${building.x},${building.z}`)%HOTEL_LOOKS.length];
-const frontSide=building=>building.j===1?1:0;
+const frontSide=entranceSide;
 // Wide windows show one of these views; narrow ones a single piece of furniture.
 export const HALL_SCENES=['sofa','armchairs','stairs','lifts'];
 export const NOOK_SCENES=['clock','vase','palm','lamp'];

@@ -1,3 +1,4 @@
+import {facesEntrance} from './entrances.js';
 import {drawCylinder,drawRod,drawStaff,facingAcrossCounter,facingDoorway,facingNearest,pubPersonBlocks,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=staff-room-1';
 
 // Interior coordinates are local: the street entrance is centred on the south
@@ -56,8 +57,7 @@ export function moveInHotel(player,dx,dz,walker){
 export function facingHotelDoor(player,buildings){
   return buildings.find(b=>{
     if(b.sign!=='HOTEL')return false;
-    const south=b.j===1,z=south?b.z+b.d:b.z;
-    return (south?player.z>z:player.z<z)&&facingDoorway(player,{x:b.x+b.w/2,z},b.w*10/160);
+    return facesEntrance(player,b,facingDoorway);
   });
 }
 export const facingHotelExit=player=>player.z>HOTEL.door.z&&facingDoorway(player,HOTEL.door,HOTEL.door.halfWidth);

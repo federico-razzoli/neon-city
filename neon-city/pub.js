@@ -1,3 +1,4 @@
+import {entranceSide} from './entrances.js';
 export const PUB_NAMES=["THE CLANSMAN","HARRY'S PUB","PUBLIC HOUSE","JOIN TABLES","THE LEPRECHAUN","OLD RIVER","APACHE PUB"];
 export function pubName(building){
   // A pseudorandom choice per address stays consistent across walls and visits.
@@ -20,7 +21,7 @@ export function drawPub(g,height,building,side){
   for(const x of [6,96]){
     rect('#9b7954',x,3,58,33);rect('#302126',x+2,5,54,29);
     rect('#5b3930',x+3,26,52,8);
-    if(side===(building.j===1?1:0)&&x===6){
+    if(side===entranceSide(building)&&x===6){
       // A single distant bar occupies only one view of the pub.
       for(const shelf of [12,18]){
         rect('#a2774c',x+5,shelf,19,1);
@@ -60,9 +61,9 @@ export function drawPub(g,height,building,side){
     g.globalAlpha=.12;rect('#c5e6ed',x+4,6,2,27);rect('#c5e6ed',x+48,6,3,27);g.globalAlpha=1;
     rect('#9b7954',x+28,4,2,31);
   }
-  // Only the street-facing north/south facade gets an entrance.
+  // Only the selected street-facing facade gets an entrance.
   // SPACE at this entrance transports the player into the pub.
-  if(side===(building.j===1?1:0)){
+  if(side===entranceSide(building)){
     rect('#a18460',68,2,24,37);rect('#4f3330',70,4,20,34);
     rect('#bd9760',73,7,14,18);rect('#423332',75,9,10,14);
     rect('#322329',73,28,14,7);rect('#e4c483',85,26,2,5);

@@ -1,3 +1,4 @@
+import {entranceSide} from './entrances.js';
 export function arcadeName(building){
   // Use the address so the sign survives texture and chunk regeneration.
   let hash=2166136261;
@@ -37,7 +38,7 @@ function arcadeLayout(building,side){
 }
 
 export function drawArcade(g,height,building={x:0,z:0},side=0){
-  const {pinballs:layout,palettes}=arcadeLayout(building,side),entrance=side===(building.j===1?1:0);
+  const {pinballs:layout,palettes}=arcadeLayout(building,side),entrance=side===entranceSide(building);
   const y=height-39;
   const rect=(colour,x,z,w,h)=>{g.fillStyle=colour;g.fillRect(x,y+z,w,h);};
   rect('#191329',0,0,160,39);

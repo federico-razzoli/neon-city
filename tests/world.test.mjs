@@ -4276,3 +4276,58 @@ test('stairwell lights unlock the street-light question in the receptionist reco
   assert.deepEqual(heard,["I'M GLAD YOU'VE NOTICED THIS UNIQUE FEATURE OF OUR CITY!",'THERE IS NO UNIVERSALLY ACCEPTED EXPLANATION FOR IT.',"SOME SAY THAT WE HAVE SO MANY NEON SIGNS THAT WE DON'T NEED OTHER LIGHTS.",'OTHERS JUST THINK THAT OUR CITY IS MAGICAL.','WHICH WOULD ALSO EXPLAIN WHY OUR NIGHT NEVER ENDS.']);
   assert.equal(talk.block,1,'answers return to the same submenu');
 });
+
+test('park-facing entrances select only exposed walls and invalidate changed facade textures',async()=>{
+  const {orientEntrances,entranceSide}=await import('../neon-city/entrances.js');
+  const buildings=()=>[0,1].flatMap(i=>[0,1].map(j=>({i,j,x:14+i*18,z:14+j*18,w:18,d:18,textures:['old'],dimTextures:['old']})));
+  for(const [park,expected] of [['0,-1',[0,1,0,1]],['0,1',[0,1,0,1]],['-1,0',[2,2,0,1]],['1,0',[0,1,3,3]]]){
+    const chunk={x:0,z:0,buildings:buildings()},parks=new Set([park]);
+    orientEntrances(chunk,parks);
+    assert.deepEqual(chunk.buildings.map(entranceSide),expected);
+    for(const b of chunk.buildings){
+      if(b.entranceSide!==(b.j===1?1:0)){assert.equal(b.textures,undefined);assert.equal(b.dimTextures,undefined);}
+      b.textures=['fresh'];
+    }
+    orientEntrances(chunk,parks);
+    assert.ok(chunk.buildings.every(b=>b.textures[0]==='fresh'),'unchanged entrances retain their textures');
+    orientEntrances(chunk,new Set(['1,1']));
+    assert.deepEqual(chunk.buildings.map(entranceSide),[0,1,0,1],'diagonal parks do not affect entrances');
+  }
+});
+
+test('all venue doors and pub menus agree on every entrance direction',async()=>{
+  const {entranceWall}=await import('../neon-city/entrances.js');
+  const {facingPubDoor}=await import('../neon-city/pub-interior.js');
+  const {facingArcadeDoor}=await import('../neon-city/arcade-interior.js');
+  const {facingHotelDoor}=await import('../neon-city/hotel-interior.js');
+  const {facingPubMenu}=await import('../neon-city/pub-menu.js');
+  for(const [sign,facing] of [['NEON PUB',facingPubDoor],['ARCADE',facingArcadeDoor],['HOTEL',facingHotelDoor]])for(let side=0;side<4;side++){
+    const b={x:14,z:14,w:18,d:18,i:0,j:0,sign,entranceSide:side};
+    for(let wallSide=0;wallSide<4;wallSide++){
+      const wall=entranceWall({...b,entranceSide:wallSide});
+      const player={x:wall.x+wall.nx*2,z:wall.z+wall.nz*2,angle:Math.atan2(-wall.nx,-wall.nz)};
+      assert.equal(facing(player,[b]),wallSide===side?b:undefined);
+      if(sign==='NEON PUB')assert.equal(facingPubMenu(player,[b]),wallSide!==side);
+      if(wallSide===side){
+        assert.equal(facing({...player,angle:player.angle+Math.PI},[b]),undefined,'must look at the door');
+        assert.equal(facing({...player,x:wall.x-wall.nx,z:wall.z-wall.nz},[b]),undefined,'must stand outside');
+      }
+    }
+  }
+});
+
+test('city orients venues after generating neighboring parks and remembers unloaded parks',async()=>{
+  const {City,BLOCK}=await import('../neon-city/world.js');
+  const {entranceSide}=await import('../neon-city/entrances.js');
+  const city=new City(42);
+  city.update(0,0);
+  const park=city.startPark,key=`${park.x},${park.z}`;
+  for(const dx of [-1,1]){
+    const chunk=city.chunks.get(`${park.x+dx},${park.z}`);
+    assert.ok(chunk&&!chunk.park);
+    for(const b of chunk.buildings.filter(b=>b.i===(dx===-1?1:0)))assert.equal(entranceSide(b),dx===-1?3:2);
+  }
+  city.update(100*BLOCK,100*BLOCK);
+  assert.equal(city.chunks.has(key),false);
+  assert.equal(city.parkBlocks.has(key),true);
+});

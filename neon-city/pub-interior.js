@@ -1,3 +1,4 @@
+import {facesEntrance} from './entrances.js';
 import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=bumps-1';
 import {PUB_TYPES} from './world.js?v=bumps-1';
 import {register} from './register.js';
@@ -83,8 +84,7 @@ export function facingNearest(player,things){
 export function facingPubDoor(player,buildings){
   return buildings.find(b=>{
     if(b.sign!=='NEON PUB')return false;
-    const south=b.j===1,z=south?b.z+b.d:b.z;
-    return (south?player.z>z:player.z<z)&&facingDoorway(player,{x:b.x+b.w/2,z},b.w*10/160);
+    return facesEntrance(player,b,facingDoorway);
   });
 }
 export const facingPubExit=player=>player.z>PUB.door.z&&facingDoorway(player,PUB.door,.7);
