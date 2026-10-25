@@ -23,6 +23,7 @@ import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=pub-music-4';
 import {HOTEL,RECEPTIONISTS,RECEPTIONIST_TALK,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=staff-room-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js';
+import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=1';
 import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
 import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=street-1';
@@ -148,6 +149,8 @@ const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevat
 // Uniform over the upper sky, so they do not crowd around the zenith.
 for(let i=0;i<700;i++)stars.push({bearing:Math.random()*Math.PI*2,elevation:Math.asin(Math.sin(.45)+Math.random()*(1-Math.sin(.45))),color:starColors[Math.floor(Math.random()*starColors.length)]});
 const moon={bearing:.33,elevation:.31};
+const shootingStars=new ShootingStars();
+const skyView=()=>({angle:player.angle,width:W,focal:F,horizon,pitch:playerSeat?.pitch??0});
 let running=false,time=0,last=0,queue=[],shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
 let noticeText='',coverPressed=false,startSpaceHeld=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -591,6 +594,7 @@ function render(){
     const widths=[5,9,11,11,13,13,13,13,13,11,11,9,5];
     widths.forEach((width,row)=>ctx.fillRect(moonPosition.x-(width-1)/2,moonPosition.y-6+row,width,1));
   }
+  shootingStars.draw(ctx,skyView());
   const ground=skyHorizon(horizon,F,pitch);
   ctx.fillStyle='#252233';if(ground<H)ctx.fillRect(0,ground,W,H-ground);queue=[];
   const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=(chunk.river?RIVER_VIEW_DISTANCE:170));
@@ -686,6 +690,7 @@ function tick(now){
     if(!bansheeFrame((now-banshee.started)/1000).active){banshee=null;notice=3.5;noticeText='WTF WAS THAT??...';}
   }
   if(running&&!pubMenu.open&&!banshee&&!staffTalk){
+    shootingStars.update(cameraDt,!indoors()&&onRiverWalk(player),skyView());
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     const pace=!playerSeat&&keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;
