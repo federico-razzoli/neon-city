@@ -2060,6 +2060,25 @@ test('the bartender is reached across the bar, though not as far without one',as
   assert.equal(facingBartenderAcrossBar({x:16.5,z:12.6,angle:Math.atan2(bartender.x-16.5,bartender.z-12.6)}),false);
 });
 
+test('the pint on the bar belongs to someone else, from either side of the bar',async()=>{
+  const {PUB,BAR_BEER_REPLY,facingPokeBall,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
+  assert.equal(BAR_BEER_REPLY,"THAT'S NOT YOURS!");
+  const beer=PUB.barBeer,aim=p=>({...p,angle:Math.atan2(beer.x-p.x,beer.z-p.z)});
+  for(const dx of [0,-1.5,1.5]){
+    const p={x:beer.x+dx,z:11,angle:0};moveInPub(p,0,3);
+    assert.equal(facingPokeBall(aim(p),beer),true);
+    assert.equal(facingPokeBall({...aim(p),angle:aim(p).angle+Math.PI/2},beer),false,'looking aside');
+  }
+  // Against the back of the counter, in the staff aisle.
+  const behind={x:beer.x,z:PUB.bartender.z,angle:Math.PI};moveInPub(behind,0,-1);
+  assert.ok(behind.z>PUB.bar.z+PUB.bar.d);
+  assert.equal(facingPokeBall(aim(behind),beer),true);
+  assert.equal(facingPokeBall(aim({x:beer.x,z:9}),beer),false,'too far back in the room');
+  const front={x:PUB.bartender.x,z:12.6,angle:0};
+  assert.equal(facingPokeBall(front,beer),false,'aiming at the bartender talks to them');
+  assert.equal(facingBartenderAcrossBar(front),true);
+});
+
 test('Nurse Joy\'s Poké Ball stays on the counter, from either side of the bar or desk',async()=>{
   const {PUB,NURSE_JOY,BLONDE_RECEPTIONIST,POKE_BALL_REPLY,hasPokeBall,facingPokeBall,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
   const {HOTEL,moveInHotel}=await import('../neon-city/hotel-interior.js');
