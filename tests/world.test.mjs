@@ -4226,6 +4226,19 @@ test('stairwell uses every hotel palette and draws two flights, three closed cor
   }
 });
 
+test('second-floor storage door on the west wall is locked',async()=>{
+  const {facingStorageDoor,STORAGE_DOOR_REPLY}=await import('../neon-city/hotel-stairwell.js');
+  assert.equal(STORAGE_DOOR_REPLY,"IT'S LOCKED.");
+  const west=-Math.PI/2,idle=floor=>({floor,flight:null});
+  for(const z of [1.1,1.5,1.9])assert.ok(facingStorageDoor({x:1.5,z,angle:west},idle(2)));
+  assert.ok(facingStorageDoor({x:2.5,z:2.6,angle:west-.3},idle(2)),'aiming across the recess reaches it');
+  assert.ok(!facingStorageDoor({x:1.5,z:1.5,angle:Math.PI},idle(2)),'the south wall no longer has it');
+  assert.ok(!facingStorageDoor({x:1.5,z:1.5,angle:-west},idle(2)));
+  assert.ok(!facingStorageDoor({x:1.5,z:2.9,angle:west},idle(2)),'beside the frame misses');
+  for(const floor of [1,3])assert.ok(!facingStorageDoor({x:1.5,z:1.5,angle:west},idle(floor)));
+  assert.ok(!facingStorageDoor({x:1.5,z:1.5,angle:west},{floor:2,flight:2}));
+});
+
 test('stairwell lights unlock the street-light question in the receptionist recommendations menu',async()=>{
   const {interactStairwellLight,STAIRWELL_LIGHT_REPLY}=await import('../neon-city/hotel-stairwell.js');
   const {RECEPTIONIST_TALK}=await import('../neon-city/hotel-interior.js');
