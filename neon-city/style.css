@@ -13,3 +13,5 @@
 #inventory{width:min(520px,90vw);max-height:85dvh;padding:24px;background:#140e24;color:#ffdb97;border:1px solid #ff57bd;box-shadow:6px 6px #491c49;font-family:monospace}#inventory::backdrop{background:#080710b8}#inventory h2{margin-top:0;letter-spacing:3px}#inventory-items{list-style:none;padding:0;max-height:35dvh;overflow:auto}#inventory-items li{padding:10px 24px;color:#cdbcd7}#inventory-items li[aria-current]{color:#ffdb97;background:#491c49}#inventory-items li[aria-current]::before{content:'▸';position:absolute;margin-left:-18px}#inventory-description{min-height:3em;line-height:1.6}.inventory-controls{font-size:12px;line-height:1.8;color:#cdbcd7}
 
 #staff-talk .talk-separator{border-top:1px solid #cdbcd766;margin-top:8px;padding-top:8px}#staff-talk .give-prompt{margin:0 0 12px;color:#cdbcd7;font-size:12px}#staff-talk{max-height:75dvh;overflow:auto}
+
+#money{margin-left:auto;margin-right:16px;color:#a7edc1;font-size:16px;font-weight:bold;white-space:nowrap;background:#100b25c0;border:1px solid #a7edc166;padding:8px}#pace{margin-right:16px}

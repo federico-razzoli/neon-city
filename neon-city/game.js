@@ -1,3 +1,4 @@
+import {Wallet,drawMoneyNote} from './money.js?v=oblique-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem} from './inventory.js?v=hotel-note-1';
@@ -38,6 +39,8 @@ import {HornWarning,playHorn} from './horn.js';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const inventory=new Inventory(),inventoryBox=document.querySelector('#inventory');
+const wallet=new Wallet(),moneyDisplay=document.querySelector('#money');
+moneyDisplay.textContent=wallet.balance;
 const pubMenu=document.querySelector('#pub-menu'),talkBox=document.querySelector('#staff-talk');
 let insideArcade=false,currentArcadeName='',insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,lavatoryTaps=[],currentHotel=null,hotelLife=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
 let hotelStairs=null,hotelStorage=false,currentVenue=null;
@@ -342,7 +345,7 @@ function drawFace(f){
   // Opaque building textures own complete pixels at panel edges and carry
   // their own continuous fog. A polygon underlay/overlay would add seams.
   if(!f.buildingWall){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();}
-  if(f.texture&&playerSeat?.pitch)drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
+  if(f.texture&&(f.groundTexture||playerSeat?.pitch))drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
   else if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
   if(f.buildingWall)return;
   const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
@@ -714,6 +717,9 @@ function render(){
     for(const p of chunk.people)person(pedestrian(chunk,p,time));
   }
   drawDroppedItems(visible);
+  const firstMoneyFace=queue.length;
+  drawMoneyNote(wallet.note,face);
+  for(let i=firstMoneyFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;queue[i].groundTexture=true;}
   const firstSignFace=queue.length;
   drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z});
   for(let i=firstSignFace;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
@@ -785,7 +791,7 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){notice=2.5;noticeText=pickedUp;return;}if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(useSeat())return;if(useDoor())return;if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){notice=2.5;noticeText=pickedUp;return;}if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(useSeat())return;if(useDoor())return;if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}return;}if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){

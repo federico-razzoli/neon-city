@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b0818">
   <title>Neon City — an endless night</title>
-  <link rel="stylesheet" href="style.css?v=give-1">
+  <link rel="stylesheet" href="style.css?v=money-1">
 </head>
 <body>
   <main id="game">
     <canvas id="view" width="640" height="360" tabindex="0" aria-label="Neon City. Up and down to walk, left and right to turn. A and D to sidestep. Hold Shift to run. Space to try lifting a manhole cover. I for inventory. Escape to pause."></canvas>
     <div class="scanlines" aria-hidden="true"></div>
-    <header><div class="brand">NEON<span>CITY</span><small>AN ENDLESS NIGHT / 1987</small></div><span id="pace" hidden>RUNNING ×3</span><button id="pause" aria-label="Pause game">Ⅱ</button></header>
+    <header><div class="brand">NEON<span>CITY</span><small>AN ENDLESS NIGHT / 1987</small></div><span id="money" role="status" aria-label="Money">£0.00</span><span id="pace" hidden>RUNNING ×3</span><button id="pause" aria-label="Pause game">Ⅱ</button></header>
     <footer><span id="location">MIDNIGHT DISTRICT</span><span id="hint">↑ ↓ WALK &nbsp; ← → TURN &nbsp; A D SIDESTEP &nbsp; SHIFT RUN &nbsp; SPACE INTERACT &nbsp; I INVENTORY</span><span class="clock">02:17 AM</span></footer>
     <div id="message" role="status"></div>
     <div id="staff-talk" aria-label="Talk to the bartender" hidden></div>
@@ -41,6 +41,6 @@
     </section>
     <nav id="touch" aria-label="Movement controls"><button data-key="ArrowLeft" aria-label="Turn left">↶</button><div><button data-key="ArrowUp" aria-label="Walk forward">↑</button><button data-key="ArrowDown" aria-label="Walk backward">↓</button></div><button data-key="ArrowRight" aria-label="Turn right">↷</button></nav>
   </main>
-  <script type="module" src="game.js?v=crosswalk-yield-1"></script>
+  <script type="module" src="game.js?v=oblique-money-1"></script>
 </body>
 </html>
