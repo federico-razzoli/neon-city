@@ -12,7 +12,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=park-entrances-1';
-import {Traffic} from './traffic.js?v=crosswalk-braking-1';
+import {Traffic} from './traffic.js?v=crossing-horns-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=flowers-1';
@@ -34,7 +34,7 @@ import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
 import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=street-1';
 import {hotelHIsDim,dimHotelH,drawHotel,hotelLook} from './hotel.js?v=park-entrances-1';
-import {HornWarning,playHorn} from './horn.js';
+import {HornWarning,playHorn} from './horn.js?v=crossing-horns-2';
 
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
@@ -826,6 +826,7 @@ function tick(now){
       playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
     }
     const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
+    if(insidePub||insideLavatory||insideCubicle||insideArcade||insideHotel)hornWarning.update(dt,null,[]);
     if(insidePub){
       pubLife?.update(dt,pubPatrons,playerSeat,player);
       const line=pubTalk?.update(dt);

@@ -7,7 +7,7 @@ const lane=car=>`${car.axis}:${car.dir}:${Math.round((car.axis?car.z:car.x)/BLOC
 
 // Match the painted crossings at offsets 9.5–12.2, including their gaps,
 // and hold both lanes until the pedestrian reaches the pavement.
-function occupiedCrossings(player){
+export function occupiedCrossings(player){
   if(!player)return [];
   const x=Math.round(player.x/BLOCK)*BLOCK,z=Math.round(player.z/BLOCK)*BLOCK;
   if(isRiverRow(z/BLOCK))return [];
@@ -67,7 +67,7 @@ export class Traffic {
       if(!waiting.has(key))waiting.set(key,[]);
       waiting.get(key).push(car);
     }
-    for(const [key,queue] of waiting)if(queue.length>=3&&!this.blockedLanes.has(key))this.blockedLanes.set(key,new Set(queue));
+    for(const [key,queue] of waiting)if(queue.length>=2&&!this.blockedLanes.has(key))this.blockedLanes.set(key,new Set(queue));
   }
 
   advance(dt,player){

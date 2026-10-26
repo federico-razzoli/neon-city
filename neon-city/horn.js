@@ -1,3 +1,5 @@
+import {occupiedCrossings} from './traffic.js?v=crossing-horns-1';
+
 export function distanceToCar(player,car){
   const dx=Math.max(0,Math.abs(player.x-car.x)-(car.axis?2.35:1.05));
   const dz=Math.max(0,Math.abs(player.z-car.z)-(car.axis?1.05:2.35));
@@ -5,10 +7,28 @@ export function distanceToCar(player,car){
 }
 
 export class HornWarning {
-  constructor(){this.cooldown=0;}
+  constructor(){this.cooldown=0;this.crossings=new Map();}
   update(dt,player,cars){
     this.cooldown=Math.max(0,this.cooldown-dt);
-    if(this.cooldown>0||!cars.some(car=>distanceToCar(player,car)<2))return false;
+    const active=new Map();
+    let impatient=false;
+    for(const crossing of occupiedCrossings(player)){
+      const key=`${crossing.axis}:${crossing.street}:${crossing.start}`;
+      const timer=this.crossings.get(key)??{elapsed:0,nextHorn:5};
+      timer.elapsed+=dt;
+      active.set(key,timer);
+      const queued=cars.some(car=>car.waiting&&!car.turn&&car.axis===crossing.axis&&
+        Math.abs((car.axis?car.z:car.x)-crossing.street)<4&&
+        ((car.dir>0?crossing.start:crossing.end)-(car.axis?car.x:car.z))*car.dir>=0);
+      if(queued&&timer.elapsed>timer.nextHorn){
+        impatient=true;
+        timer.nextHorn=timer.elapsed+2+Math.random();
+      }
+    }
+    this.crossings=active;
+    const nearby=player&&cars.some(car=>!car.waiting&&(car.speed??10)>0&&distanceToCar(player,car)<2);
+    if(impatient){this.cooldown=2.5;return true;}
+    if(this.cooldown>0||!nearby)return false;
     this.cooldown=2.5;
     return true;
   }

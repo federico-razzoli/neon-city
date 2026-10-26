@@ -4879,24 +4879,22 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
   }
 });
 
-test('three-car spawn lock remains until every queued car has started moving',async()=>{
+test('two-car spawn lock remains until every queued car has started moving',async()=>{
   const {Traffic}=await import('../neon-city/traffic.js');
   const simulation=new Traffic();
-  const queue=[0,1,2].map(i=>({x:-3,z:30+i*9,axis:0,dir:-1,waiting:true}));
+  const queue=[0,1].map(i=>({x:-3,z:30+i*9,axis:0,dir:-1,waiting:true}));
   simulation.cars=queue;
   simulation.updateSpawnLocks();
   assert.equal(simulation.blockedLanes.size,1);
   queue[0].waiting=false;simulation.updateSpawnLocks();
   assert.equal(simulation.blockedLanes.size,1);
-  queue[1].waiting=false;simulation.updateSpawnLocks();
-  assert.equal(simulation.blockedLanes.size,1);
   // Force fresh loaded tiles to offer spawn candidates on the blocked lane.
   const chunks=Array.from({length:8},(_,z)=>({x:0,z}));
   simulation.update(chunks,0,0);
   assert.equal(simulation.cars.filter(c=>c.axis===0&&c.dir===-1&&c.x===-3).length,0,'unloaded queue is removed');
-  const active=new Traffic();active.cars=[0,1,2].map(i=>({x:3,z:20+i*9,axis:0,dir:1,waiting:true}));
+  const active=new Traffic();active.cars=[0,1].map(i=>({x:3,z:20+i*9,axis:0,dir:1,waiting:true}));
   active.update(chunks,0,0);
-  assert.equal(active.cars.filter(c=>c.axis===0&&c.dir===1&&c.x===3).length,3,'blocked lane gets no new cars');
+  assert.equal(active.cars.filter(c=>c.axis===0&&c.dir===1&&c.x===3).length,2,'blocked lane gets no new cars');
   assert.ok(active.cars.some(c=>c.axis===1),'other lanes still spawn');
   for(const car of active.cars)car.waiting=false;
   active.updateSpawnLocks();
@@ -4972,4 +4970,24 @@ test('cars brake progressively before crossings and accelerate when clear',async
   assert.ok(Math.abs(car.z-4.9)<1e-7,'bumper clearance is doubled');
   simulation.advance(.04);
   assert.ok(car.speed>0&&car.speed<.2,'pulls away gradually');
+});
+
+test('stopped cars ignore proximity and honk only after lingering on their crossing',async()=>{
+  const {HornWarning}=await import('../neon-city/horn.js');
+  for(const axis of [0,1])for(const dir of [-1,1]){
+    const point=(along,across)=>axis?{x:along,z:across}:{x:across,z:along};
+    const car={...point(dir>0?4.9:16.8,3),axis,dir,waiting:true,speed:0};
+    const warning=new HornWarning(),player=point(10.5,3);
+    assert.equal(warning.update(6,point(dir>0?4.9:16.8,5),[car]),false,'proximity alone stays quiet');
+    assert.equal(warning.update(5,player,[car]),false,'five-second grace');
+    assert.equal(warning.update(.01,player,[car]),true);
+    assert.equal(warning.update(1.99,player,[car]),false);
+    assert.equal(warning.update(1.02,player,[car]),true,'repeats within 2–3 seconds');
+    assert.equal(warning.update(1,point(20,10),[car]),false,'leaving cancels reminders');
+    assert.equal(warning.update(5,player,[car]),false,'returning starts a fresh grace period');
+    assert.equal(warning.update(.01,player,[{...car,axis:1-axis}]),false,'unrelated queues stay quiet');
+    assert.equal(warning.update(.01,player,[{...car,waiting:false,speed:10}]),false,'requires a stopped car');
+    warning.update(1,null,[]);
+    assert.equal(warning.update(5,player,[car]),false,'going indoors resets the timer');
+  }
 });
