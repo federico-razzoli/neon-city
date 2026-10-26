@@ -4873,6 +4873,8 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
     simulation.advance(2,point(origin+10.5,street+7));
     assert.equal(position(cars[0]),before,'both lanes wait until the entire road is clear');
     simulation.advance(2,point(origin+10.5,street+10));
+    assert.ok(!cars[0].waiting,'front car resumes promptly');
+    simulation.advance(6,point(origin+10.5,street+10));
     assert.ok(cars.every(c=>!c.waiting),'queue resumes after pedestrian clears road');
     assert.equal(simulation.blockedLanes.size,0);
     assert.ok((position(cars[0])-before)*dir>7);
@@ -5015,4 +5017,48 @@ test('cars commit to passing a crossing when there is insufficient braking dista
     simulation.advance(.04);
     assert.equal(car.crossingDecisions.size,0,'leaving the crossing clears its decision');
   }
+});
+
+test('all crossroads approaches take turns without collisions or deadlock',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const reverse of [false,true])for(const origin of [0,-64]){
+    const cars=[];
+    for(const axis of [0,1])for(const dir of [-1,1])cars.push({
+      x:origin+(axis?-dir*31:dir*3),z:origin+(axis?-dir*3:-dir*31),axis,dir,
+    });
+    const simulation=new Traffic();simulation.cars=reverse?[...cars].reverse():cars;
+    let first=null;
+    for(let i=0;i<800;i++){
+      simulation.advance(.04);
+      for(const car of cars){
+        const along=((car.axis?car.x:car.z)-origin)*car.dir;
+        if(along>-17&&first===null)first=`${car.axis}:${car.dir}`;
+      }
+      for(let a=0;a<cars.length;a++)for(let b=a+1;b<cars.length;b++){
+        assert.ok(Math.hypot(cars[a].x-cars[b].x,cars[a].z-cars[b].z)>5,'cars keep clear of crossing traffic');
+      }
+    }
+    assert.equal(first,'0:-1','simultaneous arrivals use a stable tie-breaker');
+    assert.ok(cars.every(car=>((car.axis?car.x:car.z)-origin)*car.dir>20),'every approach eventually clears');
+  }
+});
+
+test('junction priority honours earlier arrivals, occupied junctions, and blocked exits',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  const simulation=new Traffic();
+  const earlier={x:-27,z:-3,axis:1,dir:1},later={x:3,z:-31,axis:0,dir:1};
+  simulation.cars=[later,earlier];
+  let limits=simulation.junctionLimits();
+  assert.ok(limits.has(later));assert.ok(!limits.has(earlier),'earlier arrival wins over axis tie-breaker');
+  earlier.x=0;
+  limits=simulation.junctionLimits();
+  assert.ok(limits.has(later),'car inside retains priority');
+  earlier.x=30;
+  limits=simulation.junctionLimits();
+  assert.ok(!limits.has(later),'next car proceeds after junction clears');
+  const blocked=new Traffic(),approach={x:3,z:-30,axis:0,dir:1},exit={x:3,z:24,axis:0,dir:1,speed:0};
+  blocked.cars=[approach,exit];
+  assert.equal(blocked.junctionLimits().get(approach),13,'waits before entering when exit lacks room');
+  exit.z=28;
+  assert.ok(!blocked.junctionLimits().has(approach),'proceeds once there is room beyond junction');
 });

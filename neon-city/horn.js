@@ -1,4 +1,4 @@
-import {occupiedCrossings} from './traffic.js?v=crossing-commit-1';
+import {occupiedCrossings} from './traffic.js?v=junction-priority-1';
 
 export function distanceToCar(player,car){
   const dx=Math.max(0,Math.abs(player.x-car.x)-(car.axis?2.35:1.05));
