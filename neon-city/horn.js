@@ -16,19 +16,20 @@ export class HornWarning {
 
 export function playHorn(context){
   if(context?.state!=='running')return;
+  const acute=Math.random()<.5,duration=acute?1.5:1,pitch=acute?1.3:1;
   const now=context.currentTime,gain=context.createGain(),filter=context.createBiquadFilter();
-  filter.type='lowpass';filter.frequency.value=1800;
+  filter.type='lowpass';filter.frequency.value=1800*pitch;
   gain.gain.setValueAtTime(0,now);
-  gain.gain.linearRampToValueAtTime(.1,now+.025);
-  gain.gain.setValueAtTime(.1,now+.26);
-  gain.gain.exponentialRampToValueAtTime(.001,now+.4);
+  gain.gain.linearRampToValueAtTime(.1,now+.025*duration);
+  gain.gain.setValueAtTime(.1,now+.26*duration);
+  gain.gain.exponentialRampToValueAtTime(.001,now+.4*duration);
   filter.connect(gain);gain.connect(context.destination);
   let remaining=2;
-  // A paired low/high tone gives a short, familiar two-tone car horn.
+  // Randomly choose the original two-tone horn or a higher, longer variant.
   for(const frequency of [350,440]){
     const oscillator=context.createOscillator();
-    oscillator.type='sawtooth';oscillator.frequency.value=frequency;
-    oscillator.connect(filter);oscillator.start(now);oscillator.stop(now+.41);
+    oscillator.type='sawtooth';oscillator.frequency.value=frequency*pitch;
+    oscillator.connect(filter);oscillator.start(now);oscillator.stop(now+.41*duration);
     oscillator.onended=()=>{oscillator.disconnect();if(--remaining===0){filter.disconnect();gain.disconnect();}};
   }
 }
