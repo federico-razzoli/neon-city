@@ -11,7 +11,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=park-entrances-1';
-import {Traffic} from './traffic.js?v=traffic-random-1';
+import {Traffic} from './traffic.js?v=crosswalk-yield-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=flowers-1';
@@ -865,7 +865,7 @@ function tick(now){
     city.update(player.x,player.z);
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
     parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
-    const cars=roadTraffic.update(city.chunks.values(),time,dt);
+    const cars=roadTraffic.update(city.chunks.values(),time,dt,player);
     if(hornWarning.update(dt,player,cars))playHorn(audioContext);
     collision: if(!hitCooldown)for(const c of cars){
       if(Math.abs(player.x-c.x)<(c.axis?2.8:1.5)&&Math.abs(player.z-c.z)<(c.axis?1.5:2.8)){
