@@ -1,6 +1,8 @@
 import {BLOCK,RIVER_ROWS,hasBridge,isRiverRow,traffic} from './world.js?v=traffic-random-1';
 
 const SPEED=10,RADIUS=6,HEADWAY=9;
+// The bumper extends 2.4 m from the centre; leave twice the old 1.1 m gap.
+const CROSSING_STOP=4.6,BRAKING=4,ACCELERATION=4;
 const lane=car=>`${car.axis}:${car.dir}:${Math.round((car.axis?car.z:car.x)/BLOCK)}`;
 
 // Match the painted crossings at offsets 9.5–12.2, including their gaps,
@@ -75,9 +77,10 @@ export class Traffic {
       const step=Math.min(dt,.04);dt-=step;
       for(const car of this.cars){
         car.waiting=false;
-        let travel=SPEED*step;
+        const speed=car.speed??SPEED;
+        let travel=Math.min(SPEED,speed+ACCELERATION*step)*step,clearance=Infinity;
         const turn=car.turn??junction(car);
-        if(turn&&!car.turn&&(turn.bank-car.z)*car.dir<=9+SPEED*step){
+        if(turn&&!car.turn&&(turn.bank-car.z)*car.dir<=9+travel){
           travel-=Math.max(0,(turn.bank-car.z)*car.dir-9);
           car.z=turn.bank-car.dir*9;
           const mergeX=turn.street+car.dir*9,mergeZ=turn.bank-car.dir*3;
@@ -88,7 +91,7 @@ export class Traffic {
             const gap=(other.x-mergeX)*car.dir;
             return gap>-24&&gap<14;
           });
-          if(blocked){car.waiting=true;continue;}
+          if(blocked){car.speed=0;car.waiting=true;continue;}
           car.turn={...turn,angle:0};
         }
         const heading=car.turn?.angle??(car.axis?Math.PI/2:0);
@@ -97,15 +100,23 @@ export class Traffic {
           const position=car.axis?car.x:car.z;
           const edge=car.dir>0?crossing.start:crossing.end;
           const distance=(edge-position)*car.dir;
-          if(distance>=0)travel=Math.min(travel,Math.max(0,distance-3.5));
+          if(distance>=0)clearance=Math.min(clearance,Math.max(0,distance-CROSSING_STOP));
         }
         for(const other of this.cars){
           if(other===car)continue;
           const x=other.x-car.x,z=other.z-car.z;
           const along=x*dx+z*dz,across=Math.abs(x*dz-z*dx);
-          if(along>0&&across<2.7&&other.dir===car.dir)travel=Math.min(travel,Math.max(0,along-HEADWAY));
+          if(along>0&&across<2.7&&other.dir===car.dir)clearance=Math.min(clearance,Math.max(0,along-HEADWAY));
         }
-        if(travel<1e-8){car.waiting=true;continue;}
+        // A braking-distance envelope reduces speed before the stop line.
+        // Include this step's travel so even a slow frame cannot overshoot it.
+        const safeSpeed=Math.sqrt((BRAKING*step)**2+2*BRAKING*clearance)-BRAKING*step;
+        const nextSpeed=Math.min(SPEED,speed+ACCELERATION*step,safeSpeed);
+        if(!car.turn)travel=nextSpeed*step;
+        else travel=Math.min(travel,nextSpeed*step);
+        car.speed=nextSpeed;
+        if(clearance<.002){travel=clearance;car.speed=0;}
+        if(travel<1e-8){car.speed=0;car.waiting=true;continue;}
         if(car.turn){
           const t=car.turn;t.angle=Math.min(Math.PI/2,t.angle+travel/RADIUS);
           car.x=t.street+car.dir*(9-RADIUS*Math.cos(t.angle));

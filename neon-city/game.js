@@ -12,7 +12,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=park-entrances-1';
-import {Traffic} from './traffic.js?v=crosswalk-offset-3';
+import {Traffic} from './traffic.js?v=crosswalk-braking-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=flowers-1';

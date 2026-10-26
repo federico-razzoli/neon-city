@@ -769,7 +769,7 @@ test('riverside turns wait for approaching traffic, queue, and resume after a sa
     simulation.advance(.04);
     assert.equal(car.waiting,true);assert.equal(car.z,bank-dir*9);
     assert.equal(car.turn,undefined,'does not enter the lane in front of a nearby car');
-    for(let i=0;i<200;i++){
+    for(let i=0;i<300;i++){
       simulation.advance(.04);
       assert.ok(Math.hypot(car.x-follower.x,car.z-follower.z)>7,'queued cars keep space');
       assert.ok(Math.hypot(car.x-through.x,car.z-through.z)>6,'merge clears through traffic');
@@ -4866,7 +4866,7 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
     simulation.advance(8,player);
     assert.ok(cars.every(c=>c.waiting),'all three cars wait');
     const position=c=>axis?c.x:c.z;
-    assert.ok(Math.abs(position(cars[0])-(edge-dir*3.5))<1e-7,'front bumper stops before stripes');
+    assert.ok(Math.abs(position(cars[0])-(edge-dir*4.6))<1e-7,'front bumper stops before stripes');
     for(let i=1;i<3;i++)assert.ok((position(cars[i-1])-position(cars[i]))*dir>=9-1e-7,'queue leaves safe gaps');
     assert.equal(simulation.blockedLanes.size,1);
     const before=position(cars[0]);
@@ -4875,7 +4875,7 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
     simulation.advance(2,point(origin+10.5,street+10));
     assert.ok(cars.every(c=>!c.waiting),'queue resumes after pedestrian clears road');
     assert.equal(simulation.blockedLanes.size,0);
-    assert.ok((position(cars[0])-before)*dir>10);
+    assert.ok((position(cars[0])-before)*dir>7);
   }
 });
 
@@ -4954,4 +4954,22 @@ test('ground note print remains attached to world coordinates as the camera turn
     }
     assert.ok(samples>0);
   }
+});
+
+
+test('cars brake progressively before crossings and accelerate when clear',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  const simulation=new Traffic(),car={x:3,z:-15,axis:0,dir:1};
+  simulation.cars=[car];
+  const player={x:3,z:10.5},speeds=[];
+  for(let i=0;i<160;i++){
+    simulation.advance(.04,player);speeds.push(car.speed);
+    assert.ok(car.z<=9.5-4.6+1e-8,'never passes the stopping point');
+  }
+  assert.ok(speeds.filter(v=>v>1&&v<9).length>30,'slows over many frames');
+  for(let i=1;i<speeds.length;i++)assert.ok(speeds[i-1]-speeds[i]<.3,'no abrupt stop');
+  assert.equal(car.speed,0);
+  assert.ok(Math.abs(car.z-4.9)<1e-7,'bumper clearance is doubled');
+  simulation.advance(.04);
+  assert.ok(car.speed>0&&car.speed<.2,'pulls away gradually');
 });
