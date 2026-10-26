@@ -71,12 +71,15 @@ export class Traffic {
   }
 
   advance(dt,player){
-    const crossings=occupiedCrossings(player);
+    const crossings=occupiedCrossings(player).map(c=>({...c,key:`${c.axis}:${c.street}:${c.start}`}));
+    const activeCrossings=new Set(crossings.map(c=>c.key));
     // Small steps keep queue spacing stable even after a slow frame.
     while(dt>1e-8){
       const step=Math.min(dt,.04);dt-=step;
       for(const car of this.cars){
         car.waiting=false;
+        car.crossingDecisions??=new Map();
+        for(const key of car.crossingDecisions.keys())if(!activeCrossings.has(key))car.crossingDecisions.delete(key);
         const speed=car.speed??SPEED;
         let travel=Math.min(SPEED,speed+ACCELERATION*step)*step,clearance=Infinity;
         const turn=car.turn??junction(car);
@@ -100,7 +103,14 @@ export class Traffic {
           const position=car.axis?car.x:car.z;
           const edge=car.dir>0?crossing.start:crossing.end;
           const distance=(edge-position)*car.dir;
-          if(distance>=0)clearance=Math.min(clearance,Math.max(0,distance-CROSSING_STOP));
+          if(distance<0)continue;
+          if(!car.crossingDecisions.has(crossing.key)){
+            // Decide once when this crossing becomes occupied. A car too close
+            // to brake comfortably must keep going, even if it slows later.
+            const stoppingDistance=speed*speed/(2*BRAKING)+speed*.04;
+            car.crossingDecisions.set(crossing.key,distance-CROSSING_STOP>=stoppingDistance-1e-7);
+          }
+          if(car.crossingDecisions.get(crossing.key))clearance=Math.min(clearance,Math.max(0,distance-CROSSING_STOP));
         }
         for(const other of this.cars){
           if(other===car)continue;

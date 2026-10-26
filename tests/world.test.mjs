@@ -4991,3 +4991,28 @@ test('stopped cars ignore proximity and honk only after lingering on their cross
     assert.equal(warning.update(5,player,[car]),false,'going indoors resets the timer');
   }
 });
+
+test('cars commit to passing a crossing when there is insufficient braking distance',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const axis of [0,1])for(const dir of [-1,1])for(const origin of [0,-64]){
+    const point=(along,across)=>axis?{x:along,z:across}:{x:across,z:along};
+    const edge=origin+(dir>0?9.5:12.2),player=point(origin+10.5,origin);
+    for(const distance of [2,8,16]){
+      const car={...point(edge-dir*distance,origin+dir*3),axis,dir};
+      const simulation=new Traffic();simulation.cars=[car];
+      for(let i=0;i<100;i++){
+        simulation.advance(.04,player);
+        assert.equal(car.speed,10,'late arrivals keep moving across the stripes');
+        assert.equal(car.waiting,false);
+      }
+      assert.ok(((axis?car.x:car.z)-edge)*dir>3,'clears the entire crossing');
+    }
+    const car={...point(edge-dir*8,origin+dir*3),axis,dir,speed:2};
+    const simulation=new Traffic();simulation.cars=[car];
+    simulation.advance(6,player);
+    assert.equal(car.waiting,true,'a slower car can safely stop from the same distance');
+    assert.ok(Math.abs((axis?car.x:car.z)-(edge-dir*4.6))<1e-7);
+    simulation.advance(.04);
+    assert.equal(car.crossingDecisions.size,0,'leaving the crossing clears its decision');
+  }
+});
