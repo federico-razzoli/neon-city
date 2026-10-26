@@ -1590,11 +1590,11 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {PubLife,PubConversation}=await import('../neon-city/pub-life.js');
   const {pubLines}=await import('../neon-city/world.js');
   const {RiverLook}=await import('../neon-city/river-look.js');
-  const {facingBench,treeReply,signReply}=await import('../neon-city/parks.js');
+  const {facingBench,treeReply,bushReply,signReply}=await import('../neon-city/parks.js');
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
-  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,treeReply,signReply,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,treeReply,bushReply,signReply,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -3618,7 +3618,7 @@ test('park trees are tall pines, closed and drawn only on viewer-facing sides',a
       const all=[];
       for(const viewer of [{x:tree.x-14,y:1.65,z:tree.z},{x:tree.x+6,y:1.65,z:tree.z+6},{x:tree.x+.9,y:1.65,z:tree.z},{x:tree.x,y:30,z:tree.z-20}]){
         const faces=[];
-        drawParkStructures({...chunk,park:{...chunk.park,benches:[],cones:[],trees:[tree],sign:null}},{face:v=>faces.push(v)},viewer);
+        drawParkStructures({...chunk,park:{...chunk.park,bushes:[],benches:[],cones:[],trees:[tree],sign:null}},{face:v=>faces.push(v)},viewer);
         all.push(...faces);
         for(const v of faces){
           const c=v.reduce((s,p)=>({x:s.x+p.x/v.length,y:s.y+p.y/v.length,z:s.z+p.z/v.length}),{x:0,y:0,z:0});
@@ -3829,7 +3829,7 @@ test('a few realistic pine cones lie on the lawn beneath the pines, off the path
       assert.ok(c.length>=.16&&c.length<=.24&&c.radius<c.length/2,'pine-cone sized');
       const draw=viewer=>{
         const faces=[];
-        drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[c],sign:null}},{face:v=>faces.push(v)},viewer);
+        drawParkStructures({...chunk,park:{...chunk.park,bushes:[],trees:[],benches:[],cones:[c],sign:null}},{face:v=>faces.push(v)},viewer);
         return faces;
       };
       assert.ok(draw({x:c.x+4,y:1.65,z:c.z+3}).length>=6);
@@ -5061,4 +5061,56 @@ test('junction priority honours earlier arrivals, occupied junctions, and blocke
   assert.equal(blocked.junctionLimits().get(approach),13,'waits before entering when exit lacks room');
   exit.z=28;
   assert.ok(!blocked.junctionLimits().has(approach),'proceeds once there is room beyond junction');
+});
+
+test('park bush dialogue loops and only gives a ladybug when one is not carried',async()=>{
+  const {bushReply}=await import('../neon-city/parks.js');
+  const {Inventory,LADYBUG,dropItem}=await import('../neon-city/inventory.js');
+  const bush={x:0,z:3,radius:1.2},chunk={park:{bushes:[bush]}},inventory=new Inventory();
+  const player={x:0,z:0,angle:0},reply=()=>bushReply(player,[chunk],inventory);
+  const first="I THINK I'VE JUST SEEN SOMETHING ON THIS BUSH.",second='THERE ARE LADYBUGS ON THIS BUSH!',third="I'LL PUT ONE ON MY SHOULDER. SHE CAN STAY WITH ME, IF SHE LIKES.";
+  assert.equal(bushReply({...player,angle:Math.PI},[chunk],inventory),null);
+  assert.equal(reply(),first);assert.equal(reply(),second);assert.equal(reply(),third);
+  assert.deepEqual(inventory.items,[LADYBUG]);
+  assert.equal(LADYBUG.name,'LADYBUG');assert.equal(LADYBUG.description,'THIS BUG IS A LADY. I THINK.');
+  for(let i=0;i<3;i++){assert.equal(reply(),first);assert.equal(reply(),second);}
+  assert.equal(inventory.items.length,1);
+  dropItem(inventory,player,chunk);
+  assert.equal(reply(),first);assert.equal(reply(),second);assert.equal(reply(),third);
+  assert.equal(inventory.items.length,1);
+  inventory.items=[];bush.stage=2;inventory.take(LADYBUG);
+  assert.equal(reply(),first,'another acquisition before the third line skips the gift');
+});
+
+test('parks have a visible solid bush clear of their walking path',async()=>{
+  const {pathDistance,PARK_PATH_WIDTH}=await import('../neon-city/world.js');
+  const {drawParkStructures}=await import('../neon-city/parks.js');
+  const pathGaps=[];
+  for(let seed=1;seed<=25;seed++){
+    const {city,chunk}=parkChunk(seed),bush=chunk.park.bushes[0];
+    assert.equal(chunk.park.bushes.length,1);
+    pathGaps.push(pathDistance(chunk.park.path,bush.x,bush.z)-PARK_PATH_WIDTH/2);
+    assert.deepEqual(parkChunk(seed).chunk.park.bushes,[bush],'placement is stable for a given seed');
+    assert.ok(pathDistance(chunk.park.path,bush.x,bush.z)>=PARK_PATH_WIDTH/2+bush.radius);
+    assert.equal(city.solid(bush.x,bush.z),true);
+    const faces=[];
+    drawParkStructures({...chunk,park:{...chunk.park,trees:[],benches:[],cones:[],sign:null}},
+      {face:v=>faces.push(v)},{x:bush.x,y:1.65,z:bush.z-3});
+    assert.ok(faces.length>0,'bush has visible geometry');
+  }
+  assert.ok(pathGaps.some(gap=>gap>6),'bushes also grow well away from the footpath');
+  assert.ok(Math.max(...pathGaps)-Math.min(...pathGaps)>5,'distance from the path varies across parks');
+});
+
+test('dropping a ladybug loses it without leaving any recoverable item',async()=>{
+  const {Inventory,LADYBUG,FLOWER,dropItem,takeDroppedItem}=await import('../neon-city/inventory.js');
+  for(const room of ['street','pub','hotel']){
+    const inventory=new Inventory(),chunk={},player={x:0,z:0,angle:0};
+    inventory.take(LADYBUG);inventory.take(FLOWER);
+    const result=dropItem(inventory,player,chunk,room);
+    assert.equal(result.lost,true);
+    assert.deepEqual(inventory.items,[FLOWER]);assert.equal(inventory.selected,0);
+    assert.equal(chunk.droppedItems,undefined);
+    assert.equal(takeDroppedItem(player,[chunk],inventory,room),null);
+  }
 });

@@ -2,6 +2,7 @@ import {flowersFor} from './flowers.js';
 export const TAKEN='TAKEN';
 export const ALREADY_HAVE_ONE='I ALREADY HAVE ONE.';
 export const PINE_CONE={id:'pine-cone',name:'PINE CONE',description:'A PINE CONE. MOST PROBABLY, FALLEN FROM A PINE.'};
+export const LADYBUG={id:'ladybug',name:'LADYBUG',description:'THIS BUG IS A LADY. I THINK.'};
 export const FLOWER={id:'flower',name:'FLOWER',description:'A FLOWER.'};
 export const HOTEL_NOTE={id:'hotel-note',name:'HOTEL NOTE',description:'IT READS: LISA HAS THE KEY.'};
 export class Inventory{
@@ -46,6 +47,7 @@ export function dropItem(inventory,player,chunk,room='street',ground=0){
   const [item]=inventory.items.splice(inventory.selected,1);
   inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   inventory.description=false;
+  if(item.id===LADYBUG.id)return {item,lost:true};
   const dropped={item,room,x:player.x,z:player.z,ground,angle:player.angle,length:.22,radius:.07};
   (chunk.droppedItems??=[]).push(dropped);
   return dropped;

@@ -1,3 +1,4 @@
+import {LADYBUG} from './inventory.js?v=ladybug-release-1';
 import {flowersFor,drawFlower} from './flowers.js';
 import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,START_SIGN,mod,pathDistance} from './world.js?v=start-sign-6';
 
@@ -181,6 +182,7 @@ export function drawParkStructures(chunk,{face,signTexture},viewer){
   const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
   if(sign)drawFingerpost(sign,[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}],{face,signTexture},viewer);
   for(const t of chunk.park.trees)tree(t,face,viewer);
+  for(const b of chunk.park.bushes??[])drawBush(b,face,viewer);
 }
 
 // Each bench seats one person at either end. Seated, they face the path.
@@ -218,4 +220,73 @@ export function signReply(player,chunks,random=Math.random){
   // Allow the same targeting area as a tree trunk, despite the narrow pole.
   if(signs.some(sign=>facingParkObject(player,{...sign,radius:.5})))return SIGN_REPLIES[Math.floor(random()*SIGN_REPLIES.length)];
   return null;
+}
+
+
+const BUSH_COLORS=['#162e22','#203d29','#2c5032','#3c643c','#527b45','#668951'];
+const bushMeshes=new WeakMap();
+function bushMesh(b){
+  if(bushMeshes.has(b))return bushMeshes.get(b);
+  const mesh=[],random=n=>mod(Math.sin(b.x*12.9898+b.z*78.233+n*39.346)*43758.5453,1);
+  // Uneven, overlapping rounded sprays form a broad, untended shrub.
+  const lobes=[[0,.9,0,.82,.73,.75],[-.57,.69,.08,.62,.57,.61],
+    [.57,.83,.12,.64,.68,.58],[.12,.64,.62,.62,.49,.58],
+    [-.18,.95,-.52,.64,.63,.59],[.3,1.19,-.13,.51,.54,.49]];
+  let seed=0;
+  for(const [cx,cy,cz,rx,ry,rz] of lobes){
+    const rings=[];
+    for(let row=0;row<=6;row++){
+      const latitude=-Math.PI/2+row*Math.PI/6,ring=[];
+      for(let side=0;side<10;side++){
+        const angle=side*Math.PI/5,jitter=.91+random(seed++)*.18;
+        ring.push({x:b.x+cx+Math.cos(latitude)*Math.cos(angle)*rx*jitter,
+          y:cy+Math.sin(latitude)*ry*jitter,z:b.z+cz+Math.cos(latitude)*Math.sin(angle)*rz*jitter});
+      }
+      rings.push(ring);
+    }
+    for(let row=0;row<6;row++)for(let side=0;side<10;side++){
+      const next=(side+1)%10,angle=(side+.5)*Math.PI/5,latitude=-Math.PI/2+(row+.5)*Math.PI/6;
+      const n={x:Math.cos(latitude)*Math.cos(angle),y:Math.sin(latitude),z:Math.cos(latitude)*Math.sin(angle)};
+      mesh.push({v:[rings[row][side],rings[row][next],rings[row+1][next],rings[row+1][side]],n,color:shade(n,BUSH_COLORS)});
+    }
+    // Small pointed leaves break up the surface and the silhouette.
+    for(let leaf=0;leaf<22;leaf++){
+      const angle=random(seed++)*Math.PI*2,latitude=(random(seed++)-.35)*Math.PI;
+      const n={x:Math.cos(latitude)*Math.cos(angle),y:Math.sin(latitude),z:Math.cos(latitude)*Math.sin(angle)};
+      const centre={x:b.x+cx+n.x*rx*1.03,y:cy+n.y*ry*1.03,z:b.z+cz+n.z*rz*1.03};
+      const length=.09+random(seed++)*.1,width=length*.4;
+      const tangent={x:-Math.sin(angle),y:0,z:Math.cos(angle)};
+      const up={x:-n.y*Math.cos(angle),y:Math.cos(latitude),z:-n.y*Math.sin(angle)};
+      const point=(u,v,lift=0)=>({x:centre.x+tangent.x*u+up.x*v+n.x*lift,
+        y:centre.y+up.y*v+n.y*lift,z:centre.z+tangent.z*u+up.z*v+n.z*lift});
+      const tip=point(0,length),base=point(0,-length),ridge=point(0,0,.025);
+      mesh.push({v:[base,point(-width,0),tip,ridge],n,color:BUSH_COLORS[2+Math.floor(random(seed++)*3)]});
+      mesh.push({v:[base,ridge,tip,point(width,0)],n,color:BUSH_COLORS[1+Math.floor(random(seed++)*3)]});
+    }
+  }
+  bushMeshes.set(b,mesh);return mesh;
+}
+function drawBush(b,face,viewer){
+  for(const dx of [-.24,0,.28])band(face,viewer,{x:b.x+dx,z:b.z},.085,.055,.48,.035,BARK,{sides:5});
+  for(const {v,n,color} of bushMesh(b))if(visible(viewer,v[0],n))face(v,color);
+}
+
+const BUSH_REPLIES=[
+  "I THINK I'VE JUST SEEN SOMETHING ON THIS BUSH.",
+  "THERE ARE LADYBUGS ON THIS BUSH!",
+  "I'LL PUT ONE ON MY SHOULDER. SHE CAN STAY WITH ME, IF SHE LIKES.",
+];
+export function bushReply(player,chunks,inventory){
+  let nearest=null,distance=Infinity;
+  for(const chunk of chunks)for(const bush of chunk.park?.bushes??[]){
+    const gap=Math.hypot(bush.x-player.x,bush.z-player.z);
+    if(gap<distance&&facingParkObject(player,bush)){nearest=bush;distance=gap;}
+  }
+  if(!nearest)return null;
+  const hasLadybug=inventory.items.some(item=>item.id===LADYBUG.id);
+  let stage=nearest.stage??0;
+  if(stage===2&&hasLadybug)stage=0;
+  if(stage===2)inventory.take({...LADYBUG});
+  nearest.stage=stage===0?1:stage===1&&!hasLadybug?2:0;
+  return BUSH_REPLIES[stage];
 }

@@ -329,10 +329,10 @@ export class City {
     }
     const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
     if(lx>14-radius && lx<50+radius && lz>14-radius && lz<50+radius){
-      // Unloaded blocks keep the building footprint; parks block only trees and benches.
+      // Unloaded blocks keep the building footprint; parks block trees, bushes, signs, and benches.
       const park=chunk?.park;
       if(!park)return true;
-      return park.trees.some(t=>Math.hypot(x-t.x,z-t.z)<t.radius+radius)||
+      return (park.bushes??[]).some(b=>Math.hypot(x-b.x,z-b.z)<b.radius+radius)||park.trees.some(t=>Math.hypot(x-t.x,z-t.z)<t.radius+radius)||
         (park.sign!=null&&Math.hypot(x-park.sign.x,z-park.sign.z)<RIVER_SIGN.pole+radius)||
         park.benches.some(b=>Math.abs((x-b.x)*b.tx+(z-b.z)*b.tz)<1.08+radius&&Math.abs((x-b.x)*b.nx+(z-b.z)*b.nz)<.3+radius);
     }
@@ -623,7 +623,18 @@ function parkLayout(x,z,r){
     if(benches.some(b=>Math.hypot(b.x-cx,b.z-cz)<1.3))continue;
     cones.push(cone);placed++;
   }
-  return {axis,path,benches,trees,cones,sign};
+  // Sample the same lawn area as trees, without favouring the footpath.
+  const bushes=[];
+  for(let tries=0;!bushes.length&&tries<200;tries++){
+    const bush={...at(17+r()*30,17+r()*30),radius:1.2,stage:0};
+    const gap=pathDistance(path,bush.x,bush.z);
+    if(gap<half+1.5)continue;
+    if(trees.some(t=>Math.hypot(t.x-bush.x,t.z-bush.z)<t.radius+2))continue;
+    if(benches.some(b=>Math.hypot(b.x-bush.x,b.z-bush.z)<3))continue;
+    if(sign&&Math.hypot(sign.x-bush.x,sign.z-bush.z)<3)continue;
+    bushes.push(bush);
+  }
+  return {axis,path,benches,trees,cones,sign,bushes};
 }
 // Loop positions of the sidewalk points level with each footpath end.
 export function footpathJunctions(chunk){
