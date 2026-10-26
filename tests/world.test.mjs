@@ -4859,8 +4859,8 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
   const {Traffic}=await import('../neon-city/traffic.js');
   for(const axis of [0,1])for(const dir of [-1,1])for(const origin of [0,-64]){
     const point=(along,across)=>axis?{x:along,z:across}:{x:across,z:along};
-    const edge=origin+(dir>0?7:9.7),street=origin;
-    const player=point(origin+8,street-7);
+    const edge=origin+(dir>0?9.5:12.2),street=origin;
+    const player=point(origin+10.5,street-7);
     const cars=[0,1,2].map(i=>({...point(edge-dir*(20+i*12),street+(axis?-dir:dir)*3),axis,dir}));
     const simulation=new Traffic();simulation.cars=[...cars].reverse();
     simulation.advance(8,player);
@@ -4870,9 +4870,9 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
     for(let i=1;i<3;i++)assert.ok((position(cars[i-1])-position(cars[i]))*dir>=9-1e-7,'queue leaves safe gaps');
     assert.equal(simulation.blockedLanes.size,1);
     const before=position(cars[0]);
-    simulation.advance(2,point(origin+8,street+7));
+    simulation.advance(2,point(origin+10.5,street+7));
     assert.equal(position(cars[0]),before,'both lanes wait until the entire road is clear');
-    simulation.advance(2,point(origin+8,street+10));
+    simulation.advance(2,point(origin+10.5,street+10));
     assert.ok(cars.every(c=>!c.waiting),'queue resumes after pedestrian clears road');
     assert.equal(simulation.blockedLanes.size,0);
     assert.ok((position(cars[0])-before)*dir>10);
@@ -4905,7 +4905,7 @@ test('three-car spawn lock remains until every queued car has started moving',as
 
 test('traffic continues past unoccupied crossings and pedestrians away from stripes',async()=>{
   const {Traffic}=await import('../neon-city/traffic.js');
-  for(const player of [undefined,{x:3,z:25},{x:11,z:8}]){
+  for(const player of [undefined,{x:3,z:25},{x:11,z:10.5},{x:3,z:8}]){
     const simulation=new Traffic(),car={x:3,z:-10,axis:0,dir:1};
     simulation.cars=[car];simulation.advance(4,player);
     assert.ok(car.z>29.9);assert.equal(car.waiting,false);

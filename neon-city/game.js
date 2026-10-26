@@ -12,7 +12,7 @@ import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=park-entrances-1';
-import {Traffic} from './traffic.js?v=crosswalk-yield-1';
+import {Traffic} from './traffic.js?v=crosswalk-offset-3';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=flowers-1';
@@ -573,7 +573,7 @@ function street(chunk){
   quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
   // Keep each entire dash between the intersections, which begin at offset 56.
   for(let t=12;t+4<=56;t+=12){quad(x-.09,.025,z+t,.18,4,'#b09485');quad(x+t,.025,z-.09,4,.18,'#b09485');}
-  for(let i=-3;i<=3;i++){quad(x+i*1.4,.03,z+7,.65,2.7,'#81798a');quad(x+7,.03,z+i*1.4,2.7,.65,'#81798a');}
+  for(let i=-3;i<=3;i++){quad(x+i*1.4,.03,z+9.5,.65,2.7,'#81798a');quad(x+9.5,.03,z+i*1.4,2.7,.65,'#81798a');}
   // Pavement seams and a pool of neon light outside each storefront.
   for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
   if(chunk.park){drawParkGround(chunk,{quad,face});return;}

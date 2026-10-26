@@ -3,15 +3,15 @@ import {BLOCK,RIVER_ROWS,hasBridge,isRiverRow,traffic} from './world.js?v=traffi
 const SPEED=10,RADIUS=6,HEADWAY=9;
 const lane=car=>`${car.axis}:${car.dir}:${Math.round((car.axis?car.z:car.x)/BLOCK)}`;
 
-// Match the painted crossings at offsets 7–9.7, including their gaps,
+// Match the painted crossings at offsets 9.5–12.2, including their gaps,
 // and hold both lanes until the pedestrian reaches the pavement.
 function occupiedCrossings(player){
   if(!player)return [];
   const x=Math.round(player.x/BLOCK)*BLOCK,z=Math.round(player.z/BLOCK)*BLOCK;
   if(isRiverRow(z/BLOCK))return [];
   const crossings=[];
-  if(Math.abs(player.x-x)<=8.5&&player.z-z>=6.5&&player.z-z<=10.2)crossings.push({axis:0,street:x,start:z+7,end:z+9.7});
-  if(Math.abs(player.z-z)<=8.5&&player.x-x>=6.5&&player.x-x<=10.2)crossings.push({axis:1,street:z,start:x+7,end:x+9.7});
+  if(Math.abs(player.x-x)<=8.5&&player.z-z>=9&&player.z-z<=12.7)crossings.push({axis:0,street:x,start:z+9.5,end:z+12.2});
+  if(Math.abs(player.z-z)<=8.5&&player.x-x>=9&&player.x-x<=12.7)crossings.push({axis:1,street:z,start:x+9.5,end:x+12.2});
   return crossings;
 }
 
