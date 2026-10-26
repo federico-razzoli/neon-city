@@ -197,6 +197,14 @@ export const PARK_PATH_WIDTH = 3;
 // A fingerpost: the board hangs off the side of a 3.75 m pole, from its surface
 // out to the arrow tip, which points along z towards the river.
 export const RIVER_SIGN = {pole:.08, height:3.75, start:.08, reach:2.48, tip:.45, bottom:2.925, top:3.495};
+// Brown tourist signs before two bridges name the place they stand in rather
+// than pointing anywhere: lettered on both faces, square to the riverside road,
+// well above head height. Each post stands at the kerb of the promenade, 4 m
+// along from the bridge pavement, and the panel runs towards the river (az).
+export const RIVE_GAUCHE_SIGN = {post:.06, width:1.8, bottom:3.3, top:4.4};
+export const RIVE_GAUCHE_SIGNS = [{street:0,side:1},{street:3,side:-1}].map(({street,side})=>
+  ({x:street*BLOCK+side*18, z:RIVER_ROWS[0]*BLOCK+8.4, ax:0, az:1,
+    reply:'BLACK RIVER AND THE RIVE GAUCHE ARE FAMOUS ALL OVER THE WORLD!'}));
 // A second board hangs just below the first on the same pole.
 export const LOWER_BOARD = {bottom:2.255, top:2.825};
 // The game starts in front of the first building of block 0,0, a few steps
@@ -324,6 +332,7 @@ export class City {
     const start=riverStart(Math.floor(z/BLOCK));
     if(start!==undefined){
       const street=Math.round(x/BLOCK);
+      if(RIVE_GAUCHE_SIGNS.some(s=>Math.hypot(x-s.x,z-s.z)<RIVE_GAUCHE_SIGN.post+radius))return true;
       const onBridge=hasBridge(street)&&Math.abs(x-street*BLOCK)<=14-radius;
       return !onBridge&&z>start*BLOCK+18-radius&&z<start*BLOCK+110+radius;
     }

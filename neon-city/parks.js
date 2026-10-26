@@ -1,6 +1,6 @@
 import {LADYBUG} from './inventory.js?v=ladybug-release-1';
 import {flowersFor,drawFlower} from './flowers.js';
-import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,START_SIGN,mod,pathDistance} from './world.js?v=start-sign-6';
+import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,START_SIGN,RIVE_GAUCHE_SIGNS,mod,pathDistance} from './world.js?v=rive-gauche-6';
 
 // Ground terrain is painted in order of elevation, so each layer sits above
 // the one it must cover: the footpath always paints over the lawn and its decals.
@@ -46,7 +46,7 @@ const shade=(n,colors)=>{
 
 // Tapered prism between two rings; each side is drawn only while it faces the
 // viewer, so a closed shape never shows its far side.
-function band(face,viewer,t,y0,r0,y1,r1,colors,{sides=8,bottom=true,top=true}={}){
+export function band(face,viewer,t,y0,r0,y1,r1,colors,{sides=8,bottom=true,top=true}={}){
   const ring=(y,r,a)=>({x:t.x+Math.cos(a)*r,y,z:t.z+Math.sin(a)*r});
   for(let i=0;i<sides;i++){
     const a0=i*2*Math.PI/sides,a1=a0+2*Math.PI/sides,mid=(a0+a1)/2;
@@ -215,10 +215,12 @@ export function treeReply(player,chunks,random=Math.random){
   return null;
 }
 export function signReply(player,chunks,random=Math.random){
-  const signs=[START_SIGN];
+  const signs=[START_SIGN,...RIVE_GAUCHE_SIGNS];
   for(const chunk of chunks)if(chunk.park?.sign)signs.push(chunk.park.sign);
   // Allow the same targeting area as a tree trunk, despite the narrow pole.
-  if(signs.some(sign=>facingParkObject(player,{...sign,radius:.5})))return SIGN_REPLIES[Math.floor(random()*SIGN_REPLIES.length)];
+  const sign=signs.find(sign=>facingParkObject(player,{...sign,radius:.5}));
+  // A sign with its own reply always says it; the rest pick a stock line.
+  if(sign)return sign.reply??SIGN_REPLIES[Math.floor(random()*SIGN_REPLIES.length)];
   return null;
 }
 

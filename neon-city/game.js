@@ -11,11 +11,12 @@ import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
 import {DepthRenderer} from './depth-renderer.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN} from './world.js?v=random-bush-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=rive-gauche-6';
 import {Traffic} from './traffic.js?v=junction-priority-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
-import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,bushReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=natural-bush-1';
+import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,bushReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
+import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gauche.js?v=5';
 import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
@@ -564,6 +565,15 @@ function signTexture(text,tipRight){
   }
   return signTextures.get(key);
 }
+let riveGaucheCanvas=null;
+function riveGaucheTexture(){
+  if(!riveGaucheCanvas){
+    riveGaucheCanvas=document.createElement('canvas');
+    riveGaucheCanvas.width=RIVE_GAUCHE_TEXTURE.width;riveGaucheCanvas.height=RIVE_GAUCHE_TEXTURE.height;
+    paintRiveGauche(riveGaucheCanvas.getContext('2d'));
+  }
+  return riveGaucheCanvas;
+}
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
   if(chunk.river){drawRiverTerrain(chunk,{quad,face},time);return;}
@@ -724,6 +734,9 @@ function render(){
   const firstSignFace=queue.length;
   drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z});
   for(let i=firstSignFace;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
+  const firstPlaceFace=queue.length;
+  for(const s of RIVE_GAUCHE_SIGNS)drawRiveGaucheSign(s,{face},{x:player.x,y:eye,z:player.z},riveGaucheTexture());
+  for(let i=firstPlaceFace;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
   for(const c of roadTraffic.cars)if(Math.hypot(c.x-player.x,c.z-player.z)<RIVER_VIEW_DISTANCE)car(c);
   queue=orderSurfaces(queue);
   ctx.save();if(!reduced)ctx.translate(shake?Math.sin(time*85)*shake:0,running?Math.sin(steps)*.65:0);
