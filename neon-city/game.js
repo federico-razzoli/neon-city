@@ -1,4 +1,4 @@
-import {HOTEL_CORRIDOR,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-3';
+import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-4';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
@@ -45,6 +45,7 @@ const wallet=new Wallet(),moneyDisplay=document.querySelector('#money');
 moneyDisplay.textContent=wallet.balance;
 const pubMenu=document.querySelector('#pub-menu'),talkBox=document.querySelector('#staff-talk');
 let insideArcade=false,currentArcadeName='',insidePub=false,insideHotel=false,insideLavatory=false,insideCubicle=null,lavatoryOccupied=[],lavatoryLife=null,lavatoryTaps=[],currentHotel=null,hotelLife=null,streetPosition=null,pubPatrons=[],bartenderType=1,currentPubName='',playerSeat=null,pubLife=null,pubTalk=null;
+let windowView=null;
 let hotelStairs=null,hotelStorage=false,hotelCorridor=false,currentVenue=null;
 let banshee=null,bansheeMisses=0,staffTalk=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
@@ -772,6 +773,12 @@ if(inventoryBox.open){
   else{const step={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1}[k];if(step){inventory.move(step);showInventory();}}
   return;
 }
+if(windowView&&running&&k!=='Escape'){
+  e.preventDefault();
+  if(k==='ArrowDown'){Object.assign(player,windowView.standing);windowView=null;keys.clear();shiftKeys.clear();}
+  else if(k==='ArrowLeft'||k==='ArrowRight')keys.add(k);
+  return;
+}
 if(k==='i'&&running&&!staffTalk){e.preventDefault();if(!e.repeat)toggleInventory();return;}
 if(staffTalk){
   e.preventDefault();
@@ -859,9 +866,15 @@ function tick(now){
   if(running&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk){
     shootingStars.update(cameraDt,!indoors()&&onRiverWalk(player),skyView());
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
-    const pace=!playerSeat&&keys.has('Shift')?3:1;
+    if(hotelCorridor&&!windowView&&keys.has('ArrowUp')){
+      windowView=corridorWindowView(player,corridorWindowState(currentHotel,hotelStairs.floor));
+      if(windowView){Object.assign(player,{x:windowView.x,z:windowView.z,angle:windowView.angle});keys.clear();shiftKeys.clear();coverPressed=false;notice=0;shake=0;steps=0;}
+    }
+    if(windowView&&keys.has('ArrowDown')){Object.assign(player,windowView.standing);windowView=null;keys.clear();shiftKeys.clear();}
+    const pace=!windowView&&!playerSeat&&keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;
     player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*cameraDt*1.65*pace;
+    if(windowView)player.angle=Math.max(windowView.angle-Math.PI/4,Math.min(windowView.angle+Math.PI/4,player.angle));
     if(playerSeat){
       player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
@@ -899,8 +912,8 @@ function tick(now){
       document.querySelector('#location').textContent=currentArcadeName;
     }else if(insideHotel){
       if(hotelCorridor)advanceCorridorWindow(corridorWindowState(currentHotel,hotelStairs.floor),dt);
-      if(hotelCorridor)moveInHotelCorridor(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
-      else if(hotelStorage)moveInHotelStorage(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
+      if(hotelCorridor){if(!windowView)moveInHotelCorridor(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
+      }else if(hotelStorage)moveInHotelStorage(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
       else if(hotelStairs)moveInHotelStairwell(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelStairs);
       else hotelLife.update(dt,player);
       if(!hotelStairs&&!playerSeat)moveInHotel(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelLife.walker);

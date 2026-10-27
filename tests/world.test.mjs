@@ -5237,3 +5237,17 @@ test('corridor window panes visibly rotate through intermediate positions and re
   assert.ok(glass(open).every(v=>v.z>24.1),'casements swing outside the corridor');
   assert.deepEqual(draw(0),closed,'closing restores the original geometry');
 });
+
+test('looking out requires a fully open hotel window within reach and preserves the return position',async()=>{
+  const {corridorWindowView,HOTEL_CORRIDOR}=await import('../neon-city/hotel-corridor.js');
+  const player={x:2,z:HOTEL_CORRIDOR.depth-.5,angle:0};
+  assert.equal(corridorWindowView(player,{open:false,progress:0}),null);
+  assert.equal(corridorWindowView(player,{open:true,progress:.9}),null);
+  assert.equal(corridorWindowView({...player,z:3},{open:true,progress:1}),null);
+  assert.equal(corridorWindowView({...player,angle:Math.PI},{open:true,progress:1}),null);
+  const view=corridorWindowView(player,{open:true,progress:1});
+  assert.deepEqual(view.standing,player);
+  assert.notEqual(view.standing,player);
+  assert.ok(view.z>HOTEL_CORRIDOR.depth);
+  assert.equal(view.angle,0);
+});

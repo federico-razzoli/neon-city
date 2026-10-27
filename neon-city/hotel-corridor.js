@@ -22,6 +22,11 @@ export function moveInHotelCorridor(player,dx,dz){
 // Each hotel and floor retains its own window position. Progress is continuous,
 // so another press during travel reverses it without snapping.
 export const corridorWindowState=(hotel,floor)=>(hotel.corridorWindows??={})[floor]??={progress:0,open:false};
+export function corridorWindowView(player,state){
+  const {depth,window:{x,w}}=HOTEL_CORRIDOR;
+  if(!state.open||state.progress<1||!facingDoorway(player,{x:x+w/2,z:depth},w/2))return null;
+  return {standing:{...player},x:x+w/2,z:depth+.16,angle:0};
+}
 export function interactCorridorWindow(player,state){
   const {depth,window:{x,w}}=HOTEL_CORRIDOR;
   if(!facingDoorway(player,{x:x+w/2,z:depth},w/2))return false;
