@@ -317,7 +317,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,WalkerTalk,talksHere,playDeskBell(){bells++;},
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -345,8 +345,21 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   Object.assign(player,{x:18.2,z:15.1,angle:0});press();
   assert.equal(location(),'HOTEL / FLOOR 1 / STAIRWELL');
   Object.assign(player,{x:4,z:15,angle:0});press();
+  assert.equal(location(),'HOTEL / FLOOR 1 / CORRIDOR');
+  Object.assign(player,{x:.8,z:4,angle:-Math.PI/2});press();
   assert.equal(element('#message').textContent,"IT'S LOCKED...");
-  assert.equal(location(),'HOTEL / FLOOR 1 / STAIRWELL','corridor door never leaves the stairwell');
+  Object.assign(player,{x:2.4,z:1.2,angle:Math.PI});press();
+  assert.equal(location(),'HOTEL / FLOOR 1 / STAIRWELL');
+  assert.equal(player.z,14.8);
+  for(const floor of [2,3]){
+    sandbox.game.stairs.floor=floor;
+    Object.assign(player,{x:4,z:15,angle:0});press();
+    assert.equal(location(),`HOTEL / FLOOR ${floor} / CORRIDOR`);
+    Object.assign(player,{x:4,z:20,angle:Math.PI/2});press();
+    assert.equal(element('#message').textContent,"IT'S LOCKED...");
+    Object.assign(player,{x:2.4,z:1.2,angle:Math.PI});press();
+    assert.equal(location(),`HOTEL / FLOOR ${floor} / STAIRWELL`);
+  }
   // The STORAGE door on floor 2 opens into the storeroom, and back out again.
   sandbox.game.stairs.floor=2;
   Object.assign(player,{x:1.5,z:1.5,angle:-Math.PI/2});press();
@@ -1118,7 +1131,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     return elements.get(id);
   };
   let bumpedPerson=null;
-  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,WalkerTalk,talksHere,CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,facingPubDoor:()=>null,facingPubExit:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(p,dx,dz,people,bumped){if(!bumpedPerson)return false;bumped.push(bumpedPerson);return true;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
@@ -1594,7 +1607,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
-  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,treeReply,bushReply,signReply,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,treeReply,bushReply,signReply,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -2643,7 +2656,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
     ...await import('../neon-city/pub-life.js'),CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'THE PUB',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -2718,7 +2731,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
@@ -4189,7 +4202,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
+  const sandbox={...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
     ...await import('../neon-city/walker-talk.js'),arcadeName:()=>'ARCADIA',
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
@@ -5145,5 +5158,44 @@ test('hotel note colour matches outdoor artwork after the hotel overlay',async()
     const offset=(4*8+x)*4+c;
     const displayed=Math.round(frame.data[offset]*.8+[9,7,21][c]*.2);
     assert.ok(Math.abs(displayed-outdoor[offset])<=1,'same visible colour including filtered print edges');
+  }
+});
+
+test('hotel corridors number five rooms per side on every floor and keep players inside',async()=>{
+  const {HOTEL_CORRIDOR,corridorRooms,corridorReply,moveInHotelCorridor,facingCorridorExit}=await import('../neon-city/hotel-corridor.js');
+  for(let floor=1;floor<=9;floor++){
+    const rooms=corridorRooms(floor);
+    assert.equal(rooms.filter(r=>r.side==='left').length,5);
+    assert.equal(rooms.filter(r=>r.side==='right').length,5);
+    assert.deepEqual(rooms.map(r=>r.number),Array.from({length:10},(_,i)=>String(floor*100+i+1)));
+    for(const room of rooms){
+      const player={x:room.side==='left'?.8:4,z:room.z,angle:room.side==='left'?-Math.PI/2:Math.PI/2};
+      assert.equal(corridorReply(player,floor),"IT'S LOCKED...");
+      assert.equal(corridorReply({...player,angle:0},floor),null);
+    }
+  }
+  const player={...HOTEL_CORRIDOR.spawn};
+  moveInHotelCorridor(player,100,100);
+  assert.equal(player.x,HOTEL_CORRIDOR.width-.3);
+  assert.equal(player.z,HOTEL_CORRIDOR.depth-.3,'window is a solid boundary');
+  moveInHotelCorridor(player,-100,-100);
+  assert.equal(player.x,.3);assert.equal(player.z,.3);
+  assert.equal(facingCorridorExit({...HOTEL_CORRIDOR.spawn,angle:Math.PI}),true);
+  assert.equal(facingCorridorExit(HOTEL_CORRIDOR.spawn),false);
+});
+
+test('hotel corridors reuse every hotel palette with a window opening and exterior geometry',async()=>{
+  const {drawHotelCorridor,HOTEL_CORRIDOR}=await import('../neon-city/hotel-corridor.js');
+  const {HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  const {hotelInteriorLook}=await import('../neon-city/hotel-interior.js');
+  for(const look of HOTEL_LOOKS){
+    const boxes=[],faces=[],quads=[];
+    drawHotelCorridor({look,floor:3,box:(...args)=>boxes.push(args),face:(vertices,color)=>faces.push({vertices,color}),quad:(...args)=>quads.push(args)});
+    assert.ok(boxes.some(b=>b[6]===hotelInteriorLook(look).wall));
+    assert.ok(quads.some(q=>q[5]===look.carpet));
+    const {depth:D,window:{x,y,w,h}}=HOTEL_CORRIDOR;
+    assert.ok(!boxes.some(([bx,by,bz,bw,bh])=>bz===D&&bx<x+w&&bx+bw>x&&by<y+h&&by+bh>y),'far wall leaves the full window open');
+    assert.ok(faces.some(f=>f.vertices.every(v=>v.z>D+10)),'outside buildings and sky lie beyond the window');
+    assert.ok(faces.every(f=>f.vertices.every(v=>[v.x,v.y,v.z].every(Number.isFinite))));
   }
 });
