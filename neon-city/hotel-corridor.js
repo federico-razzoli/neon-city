@@ -91,8 +91,6 @@ function drawCorridorWindow(face,box,look,floor,progress){
   const wall=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   // The same neighbouring skyline appears lower as the player climbs floors.
   const elevation=(floor-1)*HOTEL_STAIRWELL.rise;
-  wall(-100,-100,D+65,200,200,'#141a33');
-  for(const [sx,sy] of [[-12,9],[-3,7],[6,12],[15,8],[23,15]])wall(sx,sy,D+64,.14,.14,'#c9d0f2');
   wall(-60,-6-elevation,D+4,120,1,'#242332');
   for(let i=0;i<7;i++){
     const bx=-18+i*6,bz=D+12+(i%3)*3,roof=3+(i*7%5)-elevation;

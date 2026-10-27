@@ -1,4 +1,4 @@
-import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-5';
+import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-6';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
@@ -638,6 +638,17 @@ function seatedPatron(p,walking=false,height=48*.05){
     face([point(left,bottom),point(right,bottom),point(right,top),point(left,top)],run.color);
   }
 }
+// The corridor shares the outdoor sky; only pixels without room geometry show stars.
+function drawStarfield(depth=null){
+  const pitch=windowView?.pitch??playerSeat?.pitch??0;
+  for(const star of [...stars,...URSA_MAJOR]){
+    const p=projectSky(star,player.angle,W,F,horizon,pitch);
+    if(!p)continue;
+    const x=Math.floor(p.x),y=Math.floor(p.y);
+    if(y>=H||(depth&&depth[y*W+x]>0))continue;
+    ctx.fillStyle=star.color??'#3b344e';ctx.fillRect(x,y,1,1);
+  }
+}
 let interiorRenderer;
 function render(){
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
@@ -668,7 +679,9 @@ function render(){
     if(!hotelStairs&&hotelLife?.walker)seatedPatron(hotelLife.walker,true,characterHeight(hotelLife.walker.type));
     drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue,'#3a2d36');return;
+    interiorRenderer.render(queue,hotelCorridor?'#000000':'#3a2d36');
+    if(hotelCorridor)drawStarfield(interiorRenderer.depth);
+    return;
   }
   if(insideCubicle){
     queue=[];drawCubicle({face,quad,box});
@@ -699,12 +712,7 @@ function render(){
   }
   ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);
   const pitch=windowView?.pitch??playerSeat?.pitch??0;
-  for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon,pitch);if(p){ctx.fillStyle=star.color;ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}}
-  ctx.fillStyle='#3b344e';
-  for(const star of URSA_MAJOR){
-    const p=projectSky(star,player.angle,W,F,horizon,pitch);
-    if(p)ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);
-  }
+  drawStarfield();
   const moonPosition=projectSky(moon,player.angle,W,F,horizon,pitch);
   if(moonPosition){
     ctx.fillStyle='#c4aacb';
