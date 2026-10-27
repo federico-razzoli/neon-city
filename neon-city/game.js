@@ -1,4 +1,4 @@
-import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-4';
+import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-5';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
@@ -240,7 +240,7 @@ const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevat
 for(let i=0;i<700;i++)stars.push({bearing:Math.random()*Math.PI*2,elevation:Math.asin(Math.sin(.45)+Math.random()*(1-Math.sin(.45))),color:starColors[Math.floor(Math.random()*starColors.length)]});
 const moon={bearing:.33,elevation:.31};
 const shootingStars=new ShootingStars();
-const skyView=()=>({angle:player.angle,width:W,focal:F,horizon,pitch:playerSeat?.pitch??0});
+const skyView=()=>({angle:player.angle,width:W,focal:F,horizon,pitch:windowView?.pitch??playerSeat?.pitch??0});
 let running=false,time=0,last=0,queue=[],shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
 let noticeText='',coverPressed=false,startSpaceHeld=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -280,7 +280,7 @@ function playOuch(){
 
 function camera(v){
   const dx=v.x-player.x,dz=v.z-player.z,c=Math.cos(player.angle),s=Math.sin(player.angle);
-  const y=v.y-eye,z=dx*s+dz*c,pitch=playerSeat?.pitch??0,cp=Math.cos(pitch),sp=Math.sin(pitch);
+  const y=v.y-eye,z=dx*s+dz*c,pitch=windowView?.pitch??playerSeat?.pitch??0,cp=Math.cos(pitch),sp=Math.sin(pitch);
   return {x:dx*c-dz*s,y:y*cp-z*sp,z:z*cp+y*sp,u:v.u||0,v:v.v||0};
 }
 function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
@@ -354,7 +354,7 @@ function drawFace(f){
   // Opaque building textures own complete pixels at panel edges and carry
   // their own continuous fog. A polygon underlay/overlay would add seams.
   if(!f.buildingWall){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();}
-  if(f.texture&&(f.groundTexture||playerSeat?.pitch))drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
+  if(f.texture&&(f.groundTexture||windowView?.pitch||playerSeat?.pitch))drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
   else if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
   if(f.buildingWall)return;
   const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
@@ -698,7 +698,7 @@ function render(){
     interiorRenderer.render(queue);return;
   }
   ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);
-  const pitch=playerSeat?.pitch??0;
+  const pitch=windowView?.pitch??playerSeat?.pitch??0;
   for(const star of stars){const p=projectSky(star,player.angle,W,F,horizon,pitch);if(p){ctx.fillStyle=star.color;ctx.fillRect(Math.floor(p.x),Math.floor(p.y),1,1);}}
   ctx.fillStyle='#3b344e';
   for(const star of URSA_MAJOR){
@@ -775,8 +775,8 @@ if(inventoryBox.open){
 }
 if(windowView&&running&&k!=='Escape'){
   e.preventDefault();
-  if(k==='ArrowDown'){Object.assign(player,windowView.standing);windowView=null;keys.clear();shiftKeys.clear();}
-  else if(k==='ArrowLeft'||k==='ArrowRight')keys.add(k);
+  if(k===' '&&!e.repeat){Object.assign(player,windowView.standing);windowView=null;keys.clear();shiftKeys.clear();startSpaceHeld=true;}
+  else if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(k))keys.add(k);
   return;
 }
 if(k==='i'&&running&&!staffTalk){e.preventDefault();if(!e.repeat)toggleInventory();return;}
@@ -870,11 +870,14 @@ function tick(now){
       windowView=corridorWindowView(player,corridorWindowState(currentHotel,hotelStairs.floor));
       if(windowView){Object.assign(player,{x:windowView.x,z:windowView.z,angle:windowView.angle});keys.clear();shiftKeys.clear();coverPressed=false;notice=0;shake=0;steps=0;}
     }
-    if(windowView&&keys.has('ArrowDown')){Object.assign(player,windowView.standing);windowView=null;keys.clear();shiftKeys.clear();}
     const pace=!windowView&&!playerSeat&&keys.has('Shift')?3:1;
     document.querySelector('#pace').hidden=pace===1;
     player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*cameraDt*1.65*pace;
-    if(windowView)player.angle=Math.max(windowView.angle-Math.PI/4,Math.min(windowView.angle+Math.PI/4,player.angle));
+    if(windowView){
+      player.angle=Math.max(windowView.angle-Math.PI/4,Math.min(windowView.angle+Math.PI/4,player.angle));
+      const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
+      windowView.pitch=Math.max(-Math.PI/2,Math.min(Math.PI/2,windowView.pitch+tilt*cameraDt*1.65));
+    }
     if(playerSeat){
       player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));

@@ -5250,4 +5250,5 @@ test('looking out requires a fully open hotel window within reach and preserves 
   assert.notEqual(view.standing,player);
   assert.ok(view.z>HOTEL_CORRIDOR.depth);
   assert.equal(view.angle,0);
+  assert.equal(view.pitch,0);
 });

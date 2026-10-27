@@ -25,7 +25,7 @@ export const corridorWindowState=(hotel,floor)=>(hotel.corridorWindows??={})[flo
 export function corridorWindowView(player,state){
   const {depth,window:{x,w}}=HOTEL_CORRIDOR;
   if(!state.open||state.progress<1||!facingDoorway(player,{x:x+w/2,z:depth},w/2))return null;
-  return {standing:{...player},x:x+w/2,z:depth+.16,angle:0};
+  return {standing:{...player},x:x+w/2,z:depth+.16,angle:0,pitch:0};
 }
 export function interactCorridorWindow(player,state){
   const {depth,window:{x,w}}=HOTEL_CORRIDOR;
