@@ -91,13 +91,14 @@ function drawCorridorWindow(face,quad,box,look,floor,progress){
   const wall=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   // The same neighbouring skyline appears lower as the player climbs floors.
   const elevation=(floor-1)*HOTEL_STAIRWELL.rise;
-  const ground=-6-elevation,curb=.16;
+  const ground=-6-elevation,curb=.16,crossroads=[-18,14];
   // Small ground panels retain correct depth ordering when looking straight
   // down or sideways. The pavement starts directly below the open window.
-  wall(-60,ground,D+.12,120,-ground,look.wall);
+  wall(-10,ground,D+.12,24,-ground,look.wall);
   for(let sx=-60;sx<60;sx+=2){
     for(let sz=0;sz<12;sz++){
-      const pavement=sz<3||sz>=10;
+      const junction=crossroads.some(cx=>sx>=cx&&sx<cx+8);
+      const pavement=!junction&&(sz<3||sz>=10);
       quad(sx,ground+(pavement?curb:0),D+.12+sz,2,1,
         pavement?((sx/2+sz)%2?'#454552':'#4b4b58'):'#222431');
       if(pavement){
@@ -105,6 +106,7 @@ function drawCorridorWindow(face,quad,box,look,floor,progress){
         quad(sx,ground+curb+.002,D+.12+sz,2,.025,'#333440');
       }
     }
+    if(crossroads.some(cx=>sx>=cx&&sx<cx+8))continue;
     wall(sx,ground,D+3.12,2,curb,'#72717c');
     wall(sx,ground,D+10.12,2,curb,'#72717c');
     if(sx%6===0)quad(sx,ground+.004,D+6.56,2,.12,'#b9ad88');
@@ -112,13 +114,52 @@ function drawCorridorWindow(face,quad,box,look,floor,progress){
   // Continue the ground beneath the neighboring buildings to the skyline.
   for(let sx=-60;sx<60;sx+=6)for(let sz=12;sz<60;sz+=6)
     quad(sx,ground,D+.12+sz,6,6,'#292a36');
-  for(let i=0;i<7;i++){
-    const bx=-18+i*6,bz=D+12+(i%3)*3,roof=3+(i*7%5)-elevation;
-    box(bx,roof-30,bz,5,30,4,i%2?'#443747':'#3d4054');
-    box(bx-.1,roof,bz-.1,5.2,.16,4.2,'#77707b');
-    for(let row=0;row<8;row++)for(let col=0;col<3;col++){
-      const wy=roof-1.8-row*2.8;
-      wall(bx+.65+col*1.35,wy,bz-.02,.65,1.1,(i+row+col)%3?'#20273d':'#d4b879');
+  // Crossroads at both ends of the block. Sidewalks wrap around each
+  // solid block, with the rear pavement starting exactly at its back wall.
+  for(const cx of crossroads){
+    for(const [start,end] of [[-12,3],[10,38],[46,60]])for(let sz=start;sz<end;sz++){
+      quad(cx,ground+.002,D+.12+sz,8,1,'#222431');
+      for(const px of [cx-2,cx+8]){
+        quad(px,ground+curb,D+.12+sz,2,1,sz%2?'#454552':'#4b4b58');
+        quad(px,ground+curb+.002,D+.12+sz,2,.025,'#333440');
+      }
+      for(const px of [cx,cx+8])face([
+        {x:px,y:ground,z:D+.12+sz},{x:px,y:ground,z:D+1.12+sz},
+        {x:px,y:ground+curb,z:D+1.12+sz},{x:px,y:ground+curb,z:D+.12+sz}
+      ],'#72717c');
+      if(sz%6>=0&&sz%6<3)quad(cx+3.94,ground+.006,D+.12+sz,.12,1,'#b9ad88');
+    }
+    for(let stripe=0;stripe<8;stripe++)for(const sz of [.3,10.2])
+      quad(cx+stripe+.2,ground+.008,D+.12+sz,.6,sz<3?2.4:1.6,'#c4c1bb');
+    for(const px of [cx-2,cx+8.5])for(let stripe=0;stripe<7;stripe++)
+      quad(px,ground+.008,D+3.32+stripe,1.5,.6,'#c4c1bb');
+  }
+  for(let sx=-60;sx<60;sx+=2){
+    const junction=crossroads.some(cx=>sx>=cx&&sx<cx+8);
+    for(let sz=36;sz<48;sz++){
+      const pavement=!junction&&(sz<38||sz>=46);
+      quad(sx,ground+(pavement?curb:.002),D+.12+sz,2,1,pavement?'#454552':'#222431');
+      if(pavement)quad(sx,ground+curb+.002,D+.12+sz,2,.025,'#333440');
+    }
+    if(!junction){
+      for(const sz of [38,46])wall(sx,ground,D+.12+sz,2,curb,'#72717c');
+      if(sx%6===0)quad(sx,ground+.006,D+42.06,2,.12,'#b9ad88');
+    }
+  }
+  // Fill each block completely, up to all four surrounding sidewalk edges.
+  // Shared walls have no alleys; varied heights retain the existing skyline.
+  for(const px of [-62,60])for(let sz=10;sz<38;sz++){
+    quad(px,ground+curb,D+.12+sz,2,1,sz%2?'#454552':'#4b4b58');
+    quad(px,ground+curb+.002,D+.12+sz,2,.025,'#333440');
+  }
+  for(const [left,right] of [[-60,-20],[-8,12],[24,60]]){
+    const count=Math.ceil((right-left)/6),width=(right-left)/count;
+    for(let lot=0;lot<count;lot++){
+      const bx=left+lot*width,i=Math.round((bx+60)/2),bz=D+12.12,roof=3+(i*7%5)-elevation;
+      box(bx,ground,bz,width,roof-ground,24,i%2?'#443747':'#3d4054');
+      box(bx,roof,bz,width,.16,24,'#77707b');
+      for(let wy=roof-1.8;wy>ground+.5;wy-=2.8)for(let col=0;col<3;col++)
+        wall(bx+(col+.5)*width/3-.325,wy,bz-.02,.65,1.1,(i+Math.round(wy)+col)%3?'#20273d':'#d4b879');
     }
   }
   for(const [fx,fy,fw,fh] of [[x,y,w,.08],[x,y+h-.08,w,.08],[x,y,.08,h],[x+w-.08,y,.08,h]])box(fx,fy,D-.06,fw,fh,.12,look.metal);

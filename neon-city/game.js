@@ -1,5 +1,5 @@
 import {hotelStreetLife} from './hotel-street.js?v=1';
-import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-7';
+import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-blocks-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
