@@ -346,6 +346,10 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   assert.equal(location(),'HOTEL / FLOOR 1 / STAIRWELL');
   Object.assign(player,{x:4,z:15,angle:0});press();
   assert.equal(location(),'HOTEL / FLOOR 1 / CORRIDOR');
+  Object.assign(player,{x:2.4,z:22,angle:0});press();
+  assert.equal(hotel.corridorWindows[1].open,true);
+  assert.ok(hotel.corridorWindows[1].progress>0&&hotel.corridorWindows[1].progress<1,'game ticks animate the window');
+  press();assert.equal(hotel.corridorWindows[1].open,false);
   Object.assign(player,{x:.8,z:4,angle:-Math.PI/2});press();
   assert.equal(element('#message').textContent,"IT'S LOCKED...");
   Object.assign(player,{x:2.4,z:1.2,angle:Math.PI});press();
@@ -5198,4 +5202,38 @@ test('hotel corridors reuse every hotel palette with a window opening and exteri
     assert.ok(faces.some(f=>f.vertices.every(v=>v.z>D+10)),'outside buildings and sky lie beyond the window');
     assert.ok(faces.every(f=>f.vertices.every(v=>[v.x,v.y,v.z].every(Number.isFinite))));
   }
+});
+
+test('corridor windows animate in both directions and remember each hotel and floor independently',async()=>{
+  const {corridorWindowState,interactCorridorWindow,advanceCorridorWindow}=await import('../neon-city/hotel-corridor.js');
+  const hotel={},state=corridorWindowState(hotel,1),player={x:2.4,z:22,angle:0};
+  assert.equal(interactCorridorWindow({...player,z:18},state),false);
+  assert.equal(interactCorridorWindow({...player,angle:Math.PI},state),false);
+  assert.equal(interactCorridorWindow(player,state),true);
+  assert.equal(state.progress,0,'interaction starts travel without teleporting the panes');
+  advanceCorridorWindow(state,.3);assert.equal(state.progress,.25);
+  interactCorridorWindow(player,state);assert.equal(state.progress,.25,'reversing preserves the position');
+  advanceCorridorWindow(state,.15);assert.equal(state.progress,.125);
+  advanceCorridorWindow(state,2);assert.equal(state.progress,0);
+  interactCorridorWindow(player,state);advanceCorridorWindow(state,2);assert.equal(state.progress,1);
+  assert.equal(corridorWindowState(hotel,1),state);
+  assert.deepEqual(corridorWindowState(hotel,2),{progress:0,open:false});
+  assert.deepEqual(corridorWindowState({},1),{progress:0,open:false});
+  interactCorridorWindow(player,state);advanceCorridorWindow(state,2);assert.equal(state.progress,0);
+});
+
+test('corridor window panes visibly rotate through intermediate positions and return exactly closed',async()=>{
+  const {drawHotelCorridor}=await import('../neon-city/hotel-corridor.js');
+  const {HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  const draw=progress=>{
+    const faces=[];
+    drawHotelCorridor({look:HOTEL_LOOKS[0],floor:1,windowState:{progress},box(){},quad(){},face:(vertices,color)=>faces.push({vertices,color})});
+    return faces;
+  };
+  const closed=draw(0),half=draw(.5),open=draw(1);
+  assert.notDeepEqual(half,closed);assert.notDeepEqual(half,open);
+  const glass=faces=>faces.filter(f=>f.color==='#6e7b88').flatMap(f=>f.vertices);
+  assert.ok(glass(closed).every(v=>v.z===24.01));
+  assert.ok(glass(open).every(v=>v.z>24.1),'casements swing outside the corridor');
+  assert.deepEqual(draw(0),closed,'closing restores the original geometry');
 });

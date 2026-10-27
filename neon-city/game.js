@@ -1,4 +1,4 @@
-import {HOTEL_CORRIDOR,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=ceiling-2';
+import {HOTEL_CORRIDOR,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-3';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
@@ -651,7 +651,7 @@ function render(){
   }
   if(insideHotel){
     queue=[];
-    if(hotelCorridor)drawHotelCorridor({face,quad,box,look:hotelLook(currentHotel),floor:hotelStairs.floor});
+    if(hotelCorridor)drawHotelCorridor({face,quad,box,look:hotelLook(currentHotel),floor:hotelStairs.floor,windowState:corridorWindowState(currentHotel,hotelStairs.floor)});
     else if(hotelStorage)drawHotelStorage({face,quad,box,noteTaken:currentHotel.storageNoteTaken});
     else if(hotelStairs){
       drawHotelStairwell({face,quad,box,look:hotelLook(currentHotel)});
@@ -799,6 +799,7 @@ if(running){
     const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());
     if(pickedUp){notice=2.5;noticeText=pickedUp;return;}
     if(useDoor())return;
+    if(interactCorridorWindow(player,corridorWindowState(currentHotel,hotelStairs.floor))){notice=0;return;}
     const reply=corridorReply(player,hotelStairs.floor);
     if(reply){notice=2.5;noticeText=reply;document.querySelector('#message').textContent=reply;}
     return;
@@ -897,6 +898,7 @@ function tick(now){
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=currentArcadeName;
     }else if(insideHotel){
+      if(hotelCorridor)advanceCorridorWindow(corridorWindowState(currentHotel,hotelStairs.floor),dt);
       if(hotelCorridor)moveInHotelCorridor(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
       else if(hotelStorage)moveInHotelStorage(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
       else if(hotelStairs)moveInHotelStairwell(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelStairs);
