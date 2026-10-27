@@ -1,4 +1,5 @@
-import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-6';
+import {hotelStreetLife} from './hotel-street.js?v=1';
+import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-7';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
@@ -427,9 +428,9 @@ function mercedesGrille(){
   g.beginPath();g.moveTo(96,6);g.lineTo(96,90);g.stroke();
   return mercedesGrilleTexture=canvas;
 }
-function car(c){
+function car(c,groundOverride){
   vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
-  const base=groundHeight(c.x,c.z),slope=c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
+  const base=groundOverride??groundHeight(c.x,c.z),slope=groundOverride!=null||c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
   vehicleSurface=z=>base+(z-c.z)*slope;
   const w=c.axis?4.7:2.1,d=c.axis?2.1:4.7,x=c.x-w/2,z=c.z-d/2;
   // Local coordinates shared by the special vehicle bodies.
@@ -663,7 +664,12 @@ function render(){
   }
   if(insideHotel){
     queue=[];
-    if(hotelCorridor)drawHotelCorridor({face,quad,box,look:hotelLook(currentHotel),floor:hotelStairs.floor,windowState:corridorWindowState(currentHotel,hotelStairs.floor)});
+    if(hotelCorridor){
+      drawHotelCorridor({face,quad,box,look:hotelLook(currentHotel),floor:hotelStairs.floor,windowState:corridorWindowState(currentHotel,hotelStairs.floor)});
+      const street=hotelStreetLife(currentHotel.seed,time,hotelStairs.floor);
+      for(const c of street.cars)car(c,c.y);
+      for(const p of street.people)seatedPatron(p,true,characterHeight(p.type));
+    }
     else if(hotelStorage)drawHotelStorage({face,quad,box,noteTaken:currentHotel.storageNoteTaken});
     else if(hotelStairs){
       drawHotelStairwell({face,quad,box,look:hotelLook(currentHotel)});

@@ -2,6 +2,32 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {drawArcade} from '../neon-city/arcade.js';
 
+test('hotel window street life moves continuously on sidewalks and lanes and matches across floors',async()=>{
+  const {hotelStreetLife}=await import('../neon-city/hotel-street.js');
+  const {HOTEL_STAIRWELL}=await import('../neon-city/hotel-stairwell.js');
+  const a=hotelStreetLife(42,10,1),b=hotelStreetLife(42,10.01,1),upper=hotelStreetLife(42,10,3);
+  assert.ok(a.cars.length>0&&a.people.length>0);
+  assert.deepEqual(a,hotelStreetLife(42,10,1));
+  assert.notDeepEqual(a,hotelStreetLife(43,10,1));
+  for(const key of ['people','cars'])for(const [i,p] of a[key].entries()){
+    assert.equal(p.x,upper[key][i].x);
+    assert.equal(p.z,upper[key][i].z);
+    assert.ok(Math.abs(p.y-upper[key][i].y-2*HOTEL_STAIRWELL.rise)<1e-9);
+    assert.ok(Math.abs(p.x-b[key][i].x)>0&&Math.abs(p.x-b[key][i].x)<.11);
+    assert.equal(p.type,b[key][i].type);
+  }
+  for(const p of a.people){
+    assert.ok(p.z>24.12&&p.z<27.12||p.z>34.12&&p.z<36.12);
+    assert.equal(p.y,-5.84);
+    assert.ok(p.walkTime<b.people[a.people.indexOf(p)].walkTime);
+  }
+  for(const c of a.cars){
+    assert.ok(c.z-1.05>27.12&&c.z+1.05<34.12);
+    assert.equal(c.y,-6);
+    assert.equal(c.axis,1);
+  }
+});
+
 test('hotel windows show varied empty lobbies in per-hotel colours, with the reception only behind the entrance',async()=>{
   const {drawHotel,hotelLook,hotelScenes,HALL_SCENES,NOOK_SCENES,HOTEL_LOOKS}=await import('../neon-city/hotel.js');
   const render=(building,side,height=160)=>{

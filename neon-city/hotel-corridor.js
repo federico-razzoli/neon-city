@@ -83,15 +83,35 @@ export function drawHotelCorridor({face,quad,box,look:facade,floor,windowState={
     box(at(.13,.015),1.42,z-.55,.015,.19,1.1,'#64746b');
     box(at(.15,.015),1.76,z+.22,.015,.13,.13,'#d8bd8d');
   }
-  drawCorridorWindow(face,box,look,floor,windowState.progress);
+  drawCorridorWindow(face,quad,box,look,floor,windowState.progress);
 }
 
-function drawCorridorWindow(face,box,look,floor,progress){
+function drawCorridorWindow(face,quad,box,look,floor,progress){
   const {width:W,depth:D,window:{x,y,w,h}}=HOTEL_CORRIDOR;
   const wall=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   // The same neighbouring skyline appears lower as the player climbs floors.
   const elevation=(floor-1)*HOTEL_STAIRWELL.rise;
-  wall(-60,-6-elevation,D+4,120,1,'#242332');
+  const ground=-6-elevation,curb=.16;
+  // Small ground panels retain correct depth ordering when looking straight
+  // down or sideways. The pavement starts directly below the open window.
+  wall(-60,ground,D+.12,120,-ground,look.wall);
+  for(let sx=-60;sx<60;sx+=2){
+    for(let sz=0;sz<12;sz++){
+      const pavement=sz<3||sz>=10;
+      quad(sx,ground+(pavement?curb:0),D+.12+sz,2,1,
+        pavement?((sx/2+sz)%2?'#454552':'#4b4b58'):'#222431');
+      if(pavement){
+        quad(sx,ground+curb+.002,D+.12+sz,.025,1,'#333440');
+        quad(sx,ground+curb+.002,D+.12+sz,2,.025,'#333440');
+      }
+    }
+    wall(sx,ground,D+3.12,2,curb,'#72717c');
+    wall(sx,ground,D+10.12,2,curb,'#72717c');
+    if(sx%6===0)quad(sx,ground+.004,D+6.56,2,.12,'#b9ad88');
+  }
+  // Continue the ground beneath the neighboring buildings to the skyline.
+  for(let sx=-60;sx<60;sx+=6)for(let sz=12;sz<60;sz+=6)
+    quad(sx,ground,D+.12+sz,6,6,'#292a36');
   for(let i=0;i<7;i++){
     const bx=-18+i*6,bz=D+12+(i%3)*3,roof=3+(i*7%5)-elevation;
     box(bx,roof-30,bz,5,30,4,i%2?'#443747':'#3d4054');
