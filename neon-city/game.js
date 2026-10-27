@@ -1,14 +1,14 @@
-import {Wallet,drawMoneyNote} from './money.js?v=oblique-1';
+import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem} from './inventory.js?v=ladybug-release-1';
-import {HOTEL_STAIRWELL,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=drop-spot-1';
+import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-cash-2';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=door-centred-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
-import {DepthRenderer} from './depth-renderer.js';
+import {DepthRenderer} from './depth-renderer.js?v=note-colour-2';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=rive-gauche-6';
@@ -645,7 +645,15 @@ function render(){
   if(insideHotel){
     queue=[];
     if(hotelStorage)drawHotelStorage({face,quad,box,noteTaken:currentHotel.storageNoteTaken});
-    else if(hotelStairs)drawHotelStairwell({face,quad,box,look:hotelLook(currentHotel)});
+    else if(hotelStairs){
+      drawHotelStairwell({face,quad,box,look:hotelLook(currentHotel)});
+      const firstMoneyFace=queue.length;
+      drawMoneyNote(stairwellNote(currentHotel),face);
+      for(let i=firstMoneyFace;i<queue.length;i++){
+        queue[i].textureSmooth=true;
+        queue[i].textureOverlay={color:[9,7,21],alpha:.2};
+      }
+    }
     else drawHotelInterior({face,quad,box,look:hotelLook(currentHotel),receptionist:currentHotel.receptionist,lampOn:currentHotel.lampOn});
     // The lobby is built to true size, so the robot is too, on the stairs as well.
     if(!hotelStairs&&hotelLife?.walker)seatedPatron(hotelLife.walker,true,characterHeight(hotelLife.walker.type));
@@ -790,6 +798,10 @@ if(running){
   if(k===' '&&!e.repeat&&insideHotel&&hotelStairs){
     const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());
     if(pickedUp){notice=2.5;noticeText=pickedUp;return;}
+    if(hotelStairs.floor===1&&hotelStairs.flight===null){
+      const cash=wallet.takeNote(player,stairwellNote(currentHotel));
+      if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}
+    }
     if(useDoor())return;
     const lightReply=interactStairwellLight(player,hotelStairs);
     if(lightReply){notice=4.5;noticeText=lightReply;document.querySelector('#message').textContent=lightReply;}

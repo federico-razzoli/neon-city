@@ -5,8 +5,8 @@ export class Wallet{
   pence=0;
   note={x:START_SIGN.x+1.2,z:START_SIGN.z+.7,taken:false};
   get balance(){return `£${(this.pence/100).toFixed(2)}`;}
-  takeNote(player){
-    const {note}=this,dx=note.x-player.x,dz=note.z-player.z,gap=Math.hypot(dx,dz);
+  takeNote(player,note=this.note){
+    const dx=note.x-player.x,dz=note.z-player.z,gap=Math.hypot(dx,dz);
     if(note.taken||gap>3.5)return null;
     if(gap>.25&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(.45+Math.asin(Math.min(1,.25/gap))))return null;
     note.taken=true;
@@ -27,7 +27,7 @@ export function drawMoneyNote(note,face){
     g.fillStyle='#252e28';g.font='bold 32px serif';g.fillText('£5',15,47);
     g.font='9px serif';g.fillText('FIVE POUNDS',15,65);
   }
-  const {x,z}=note,y=groundHeight(x,z)+.012;
+  const {x,z}=note,y=(note.ground??groundHeight(x,z))+.012;
   const angle=.28,c=Math.cos(angle),s=Math.sin(angle);
   const corner=(dx,dz,u,v)=>({x:x+dx*c-dz*s,y,z:z+dx*s+dz*c,u,v});
   face([corner(-.32,-.16,0,0),corner(.32,-.16,160,0),

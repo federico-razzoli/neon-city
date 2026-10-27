@@ -6,6 +6,8 @@ import {hotelInteriorLook,drawHotelDoubleDoor,STAIR_CARPET} from './hotel-interi
 export const HOTEL_STAIRWELL={width:8,depth:16,rise:4.675,floors:3,steps:24,stairStart:3,stairEnd:13,spawn:{x:4,z:1.2,angle:0}};
 const {depth:D,rise:R,steps:N,stairStart:S,stairEnd:E}=HOTEL_STAIRWELL;
 const RUN=E-S;
+// Each hotel keeps its own cash pickup in the first-floor recess beyond the upward flight.
+export const stairwellNote=hotel=>hotel.stairwellNote??={x:6.5,z:14.5,ground:0,taken:false};
 export const createHotelStairwell=()=>({floor:1,flight:null});
 export function stairwellHeight(player,state){
   if(state.flight===1)return (player.z-S)*R/RUN;

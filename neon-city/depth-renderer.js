@@ -1,10 +1,13 @@
-// Flat-colour interior polygons use per-pixel depth, not average face distance.
+import {rasterizePitchedWall} from './perspective.js';
+// Interior polygons use per-pixel depth, not average face distance.
+const texturePixels=new WeakMap();
 // Interpolating inverse camera depth keeps intersecting screen projections correct.
 export class DepthRenderer{
   constructor(ctx,width,height){
     this.ctx=ctx;this.width=width;this.height=height;
     this.frame=ctx.createImageData(width,height);
     this.depth=new Float64Array(width*height);
+    this.textureFrame=new Uint8ClampedArray(width*height*4);
     this.depthX=new Float64Array(width*height);this.depthY=new Float64Array(width*height);this.colors=new Map();
   }
   render(faces,background='#30252a'){
@@ -19,6 +22,12 @@ export class DepthRenderer{
     for(const f of faces){
       if(f.smooth)continue;
       const color=rgb(f.color);
+      let texture;
+      if(f.texture){
+        if(!texturePixels.has(f.texture))texturePixels.set(f.texture,f.texture.getContext('2d').getImageData(0,0,f.texture.width,f.texture.height));
+        texture=texturePixels.get(f.texture);
+        rasterizePitchedWall(f.ps,f.vs,texture,w,h,this.textureFrame,!!f.textureSmooth);
+      }
       for(let j=1;j<f.ps.length-1;j++){
         const a=f.ps[0],b=f.ps[j],c=f.ps[j+1];
         const area=(b.y-c.y)*(a.x-c.x)+(c.x-b.x)*(a.y-c.y);
@@ -36,7 +45,17 @@ export class DepthRenderer{
           const depth=u*za+v*zb+t*zc,index=y*w+x;
           if(depth<=this.depth[index])continue;
           this.depth[index]=depth;this.depthX[index]=depthX;this.depthY[index]=depthY;
-          const offset=index*4;pixels[offset]=color[0];pixels[offset+1]=color[1];pixels[offset+2]=color[2];
+          let ink=color;
+          if(texture){
+            const offset=index*4;
+            ink=this.textureFrame.subarray(offset,offset+3);
+            // Cancel an explicit scene overlay for artwork whose colours must match outdoors.
+            if(f.textureOverlay){
+              const {color:shade,alpha}=f.textureOverlay;
+              ink=Array.from(ink,(value,c)=>(value-alpha*shade[c])/(1-alpha));
+            }
+          }
+          const offset=index*4;pixels[offset]=ink[0];pixels[offset+1]=ink[1];pixels[offset+2]=ink[2];
         }
       }
     }

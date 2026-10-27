@@ -5114,3 +5114,36 @@ test('dropping a ladybug loses it without leaving any recoverable item',async()=
     assert.equal(takeDroppedItem(player,[chunk],inventory,room),null);
   }
 });
+
+test('interior floor textures preserve artwork, perspective and foreground occlusion',async()=>{
+  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
+  let frame;
+  const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>frame=f},8,8);
+  const texture={width:2,height:1,getContext:()=>({getImageData:()=>({width:2,height:1,data:new Uint8ClampedArray([240,20,30,255,10,40,230,255])})})};
+  const floor={color:'#58665a',texture,ps:[{x:0,y:0},{x:8,y:0},{x:8,y:8},{x:0,y:8}],vs:[{z:1,u:0,v:0},{z:4,u:2,v:0},{z:4,u:2,v:1},{z:1,u:0,v:1}]};
+  const pixel=x=>Array.from(frame.data.slice((4*8+x)*4,(4*8+x)*4+3));
+  renderer.render([floor]);
+  assert.deepEqual(pixel(5),[240,20,30],'UV interpolation accounts for depth');
+  assert.deepEqual(pixel(7),[10,40,230],'both parts of the artwork appear');
+  const wall={...floor,texture:null,color:'#abcdef',vs:floor.vs.map(v=>({...v,z:.5}))};
+  renderer.render([wall,floor]);
+  assert.deepEqual(pixel(5),[171,205,239],'nearer geometry hides the texture');
+});
+
+test('hotel note colour matches outdoor artwork after the hotel overlay',async()=>{
+  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
+  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
+  let frame;
+  const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>frame=f},8,8);
+  const data={width:2,height:1,data:new Uint8ClampedArray([88,102,90,255,37,46,40,255])};
+  const texture={width:2,height:1,getContext:()=>({getImageData:()=>data})};
+  const face={color:'#58665a',texture,textureSmooth:true,textureOverlay:{color:[9,7,21],alpha:.2},ps:[{x:0,y:0},{x:8,y:0},{x:8,y:8},{x:0,y:8}],vs:[{z:1,u:0,v:0},{z:4,u:2,v:0},{z:4,u:2,v:1},{z:1,u:0,v:1}]};
+  const outdoor=new Uint8ClampedArray(8*8*4);
+  rasterizePitchedWall(face.ps,face.vs,data,8,8,outdoor,true);
+  renderer.render([face]);
+  for(let x=0;x<8;x++)for(let c=0;c<3;c++){
+    const offset=(4*8+x)*4+c;
+    const displayed=Math.round(frame.data[offset]*.8+[9,7,21][c]*.2);
+    assert.ok(Math.abs(displayed-outdoor[offset])<=1,'same visible colour including filtered print edges');
+  }
+});
