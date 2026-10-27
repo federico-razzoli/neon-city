@@ -1,3 +1,4 @@
+import {drawBlockShops} from './hotel-shopfronts.js?v=1';
 import {HOTEL_STAIRWELL} from './hotel-stairwell.js?v=hotel-cash-2';
 import {facingDoorway} from './pub-interior.js?v=taps-turned-1';
 import {hotelInteriorLook,drawHotelDoubleDoor} from './hotel-interior.js?v=street-lights-1';
@@ -152,15 +153,16 @@ function drawCorridorWindow(face,quad,box,look,floor,progress){
     quad(px,ground+curb,D+.12+sz,2,1,sz%2?'#454552':'#4b4b58');
     quad(px,ground+curb+.002,D+.12+sz,2,.025,'#333440');
   }
-  for(const [left,right] of [[-60,-20],[-8,12],[24,60]]){
+  for(const [block,[left,right]] of [[-60,-20],[-8,12],[24,60]].entries()){
     const count=Math.ceil((right-left)/6),width=(right-left)/count;
     for(let lot=0;lot<count;lot++){
       const bx=left+lot*width,i=Math.round((bx+60)/2),bz=D+12.12,roof=3+(i*7%5)-elevation;
       box(bx,ground,bz,width,roof-ground,24,i%2?'#443747':'#3d4054');
       box(bx,roof,bz,width,.16,24,'#77707b');
-      for(let wy=roof-1.8;wy>ground+.5;wy-=2.8)for(let col=0;col<3;col++)
+      for(let wy=roof-1.8;wy>ground+3.51;wy-=2.8)for(let col=0;col<3;col++)
         wall(bx+(col+.5)*width/3-.325,wy,bz-.02,.65,1.1,(i+Math.round(wy)+col)%3?'#20273d':'#d4b879');
     }
+    drawBlockShops({face,box},left,right,ground,D+12.12,block);
   }
   for(const [fx,fy,fw,fh] of [[x,y,w,.08],[x,y+h-.08,w,.08],[x,y,.08,h],[x+w-.08,y,.08,h]])box(fx,fy,D-.06,fw,fh,.12,look.metal);
   box(x-.1,y-.07,D-.22,w+.2,.07,.38,look.column[0]);
