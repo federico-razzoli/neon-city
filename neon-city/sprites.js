@@ -1,3 +1,22 @@
+/*
+Browser Games — standalone browser games, including Neon City.
+Copyright (C) 2026 Federico Razzoli <federico.razzoli@vettabase.com>
+SPDX-License-Identifier: AGPL-3.0-only
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program (see LICENSE in the repository root).
+If not, see <https://www.gnu.org/licenses/>.
+*/
+
 export const SHOE_COLORS=['#b8a7ac','#170f28','#b8a7ac','#12121a','#e3d8dc','#191725','#463447','#121018','#151320','#a07a5e','#e6e2dc','#585e68','#b5a688','#7a5232','#d8d4cc','#f06aa8'];
 // The Black teen girl's outfits: shirt, chest print, back panel and shoes.
 export const TEEN_OUTFITS=[

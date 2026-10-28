@@ -1,3 +1,22 @@
+/*
+Browser Games — standalone browser games, including Neon City.
+Copyright (C) 2026 Federico Razzoli <federico.razzoli@vettabase.com>
+SPDX-License-Identifier: AGPL-3.0-only
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program (see LICENSE in the repository root).
+If not, see <https://www.gnu.org/licenses/>.
+*/
+
 // Plays one of a room's pre-written music loops, through a low-pass filter
 // for the room's speakers, or a lower one when heard through a wall. The
 // piece is chosen on each visit and plays from the start; the music swells

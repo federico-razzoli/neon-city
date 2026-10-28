@@ -2,6 +2,14 @@
 
 Each game lives in its own directory and runs independently as a static website. No build, package install, account, API, or externally hosted assets are needed.
 
+## License
+
+This program is licensed under the GNU Affero General Public License, version 3
+only (`AGPL-3.0-only`). See [LICENSE](LICENSE) for the full license text.
+
+Third-party assets retain their own licenses; see
+[asset credits](neon-city/assets/CREDITS.md).
+
 ## Play locally
 
 To test Neon City with the tiny Flask app on Linux, run:
