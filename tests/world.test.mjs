@@ -5320,3 +5320,28 @@ test('shop genre labels are unique across every facade and stable across redraw 
   assert.ok(seen.size>20,'shops at different addresses have varied assignments');
   assert.ok(sawPolka,'POLKA METAL remains available to big windows');
 });
+
+test('closed bookshop and record shop messages require their actual doorway',async()=>{
+  const {facingClosedShopDoor}=await import('../neon-city/pub-interior.js');
+  const {entranceWall}=await import('../neon-city/entrances.js');
+  const {readFile}=await import('node:fs/promises');
+  const {runInNewContext}=await import('node:vm');
+  const source=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
+  const useDoor=source.slice(source.indexOf('function useDoor(){'),source.indexOf('// Pub chairs, park benches'));
+  for(const sign of ['BLUE NOTE','MIDNITE BOOKS'])for(let entranceSide=0;entranceSide<4;entranceSide++){
+    const building={x:14,z:14,w:18,d:18,sign,entranceSide},wall=entranceWall(building);
+    const player={x:wall.x+wall.nx*2,z:wall.z+wall.nz*2,angle:Math.atan2(-wall.nx,-wall.nz)};
+    assert.equal(facingClosedShopDoor(player,[building]),building);
+    assert.equal(facingClosedShopDoor({...player,angle:player.angle+Math.PI},[building]),undefined);
+    assert.equal(facingClosedShopDoor({...player,x:player.x-wall.nz*5,z:player.z+wall.nx*5},[building]),undefined,'display window is not a door');
+    assert.equal(facingClosedShopDoor({...player,x:wall.x-wall.nx*2,z:wall.z-wall.nz*2},[building]),undefined,'must approach from outside');
+    const message={textContent:''},before={...player};
+    const sandbox={insideHotel:false,insidePub:false,insideLavatory:false,insideCubicle:null,indoors:()=>false,
+      player,pubBuildings:()=>[building],facingClosedShopDoor,notice:0,noticeText:'',coverPressed:true,
+      document:{querySelector:()=>message}};
+    assert.equal(runInNewContext(useDoor+'\nuseDoor();',sandbox),true);
+    assert.equal(message.textContent,'NOT YET AVAILABLE. TRY ANOTHER VENUE.');
+    assert.equal(sandbox.notice,4.5);
+    assert.deepEqual(player,before,'closed shops do not move the player');
+  }
+});

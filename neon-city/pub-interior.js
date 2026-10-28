@@ -106,6 +106,9 @@ export function facingPubDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
+export function facingClosedShopDoor(player,buildings){
+  return buildings.find(b=>(b.sign==='BLUE NOTE'||b.sign==='MIDNITE BOOKS')&&facesEntrance(player,b,facingDoorway));
+}
 export const facingPubExit=player=>player.z>PUB.door.z&&facingDoorway(player,PUB.door,.7);
 export const facingStaffDoor=player=>player.z<PUB.staffDoor.z&&facingDoorway(player,PUB.staffDoor,.7);
 export const facingToiletDoor=player=>player.z<PUB.toiletDoor.z&&facingDoorway(player,PUB.toiletDoor,.7);
