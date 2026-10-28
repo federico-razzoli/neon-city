@@ -5297,3 +5297,35 @@ test('looking out requires a fully open hotel window within reach and preserves 
   assert.equal(view.angle,0);
   assert.equal(view.pitch,0);
 });
+
+test('pub entrance windows match the exterior facade and leave clear openings',async()=>{
+  const {pubWindowLayout}=await import('../neon-city/pub-windows.js');
+  const {drawPubInterior}=await import('../neon-city/pub-interior.js');
+  const building={x:14,z:14,w:18,d:18,j:0};
+  const windows=pubWindowLayout(building),faces=[];
+  assert.deepEqual(windows.map(w=>w.x),[6*18/160,96*18/160]);
+  drawPubInterior({building,quad(){},box(){},face(v){faces.push(v);}});
+  for(const w of windows){
+    const x=w.x+w.w*.25,y=w.y+w.h*.5;
+    assert.ok(!faces.some(v=>v.every(p=>p.z===0)&&Math.min(...v.map(p=>p.x))<x&&Math.max(...v.map(p=>p.x))>x&&Math.min(...v.map(p=>p.y))<y&&Math.max(...v.map(p=>p.y))>y),'no opaque wall behind the glass');
+  }
+});
+
+test('pub street camera aligns both windows for all four entrance directions',async()=>{
+  const {pubStreetCamera,clipPubStreet}=await import('../neon-city/pub-windows.js');
+  const {entranceWall}=await import('../neon-city/entrances.js');
+  for(let entranceSide=0;entranceSide<4;entranceSide++){
+    const b={x:14,z:14,w:18,d:18,entranceSide},wall=entranceWall(b);
+    const camera=pubStreetCamera(b,{x:9,z:2,angle:Math.PI},1.65);
+    assert.ok(Math.abs(camera.x-(wall.x-wall.nx*2))<1e-9);
+    assert.ok(Math.abs(camera.z-(wall.z-wall.nz*2))<1e-9);
+    assert.ok(Math.abs(Math.sin(camera.angle)-wall.nx)<1e-9);
+    assert.ok(Math.abs(Math.cos(camera.angle)-wall.nz)<1e-9);
+    const polygon=[{x:wall.x-wall.nx-wall.nz,y:0,z:wall.z-wall.nz+wall.nx},
+      {x:wall.x+wall.nx-wall.nz,y:0,z:wall.z+wall.nz+wall.nx},
+      {x:wall.x+wall.nx+wall.nz,y:1,z:wall.z+wall.nz-wall.nx}];
+    const clipped=clipPubStreet(polygon,wall);
+    assert.ok(clipped.length>=3);
+    assert.ok(clipped.every(p=>(p.x-wall.x)*wall.nx+(p.z-wall.z)*wall.nz>=-1e-9));
+  }
+});
