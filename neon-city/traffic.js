@@ -125,12 +125,13 @@ export class Traffic {
     for(const [key,entries] of groups){
       // Cars already inside clear first. Keep the chosen approach stable while
       // it enters; equal arrival times use axis and direction, never array order.
-      const inside=entries.filter(e=>e.along>-JUNCTION_EDGE);
-      let owner=entries.find(e=>e.car===this.junctionOwners.get(key));
+      const eligible=entries.filter(e=>e.car.speed!==0||e.car.stoppedForJunction);
+      const inside=eligible.filter(e=>e.along>-JUNCTION_EDGE);
+      let owner=eligible.find(e=>e.car===this.junctionOwners.get(key));
       if(inside.length){
         if(!inside.includes(owner))owner=inside[0];
       }else if(!owner||owner.exitBlocked){
-        owner=entries.filter(e=>!e.exitBlocked).sort((a,b)=>a.arrival-b.arrival||a.car.axis-b.car.axis||a.car.dir-b.car.dir)[0];
+        owner=eligible.filter(e=>!e.exitBlocked).sort((a,b)=>a.arrival-b.arrival||a.car.axis-b.car.axis||a.car.dir-b.car.dir)[0];
       }
       if(owner)this.junctionOwners.set(key,owner.car);
       else this.junctionOwners.delete(key);
@@ -138,7 +139,7 @@ export class Traffic {
         // Parallel lanes can share a junction, but must not jump ahead of
         // cross-traffic already waiting or enter without room at the exit.
         const parallel=owner&&entry.car.axis===owner.car.axis&&!entry.exitBlocked&&
-          !entries.some(other=>other.car.axis!==entry.car.axis&&other.arrival<=entry.arrival);
+          !eligible.some(other=>other.car.axis!==entry.car.axis&&other.arrival<=entry.arrival);
         if(!parallel)limits.set(entry.car,Math.max(0,-entry.along-JUNCTION_EDGE));
       }
     }
@@ -158,7 +159,7 @@ export class Traffic {
         car.crossingDecisions??=new Map();
         for(const key of car.crossingDecisions.keys())if(!activeCrossings.has(key))car.crossingDecisions.delete(key);
         const speed=car.speed??SPEED;
-        let travel=Math.min(SPEED,speed+ACCELERATION*step)*step,clearance=junctionLimits.get(car)??Infinity;
+        let travel=Math.min(SPEED,speed+ACCELERATION*step)*step,clearance=Infinity;
         const turn=car.turn??junction(car);
         if(turn&&!car.turn&&(turn.bank-car.z)*car.dir<=9+travel){
           travel-=Math.max(0,(turn.bank-car.z)*car.dir-9);
@@ -171,7 +172,7 @@ export class Traffic {
             const gap=(other.x-mergeX)*car.dir;
             return gap>-24&&gap<14;
           });
-          if(blocked){car.speed=0;car.waiting=true;continue;}
+          if(blocked){car.speed=0;car.waiting=true;car.stoppedForJunction=false;continue;}
           car.turn={...turn,angle:0};
         }
         const heading=car.turn?.angle??(car.axis?Math.PI/2:0);
@@ -195,6 +196,11 @@ export class Traffic {
           const along=x*dx+z*dz,across=Math.abs(x*dz-z*dx);
           if(along>0&&across<2.7&&other.dir===car.dir)clearance=Math.min(clearance,Math.max(0,along-HEADWAY));
         }
+        // Only cars stopped by junction priority remain eligible to claim it.
+        // Pedestrians and queues must not hold up perpendicular traffic.
+        const junctionClearance=junctionLimits.get(car)??Infinity;
+        car.stoppedForJunction=junctionClearance<clearance;
+        clearance=Math.min(clearance,junctionClearance);
         // A braking-distance envelope reduces speed before the stop line.
         // Include this step's travel so even a slow frame cannot overshoot it.
         const safeSpeed=Math.sqrt((BRAKING*step)**2+2*BRAKING*clearance)-BRAKING*step;

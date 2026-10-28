@@ -5125,6 +5125,27 @@ test('junction priority honours earlier arrivals, occupied junctions, and blocke
   assert.ok(!blocked.junctionLimits().has(approach),'proceeds once there is room beyond junction');
 });
 
+test('stopped cross traffic releases priority while junction waiters remain eligible',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const reverse of [false,true]){
+    const simulation=new Traffic();
+    const stopped={x:-3,z:16.8,axis:0,dir:-1,speed:0};
+    const through={x:-30,z:-3,axis:1,dir:1};
+    simulation.cars=reverse?[through,stopped]:[stopped,through];
+    simulation.junctionOwners.set('0,0',stopped);
+    for(let i=0;i<200;i++)simulation.advance(.04,{x:0,z:11});
+    assert.equal(stopped.z,16.8,'car remains stopped for the pedestrian');
+    assert.ok(through.x>17,'perpendicular traffic passes the stopped car');
+  }
+  const simulation=new Traffic();
+  const stopped={x:3,z:-20,axis:0,dir:1,speed:0};
+  const waiter={x:-20,z:-3,axis:1,dir:1,speed:0,stoppedForJunction:true};
+  simulation.cars=[stopped,waiter];
+  simulation.junctionOwners.set('0,0',stopped);
+  simulation.junctionLimits();
+  assert.equal(simulation.junctionOwners.get('0,0'),waiter,'a car waiting its turn can acquire priority');
+});
+
 test('park bush dialogue loops and only gives a ladybug when one is not carried',async()=>{
   const {bushReply}=await import('../neon-city/parks.js');
   const {Inventory,LADYBUG,dropItem}=await import('../neon-city/inventory.js');
