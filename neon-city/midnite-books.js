@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {shopLabels} from './shop-labels.js';
 import {entranceSide} from './entrances.js';
 
 // Painted into the usual cached facade; the bookshop adds no per-frame geometry.
@@ -52,10 +53,8 @@ export function drawMidniteBooks(g,height,building,side){
   const label=(word,x,y)=>{for(const [i,c] of [...word].entries())for(let row=0;row<5;row++)for(let col=0;col<3;col++)if(letters[c]?.[row][col]==='1')rect(paper,x+i*4+col,y+row,1,1);};
   rect('#263b35',0,0,160,39);rect('#7c8566',0,0,160,2);
   const categories=['FICTION','CYBERPUNK','HORROR','MUSIC','SCI-FI','TRAVELS'];
-  // A separate address-seeded sequence keeps labels stable without changing the stock.
-  let titleSeed=seed;
-  const category=()=>{titleSeed=(Math.imul(titleSeed,1664525)+1013904223)>>>0;return categories[(titleSeed>>>8)%categories.length];};
-  const windows=entrance?[{x:6,w:58,title:category()},{x:96,w:58,title:category()}]:[{x:6,w:148,title:'BEST SELLERS'}];
+  const titles=shopLabels(building,'midnite-books',categories);
+  const windows=entrance?[{x:6,w:58,title:titles[0]},{x:96,w:58,title:titles[1]}]:[{x:6,w:148,title:'BEST SELLERS'}];
   for(const {x,w,title} of windows){
     rect('#9d936e',x,3,w,33);rect('#182825',x+1,4,w-2,31);
     rect('#4c4035',x+3,6,w-6,28);rect('#766047',x+7,8,w-14,20);

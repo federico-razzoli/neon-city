@@ -5297,3 +5297,26 @@ test('looking out requires a fully open hotel window within reach and preserves 
   assert.equal(view.angle,0);
   assert.equal(view.pitch,0);
 });
+
+test('shop genre labels are unique across every facade and stable across redraw order',async()=>{
+  const {shopLabels,shopWindowLabels}=await import('../neon-city/shop-labels.js');
+  const genres=["ROCK&ROLL",'BOOGIE','SOUL','BLUES','PUNK','POLKA METAL','BEBOP','FREE JAZZ','JAZZ ROCK'];
+  const books=['FICTION','CYBERPUNK','HORROR','MUSIC','SCI-FI','TRAVELS'];
+  const seen=new Set();let sawPolka=false;
+  for(let x=-3;x<=3;x++)for(let z=-3;z<=3;z++)for(let entrance=0;entrance<4;entrance++){
+    const building={x:x*64+14,z:z*64+14};
+    const labels=[0,1,2,3].map(side=>shopWindowLabels(building,'blue-note',genres,side,entrance,['POLKA METAL']));
+    assert.equal(labels.flat().length,5);
+    assert.ok(!labels[entrance].includes('POLKA METAL'),'long label is never assigned to a small window');
+    assert.equal(new Set(labels.flat()).size,5,'no repeated genre even across different facades');
+    for(const side of [3,1,0,2])assert.deepEqual(shopWindowLabels(building,'blue-note',genres,side,entrance,['POLKA METAL']),labels[side]);
+    const categories=shopLabels(building,'midnite-books',books);
+    assert.notEqual(categories[0],categories[1]);
+    assert.deepEqual([...categories].sort(),[...books].sort());
+    assert.deepEqual(shopLabels({...building},'midnite-books',books),categories);
+    seen.add(labels.flat().join(','));
+    sawPolka||=labels.some((titles,side)=>side!==entrance&&titles.includes('POLKA METAL'));
+  }
+  assert.ok(seen.size>20,'shops at different addresses have varied assignments');
+  assert.ok(sawPolka,'POLKA METAL remains available to big windows');
+});

@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {shopWindowLabels} from './shop-labels.js';
 import {entranceSide} from './entrances.js';
 
 // Storefront art is painted only when a building's cached texture is created.
@@ -27,7 +28,7 @@ export function drawBlueNote(g,height,building,side){
   const pick=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed;};
   const ink='#121924',cream='#e9cf95',wood='#9c6845';
   const covers=['#c78658','#9e535a','#4e8d8e','#d6b875','#6b7390','#888956'];
-  const letters={V:['101','101','101','101','010'],I:['111','010','010','010','111'],N:['101','111','111','111','101'],Y:['101','101','010','010','010'],L:['100','100','100','100','111'],J:['001','001','001','101','111'],A:['010','101','111','101','101'],Z:['111','001','010','100','111'],S:['111','100','111','001','111'],O:['111','101','101','101','111'],U:['101','101','101','101','111'],E:['111','100','110','100','111'],W:['101','101','111','111','101']};
+  const letters={V:['101','101','101','101','010'],I:['111','010','010','010','111'],N:['101','111','111','111','101'],Y:['101','101','010','010','010'],L:['100','100','100','100','111'],J:['001','001','001','101','111'],A:['010','101','111','101','101'],Z:['111','001','010','100','111'],S:['111','100','111','001','111'],O:['111','101','101','101','111'],U:['101','101','101','101','111'],E:['111','100','110','100','111'],W:['101','101','111','111','101'],R:['110','101','110','101','101'],C:['111','100','100','100','111'],K:['101','101','110','101','101'],B:['110','101','110','101','110'],G:['111','100','101','101','111'],P:['110','101','110','100','100'],X:['101','101','010','101','101'],T:['111','010','010','010','010'],D:['110','101','101','101','110'],M:['101','111','111','101','101'],F:['111','100','110','100','100'],'&':['010','101','010','101','011']};
   const text=(word,x,y,color)=>{for(const [i,char] of [...word].entries())for(let row=0;row<5;row++)for(let col=0;col<3;col++)if(letters[char]?.[row][col]==='1')rect(color,x+i*4+col,y+row,1,1);};
   const album=(x,y,size,variant)=>{
     const color=covers[variant%covers.length];
@@ -58,6 +59,8 @@ export function drawBlueNote(g,height,building,side){
     rect('#372b27',x+2,y+13,2,2);rect('#372b27',x+w-4,y+13,2,2);
   };
   rect('#142d34',0,0,160,39);rect('#59848a',0,0,160,2);
+  const genres=["ROCK&ROLL",'BOOGIE','SOUL','BLUES','PUNK','POLKA METAL','BEBOP','FREE JAZZ','JAZZ ROCK'];
+  const titles=shopWindowLabels(building,'blue-note',genres,side,entranceSide(building),['POLKA METAL']);
   const windows=entrance?[{x:6,w:58},{x:96,w:58}]:[{x:6,w:148}];
   for(const [index,{x,w}] of windows.entries()){
     rect('#527e84',x,3,w,33);rect('#101a22',x+1,4,w-2,31);
@@ -66,7 +69,7 @@ export function drawBlueNote(g,height,building,side){
     rect('#352e2c',x+3,6,4,27);rect('#42392f',x+w-7,6,4,27);
     for(let y=27;y<34;y++)rect(y%2?'#5c4b3d':'#6c5946',x+7-(y-27)/2|0,y,w-14+(y-27),1);
     rect('#d4ae70',x+8,6,w-16,1);rect('#e9c888',x+11,7,8,1);
-    text(index===0?'VINYL':'SOUL',x+9,9,cream);
+    text(titles[index],x+9,9,cream);
     // Dense but quiet rear racks, with jackets facing out above the spines.
     for(let px=x+9;px+6<x+w-9;px+=7){
       album(px,16,6,pick()%18);
