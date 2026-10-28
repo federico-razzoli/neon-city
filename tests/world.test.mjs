@@ -4928,7 +4928,7 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
     simulation.advance(8,player);
     assert.ok(cars.every(c=>c.waiting),'all three cars wait');
     const position=c=>axis?c.x:c.z;
-    assert.ok(Math.abs(position(cars[0])-(edge-dir*4.6))<1e-7,'front bumper stops before stripes');
+    assert.ok(Math.abs(position(cars[0])-(dir<0?origin+17:edge-dir*4.6))<1e-7,'stops before the junction when braking room allows, otherwise before stripes');
     for(let i=1;i<3;i++)assert.ok((position(cars[i-1])-position(cars[i]))*dir>=9-1e-7,'queue leaves safe gaps');
     assert.equal(simulation.blockedLanes.size,1);
     const before=position(cars[0]);
@@ -4940,6 +4940,25 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
     assert.ok(cars.every(c=>!c.waiting),'queue resumes after pedestrian clears road');
     assert.equal(simulation.blockedLanes.size,0);
     assert.ok((position(cars[0])-before)*dir>7);
+  }
+});
+
+test('cars approaching occupied stripes wait before the junction in both directions',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const axis of [0,1])for(const dir of [-1,1])for(const origin of [0,-64]){
+    const point=(along,across)=>axis?{x:along,z:across}:{x:across,z:along};
+    const simulation=new Traffic();
+    const car={...point(origin-dir*40,origin+dir*3),axis,dir};
+    simulation.cars=[car];
+    const player=point(origin+10.5,origin);
+    for(let i=0;i<250;i++){
+      simulation.advance(.04,player);
+      assert.ok(((axis?car.x:car.z)-origin)*dir<=-17+1e-8,'stays outside the junction');
+    }
+    assert.equal(car.speed,0);
+    assert.ok(Math.abs((axis?car.x:car.z)-(origin-dir*17))<1e-7);
+    simulation.advance(8);
+    assert.ok(((axis?car.x:car.z)-origin)*dir>17,'clears the junction after the player leaves');
   }
 });
 
@@ -5075,7 +5094,7 @@ test('cars commit to passing a crossing when there is insufficient braking dista
     const simulation=new Traffic();simulation.cars=[car];
     simulation.advance(6,player);
     assert.equal(car.waiting,true,'a slower car can safely stop from the same distance');
-    assert.ok(Math.abs((axis?car.x:car.z)-(edge-dir*4.6))<1e-7);
+    assert.ok(Math.abs((axis?car.x:car.z)-(dir<0?origin+17:edge-dir*4.6))<1e-7);
     simulation.advance(.04);
     assert.equal(car.crossingDecisions.size,0,'leaving the crossing clears its decision');
   }

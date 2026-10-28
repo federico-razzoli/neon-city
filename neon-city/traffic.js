@@ -183,12 +183,17 @@ export class Traffic {
           const distance=(edge-position)*car.dir;
           if(distance<0)continue;
           if(!car.crossingDecisions.has(crossing.key)){
-            // Decide once when this crossing becomes occupied. A car too close
-            // to brake comfortably must keep going, even if it slows later.
+            // Reserve the stop before the junction when braking room allows.
+            // Cars already committed to entering still stop before the stripes.
             const stoppingDistance=speed*speed/(2*BRAKING)+speed*.04;
-            car.crossingDecisions.set(crossing.key,distance-CROSSING_STOP>=stoppingDistance-1e-7);
+            const stripeStop=edge-car.dir*CROSSING_STOP;
+            const junctionCentre=Math.round(crossing.start/BLOCK)*BLOCK;
+            const approachStop=junctionCentre-car.dir*JUNCTION_EDGE;
+            const canStopAt=stop=>(stop-position)*car.dir>=stoppingDistance-1e-7;
+            car.crossingDecisions.set(crossing.key,canStopAt(approachStop)?approachStop:canStopAt(stripeStop)?stripeStop:null);
           }
-          if(car.crossingDecisions.get(crossing.key))clearance=Math.min(clearance,Math.max(0,distance-CROSSING_STOP));
+          const stop=car.crossingDecisions.get(crossing.key);
+          if(stop!==null)clearance=Math.min(clearance,Math.max(0,(stop-position)*car.dir));
         }
         for(const other of this.cars){
           if(other===car||(!car.turn&&!other.turn&&other.axis!==car.axis))continue;
