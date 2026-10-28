@@ -12,16 +12,6 @@ Third-party assets retain their own licenses; see
 
 ## Play locally
 
-### Requirements
-
-- Linux for `start.py` and `stop.py`; process detection uses `/proc`, so these
-  scripts do not work correctly on macOS.
-- Python 3 with `venv` and pip support, plus internet access to install Flask.
-- Permission to bind to port 80, which may require elevated privileges.
-
-On macOS, use the Python static-server alternative below; it requires Python 3
-but does not require Flask or elevated privileges for port 8000.
-
 To test Neon City with the tiny Flask app on Linux, run:
 
 ```sh
@@ -53,6 +43,16 @@ python3 -m http.server 8000
 ```
 
 Open http://localhost:8000/neon-city/ in a modern browser. Serve over HTTP rather than opening the HTML as a file, because the game uses JavaScript modules.
+
+### Requirements
+
+- Linux for `start.py` and `stop.py`; process detection uses `/proc`, so these
+  scripts do not work correctly on macOS.
+- Python 3 with `venv` and pip support, plus internet access to install Flask.
+- Permission to bind to port 80, which may require elevated privileges.
+
+On macOS, use the Python static-server alternative above; it requires Python 3
+but does not require Flask or elevated privileges for port 8000.
 
 ## Embed on another website
 
