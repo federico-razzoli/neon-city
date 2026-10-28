@@ -32,7 +32,7 @@ import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
 import {DepthRenderer} from './depth-renderer.js?v=note-colour-2';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=rive-gauche-6';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=midnite-books-1';
 import {Traffic} from './traffic.js?v=junction-priority-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
@@ -41,6 +41,7 @@ import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gau
 import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
+import {drawMidniteBooks} from './midnite-books.js?v=random-labels-3';
 import {drawBlueNote} from './blue-note.js?v=2';
 import {drawPub,pubName} from './pub.js?v=park-entrances-1';
 import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,BAR_BEER_REPLY,StaffTalk,facingPokeBall,hasPokeBall,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=punk-girl-1';
@@ -349,6 +350,7 @@ function wallTexture(b,side,dim=hotelHIsDim(b,time)){
   if(b.sign==='ARCADE')drawArcade(g,c.height,b,side);
   if(b.sign==='NEON PUB')drawPub(g,c.height,b,side);
   if(b.sign==='BLUE NOTE')drawBlueNote(g,c.height,b,side);
+  if(b.sign==='MIDNITE BOOKS')drawMidniteBooks(g,c.height,b,side);
   if(b.sign==='HOTEL')drawHotel(g,c.height,b,side);
   g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign==='NEON PUB'?pubName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
   // The vertical hotel sign must fit entirely below the roofline.

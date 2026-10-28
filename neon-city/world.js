@@ -279,7 +279,7 @@ export function random(seed) {
 }
 // Each vending machine sells one of these papers; game.js styles them.
 export const NEWSPAPERS = ['DAILY BUGLE', 'NEON NEWS', 'THE RECORD'];
-const signs = ['DISCO', 'HOTEL', 'COCKTAILS', 'NEON PUB', 'PARADISE', 'BLUE NOTE', 'DREAMS', 'ARCADE', 'MIDNIGHT', 'CLUB 87'];
+const signs = ['DISCO', 'HOTEL', 'COCKTAILS', 'NEON PUB', 'PARADISE', 'BLUE NOTE', 'DREAMS', 'ARCADE', 'MIDNITE BOOKS', 'CLUB 87'];
 const neon = ['#ff46b5', '#55e8ef', '#af78ff', '#ffbc57'];
 export class City {
   constructor(seed = Date.now()) {
