@@ -17,7 +17,6 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {pubWindowLayout} from './pub-windows.js';
 import {facesEntrance} from './entrances.js';
 import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=bumps-1';
 import {PUB_TYPES} from './world.js?v=bumps-1';
@@ -343,7 +342,7 @@ export function drawStaff({face,box},at,type,counter){
     for(const side of [-1,1])staffBox(x+side*.175-.035,1.38,z-.17,.07,.4,.1,hair);
   }
 }
-export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1,building={w:18,d:18,j:0}}){
+export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1}){
   for(let x=0;x<PUB.width;x+=2)for(let z=0;z<PUB.depth;z+=2){
     quad(x,0,z,2,2,'#70513c');
     quad(x,PUB.height,z,2,2,'#31262a');
@@ -355,21 +354,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
       face(points(0,1),'#51362e');face(points(1,PUB.height),'#876b53');
     }
   };
-  // Split the entrance wall around two real openings, matching the facade.
-  const panel=(x,y,w,h,color)=>face([{x,y,z:0},{x:x+w,y,z:0},{x:x+w,y:y+h,z:0},{x,y:y+h,z:0}],color);
-  let edge=0;
-  for(const win of pubWindowLayout(building)){
-    if(edge<8.3&&win.x>9.7){wall(edge,0,8.3-edge,0);edge=9.7;}
-    wall(edge,0,win.x-edge,0);
-    panel(win.x,0,win.w,win.y,'#51362e');
-    panel(win.x,win.y+win.h,win.w,PUB.height-win.y-win.h,'#876b53');
-    const f=win.frame,fx=win.frameX;
-    panel(win.x,win.y,fx,win.h,'#9b7954');panel(win.x+win.w-fx,win.y,fx,win.h,'#9b7954');
-    panel(win.x,win.y,win.w,f,'#9b7954');panel(win.x,win.y+win.h-f,win.w,f,'#9b7954');
-    panel(win.x+win.w/2-fx/2,win.y,fx,win.h,'#9b7954');
-    edge=win.x+win.w;
-  }
-  wall(edge,0,PUB.width-edge,0);wall(0,PUB.depth,PUB.width,0);wall(0,0,0,PUB.depth);wall(PUB.width,0,0,PUB.depth);
+  wall(0,0,8.3,0);wall(9.7,0,PUB.width-9.7,0);wall(0,PUB.depth,PUB.width,0);wall(0,0,0,PUB.depth);wall(PUB.width,0,0,PUB.depth);
   for(const b of PUB.walls){wall(b.x,b.z,b.w,0);wall(b.x,b.z+b.d,b.w,0);wall(b.x,b.z,0,b.d);wall(b.x+b.w,b.z,0,b.d);}
   box(17.8,3.2,6,.4,PUB.height-3.2,4,'#51362e');
   // The entrance replaces its wall section. Non-overlapping coplanar panels
