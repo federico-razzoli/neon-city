@@ -974,7 +974,7 @@ function tick(now){
     city.update(player.x,player.z);
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
     parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
-    const cars=roadTraffic.update(city.chunks.values(),time,dt,player);
+    const cars=roadTraffic.update(city.chunks.values(),time,dt,player,city.crossingPeople?.()??[]);
     if(hornWarning.update(dt,player,cars))playHorn(audioContext);
     collision: if(!hitCooldown)for(const c of cars){
       if(Math.abs(player.x-c.x)<(c.axis?2.8:1.5)&&Math.abs(player.z-c.z)<(c.axis?1.5:2.8)){
@@ -990,7 +990,7 @@ function tick(now){
       playCoverGrunt(audioContext);
     }
     coverPressed=false;
-    const held=city.advancePedestrians(dt,player,time,walkerTalk.apart===0?walkerTalk.walker:null)??[];
+    const held=city.advancePedestrians(dt,player,time,walkerTalk.apart===0?walkerTalk.walker:null,roadTraffic)??[];
     const line=walkerTalk.update(dt,[...bumped,...held]);
     if(line){notice=2.5;noticeText=line;}
     document.querySelector('#message').textContent=notice?noticeText:'';

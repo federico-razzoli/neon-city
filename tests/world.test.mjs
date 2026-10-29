@@ -5385,3 +5385,73 @@ test('closed bookshop and record shop messages require their actual doorway',asy
     assert.deepEqual(player,before,'closed shops do not move the player');
   }
 });
+
+test('pedestrians choose crossings once, wait for committed cars, and join the opposite sidewalk',async()=>{
+  const {City,pedestrian}=await import('../neon-city/world.js');
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const choice of [.25,.75]){
+    const city=new City(1),traffic=new Traffic();
+    const walker={phase:41.99,speed:1,reverse:false,walkTime:0,type:0,variant:0};
+    const origin={x:0,z:0,people:[walker]},target={x:1,z:0,people:[]};
+    city.chunks=new Map([['0,0',origin],['1,0',target]]);
+    let draws=0;city.rng=()=>{draws++;return choice;};
+    const car={axis:0,dir:1,x:67,z:8,speed:10};traffic.cars=[car];
+    const player={x:30,z:30};
+    city.advancePedestrians(.02,player,.02,null,traffic);
+    assert.equal(draws,1);
+    if(choice>.5){assert.equal(walker.crossing,undefined);continue;}
+    assert.equal(walker.crossing.started,undefined);
+    assert.deepEqual(city.crossingPeople(),[{x:64,z:11}]);
+    for(let i=0;i<100;i++)city.advancePedestrians(.02,player,.04+i*.02,null,traffic);
+    assert.equal(draws,1,'waiting never rolls another crossing choice');
+    assert.equal(pedestrian(origin,walker,2).x,53,'waits on the pavement');
+    traffic.advance(.2,null,city.crossingPeople());
+    assert.ok(car.z>10,'a car too close to brake continues');
+    car.z=20;
+    for(let i=0;i<1110;i++)city.advancePedestrians(.02,player,3+i*.02,null,traffic);
+    assert.equal(walker.crossing,undefined);
+    assert.ok(target.people.includes(walker));assert.ok(!origin.people.includes(walker));
+    const at=pedestrian(target,walker,30);
+    assert.equal(at.x,75);assert.ok(at.z>=11&&at.z<12);
+  }
+});
+
+test('cars yield to pedestrian crossing requests using player braking rules',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  const traffic=new Traffic(),car={axis:0,dir:1,x:3,z:-30,speed:10};
+  traffic.cars=[car];
+  const request={x:0,z:11};
+  assert.equal(traffic.canCross(request),true);
+  for(let i=0;i<300;i++)traffic.advance(.02,null,[request]);
+  assert.equal(car.speed,0);assert.ok(car.z<=-17);
+  traffic.advance(.5,null,[]);assert.ok(car.speed>0);
+});
+
+test('opposing crossing pedestrians sidestep, pass, and resume on both road axes',async()=>{
+  const {City,pedestrian,PERSON_CLEARANCE}=await import('../neon-city/world.js');
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const vertical of [false,true])for(const reversed of [false,true]){
+    const city=new City(1),traffic=new Traffic();city.rng=()=>.75;
+    const origin={x:0,z:0,people:[]},target={x:vertical?0:1,z:vertical?1:0,people:[]};
+    const dx=vertical?0:1,dz=vertical?1:0,x=vertical?11:53,z=vertical?53:11;
+    const request={x:x+dx*11,z:z+dz*11};
+    const a={phase:0,speed:1,walkTime:0,reverse:vertical,type:0,variant:0,
+      crossing:{x,z,dx,dz,distance:10,started:true,target,request}};
+    const b={phase:0,speed:1.2,walkTime:0,reverse:!vertical,type:0,variant:0,
+      crossing:{x:x+dx*22,z:z+dz*22,dx:-dx,dz:-dz,distance:10.9,started:true,target:origin,request}};
+    origin.people=[a];target.people=[b];
+    city.chunks=new Map((reversed?[target,origin]:[origin,target]).map(c=>[`${c.x},${c.z}`,c]));
+    let steppedAside=false,waited=false;
+    for(let i=1;i<=1000;i++){
+      city.advancePedestrians(.02,{x:30,z:30},i*.02,null,traffic);
+      steppedAside||=(a.crossing?.offset??0)>1;
+      waited||=a.crossing?.yielding?.stage==='wait';
+      const pa=pedestrian(target.people.includes(a)?target:origin,a,i*.02);
+      const pb=pedestrian(origin.people.includes(b)?origin:target,b,i*.02);
+      assert.ok(Math.hypot(pa.x-pb.x,pa.z-pb.z)>=PERSON_CLEARANCE-1e-7,'walkers stay separated');
+    }
+    assert.ok(steppedAside&&waited,'one walker steps aside and lets the other pass');
+    assert.ok(!a.crossing&&!b.crossing,'both finish crossing');
+    assert.ok(target.people.includes(a)&&origin.people.includes(b),'both join the opposite sidewalk');
+  }
+});

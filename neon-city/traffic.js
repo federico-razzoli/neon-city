@@ -38,6 +38,15 @@ export function occupiedCrossings(player){
   return crossings;
 }
 
+function crossingStop(car,crossing){
+  const position=car.axis?car.x:car.z,edge=car.dir>0?crossing.start:crossing.end;
+  const speed=car.speed??SPEED,stoppingDistance=speed*speed/(2*BRAKING)+speed*.04;
+  const stripeStop=edge-car.dir*CROSSING_STOP;
+  const approachStop=Math.round(crossing.start/BLOCK)*BLOCK-car.dir*JUNCTION_EDGE;
+  const canStopAt=stop=>(stop-position)*car.dir>=stoppingDistance-1e-7;
+  return canStopAt(approachStop)?approachStop:canStopAt(stripeStop)?stripeStop:null;
+}
+
 const tile=(x,z)=>`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`;
 
 function junction(car){
@@ -54,13 +63,13 @@ function junction(car){
 export class Traffic {
   constructor(){this.cars=[];this.loaded=new Set();this.blockedLanes=new Map();this.junctionOwners=new Map();this.arrivals=new Map();this.elapsed=0;}
 
-  update(chunks,time,dt,player){
+  update(chunks,time,dt,player,pedestrians=[]){
     const tiles=[...chunks],loaded=new Set(tiles.map(c=>`${c.x},${c.z}`));
     this.cars=this.cars.filter(c=>loaded.has(tile(c.x,c.z)));
     this.updateSpawnLocks();
     for(const chunk of tiles)for(const candidate of traffic(chunk,time)){
       if(this.blockedLanes.has(lane(candidate)))continue;
-      if(player&&Math.hypot(candidate.x-player.x,candidate.z-player.z)<12)continue;
+      if([player,...pedestrians].some(p=>p&&Math.hypot(candidate.x-p.x,candidate.z-p.z)<12))continue;
       if(!loaded.has(tile(candidate.x,candidate.z)))continue;
       const previous=tile(candidate.x-(candidate.axis?candidate.dir*SPEED*dt:0),candidate.z-(candidate.axis?0:candidate.dir*SPEED*dt));
       if(this.loaded.has(`${chunk.x},${chunk.z}`)&&loaded.has(previous))continue;
@@ -78,7 +87,7 @@ export class Traffic {
       this.cars.push({...candidate});
     }
     this.loaded=loaded;
-    this.advance(dt,player);
+    this.advance(dt,player,pedestrians);
     return this.cars;
   }
 
@@ -146,8 +155,18 @@ export class Traffic {
     return limits;
   }
 
-  advance(dt,player){
-    const crossings=occupiedCrossings(player).map(c=>({...c,key:`${c.axis}:${c.street}:${c.start}`}));
+  canCross(person){
+    return occupiedCrossings(person).every(crossing=>this.cars.every(car=>{
+      if(car.turn||car.axis!==crossing.axis||Math.abs((car.axis?car.z:car.x)-crossing.street)>=4)return true;
+      const position=car.axis?car.x:car.z;
+      const exit=car.dir>0?crossing.end:crossing.start;
+      if((position-exit)*car.dir>2.8)return true;
+      return crossingStop(car,crossing)!==null;
+    }));
+  }
+
+  advance(dt,player,pedestrians=[]){
+    const crossings=[...new Map([player,...pedestrians].flatMap(occupiedCrossings).map(c=>[`${c.axis}:${c.street}:${c.start}`,c])).values()].map(c=>({...c,key:`${c.axis}:${c.street}:${c.start}`}));
     const activeCrossings=new Set(crossings.map(c=>c.key));
     // Small steps keep queue spacing stable even after a slow frame.
     while(dt>1e-8){
@@ -183,14 +202,7 @@ export class Traffic {
           const distance=(edge-position)*car.dir;
           if(distance<0)continue;
           if(!car.crossingDecisions.has(crossing.key)){
-            // Reserve the stop before the junction when braking room allows.
-            // Cars already committed to entering still stop before the stripes.
-            const stoppingDistance=speed*speed/(2*BRAKING)+speed*.04;
-            const stripeStop=edge-car.dir*CROSSING_STOP;
-            const junctionCentre=Math.round(crossing.start/BLOCK)*BLOCK;
-            const approachStop=junctionCentre-car.dir*JUNCTION_EDGE;
-            const canStopAt=stop=>(stop-position)*car.dir>=stoppingDistance-1e-7;
-            car.crossingDecisions.set(crossing.key,canStopAt(approachStop)?approachStop:canStopAt(stripeStop)?stripeStop:null);
+            car.crossingDecisions.set(crossing.key,crossingStop(car,crossing));
           }
           const stop=car.crossingDecisions.get(crossing.key);
           if(stop!==null)clearance=Math.min(clearance,Math.max(0,(stop-position)*car.dir));

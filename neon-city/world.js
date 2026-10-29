@@ -371,9 +371,84 @@ export class City {
     // Each position keeps its walker, so a bump can tell who was bumped and where.
     return [...this.chunks.values()].flatMap(chunk=>chunk.people.map(p=>({...pedestrian(chunk,p,time),walker:p,place:walkerPlace(chunk,p)})));
   }
+  crossingPeople(){
+    return [...this.chunks.values()].flatMap(chunk=>chunk.people.filter(p=>p.crossing).map(p=>p.crossing.request));
+  }
+  advanceCrossings(dt,player,time,traffic){
+    const handled=new Set(),transfers=[];
+    const crossingPeople=this.pedestrians(time).filter(p=>p.walker.crossing?.started);
+    for(let i=0;i<crossingPeople.length;i++)for(let j=i+1;j<crossingPeople.length;j++){
+      const a=crossingPeople[i],b=crossingPeople[j],ca=a.walker.crossing,cb=b.walker.crossing;
+      if(ca.yielding||cb.yielding||ca.dx*cb.dx+ca.dz*cb.dz!==-1)continue;
+      if(ca.request.x!==cb.request.x||ca.request.z!==cb.request.z)continue;
+      if(Math.hypot(a.x-b.x,a.z-b.z)>1.5||(b.x-a.x)*ca.dx+(b.z-a.z)*ca.dz<=0)continue;
+      // Choose the same walker regardless of chunk iteration order. Hold its
+      // forward progress until it has stepped aside and the other has passed.
+      const p=ca.dx+ca.dz>0?a.walker:b.walker;
+      p.crossing.yielding={partner:p===a.walker?b.walker:a.walker,stage:'out'};
+    }
+    for(const chunk of this.chunks.values())for(const p of [...chunk.people]){
+      if(p.crossingExit){delete p.crossingExit;continue;}
+      if(!p.crossing&&!chunk.river&&!p.detour&&!p.yielding){
+        p.walkTime??=time-dt;
+        const at=pedestrian(chunk,p,time);
+        const {side,t}=pedestrianRoute(chunk,p,p.walkTime);
+        const remaining=p.reverse?t:42-t;
+        if(remaining>p.speed*dt+1e-8)continue;
+        const corner=mod(side+(p.reverse?0:1),4);
+        const x=chunk.x*BLOCK+[11,53,53,11][corner],z=chunk.z*BLOCK+[11,11,53,53][corner];
+        if(crossesPlayer(at,{x,z},player)||this.pedestrians(time).some(q=>q.walker!==p&&crossesPerson(at,{x,z},q)))continue;
+        // Only the north and west pavement edges have painted stripes.
+        if(at.facingX&&z!==chunk.z*BLOCK+11||at.facingZ&&x!==chunk.x*BLOCK+11)continue;
+        // One draw per arrival, including a declined crossing.
+        const attempt=this.rng()<.5;
+        if(!attempt)continue;
+        const dx=at.facingX,dz=at.facingZ;
+        const target=this.chunks.get(`${chunk.x+dx},${chunk.z+dz}`);
+        if(!target||target.river)continue;
+        p.walkTime+=remaining/p.speed;
+        p.crossing={x,z,dx,dz,distance:0,target,request:{x:x+dx*11,z:z+dz*11}};
+      }
+      const c=p.crossing;
+      if(!c)continue;
+      handled.add(p);p.stuckTime=0;
+      if(!c.started){
+        if(!traffic.canCross(c.request))continue;
+        c.started=true;
+      }
+      const before=pedestrian(chunk,p,time),y=c.yielding;
+      if(y){
+        const partner=crossingPeople.find(q=>q.walker===y.partner);
+        if(y.stage==='wait'&&(!partner||(partner.x-before.x)*c.dx+(partner.z-before.z)*c.dz < -1.3))y.stage='back';
+        const offset=y.stage==='out'?Math.min(1.3,(c.offset??0)+dt*1.8):y.stage==='back'?Math.max(0,(c.offset??0)-dt*1.8):(c.offset??0);
+        const after={x:c.x+c.dx*c.distance-c.dz*offset,z:c.z+c.dz*c.distance-c.dx*offset};
+        if(crossesPlayer(before,after,player)||this.pedestrians(time).some(q=>q.walker!==p&&crossesPerson(before,after,q)))continue;
+        c.offset=offset;
+        if(y.stage==='out'&&offset===1.3)y.stage='wait';
+        if(y.stage==='back'&&offset===0)delete c.yielding;
+        continue;
+      }
+      const distance=Math.min(22,c.distance+p.speed*dt);
+      const after={x:c.x+c.dx*distance,z:c.z+c.dz*distance};
+      if(crossesPlayer(before,after,player)||this.pedestrians(time).some(q=>q.walker!==p&&crossesPerson(before,after,q)))continue;
+      c.distance=distance;p.walkTime+=dt;
+      if(distance===22)transfers.push({chunk,p,c});
+    }
+    for(const {chunk,p,c} of transfers){
+      chunk.people.splice(chunk.people.indexOf(p),1);c.target.people.push(p);
+      const x=c.x+c.dx*22-c.target.x*BLOCK,z=c.z+c.dz*22-c.target.z*BLOCK;
+      const corner=x===11?(z===11?0:3):(z===11?1:2);
+      p.reverse=!p.reverse;
+      p.phase=mod(corner*42-p.walkTime*p.speed*(p.reverse?-1:1),168);
+      delete p.crossing;p.crossingExit=true;
+    }
+    return handled;
+  }
   // Returns {walker, place} for each walker on the promenade or a footpath
   // that the player is standing in the way of.
-  advancePedestrians(dt,player,time,speaker=null) {
+  advancePedestrians(dt,player,time,speaker=null,traffic=null) {
+    const crossingWalkers=traffic?this.advanceCrossings(dt,player,time,traffic):new Set();
+    const crossingPositions=this.pedestrians(time).filter(person=>crossingWalkers.has(person.walker));
     const heldInPlace=[];
     // Keep an encounter stopped until the player clears every participant's
     // forward route, even if they have already cleared the original speaker.
@@ -405,7 +480,7 @@ export class City {
       // frozen until they have stepped out, let the other pass, and returned.
       for(let i=0;i<chunk.people.length;i++)for(let j=i+1;j<chunk.people.length;j++){
         const a=chunk.people[i],b=chunk.people[j];
-        if(waiters.has(a)||waiters.has(b)||a.yielding||b.yielding||a.detour||b.detour||a.reverse===b.reverse)continue;
+        if(crossingWalkers.has(a)||crossingWalkers.has(b)||waiters.has(a)||waiters.has(b)||a.yielding||b.yielding||a.detour||b.detour||a.reverse===b.reverse)continue;
         const pa=pedestrian(chunk,a,time),pb=pedestrian(chunk,b,time);
         const gap=Math.hypot(pa.x-pb.x,pa.z-pb.z);
         if(gap>1.2)continue;
@@ -436,7 +511,7 @@ export class City {
         }
         if(y.stage==='back'&&y.offset===0){delete p.yielding;p.stuckTime=0;}
       }
-      const moves=chunk.people.map(p=>{
+      const moves=chunk.people.filter(p=>!crossingWalkers.has(p)).map(p=>{
         p.walkTime??=time-dt;
         const before=pedestrian(chunk,p,time);
         const y=p.yielding;
@@ -448,7 +523,7 @@ export class City {
         const route=!y&&!waitingForSideStep&&chunk.park?this.footpathStep(chunk,p,dt):null;
         const after=pedestrian(chunk,{...p,...route,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
         const held=waiters.has(p)||crossesPlayer(before,after,player);
-        return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)};
+        return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)||crossingPositions.some(q=>crossesPerson(before,after,q))};
       });
       // Walkers with lines for their place stay to talk while the player blocks them.
       const talking=new Set();
@@ -501,7 +576,7 @@ export class City {
         if(y.stage==='back'&&y.offset===0)delete move.p.yielding;
       }
       const turnAround=p=>{
-        if(waiters.has(p)||(p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5||talking.has(p))return false;
+        if(crossingWalkers.has(p)||waiters.has(p)||(p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5||talking.has(p))return false;
         // On the footpath, walk back the way they came.
         const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=pedestrian(chunk,p,time);
@@ -709,6 +784,10 @@ function pedestrianRoute(chunk,p,time){
 }
 export function pedestrian(chunk,p,time) {
   time=p.walkTime??time;
+  if(p.crossing){
+    const c=p.crossing;
+    return {x:c.x+c.dx*c.distance-c.dz*(c.offset??0),z:c.z+c.dz*c.distance-c.dx*(c.offset??0),facingX:c.dx,facingZ:c.dz,type:p.type,frame:c.started?Math.floor(time*p.speed*5+p.phase)%4:0,variant:p.variant};
+  }
   if(p.detour){
     const at=detourPosition(p.detour,(time-p.detour.start)*p.speed);
     return {...at,type:p.type,frame:Math.floor(time*p.speed*5+p.phase)%4,variant:p.variant};
