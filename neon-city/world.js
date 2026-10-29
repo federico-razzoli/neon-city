@@ -632,12 +632,14 @@ export class City {
     return null;
   }
   // Bumped people are also added to the optional bumped list.
-  move(p,dx,dz,people=[],bumped=[]) {
+  move(p,dx,dz,people=[],bumped=[],cars=[],bumpedCars=[]) {
     let bumpedPedestrian=false;
     const reach=Math.hypot(dx,dz)+STREET_BUMP_RADIUS;
     const nearby=people.filter(person=>Math.hypot(person.x-p.x,person.z-p.z)<=reach);
     const blocked=(x,z)=>{
       if(this.solid(x,z))return true;
+      const car=cars.find(car=>car.waiting&&Math.abs(x-car.x)<(car.axis?2.8:1.5)&&Math.abs(z-car.z)<(car.axis?1.5:2.8));
+      if(car){if(!bumpedCars.includes(car))bumpedCars.push(car);return true;}
       const hit=x!==p.x||z!==p.z?nearby.filter(person=>
         Math.hypot(x-person.x,z-person.z)<=Math.hypot(p.x-person.x,p.z-person.z)&&
         crossesPerson(p,{x,z},person,STREET_BUMP_RADIUS)):[];

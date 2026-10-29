@@ -5455,3 +5455,22 @@ test('opposing crossing pedestrians sidestep, pass, and resume on both road axes
     assert.ok(target.people.includes(a)&&origin.people.includes(b),'both join the opposite sidewalk');
   }
 });
+
+test('waiting cars block movement from every side and report contact without a pedestrian bump',async()=>{
+  const {City}=await import('../neon-city/world.js');
+  const city={solid:()=>false};
+  for(const axis of [0,1])for(const direction of [-1,1])for(const coordinate of ['x','z']){
+    const car={x:0,z:0,axis,waiting:true};
+    const extent=coordinate==='x'?(axis?2.8:1.5):(axis?1.5:2.8);
+    const player={x:0,z:0,[coordinate]:direction*(extent+.1)},contacts=[];
+    const dx=coordinate==='x'?-direction*.6:0,dz=coordinate==='z'?-direction*.6:0;
+    assert.equal(City.prototype.move.call(city,player,dx,dz,[],[],[car],contacts),false);
+    assert.ok(Math.abs(player[coordinate])>=extent);
+    assert.deepEqual(contacts,[car]);
+    City.prototype.move.call(city,player,dx,dz,[],[],[car],contacts);
+    assert.ok(Math.abs(player[coordinate])>=extent,'repeated attempts stay blocked');
+    car.waiting=false;
+    City.prototype.move.call(city,player,dx,dz,[],[],[car]);
+    assert.ok(Math.abs(player[coordinate])<extent,'moving cars retain the hit response path');
+  }
+});

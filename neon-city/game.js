@@ -32,7 +32,7 @@ import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
 import {DepthRenderer} from './depth-renderer.js?v=note-colour-2';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=midnite-books-1';
+import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=waiting-car-collision-1';
 import {Traffic} from './traffic.js?v=junction-priority-1';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
@@ -966,8 +966,8 @@ function tick(now){
       document.querySelector('#location').textContent=hotelCorridor?`HOTEL / FLOOR ${hotelStairs.floor} / CORRIDOR`:hotelStorage?'HOTEL / FLOOR 2 / STORAGE':hotelStairs?`HOTEL / FLOOR ${hotelStairs.floor} / STAIRWELL`:'HOTEL / LOBBY';
     }else{
     const people=city.pedestrians(time-dt);
-    const bumped=[];
-    const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people,bumped);
+    const bumped=[],bumpedCars=[];
+    const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people,bumped,roadTraffic.cars,bumpedCars);
     // On the promenade or a footpath, someone with lines for it answers a bump with them instead.
     if(bumpedPedestrian&&!bumped.some(talksHere)){notice=2.5;noticeText='HEY! WATCH OUT!';}
     if(!playerSeat&&(forward||side))steps+=dt*10*pace;
@@ -976,10 +976,23 @@ function tick(now){
     parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
     const cars=roadTraffic.update(city.chunks.values(),time,dt,player,city.crossingPeople?.()??[]);
     if(hornWarning.update(dt,player,cars))playHorn(audioContext);
+    // Waiting cars remain solid even while their warning is on cooldown.
+    for(const c of cars)if(c.waiting){
+      const dx=player.x-c.x,dz=player.z-c.z,hx=c.axis?2.8:1.5,hz=c.axis?1.5:2.8;
+      const overlapping=Math.abs(dx)<hx&&Math.abs(dz)<hz;
+      if(overlapping){
+        if(hx-Math.abs(dx)<hz-Math.abs(dz))player.x=c.x+(dx>=0?hx:-hx);
+        else player.z=c.z+(dz>=0?hz:-hz);
+      }
+      if((overlapping||bumpedCars.includes(c))&&!hitCooldown){
+        playHorn(audioContext);notice=2.5;noticeText='HEY! STAY OFF MY CAR!';hitCooldown=1.5;
+      }
+    }
     collision: if(!hitCooldown)for(const c of cars){
+      if(c.waiting)continue;
       if(Math.abs(player.x-c.x)<(c.axis?2.8:1.5)&&Math.abs(player.z-c.z)<(c.axis?1.5:2.8)){
         const side=c.axis?(player.z>=c.z?1:-1):(player.x>=c.x?1:-1);
-        city.move(player,c.axis?c.dir*2.5:side*7,c.axis?side*7:c.dir*2.5,people);shake=7;notice=2.5;noticeText='HEY! WATCH THE TRAFFIC.';hitCooldown=1.5;playOuch();
+        city.move(player,c.axis?c.dir*2.5:side*7,c.axis?side*7:c.dir*2.5,people,[],cars);shake=7;notice=2.5;noticeText='HEY! WATCH THE TRAFFIC.';hitCooldown=1.5;playOuch();
         break collision;
       }
     }
