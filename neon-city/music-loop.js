@@ -22,9 +22,9 @@ If not, see <https://www.gnu.org/licenses/>.
 // piece is chosen on each visit and plays from the start; the music swells
 // in while the player is in the room and dies away when they leave.
 export class MusicLoop{
-  // pieces: what can be chosen; samples(piece) writes a piece's loop at rate.
-  constructor({pieces,samples,rate,lowpass}){
-    Object.assign(this,{pieces,samples,rate,lowpass});
+  // samples(piece, rate, target) writes a loop into the supplied channel.
+  constructor({pieces,samples,loopSeconds,rate,lowpass}){
+    Object.assign(this,{pieces,samples,loopSeconds,rate,lowpass});
     this.buffers=new Map();
   }
   // Writing the loops takes a noticeable moment, so the game does it when
@@ -32,8 +32,9 @@ export class MusicLoop{
   prepare(context){
     if(!context)return;
     for(const piece of this.pieces)if(!this.buffers.has(piece)){
-      const data=this.samples(piece),buffer=context.createBuffer(1,data.length,this.rate);
-      buffer.getChannelData(0).set(data);this.buffers.set(piece,buffer);
+      const buffer=context.createBuffer(1,Math.round(this.loopSeconds(piece)*this.rate),this.rate);
+      this.samples(piece,this.rate,buffer.getChannelData(0));
+      this.buffers.set(piece,buffer);
     }
   }
   // The piece for this visit, played from the start.

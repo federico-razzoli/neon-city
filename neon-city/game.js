@@ -48,8 +48,8 @@ import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,BAR_BEE
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
-import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=pub-music-2';
-import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=pub-music-4';
+import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=direct-buffer-1';
+import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=direct-buffer-1';
 import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=court-shoes-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';

@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {MusicLoop} from './music-loop.js?v=pub-music-2';
+import {MusicLoop} from './music-loop.js?v=direct-buffer-1';
 // Pub music: boogie-woogie, twelve-bar blues with a piano left hand of eight
 // swung notes to the bar under right-hand riffs with crushed blue notes;
 // one tune is for solo piano, the other for a trio with bass and drums.
@@ -222,8 +222,9 @@ const DRUMS={
   stopFill:[[0,'kick',1],[0,'ride',1],...[2,2.333,2.667,3,3.333,3.667].map((at,i)=>[at,'brush',.6+.1*i])]
 };
 
-export function pubMusicSamples(piece,rate=PUB_MUSIC.rate){
-  const {beat}=piece,samples=new Float32Array(Math.round(loopSeconds(piece)*rate));
+export function pubMusicSamples(piece,rate=PUB_MUSIC.rate,samples=new Float32Array(Math.round(loopSeconds(piece)*rate))){
+  const {beat}=piece;
+  samples.fill(0);
   const kit=piece.riffs?null:drumKit(rate);
   let n=0,m=1e5;
   scoreBars(piece).forEach(({low,high,steps,voice,right,bassRoot,bass,drums},bar)=>{
@@ -259,5 +260,5 @@ export function pubMusicSamples(piece,rate=PUB_MUSIC.rate){
 
 // An upright piano heard across a busy room: the very top is softened.
 export class PubMusic extends MusicLoop{
-  constructor(){super({pieces:PUB_PIECES,samples:pubMusicSamples,rate:PUB_MUSIC.rate,lowpass:5000});}
+  constructor(){super({pieces:PUB_PIECES,samples:pubMusicSamples,loopSeconds,rate:PUB_MUSIC.rate,lowpass:5000});}
 }

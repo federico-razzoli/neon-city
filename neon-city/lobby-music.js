@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {MusicLoop} from './music-loop.js?v=pub-music-2';
+import {MusicLoop} from './music-loop.js?v=direct-buffer-1';
 // Hotel lobby music: slow ambient loops of soft pad chords over a low bass
 // note, with a sparse melody echoing away, played at a steady level in the
 // hall. Each visit to a lobby plays one of the pieces, chosen at random.
@@ -73,7 +73,7 @@ function addNote(samples,rate,start,envelope,tones){
 const mod=(n,d)=>((n%d)+d)%d;
 const table=(rate,seconds,f)=>Float32Array.from({length:Math.round(seconds*rate)},(_,i)=>f(i/rate));
 
-export function lobbyMusicSamples(piece,rate=LOBBY_MUSIC.rate){
+export function lobbyMusicSamples(piece,rate=LOBBY_MUSIC.rate,samples=new Float32Array(Math.round(loopSeconds(piece)*rate))){
   const {chordSeconds,chords,melody,voice,echo}=piece;
   const length=loopSeconds(piece)*rate,pads=new Float32Array(length),notes=new Float32Array(length);
   // Each chord swells in over three seconds and fades out over the next
@@ -103,7 +103,6 @@ export function lobbyMusicSamples(piece,rate=LOBBY_MUSIC.rate){
     const delay=Math.round(echo.seconds*k*rate),level=echo.feedback**k;
     for(let i=0;i<length;i++)echoes[(i+delay)%length]+=notes[i]*level;
   }
-  const samples=new Float32Array(length);
   let peak=0;
   for(let i=0;i<length;i++){samples[i]=pads[i]+notes[i]+echoes[i];peak=Math.max(peak,Math.abs(samples[i]));}
   for(let i=0;i<length;i++)samples[i]*=LOBBY_MUSIC.peak/peak;
@@ -112,5 +111,5 @@ export function lobbyMusicSamples(piece,rate=LOBBY_MUSIC.rate){
 
 // A gentle low-pass keeps the lobby music soft, like ceiling speakers.
 export class LobbyMusic extends MusicLoop{
-  constructor(){super({pieces:LOBBY_PIECES,samples:lobbyMusicSamples,rate:LOBBY_MUSIC.rate,lowpass:3200});}
+  constructor(){super({pieces:LOBBY_PIECES,samples:lobbyMusicSamples,loopSeconds,rate:LOBBY_MUSIC.rate,lowpass:3200});}
 }

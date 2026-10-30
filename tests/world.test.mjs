@@ -5523,3 +5523,32 @@ test('punk girl mentions tickets only after the marriage line is heard, in every
     talk.confirm();assert.equal(talk.line,null);
   }
 });
+
+
+test('music synthesis writes identical samples directly into audio buffer channels',async()=>{
+  for(const [moduleName,prefix] of [['lobby-music','LOBBY'],['pub-music','PUB']]){
+    const module=await import(`../neon-city/${moduleName}.js`);
+    const samples=module[prefix==='LOBBY'?'lobbyMusicSamples':'pubMusicSamples'];
+    const Music=module[prefix==='LOBBY'?'LobbyMusic':'PubMusic'];
+    const rate=module[`${prefix}_MUSIC`].rate,pieces=module[`${prefix}_PIECES`];
+    const channels=[];
+    const music=new Music();
+    const synthesize=music.samples;
+    music.samples=(piece,sampleRate,target)=>{
+      assert.equal(target,channels.at(-1),'synthesizes into the final channel');
+      return synthesize(piece,sampleRate,target);
+    };
+    music.prepare({createBuffer(count,length,sampleRate){
+      assert.equal(count,1);assert.equal(sampleRate,rate);
+      const channel=new Float32Array(length);channels.push(channel);
+      return {getChannelData:()=>channel};
+    }});
+    for(let i=0;i<pieces.length;i++){
+      const expected=samples(pieces[i]);
+      assert.deepEqual(channels[i],expected,'direct synthesis preserves every sample');
+      const reused=new Float32Array(expected.length).fill(.25);
+      assert.equal(samples(pieces[i],rate,reused),reused);
+      assert.deepEqual(reused,expected,'reused output does not retain old samples');
+    }
+  }
+});
