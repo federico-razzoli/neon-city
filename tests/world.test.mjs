@@ -357,7 +357,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   const {register}=await import('../neon-city/register.js');
   for(const key in register)delete register[key];
   const {LOBBY_MUSIC,LOBBY_PIECES}=await import('../neon-city/lobby-music.js');
-  const events={},elements=new Map(),musicVolumes=[],musicChoices=[];let covers=0,bells=0;
+  const events={},elements=new Map(),musicVolumes=[],musicChoices=[],musicReleases=[];let covers=0,bells=0;
   const element=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
@@ -366,7 +366,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     CoverAttempt:class{try(){covers++;return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
-    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},LobbyMusic:class{prepare(){}choose(piece){musicChoices.push(piece);}update(context,volume){musicVolumes.push(volume);}mute(){}},LOBBY_MUSIC,LOBBY_PIECES,...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
+    HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},LobbyMusic:class{prepare(){}choose(piece){(piece?musicChoices:musicReleases).push(piece);}update(context,volume){musicVolumes.push(volume);}mute(){}},LOBBY_MUSIC,LOBBY_PIECES,...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
@@ -575,6 +575,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   press();
   assert.match(location(),/^MIDNIGHT DISTRICT/);
   assert.equal(musicVolumes.at(-1),0,'the music stays in the hotel');
+  assert.deepEqual(musicReleases,[null],'returning to the street releases the hotel track');
   assert.ok(Math.abs(player.x-23)<1e-9&&Math.abs(player.z-12.5)<.1,'back outside the doors');
   assert.ok(Math.abs(player.angle-Math.PI)<1e-9,'facing the street');
   Object.assign(player,{x:23,z:12.5,angle:0});
@@ -2774,15 +2775,17 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
   assert.match(location(),/^MIDNIGHT DISTRICT/);
   assert.equal(volumes.at(-1),0);
   enter();
-  assert.equal(choices.length,2);
+  assert.equal(choices.filter(piece=>piece===null).length,1,'returning to the street releases the pub track');
+  assert.equal(choices.filter(Boolean).length,2);
   assert.equal(volumes.at(-1),PUB_MUSIC.volume);
   // Every visit picks its tune afresh, at random.
   for(let visit=0;visit<20;visit++){
     Object.assign(player,{x:pubInterior.PUB.door.x,z:1.5,angle:Math.PI});press();
     enter();
   }
-  assert.equal(choices.length,22,'one choice per visit');
-  assert.deepEqual(new Set(choices),new Set(PUB_PIECES),'each tune comes up');
+  assert.equal(choices.filter(Boolean).length,22,'one choice per visit');
+  assert.equal(choices.filter(piece=>piece===null).length,21,'every street exit releases music');
+  assert.deepEqual(new Set(choices.filter(Boolean)),new Set(PUB_PIECES),'each tune comes up');
 });
 
 test('Space walks from the pub into a free cubicle, sits, flushes on standing and goes back',async()=>{
@@ -4103,7 +4106,7 @@ test('the hotel lobby plays soft, seamless, different loops of ambient music',as
   assert.ok(performance.now()-started<1500);
 });
 
-test('the lobby music is prepared ahead, starts the chosen piece from the top on each visit, and fades with the lobby',async()=>{
+test('the lobby music generates one track per visit and releases it on returning to the street',async()=>{
   const {LobbyMusic,LOBBY_PIECES}=await import('../neon-city/lobby-music.js');
   const log=[],sources=[],calls=[];
   const param=name=>({value:0,setTargetAtTime(v){(name==='gain'?calls:log).push([name,v]);}});
@@ -4111,14 +4114,16 @@ test('the lobby music is prepared ahead, starts the chosen piece from the top on
     createBuffer(channels,length){const b={length,getChannelData:()=>new Float32Array(length)};this.buffers.push(b);return b;},
     createGain:()=>({gain:param('gain'),connect(){},disconnect(){}}),
     createBufferSource:()=>{const s={connect(){},disconnect(){},start(){calls.push(['start',s.buffer]);},stop(){s.stopped=true;}};sources.push(s);return s;},
-    createBiquadFilter:()=>({frequency:param('lowpass'),connect(){}})};
+    createBiquadFilter:()=>({frequency:param('lowpass'),connect(){},disconnect(){this.disconnected=true;}})};
   const music=new LobbyMusic(),[first,second]=LOBBY_PIECES;
   music.update(context,.8);
   assert.equal(context.buffers.length,0,'nothing is built or played before a piece is chosen');
   music.prepare(context);music.prepare(context);
-  assert.equal(context.buffers.length,LOBBY_PIECES.length,'each loop is built once');
-  const buffer=piece=>context.buffers[LOBBY_PIECES.indexOf(piece)];
+  assert.equal(context.buffers.length,0,'no music buffers are generated on the street');
   music.choose(first);music.update(context,.8);
+  const buffer=()=>context.buffers.at(-1);
+  assert.equal(context.buffers.length,1,'only the selected track is generated');
+  assert.equal(music.buffers.size,1);
   assert.deepEqual(calls,[['start',buffer(first)],['gain',.8]]);
   assert.equal(sources[0].loop,true);
   music.update(context,0);music.mute();
@@ -4134,7 +4139,18 @@ test('the lobby music is prepared ahead, starts the chosen piece from the top on
   // Resuming within a visit carries on the same piece.
   music.mute();music.update(context,.8);
   assert.equal(sources.at(-1).stopped,undefined);assert.equal(sources.length,3);
-  assert.equal(context.buffers.length,LOBBY_PIECES.length);
+  assert.equal(context.buffers.length,3,'each visit generates its selected track');
+  const last=sources.at(-1),filter=music.playing.filter;
+  music.choose(null);
+  assert.equal(music.buffers.size,0);assert.equal(music.piece,null);assert.equal(music.playing,null);
+  assert.equal(last.stopped,true,'leaving stops the audio source after its fade');
+  last.onended();
+  assert.equal(last.buffer,null,'the ended source releases its audio buffer');
+  assert.equal(filter.disconnected,true);assert.equal(last.onended,null);
+  music.update(context,0);music.prepare(context);
+  assert.equal(context.buffers.length,3,'remaining on the street generates no tracks');
+  music.choose(first);music.update(context,.8);
+  assert.equal(context.buffers.length,4,'reentry generates a fresh buffer');
 });
 
 test('the pub plays seamless, swung twelve-bar boogie-woogies on the piano, each its own tune',async()=>{
@@ -5538,12 +5554,14 @@ test('music synthesis writes identical samples directly into audio buffer channe
       assert.equal(target,channels.at(-1),'synthesizes into the final channel');
       return synthesize(piece,sampleRate,target);
     };
-    music.prepare({createBuffer(count,length,sampleRate){
+    const context={createBuffer(count,length,sampleRate){
       assert.equal(count,1);assert.equal(sampleRate,rate);
       const channel=new Float32Array(length);channels.push(channel);
       return {getChannelData:()=>channel};
-    }});
+    }};
     for(let i=0;i<pieces.length;i++){
+      music.choose(pieces[i]);music.prepare(context);
+      assert.equal(music.buffers.size,1);
       const expected=samples(pieces[i]);
       assert.deepEqual(channels[i],expected,'direct synthesis preserves every sample');
       const reused=new Float32Array(expected.length).fill(.25);

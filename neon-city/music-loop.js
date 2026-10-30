@@ -27,18 +27,19 @@ export class MusicLoop{
     Object.assign(this,{pieces,samples,loopSeconds,rate,lowpass});
     this.buffers=new Map();
   }
-  // Writing the loops takes a noticeable moment, so the game does it when
-  // sound is switched on rather than at the doors.
+  // Generate only the selected visit's track, directly into its audio buffer.
   prepare(context){
-    if(!context)return;
-    for(const piece of this.pieces)if(!this.buffers.has(piece)){
-      const buffer=context.createBuffer(1,Math.round(this.loopSeconds(piece)*this.rate),this.rate);
-      this.samples(piece,this.rate,buffer.getChannelData(0));
-      this.buffers.set(piece,buffer);
-    }
+    if(!context||!this.piece||this.buffers.has(this.piece))return;
+    this.buffers.clear();
+    const buffer=context.createBuffer(1,Math.round(this.loopSeconds(this.piece)*this.rate),this.rate);
+    this.samples(this.piece,this.rate,buffer.getChannelData(0));
+    this.buffers.set(this.piece,buffer);
   }
-  // The piece for this visit, played from the start.
-  choose(piece){this.piece=piece;this.chosen=true;}
+  // Passing null ends the visit and releases the retained track.
+  choose(piece){
+    this.stop();this.buffers.clear();
+    this.piece=piece;this.chosen=!!piece;
+  }
   update(context,volume,lowpass=this.lowpass){
     if(!context||context.state!=='running')return;
     if(volume>0&&this.chosen){
@@ -56,9 +57,12 @@ export class MusicLoop{
   // Ends the last visit's piece, quickly fading out whatever is left of it.
   stop(){
     if(!this.playing)return;
-    const {gain,source}=this.playing;
+    const {gain,source,filter}=this.playing;
     gain.gain.setTargetAtTime(0,this.context.currentTime,.025);
-    source.onended=()=>{source.disconnect();gain.disconnect();};
+    source.onended=()=>{
+      source.buffer=null;source.disconnect();filter.disconnect();gain.disconnect();
+      source.onended=null;
+    };
     source.stop(this.context.currentTime+.2);
     this.playing=null;
   }

@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {MusicLoop} from './music-loop.js?v=direct-buffer-1';
+import {MusicLoop} from './music-loop.js?v=visit-buffer-1';
 // Pub music: boogie-woogie, twelve-bar blues with a piano left hand of eight
 // swung notes to the bar under right-hand riffs with crushed blue notes;
 // one tune is for solo piano, the other for a trio with bass and drums.

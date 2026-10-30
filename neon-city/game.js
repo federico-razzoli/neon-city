@@ -48,8 +48,8 @@ import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,POKE_BALL_REPLY,BAR_BEE
 import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
-import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=direct-buffer-1';
-import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=direct-buffer-1';
+import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=visit-buffer-1';
+import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=visit-buffer-1';
 import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=court-shoes-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
@@ -102,6 +102,7 @@ function useDoor(){
   }else if(indoors()){
     if(!(insideArcade?facingArcadeExit(player):insidePub?facingPubExit(player):facingHotelExit(player)))return false;
     Object.assign(player,streetPosition);insideArcade=insidePub=insideHotel=false;
+    lobbyMusic.choose(null);pubMusic.choose(null);
   }else{
     if(facingClosedShopDoor(player,pubBuildings())){
       notice=4.5;noticeText='NOT YET AVAILABLE. TRY ANOTHER VENUE.';
@@ -290,7 +291,6 @@ function enableSound(){
     audioContext??=new AudioContext();
     audioContext.resume().catch(()=>{});
     loadCoverGrunt(audioContext);
-    lobbyMusic.prepare(audioContext);pubMusic.prepare(audioContext);
     ouchLoading??=fetch(new URL('./assets/ouch-short.wav',import.meta.url))
       .then(response=>{if(!response.ok)throw new Error('Sound unavailable');return response.arrayBuffer();})
       .then(data=>audioContext.decodeAudioData(data))
