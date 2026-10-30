@@ -30,7 +30,9 @@ const TATTOOED_MAN={
   },
 };
 // The punk girl turns down whatever she is offered, in every place.
-const PUNK_GIRL_GIFTS={any:['THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!','FIND ME ONE, IF YOU WANT TO MARRY ME.']};
+const PUNK_GIRL_GIFTS={any:record=>'RADIOACTIVE_COWS_TICKET_MENTIONED' in record
+  ?['THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!','FIND ME ONE, IF YOU WANT TO MARRY ME.']
+  :['THANKS BUT NO THANKS.']};
 const PUNK_GIRL={
   pub:{
     label:'Talk to the punk girl',

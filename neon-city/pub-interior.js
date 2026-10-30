@@ -156,7 +156,10 @@ export const BARTENDER_TALK=[
 export class StaffTalk{
   constructor(script=BARTENDER_TALK,record=register,inventory=null,gifts={}){this.gifts=gifts;this.inventory=inventory;this.giving=false;this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
   get script(){
-    if(this.giving)return [...this.inventory.items.map(item=>({ask:item.name,answer:this.gifts[item.id]??this.gifts.any??['NO, THANK YOU.']})),{ask:'BACK',action:'back'}];
+    if(this.giving)return [...this.inventory.items.map(item=>{
+      const reply=this.gifts[item.id]??this.gifts.any??['NO, THANK YOU.'];
+      return {ask:item.name,answer:typeof reply==='function'?reply(this.record):reply};
+    }),{ask:'BACK',action:'back'}];
     const options=this.blocks[this.block].filter(option=>option.needs==null||option.needs in this.record);
     return this.inventory?[...options,{ask:'GIVE',action:'give',separator:true}]:options;
   }

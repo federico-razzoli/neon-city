@@ -4769,14 +4769,14 @@ test('punk girl follows her monologue with a place-specific conversation and ref
   assert.equal(followupFor(3,'lavatory'),null);
   for(const place of ['pub','river','footpath']){
     const lines=place==='pub'?pubLines(3):placeLines(3,place),talk=new PubConversation(lines,()=>0,{},followupFor(3,place));
-    for(const line of lines)assert.equal(talk.advance(),line);
+    for(const line of lines)assert.equal(talk.advance(),line.say??line);
     assert.equal(talk.advance(),null);assert.equal(talk.ready,true);
   }
   const hear=(talk,choice)=>{talk.confirm(choice);const said=[];while(talk.line){said.push(talk.line);talk.confirm();}return said;};
   const open=place=>{
     const inventory=new Inventory();inventory.take(FLOWER);inventory.take(PINE_CONE);
     const {script,gifts}=followupFor(3,place);
-    return {inventory,talk:new StaffTalk(script,{},inventory,gifts)};
+    return {inventory,talk:new StaffTalk(script,{RADIOACTIVE_COWS_TICKET_MENTIONED:true},inventory,gifts)};
   };
   const asks=talk=>talk.script.map(o=>o.ask);
 
@@ -5472,5 +5472,37 @@ test('waiting cars block movement from every side and report contact without a p
     car.waiting=false;
     City.prototype.move.call(city,player,dx,dz,[],[],[car]);
     assert.ok(Math.abs(player[coordinate])<extent,'moving cars retain the hit response path');
+  }
+});
+
+
+test('punk girl mentions tickets only after the marriage line is heard, in every place',async()=>{
+  const {followupFor}=await import('../neon-city/npc-dialogue.js');
+  const {PubConversation}=await import('../neon-city/pub-life.js');
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const {Inventory,FLOWER,PINE_CONE}=await import('../neon-city/inventory.js');
+  const {pubLines}=await import('../neon-city/world.js');
+  const record={},key='RADIOACTIVE_COWS_TICKET_MENTIONED';
+  const monologue=new PubConversation(pubLines(3),()=>0,record);
+  for(let i=0;i<4;i++)monologue.advance();
+  assert.equal(key in record,false);
+  const talks=['pub','river','footpath'].map(place=>{
+    const inventory=new Inventory();inventory.take(FLOWER);inventory.take(PINE_CONE);
+    const {script,gifts}=followupFor(3,place);
+    const talk=new StaffTalk(script,record,inventory,gifts);
+    talk.confirm(talk.script.length-1);
+    for(const choice of [0,1]){
+      talk.confirm(choice);assert.equal(talk.line,'THANKS BUT NO THANKS.');
+      talk.confirm();assert.equal(talk.line,null);
+    }
+    assert.deepEqual(inventory.items,[FLOWER,PINE_CONE]);
+    return talk;
+  });
+  assert.equal(monologue.advance(),"FIND ME ONE AND I'LL MARRY YOU.");
+  assert.equal(record[key],true);
+  for(const talk of talks)for(const choice of [0,1]){
+    talk.confirm(choice);assert.equal(talk.line,'THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!');
+    talk.confirm();assert.equal(talk.line,'FIND ME ONE, IF YOU WANT TO MARRY ME.');
+    talk.confirm();assert.equal(talk.line,null);
   }
 });
