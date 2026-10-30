@@ -30,6 +30,26 @@ export const URSA_MAJOR=Object.freeze([
 ].map(Object.freeze));
 
 // Celestial objects have fixed world bearings and elevations, at infinite distance.
+export function skyDirection(object){
+  const c=Math.cos(object.elevation);
+  return {...object,x:Math.sin(object.bearing)*c,z:Math.cos(object.bearing)*c,y:Math.sin(object.elevation)};
+}
+
+// Share camera trigonometry across the whole fixed starfield each frame.
+export function starProjector(angle,width,focalLength,horizon,pitch=0){
+  const sinAngle=Math.sin(angle),cosAngle=Math.cos(angle),sinPitch=Math.sin(pitch),cosPitch=Math.cos(pitch);
+  const bottom=skyHorizon(horizon,focalLength,pitch);
+  return object=>{
+    const ahead=object.z*cosAngle+object.x*sinAngle;
+    const right=object.x*cosAngle-object.z*sinAngle;
+    const depth=ahead*cosPitch+object.y*sinPitch,height=object.y*cosPitch-ahead*sinPitch;
+    if(depth<=0)return null;
+    const x=width/2+focalLength*right/depth,y=horizon-focalLength*height/depth;
+    if(x<0||x>=width||y<0||y>=bottom)return null;
+    return {x,y};
+  };
+}
+
 // Use the same perspective as the city, without camera translation. A seated
 // viewer may pitch the view upwards, which lowers the horizon on screen.
 export function projectSky(object, angle, width, focalLength, horizon, pitch=0) {

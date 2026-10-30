@@ -54,7 +54,7 @@ import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=1';
-import {projectSky,skyHorizon,URSA_MAJOR} from './sky.js?v=bench-1';
+import {projectSky,skyHorizon,URSA_MAJOR,skyDirection,starProjector} from './sky.js?v=stars-2';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
 import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=street-1';
 import {hotelHIsDim,dimHotelH,drawHotel,hotelLook} from './hotel.js?v=park-entrances-1';
@@ -265,6 +265,7 @@ const stars=Array.from({length:300},()=>({bearing:Math.random()*Math.PI*2,elevat
 // Higher stars are above the level view; they appear when a seated player looks up.
 // Uniform over the upper sky, so they do not crowd around the zenith.
 for(let i=0;i<700;i++)stars.push({bearing:Math.random()*Math.PI*2,elevation:Math.asin(Math.sin(.45)+Math.random()*(1-Math.sin(.45))),color:starColors[Math.floor(Math.random()*starColors.length)]});
+const starfield=[...stars,...URSA_MAJOR].map(skyDirection);
 const moon={bearing:.33,elevation:.31};
 const shootingStars=new ShootingStars();
 const skyView=()=>({angle:player.angle,width:W,focal:F,horizon,pitch:windowView?.pitch??playerSeat?.pitch??0});
@@ -670,8 +671,9 @@ function seatedPatron(p,walking=false,height=48*.05){
 // The corridor shares the outdoor sky; only pixels without room geometry show stars.
 function drawStarfield(depth=null){
   const pitch=windowView?.pitch??playerSeat?.pitch??0;
-  for(const star of [...stars,...URSA_MAJOR]){
-    const p=projectSky(star,player.angle,W,F,horizon,pitch);
+  const project=starProjector(player.angle,W,F,horizon,pitch);
+  for(const star of starfield){
+    const p=project(star);
     if(!p)continue;
     const x=Math.floor(p.x),y=Math.floor(p.y);
     if(y>=H||(depth&&depth[y*W+x]>0))continue;
