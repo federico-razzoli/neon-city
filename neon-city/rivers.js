@@ -20,8 +20,14 @@ If not, see <https://www.gnu.org/licenses/>.
 import {flowersFor,drawFlower} from './flowers.js';
 import {BLOCK,WATER_LEVEL,bridgeHeight,hasBridge,mod} from './world.js?v=parks-4';
 
+// Scratch geometry is consumed synchronously by face(), which transforms and
+// owns the queued camera vertices. Nothing here retains unloaded city chunks.
+const ripplePoints=Array.from({length:14},()=>({x:0,y:WATER_LEVEL+.012,z:0}));
+const rippleFaces=Array.from({length:6},(_,i)=>[ripplePoints[i*2],ripplePoints[(i+1)*2],ripplePoints[(i+1)*2+1],ripplePoints[i*2+1]]);
+const rippleWidths=Float64Array.from({length:7},(_,i)=>Math.sin(i/6*Math.PI)*.09);
+
 // Each chunk owns half of a river, including its share of each bridge.
-export function drawRiverTerrain(chunk,{quad,face},time){
+export function drawRiverTerrain(chunk,{quad,face,boundsVisible},time){
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const first=chunk.z===chunk.riverStart;
   const bank=first?start+8:start+110;
@@ -30,6 +36,8 @@ export function drawRiverTerrain(chunk,{quad,face},time){
   for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
+    // This box contains both the water tile and its two animated ripples.
+    if(boundsVisible&&!boundsVisible(x+a,WATER_LEVEL,b,x+a+8,WATER_LEVEL+.012,b+8))continue;
     quad(x+a,WATER_LEVEL,b,8,Math.min(8,high-b),'#164957');
     // Tapered, curved ripples gently sway instead of sliding like road dashes.
     const seed=mod(Math.sin((x+a)*12.9898+b*78.233)*43758.5453,1);
@@ -38,15 +46,12 @@ export function drawRiverTerrain(chunk,{quad,face},time){
       const length=2.4+seed*1.6;
       const cx=x+a+1+seed*1.2+Math.sin(phase)*.35;
       const cz=b+1.5+ripple*3+Math.cos(phase+ripple)*.25;
-      const point=(t,side)=>({
-        x:cx+t*length,y:WATER_LEVEL+.012,
-        z:cz+Math.sin(t*Math.PI*1.6+phase+ripple)*.38
-          +side*Math.sin(t*Math.PI)*.09
-      });
-      for(let segment=0;segment<6;segment++){
-        const t=segment/6,next=(segment+1)/6;
-        face([point(t,-1),point(next,-1),point(next,1),point(t,1)],ripple?'#225d70':'#306b78');
+      for(let i=0;i<=6;i++){
+        const t=i/6,px=cx+t*length,pz=cz+Math.sin(t*Math.PI*1.6+phase+ripple)*.38;
+        const left=ripplePoints[i*2],right=ripplePoints[i*2+1];
+        left.x=right.x=px;left.z=pz-rippleWidths[i];right.z=pz+rippleWidths[i];
       }
+      for(const vertices of rippleFaces)face(vertices,ripple?'#225d70':'#306b78');
     }
   }
   const road=first?start:start+120;
@@ -59,7 +64,8 @@ export function drawRiverTerrain(chunk,{quad,face},time){
 
 // Split the fascia at ground level so its buried ends draw before the banks.
 // The lower wall faces the water; from the deck side it is hidden by the deck.
-export function drawBridgeFascias(chunk,{face},viewer,belowGround=false){
+export function drawBridgeFascias(chunk,{face,boundsVisible},viewer,belowGround=false){
+  if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,8,chunk.z*BLOCK+64))return;
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const clip=vertices=>{
     const out=[],sign=belowGround?-1:1;
@@ -86,7 +92,8 @@ export function drawBridgeFascias(chunk,{face},viewer,belowGround=false){
 }
 
 // Below-ground faces must be painted before the grass, promenade, and roads.
-export function drawRiverbankFaces(chunk,{face},viewer){
+export function drawRiverbankFaces(chunk,{face,boundsVisible},viewer){
+  if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,0,chunk.z*BLOCK+64))return;
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const bank=chunk.z===chunk.riverStart?start+18:start+110;
   // Stone retaining walls expose the full drop from the grass to the water.
@@ -98,8 +105,9 @@ export function drawRiverbankFaces(chunk,{face},viewer){
   }
 }
 
-export function drawRiverStructures(chunk,{face,box},viewer){
-  drawBridgeFascias(chunk,{face},viewer);
+export function drawRiverStructures(chunk,{face,box,boundsVisible},viewer){
+  if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,8,chunk.z*BLOCK+64))return;
+  drawBridgeFascias(chunk,{face,boundsVisible},viewer);
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const bank=chunk.z===chunk.riverStart?start+18:start+110;
   const left=hasBridge(chunk.x)?14:0,right=hasBridge(chunk.x+1)?50:64;

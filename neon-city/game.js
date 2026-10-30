@@ -35,7 +35,7 @@ import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=waiting-car-collision-1';
 import {Traffic} from './traffic.js?v=junction-priority-1';
 import {RiverLook} from './river-look.js?v=parks-4';
-import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=flowers-1';
+import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=visibility-reuse-1';
 import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,bushReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
 import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gauche.js?v=5';
 import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
@@ -306,10 +306,35 @@ function playOuch(){
 }
 
 
+let cameraCos=1,cameraSin=0,pitchCos=1,pitchSin=0;
+const viewPlanes=new Float64Array(20);
+function prepareCamera(){
+  cameraCos=Math.cos(player.angle);cameraSin=Math.sin(player.angle);
+  const pitch=windowView?.pitch??playerSeat?.pitch??0;
+  pitchCos=Math.cos(pitch);pitchSin=Math.sin(pitch);
+  // Inward-facing near, left, right, top and bottom planes. Coordinates are
+  // relative to the eye, so each AABB test needs no projected vertex objects.
+  const plane=(i,x,y,z,d=0)=>{viewPlanes[i]=x;viewPlanes[i+1]=y;viewPlanes[i+2]=z;viewPlanes[i+3]=d;};
+  const zx=cameraSin*pitchCos,zy=pitchSin,zz=cameraCos*pitchCos;
+  const yx=-cameraSin*pitchSin,yy=pitchCos,yz=-cameraCos*pitchSin;
+  plane(0,zx,zy,zz,-.15);
+  plane(4,W/2*zx+F*cameraCos,W/2*zy,W/2*zz-F*cameraSin);
+  plane(8,W/2*zx-F*cameraCos,W/2*zy,W/2*zz+F*cameraSin);
+  plane(12,horizon*zx-F*yx,horizon*zy-F*yy,horizon*zz-F*yz);
+  plane(16,(H-horizon)*zx+F*yx,(H-horizon)*zy+F*yy,(H-horizon)*zz+F*yz);
+}
+function boundsVisible(minX,minY,minZ,maxX,maxY,maxZ){
+  const x=(minX+maxX)/2-player.x,y=(minY+maxY)/2-eye,z=(minZ+maxZ)/2-player.z;
+  const rx=(maxX-minX)/2,ry=(maxY-minY)/2,rz=(maxZ-minZ)/2;
+  for(let i=0;i<viewPlanes.length;i+=4){
+    const a=viewPlanes[i],b=viewPlanes[i+1],c=viewPlanes[i+2];
+    if(a*x+b*y+c*z+viewPlanes[i+3]+Math.abs(a)*rx+Math.abs(b)*ry+Math.abs(c)*rz< -1e-8)return false;
+  }
+  return true;
+}
 function camera(v){
-  const dx=v.x-player.x,dz=v.z-player.z,c=Math.cos(player.angle),s=Math.sin(player.angle);
-  const y=v.y-eye,z=dx*s+dz*c,pitch=windowView?.pitch??playerSeat?.pitch??0,cp=Math.cos(pitch),sp=Math.sin(pitch);
-  return {x:dx*c-dz*s,y:y*cp-z*sp,z:z*cp+y*sp,u:v.u||0,v:v.v||0};
+  const dx=v.x-player.x,dz=v.z-player.z,y=v.y-eye,z=dx*cameraSin+dz*cameraCos;
+  return {x:dx*cameraCos-dz*cameraSin,y:y*pitchCos-z*pitchSin,z:z*pitchCos+y*pitchSin,u:v.u||0,v:v.v||0};
 }
 function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
 function clip(vertices){const out=[];for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],ai=a.z>=.15,bi=b.z>=.15;if(ai)out.push(a);if(ai!==bi){const t=(.15-a.z)/(b.z-a.z),v={};for(const k of ['x','y','z','u','v'])v[k]=a[k]+(b[k]-a[k])*t;out.push(v);}}return out;}
@@ -614,7 +639,7 @@ function riveGaucheTexture(){
 }
 function street(chunk){
   const x=chunk.x*64,z=chunk.z*64;
-  if(chunk.river){drawRiverTerrain(chunk,{quad,face},time);return;}
+  if(chunk.river){drawRiverTerrain(chunk,{quad,face,boundsVisible},time);return;}
   // Asphalt needs geometry to occlude the recessed river at street approaches.
   // The screen background alone cannot hide water projected over the road.
   quad(x,0,z,64,64,'#252233');
@@ -684,6 +709,7 @@ let interiorRenderer;
 function render(){
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
+  prepareCamera();
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
   if(insideArcade){
@@ -765,8 +791,8 @@ function render(){
   for(const f of terrain)if(f.elevation<0)drawFace(f);
   queue=[];
   for(const chunk of visible)if(chunk.river){
-    drawRiverbankFaces(chunk,{face},player);
-    drawBridgeFascias(chunk,{face},player,true);
+    drawRiverbankFaces(chunk,{face,boundsVisible},player);
+    drawBridgeFascias(chunk,{face,boundsVisible},player,true);
   }
   queue.sort((a,b)=>b.depth-a.depth);
   for(const f of queue)drawFace(f);
@@ -777,7 +803,7 @@ function render(){
   for(const f of queue)drawFace(f);
   queue=[];
   for(const chunk of visible){
-    if(chunk.river)drawRiverStructures(chunk,{face,box},player);
+    if(chunk.river)drawRiverStructures(chunk,{face,box,boundsVisible},player);
     for(const b of chunk.buildings)building(b);
     for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
     if(chunk.park){

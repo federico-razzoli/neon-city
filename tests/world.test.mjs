@@ -1681,7 +1681,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera,inventory,get seat(){return playerSeat;}};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera:v=>{prepareCamera();return camera(v);},inventory,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
   const key={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -5629,5 +5629,59 @@ test('lettering coverage clears between overlapping colors and subsequent frames
     assert.deepEqual(renderer.frame.data,fresh.frame.data,'no stale coverage from previous colors or frames');
     assert.equal(renderer.coverage,coverage);assert.equal(renderer.coverageTouched,touched);
     assert.ok(coverage.every(value=>value===0));assert.equal(touched.length,0);
+  }
+});
+
+test('cached camera constants preserve transforms and conservatively reject river bounds',async()=>{
+  const {readFile}=await import('node:fs/promises'),{runInNewContext}=await import('node:vm');
+  const source=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
+  const sandbox={player:{x:8,z:267,angle:0},eye:1.65,windowView:null,playerSeat:null,W:640,H:360,F:355,horizon:164};
+  runInNewContext(source.slice(source.indexOf('let cameraCos='),source.indexOf('function project('))+'\nglobalThis.view={prepareCamera,camera,boundsVisible};',sandbox);
+  const {prepareCamera,camera,boundsVisible}=sandbox.view;
+  for(const angle of [0,.3,Math.PI/2,Math.PI,4.7])for(const pitch of [0,.6,1.4,-.5]){
+    sandbox.player.angle=angle;sandbox.playerSeat={pitch};prepareCamera();
+    for(let i=0;i<40;i++){
+      const v={x:-160+i*13,y:-7+i*.4,z:150+i*7,u:3,v:8};
+      const dx=v.x-sandbox.player.x,dz=v.z-sandbox.player.z,y=v.y-sandbox.eye,z=dx*Math.sin(angle)+dz*Math.cos(angle);
+      const expected={x:dx*Math.cos(angle)-dz*Math.sin(angle),y:y*Math.cos(pitch)-z*Math.sin(pitch),z:z*Math.cos(pitch)+y*Math.sin(pitch),u:3,v:8};
+      const actual=camera(v);
+      for(const key of Object.keys(expected))assert.equal(actual[key],expected[key]);
+      const projected={x:320+actual.x*355/actual.z,y:164-actual.y*355/actual.z};
+      if(actual.z>=.15&&projected.x>=0&&projected.x<=640&&projected.y>=0&&projected.y<=360){
+        assert.equal(boundsVisible(v.x,v.y,v.z,v.x,v.y,v.z),true,'visible points survive culling');
+        assert.equal(boundsVisible(v.x-8,v.y-1,v.z-8,v.x+8,v.y+1,v.z+8),true,'boxes containing visible points survive culling');
+      }
+    }
+  }
+  sandbox.player.angle=0;sandbox.playerSeat=null;prepareCamera();
+  assert.equal(boundsVisible(0,-7,240,16,0,250),false,'tiles behind the camera are skipped');
+  assert.equal(boundsVisible(7,1.6,266,9,1.7,270),true,'bounds crossing the near plane are retained');
+  assert.equal(boundsVisible(8,1.65,268,8,1.65,268),true);
+  sandbox.player.angle=Math.PI;prepareCamera();
+  assert.equal(boundsVisible(8,1.65,268,8,1.65,268),false,'constants refresh when turning');
+});
+
+test('river ripple scratch geometry preserves every animated segment without retaining tiles',()=>{
+  for(const part of [4,5])for(const time of [0,1.25,100]){
+    const chunk={x:-1,z:part,riverStart:4},faces=[],arrays=new Set(),vertices=new Set();
+    drawRiverTerrain(chunk,{quad(){},face:(points,color)=>{
+      arrays.add(points);for(const p of points)vertices.add(p);
+      faces.push({points:points.map(p=>({...p})),color});
+    }},time);
+    let index=0;
+    for(let a=0;a<64;a+=8)for(let b=Math.max(part*64,274);b<Math.min(part*64+64,366);b+=8){
+      const raw=Math.sin((-64+a)*12.9898+b*78.233)*43758.5453,seed=((raw%1)+1)%1;
+      const phase=seed*Math.PI*2+time*.65;
+      for(let ripple=0;ripple<2;ripple++)for(let segment=0;segment<6;segment++){
+        const point=(t,side)=>({x:-64+a+1+seed*1.2+Math.sin(phase)*.35+t*(2.4+seed*1.6),y:-7+.012,
+          z:b+1.5+ripple*3+Math.cos(phase+ripple)*.25+Math.sin(t*Math.PI*1.6+phase+ripple)*.38+side*Math.sin(t*Math.PI)*.09});
+        const t=segment/6,next=(segment+1)/6;
+        assert.deepEqual(faces[index++],{points:[point(t,-1),point(next,-1),point(next,1),point(t,1)],color:ripple?'#225d70':'#306b78'});
+      }
+    }
+    assert.equal(index,faces.length);assert.equal(arrays.size,6);assert.equal(vertices.size,14);
+    let skippedFaces=0,water=0,checks=0;
+    drawRiverTerrain(chunk,{quad:(x,y)=>{if(y===-7)water++;},face:()=>skippedFaces++,boundsVisible:()=>{checks++;return false;}},time);
+    assert.ok(checks>0);assert.equal(skippedFaces,0);assert.equal(water,0,'rejected tiles skip water and ripple work');
   }
 });
