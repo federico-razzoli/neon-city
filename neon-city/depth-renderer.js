@@ -25,6 +25,7 @@ export class DepthRenderer{
   constructor(ctx,width,height){
     this.ctx=ctx;this.width=width;this.height=height;
     this.frame=ctx.createImageData(width,height);
+    this.coverage=null;this.coverageTouched=[];
     this.depth=new Float64Array(width*height);
     this.textureFrame=new Uint8ClampedArray(width*height*4);
     this.depthX=new Float64Array(width*height);this.depthY=new Float64Array(width*height);this.colors=new Map();
@@ -81,7 +82,7 @@ export class DepthRenderer{
     // all glyph pixels before blending, so adjacent quads do not create seams.
     const smooth=faces.filter(f=>f.smooth);
     for(const color of new Set(smooth.map(f=>f.color))){
-      const coverage=new Uint16Array(w*h),touched=[];
+      const coverage=this.coverage??=new Uint16Array(w*h),touched=this.coverageTouched;
       for(const f of smooth.filter(f=>f.color===color))for(let j=1;j<f.ps.length-1;j++){
         const a=f.ps[0],b=f.ps[j],c=f.ps[j+1];
         const area=(b.y-c.y)*(a.x-c.x)+(c.x-b.x)*(a.y-c.y);
@@ -105,9 +106,11 @@ export class DepthRenderer{
       const ink=rgb(color);
       for(const index of touched){
         let bits=coverage[index],count=0;while(bits){bits&=bits-1;count++;}
+        coverage[index]=0;
         const alpha=count/16,offset=index*4;
         for(let c=0;c<3;c++)pixels[offset+c]=Math.round(pixels[offset+c]*(1-alpha)+ink[c]*alpha);
       }
+      touched.length=0;
     }
     this.ctx.putImageData(this.frame,0,0);
   }

@@ -29,7 +29,7 @@ import {ARCADE,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,mo
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
-import {DepthRenderer} from './depth-renderer.js?v=shared-pixels-1';
+import {DepthRenderer} from './depth-renderer.js?v=coverage-reuse-1';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=waiting-car-collision-1';

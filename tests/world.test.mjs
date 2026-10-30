@@ -5583,3 +5583,33 @@ test('outdoor and interior renderers share one pixel read per immutable texture'
     else globalThis.document=previousDocument;
   }
 });
+
+test('lettering coverage clears between overlapping colors and subsequent frames',async()=>{
+  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
+  const context=()=>({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData(){}});
+  const renderer=new DepthRenderer(context(),4,4);
+  const glyph=(color,x=0)=>({smooth:true,color,
+    ps:[{x:x+.25,y:.25},{x:x+1.75,y:.25},{x:x+1.75,y:2.75},{x:x+.25,y:2.75}],
+    vs:Array.from({length:4},()=>({z:1}))});
+  const red=glyph('#ff0000'),green=glyph('#00ff00',1);
+  const background='#000000';
+  renderer.render([],background);
+  assert.equal(renderer.coverage,null,'allocate coverage only when lettering is rendered');
+  renderer.render([red,green],background);
+  const coverage=renderer.coverage,touched=renderer.coverageTouched;
+  // Render each color separately and composite its coverage over the first.
+  const first=new DepthRenderer(context(),4,4),second=new DepthRenderer(context(),4,4);
+  first.render([red],background);second.render([green],background);
+  for(let i=0;i<renderer.frame.data.length;i+=4){
+    const alpha=second.frame.data[i+1]/255;
+    assert.ok(Math.abs(renderer.frame.data[i]-Math.round(first.frame.data[i]*(1-alpha)))<=1);
+    assert.equal(renderer.frame.data[i+1],second.frame.data[i+1]);
+  }
+  for(const faces of [[green],[red],[],[red,green]]){
+    renderer.render(faces,background);
+    const fresh=new DepthRenderer(context(),4,4);fresh.render(faces,background);
+    assert.deepEqual(renderer.frame.data,fresh.frame.data,'no stale coverage from previous colors or frames');
+    assert.equal(renderer.coverage,coverage);assert.equal(renderer.coverageTouched,touched);
+    assert.ok(coverage.every(value=>value===0));assert.equal(touched.length,0);
+  }
+});
