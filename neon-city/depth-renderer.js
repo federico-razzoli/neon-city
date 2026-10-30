@@ -18,8 +18,8 @@ If not, see <https://www.gnu.org/licenses/>.
 */
 
 import {rasterizePitchedWall} from './perspective.js';
+import {texturePixels} from './texture-pixels.js';
 // Interior polygons use per-pixel depth, not average face distance.
-const texturePixels=new WeakMap();
 // Interpolating inverse camera depth keeps intersecting screen projections correct.
 export class DepthRenderer{
   constructor(ctx,width,height){
@@ -43,8 +43,7 @@ export class DepthRenderer{
       const color=rgb(f.color);
       let texture;
       if(f.texture){
-        if(!texturePixels.has(f.texture))texturePixels.set(f.texture,f.texture.getContext('2d').getImageData(0,0,f.texture.width,f.texture.height));
-        texture=texturePixels.get(f.texture);
+        texture=texturePixels(f.texture);
         rasterizePitchedWall(f.ps,f.vs,texture,w,h,this.textureFrame,!!f.textureSmooth);
       }
       for(let j=1;j<f.ps.length-1;j++){

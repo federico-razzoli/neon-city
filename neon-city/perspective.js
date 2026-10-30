@@ -17,6 +17,8 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {texturePixels} from './texture-pixels.js';
+
 // Vertical walls have constant depth along each screen column. Interpolate
 // reciprocal depth across the screen, then recover texture coordinates.
 export function* wallColumns(points,vertices,width){
@@ -75,7 +77,6 @@ export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false,c
 // Rasterise only its visible pixels, then composite once instead of issuing a
 // Canvas draw for every crossed texel. Scratch storage and texture pixels are
 // reused; texture canvases are immutable after their first draw.
-const texturePixels=new WeakMap();
 let pitchedSurface;
 export function rasterizePitchedWall(points,vertices,texture,width,height,pixels,smooth=false,continuousFog=false){
   const left=Math.max(0,Math.ceil(Math.min(...points.map(p=>p.x))-.5));
@@ -142,9 +143,8 @@ export function drawPitchedWallTexture(ctx,points,vertices,texture,width,smooth=
     const context=canvas.getContext('2d',{willReadFrequently:true});
     pitchedSurface={canvas,context,frame:context.createImageData(width,height)};
   }
-  if(!texturePixels.has(texture))texturePixels.set(texture,texture.getContext('2d').getImageData(0,0,texture.width,texture.height));
   const {canvas,context,frame}=pitchedSurface;
-  const bounds=rasterizePitchedWall(points,vertices,texturePixels.get(texture),width,height,frame.data,smooth,continuousFog);
+  const bounds=rasterizePitchedWall(points,vertices,texturePixels(texture),width,height,frame.data,smooth,continuousFog);
   if(!bounds)return;
   const {left,top,width:w,height:h}=bounds;
   // Keep the source canvas tight: browsers may upload its entire backing store

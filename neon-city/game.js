@@ -29,7 +29,7 @@ import {ARCADE,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,mo
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
-import {DepthRenderer} from './depth-renderer.js?v=note-colour-2';
+import {DepthRenderer} from './depth-renderer.js?v=shared-pixels-1';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=waiting-car-collision-1';
@@ -56,7 +56,7 @@ import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=1';
 import {projectSky,skyHorizon,URSA_MAJOR,skyDirection,starProjector} from './sky.js?v=stars-2';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
-import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=street-1';
+import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=shared-pixels-1';
 import {hotelHIsDim,dimHotelH,drawHotel,hotelLook} from './hotel.js?v=park-entrances-1';
 import {HornWarning,playHorn} from './horn.js?v=junction-priority-1';
 

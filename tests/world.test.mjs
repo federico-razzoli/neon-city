@@ -5552,3 +5552,34 @@ test('music synthesis writes identical samples directly into audio buffer channe
     }
   }
 });
+
+test('outdoor and interior renderers share one pixel read per immutable texture',async()=>{
+  const {drawPitchedWallTexture}=await import('../neon-city/perspective.js?v=shared-pixels-1');
+  const {DepthRenderer}=await import('../neon-city/depth-renderer.js?v=shared-pixels-1');
+  const image=(width,height)=>({width,height,data:new Uint8ClampedArray(width*height*4)});
+  const scratch={putImageData(){},createImageData:image};
+  const previousDocument=globalThis.document;
+  globalThis.document={createElement:()=>({getContext:()=>scratch})};
+  try{
+    let reads=0;
+    const texture={width:1,height:1,getContext:()=>({getImageData:()=>{
+      reads++;return {width:1,height:1,data:new Uint8ClampedArray([240,20,30,255])};
+    }})};
+    const ps=[{x:0,y:0},{x:2,y:0},{x:2,y:2},{x:0,y:2}];
+    const vs=[{z:1,u:0,v:0},{z:1,u:1,v:0},{z:1,u:1,v:1},{z:1,u:0,v:1}];
+    const outdoor={canvas:{height:2},save(){},restore(){},drawImage(){}};
+    let frame;
+    const interior=new DepthRenderer({createImageData:image,putImageData:f=>frame=f},2,2);
+    for(let i=0;i<2;i++){
+      drawPitchedWallTexture(outdoor,ps,vs,texture,2);
+      interior.render([{ps,vs,texture,color:'#000000'}]);
+    }
+    assert.equal(reads,1,'both module variants reuse the same texture pixels across frames');
+    assert.deepEqual(Array.from(frame.data.slice(0,4)),[240,20,30,255]);
+    interior.render([{ps,vs,texture:{...texture},color:'#000000'}]);
+    assert.equal(reads,2,'distinct canvases have distinct cache entries');
+  }finally{
+    if(previousDocument===undefined)delete globalThis.document;
+    else globalThis.document=previousDocument;
+  }
+});
