@@ -316,10 +316,13 @@ export class City {
     const park=startPark||r()<PARK_CHANCE&&!this.parkNear(x,z)?parkLayout(x,z,r):null;
     if(park){buildings.length=0;this.parkBlocks.add(`${x},${z}`);}
     else this.parkBlocks.delete(`${x},${z}`);
-    const manholes=[],slots=Array.from({length:32},(_,i)=>i);
+    const manholes=[],slots=Array.from({length:32},(_,i)=>i),sideCounts=[0,0,0,0];
     const count=Math.floor(r()*4);
     for(let i=0;i<count;i++){
-      const slot=slots.splice(Math.floor(r()*slots.length),1)[0];
+      const available=slots.filter(slot=>sideCounts[Math.floor(slot/8)]<2);
+      const slot=available[Math.floor(r()*available.length)];
+      slots.splice(slots.indexOf(slot),1);
+      sideCounts[Math.floor(slot/8)]++;
       const side=Math.floor(slot/8),along=16+(slot%8)*4+r()*1.5;
       const across=10+r()*2;
       const lx=[along,64-across,along,across][side];

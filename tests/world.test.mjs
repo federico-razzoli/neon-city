@@ -1586,16 +1586,19 @@ test('the Black teen girl has three outfits that change only shirt and shoe colo
   }finally{globalThis.document=previous;}
 });
 
-test('blocks have zero to three stable, separated manholes entirely on sidewalks',()=>{
+test('blocks have zero to three stable, separated manholes with at most two per sidewalk side',()=>{
   const city=new City(42),counts=new Set(),sides=new Set();
   for(let x=-6;x<=6;x++)for(let z=-6;z<=6;z++){
     const block=city.generate(x,z);counts.add(block.manholes.length);
     assert.ok(block.manholes.length<=3);
+    const sideCounts=[0,0,0,0];
     for(const [i,m] of block.manholes.entries()){
       const lx=m.x-x*64,lz=m.z-z*64,r=m.radius;
       assert.ok(lx-r>=8&&lx+r<=56&&lz-r>=8&&lz+r<=56,'cover stays within pavement');
       assert.ok(lx+r<14||lx-r>50||lz+r<14||lz-r>50,'cover clears buildings');
-      sides.add(lz<14?0:lx>50?1:lz>50?2:3);
+      const side=lz<14?0:lx>50?1:lz>50?2:3;
+      sides.add(side);
+      assert.ok(++sideCounts[side]<=2,'at most two covers on each block side');
       for(const other of block.manholes.slice(i+1))assert.ok(Math.hypot(m.x-other.x,m.z-other.z)>r+other.radius);
     }
   }
