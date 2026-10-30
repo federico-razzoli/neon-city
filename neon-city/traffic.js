@@ -20,8 +20,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import {BLOCK,RIVER_ROWS,hasBridge,isRiverRow,traffic} from './world.js?v=traffic-random-1';
 
 const SPEED=10,RADIUS=6,HEADWAY=9;
-// The bumper extends 2.4 m from the centre; leave twice the old 1.1 m gap.
-const CROSSING_STOP=4.6,BRAKING=4,ACCELERATION=4;
+const BRAKING=4,ACCELERATION=4;
 // Keep the whole car outside the crossing while waiting for junction priority.
 const JUNCTION_EDGE=17,APPROACH=31.5;
 const lane=car=>`${car.axis}:${car.dir}:${Math.round((car.axis?car.z:car.x)/BLOCK)}`;
@@ -39,12 +38,11 @@ export function occupiedCrossings(player){
 }
 
 function crossingStop(car,crossing){
-  const position=car.axis?car.x:car.z,edge=car.dir>0?crossing.start:crossing.end;
+  const position=car.axis?car.x:car.z;
   const speed=car.speed??SPEED,stoppingDistance=speed*speed/(2*BRAKING)+speed*.04;
-  const stripeStop=edge-car.dir*CROSSING_STOP;
   const approachStop=Math.round(crossing.start/BLOCK)*BLOCK-car.dir*JUNCTION_EDGE;
   const canStopAt=stop=>(stop-position)*car.dir>=stoppingDistance-1e-7;
-  return canStopAt(approachStop)?approachStop:canStopAt(stripeStop)?stripeStop:null;
+  return canStopAt(approachStop)?approachStop:null;
 }
 
 const tile=(x,z)=>`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`;
@@ -135,7 +133,7 @@ export class Traffic {
       // Cars already inside clear first. Keep the chosen approach stable while
       // it enters; equal arrival times use axis and direction, never array order.
       const eligible=entries.filter(e=>e.car.speed!==0||e.car.stoppedForJunction);
-      const inside=eligible.filter(e=>e.along>-JUNCTION_EDGE);
+      const inside=entries.filter(e=>e.along>-JUNCTION_EDGE);
       let owner=eligible.find(e=>e.car===this.junctionOwners.get(key));
       if(inside.length){
         if(!inside.includes(owner))owner=inside[0];
@@ -145,9 +143,11 @@ export class Traffic {
       if(owner)this.junctionOwners.set(key,owner.car);
       else this.junctionOwners.delete(key);
       for(const entry of entries)if(entry.along<=-JUNCTION_EDGE&&entry!==owner){
+        if(!owner&&!entry.exitBlocked)continue;
         // Parallel lanes can share a junction, but must not jump ahead of
         // cross-traffic already waiting or enter without room at the exit.
         const parallel=owner&&entry.car.axis===owner.car.axis&&!entry.exitBlocked&&
+          !inside.some(other=>other.car.axis!==entry.car.axis)&&
           !eligible.some(other=>other.car.axis!==entry.car.axis&&other.arrival<=entry.arrival);
         if(!parallel)limits.set(entry.car,Math.max(0,-entry.along-JUNCTION_EDGE));
       }
@@ -213,8 +213,7 @@ export class Traffic {
           const along=x*dx+z*dz,across=Math.abs(x*dz-z*dx);
           if(along>0&&across<2.7&&other.dir===car.dir)clearance=Math.min(clearance,Math.max(0,along-HEADWAY));
         }
-        // Only cars stopped by junction priority remain eligible to claim it.
-        // Pedestrians and queues must not hold up perpendicular traffic.
+        // Stopped approaches can release priority; cars inside still occupy it.
         const junctionClearance=junctionLimits.get(car)??Infinity;
         car.stoppedForJunction=junctionClearance<clearance;
         clearance=Math.min(clearance,junctionClearance);

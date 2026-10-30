@@ -4956,12 +4956,12 @@ test('crosswalk traffic yields in both directions and queues with safe spacing',
     const point=(along,across)=>axis?{x:along,z:across}:{x:across,z:along};
     const edge=origin+(dir>0?9.5:12.2),street=origin;
     const player=point(origin+10.5,street-7);
-    const cars=[0,1,2].map(i=>({...point(edge-dir*(20+i*12),street+(axis?-dir:dir)*3),axis,dir}));
+    const cars=[0,1,2].map(i=>({...point(origin-dir*(40+i*12),street+(axis?-dir:dir)*3),axis,dir}));
     const simulation=new Traffic();simulation.cars=[...cars].reverse();
     simulation.advance(8,player);
     assert.ok(cars.every(c=>c.waiting),'all three cars wait');
     const position=c=>axis?c.x:c.z;
-    assert.ok(Math.abs(position(cars[0])-(dir<0?origin+17:edge-dir*4.6))<1e-7,'stops before the junction when braking room allows, otherwise before stripes');
+    assert.ok(Math.abs(position(cars[0])-(origin-dir*17))<1e-7,'stops before the junction');
     for(let i=1;i<3;i++)assert.ok((position(cars[i-1])-position(cars[i]))*dir>=9-1e-7,'queue leaves safe gaps');
     assert.equal(simulation.blockedLanes.size,1);
     const before=position(cars[0]);
@@ -5073,17 +5073,17 @@ test('ground note print remains attached to world coordinates as the camera turn
 
 test('cars brake progressively before crossings and accelerate when clear',async()=>{
   const {Traffic}=await import('../neon-city/traffic.js');
-  const simulation=new Traffic(),car={x:3,z:-15,axis:0,dir:1};
+  const simulation=new Traffic(),car={x:3,z:-35,axis:0,dir:1};
   simulation.cars=[car];
   const player={x:3,z:10.5},speeds=[];
   for(let i=0;i<160;i++){
     simulation.advance(.04,player);speeds.push(car.speed);
-    assert.ok(car.z<=9.5-4.6+1e-8,'never passes the stopping point');
+    assert.ok(car.z<=-17+1e-8,'never passes the stopping point');
   }
   assert.ok(speeds.filter(v=>v>1&&v<9).length>30,'slows over many frames');
   for(let i=1;i<speeds.length;i++)assert.ok(speeds[i-1]-speeds[i]<.3,'no abrupt stop');
   assert.equal(car.speed,0);
-  assert.ok(Math.abs(car.z-4.9)<1e-7,'bumper clearance is doubled');
+  assert.ok(Math.abs(car.z+17)<1e-7,'whole car waits outside the junction');
   simulation.advance(.04);
   assert.ok(car.speed>0&&car.speed<.2,'pulls away gradually');
 });
@@ -5123,13 +5123,43 @@ test('cars commit to passing a crossing when there is insufficient braking dista
       }
       assert.ok(((axis?car.x:car.z)-edge)*dir>3,'clears the entire crossing');
     }
-    const car={...point(edge-dir*8,origin+dir*3),axis,dir,speed:2};
+    const car={...point(origin-dir*25,origin+dir*3),axis,dir,speed:2};
     const simulation=new Traffic();simulation.cars=[car];
     simulation.advance(6,player);
-    assert.equal(car.waiting,true,'a slower car can safely stop from the same distance');
-    assert.ok(Math.abs((axis?car.x:car.z)-(dir<0?origin+17:edge-dir*4.6))<1e-7);
+    assert.equal(car.waiting,true,'a slower car stops before entering the junction');
+    assert.ok(Math.abs((axis?car.x:car.z)-(origin-dir*17))<1e-7);
     simulation.advance(.04);
     assert.equal(car.crossingDecisions.size,0,'leaving the crossing clears its decision');
+  }
+});
+
+test('cars too close to the junction commit even when there is room to stop at far stripes',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const axis of [0,1])for(const origin of [0,-64]){
+    const point=(along,across)=>axis?{x:along,z:across}:{x:across,z:along};
+    const car={...point(origin-25,origin+3),axis,dir:1,speed:10};
+    const simulation=new Traffic();simulation.cars=[car];
+    for(let i=0;i<120;i++){
+      simulation.advance(.04,point(origin+11,origin));
+      assert.equal(car.speed,10,'committed car never brakes in the junction');
+    }
+    assert.ok((axis?car.x:car.z)>origin+17);
+  }
+});
+
+test('stationary cars anywhere inside a junction block both perpendicular approaches',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const axis of [0,1])for(const origin of [0,-64])for(const position of [-16,0,16])for(const reverse of [false,true]){
+    const point=(along,across)=>axis?{x:along,z:across}:{x:across,z:along};
+    const stopped={...point(origin+position,origin+3),axis,dir:1,speed:0};
+    const approaches=[-1,1].map(dir=>({...point(origin-dir*3,origin-dir*30),axis:1-axis,dir,speed:10}));
+    const simulation=new Traffic();simulation.cars=[stopped,...approaches];
+    if(reverse)simulation.cars.reverse();
+    for(const car of approaches)simulation.junctionOwners.set(`${origin},${origin}`,car);
+    const limits=simulation.junctionLimits();
+    for(const car of approaches)assert.equal(limits.get(car),13,'stationary occupant overrides approach priority');
+    simulation.cars=approaches;
+    assert.ok(approaches.some(car=>!simulation.junctionLimits().has(car)),'traffic resumes once the occupant clears');
   }
 });
 
@@ -5177,7 +5207,7 @@ test('junction priority honours earlier arrivals, occupied junctions, and blocke
   assert.ok(!blocked.junctionLimits().has(approach),'proceeds once there is room beyond junction');
 });
 
-test('stopped cross traffic releases priority while junction waiters remain eligible',async()=>{
+test('stopped cars inside retain junction priority while stopped approaches release it',async()=>{
   const {Traffic}=await import('../neon-city/traffic.js');
   for(const reverse of [false,true]){
     const simulation=new Traffic();
@@ -5185,9 +5215,9 @@ test('stopped cross traffic releases priority while junction waiters remain elig
     const through={x:-30,z:-3,axis:1,dir:1};
     simulation.cars=reverse?[through,stopped]:[stopped,through];
     simulation.junctionOwners.set('0,0',stopped);
-    for(let i=0;i<200;i++)simulation.advance(.04,{x:0,z:11});
-    assert.equal(stopped.z,16.8,'car remains stopped for the pedestrian');
-    assert.ok(through.x>17,'perpendicular traffic passes the stopped car');
+    for(let i=0;i<350;i++)simulation.advance(.04,{x:0,z:11});
+    assert.ok(stopped.z< -17,'car already inside continues through the crossing');
+    assert.ok(through.x>17,'perpendicular traffic resumes after it clears');
   }
   const simulation=new Traffic();
   const stopped={x:3,z:-20,axis:0,dir:1,speed:0};
