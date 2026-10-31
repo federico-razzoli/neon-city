@@ -26,6 +26,7 @@ import {register} from './register.js';
 export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
   walls:[{x:17.8,z:0,w:.4,d:6},{x:17.8,z:10,w:.4,d:8}],
   bar:{x:0,z:13,w:15,d:1.7},
+  taps:[5,6.1,11.6].map(x=>({x,z:13.65,radius:.18})),
   staffDoor:{x:16.4,z:18},
   toiletDoor:{x:24.5,z:18},
   shelves:{x:2,z:17.25,w:13,d:.65},
@@ -145,6 +146,12 @@ export function facingPokeBall(player,ball){
   const ahead=dx*Math.sin(player.angle)+dz*Math.cos(player.angle);
   if(ahead<=0||Math.hypot(dx,dz)>ball.radius+2)return false;
   return Math.abs(dx*Math.cos(player.angle)-dz*Math.sin(player.angle))<=ball.radius+.12;
+}
+export function pubTapReply(player){
+  const front=player.z<PUB.bar.z,rear=player.z>PUB.bar.z+PUB.bar.d;
+  if(!front&&!rear)return null;
+  if(!PUB.taps.some(tap=>facingPokeBall(player,tap)))return null;
+  return front?"I CAN'T REACH IT.":"HEY! YOU CAN'T SERVE YOURSELF!";
 }
 // Pick a line, hear the answer (Space for each further line), then pick again.
 // A line that ends the chat does so once its answer has been heard; one with
@@ -488,7 +495,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     for(let i=0;i<28;i++)bottle(2.35+i*.44,y+.12,17.55,i);
   }
   // Brass beer towers, with spouts, handles and drip trays facing the bartender.
-  for(const x of [5,6.1,11.6]){
+  for(const {x} of PUB.taps){
     box(x-.24,1.3,13.7,.48,.025,.55,'#44484a','#a7a9a7');
     for(let i=0;i<5;i++)box(x+.175-i*.09,1.325,13.74,.025,.01,.48,'#363a3a');
     cylinder(x,1.3,13.65,.14,.07,'#c4a76b');

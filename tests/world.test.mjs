@@ -2253,6 +2253,22 @@ test('the bartender is reached across the bar, though not as far without one',as
   assert.equal(facingBartenderAcrossBar({x:16.5,z:12.6,angle:Math.atan2(bartender.x-16.5,bartender.z-12.6)}),false);
 });
 
+test('bar taps answer from the front and rear only when aimed at and nearby',async()=>{
+  const {PUB,pubTapReply,moveInPub}=await import('../neon-city/pub-interior.js');
+  for(const tap of PUB.taps)for(const rear of [false,true]){
+    for(const dx of [0,-.4,.4]){
+      const player={x:tap.x+dx,z:rear?16:12,angle:0};
+      moveInPub(player,0,rear?-3:3);
+      player.angle=Math.atan2(tap.x-player.x,tap.z-player.z);
+      assert.equal(pubTapReply(player),rear?"HEY! YOU CAN'T SERVE YOURSELF!":"I CAN'T REACH IT.");
+      assert.equal(pubTapReply({...player,angle:player.angle+Math.PI}),null,'looking away');
+    }
+    assert.equal(pubTapReply({x:tap.x,z:rear?17:10,angle:rear?Math.PI:0}),null,'out of reach');
+  }
+  assert.equal(pubTapReply({x:PUB.bartender.x,z:12.5,angle:0}),null,'talking to the bartender');
+  for(const beer of PUB.barBeerPositions)assert.equal(pubTapReply({x:beer.x,z:12.5,angle:0}),null,'aiming at the pint');
+});
+
 test('each pub keeps a randomly positioned blonde or dark pint, rendered at its selected position',async()=>{
   const {PUB,pubBarBeer,drawPubInterior,facingPokeBall}=await import('../neon-city/pub-interior.js');
   for(const position of [0,1])for(const dark of [false,true]){
