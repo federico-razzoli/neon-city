@@ -2847,12 +2847,22 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   press();
   const talkBox=element('#staff-talk');
   assert.equal(talkBox.hidden,false);
+  const assertConversationShortcuts=()=>{
+    const before=talkBox.innerHTML;
+    for(const shortcut of [{key:'r',ctrlKey:true},{key:'r',metaKey:true},{key:'w',ctrlKey:true},{key:'s',metaKey:true},{key:'1',altKey:true},{key:'ArrowDown',altKey:true},{key:'F5'},{key:'F12'},{key:'Tab'},{key:'x'},{key:'9'}]){
+      let prevented=false;events.keydown({...shortcut,preventDefault(){prevented=true;}});
+      assert.equal(prevented,false,`${JSON.stringify(shortcut)} remains a browser key`);
+      assert.equal(talkBox.innerHTML,before,'browser shortcuts leave the conversation unchanged');
+    }
+  };
+  assertConversationShortcuts();
   assert.match(talkBox.innerHTML,/HEY![\s\S]*BYE!/);
   assert.doesNotMatch(talkBox.innerHTML,/ABOUT THE/,'nothing to ask about the toilet or the staff room yet');
   key('ArrowDown');
   assert.match(talkBox.innerHTML,/aria-current="true">BYE!/);
   key('ArrowUp');events.keydown(space);tick(ms+=20);
   assert.equal(talkBox.innerHTML,'<p class="talk-answer">HELLO THERE!</p>');
+  assertConversationShortcuts();
   for(let i=0;i<20;i++)tick(ms+=200);
   assert.match(talkBox.innerHTML,/HELLO THERE!/,'the answer waits for Space');
   assert.equal(element('#message').textContent,'','answers stay in the box');
@@ -4296,7 +4306,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/frog.js'),...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
+  const sandbox={...await import('../neon-city/kongy-kong.js'),...await import('../neon-city/frog.js'),...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
     ...await import('../neon-city/walker-talk.js'),arcadeName:()=>'ARCADIA',
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
@@ -4347,7 +4357,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.ok(sandbox.game.ping.playerY<180,'arrow keys move the paddle');
   assert.deepEqual({x:player.x,z:player.z},standing,'Ping holds the player in place');
   sandbox.game.ping.over=true;press();assert.equal(sandbox.game.ping,null,'Space leaves GAME OVER');
-  const other=arcadeInterior.ARCADE.cabinets[7];
+  const other=arcadeInterior.ARCADE.cabinets[8];
   Object.assign(player,{x:other.x+.75,z:other.z-.8,angle:0});press();
   assert.equal(element('#message').textContent,'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(sandbox.game.inventory.current.count,1,'unavailable games keep the token');
@@ -4361,6 +4371,11 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.equal(sandbox.game.ping.x,frogX+40,'right arrow hops in Frog');
   const grog=sandbox.game.ping;grog.cooldown=0;grog.row=1;grog.hop(0,-1);
   assert.equal(grog.crossed,true);tick(ms+=20);
+  for(const shortcut of [{key:'r',ctrlKey:true},{key:'r',metaKey:true},{key:'F5'}]){
+    let prevented=false;events.keydown({...shortcut,preventDefault(){prevented=true;}});
+    assert.equal(prevented,false);assert.equal(grog.crossed,true,'browser shortcuts do not skip congratulations');
+  }
+
   events.keydown({...arrow('ArrowUp'),repeat:true});
   assert.equal(grog.crossed,true,'held key repeat does not skip the congratulations screen');
   events.keydown(arrow(' '));events.keyup(arrow(' '));
@@ -4369,6 +4384,31 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
 
   events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));tick(ms+=20);
   assert.equal(sandbox.game.ping,null,'Escape leaves Frog');
+  sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(1));
+  const kongCabinet=arcadeInterior.KONG_CABINET;
+  Object.assign(player,{x:kongCabinet.x+.75,z:kongCabinet.z-.8,angle:0});press();
+  assert.equal(sandbox.game.ping.kind,'kong');assert.equal(sandbox.game.inventory.items.length,0);
+  const assertBrowserShortcuts=()=>{
+    for(const shortcut of [{key:'r',ctrlKey:true},{key:'r',metaKey:true},{key:'w',ctrlKey:true},{key:'ArrowLeft',altKey:true},{key:'F5'},{key:'F12'},{key:'Tab'},{key:'x'}]){
+      let prevented=false;
+      events.keydown({...shortcut,preventDefault(){prevented=true;}});
+      assert.equal(prevented,false,`${JSON.stringify(shortcut)} remains a browser key`);
+      assert.equal(sandbox.game.ping.kind,'kong');
+    }
+  };
+  assertBrowserShortcuts();
+
+  const kong=sandbox.game.ping,startingX=kong.player.x;
+  events.keydown(arrow('ArrowRight'));tick(ms+=100);events.keyup(arrow('ArrowRight'));
+  assert.ok(kong.player.x>startingX,'right arrow moves the Kongy Kong player');
+  events.keydown(space);tick(ms+=20);events.keyup(space);
+  assert.equal(kong.player.air,true,'Space jumps');
+  kong.won=true;press();assert.equal(sandbox.game.ping,kong,'victory stays in the game');
+  assertBrowserShortcuts();
+  for(let i=0;i<260;i++)tick(ms+=20);
+  assert.equal(kong.won,false);assert.equal(kong.player.floor,0,'victory restarts level one');
+  assert.equal(sandbox.game.ping,kong,'restarting keeps the same paid session');
+
 
 
 });

@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {KongyKong} from './kongy-kong.js?v=hammer-3';
 import {Frog} from './frog.js?v=grog-screens-1';
 import {Ping} from './ping.js?v=game-over-2';
 import {hotelStreetLife} from './hotel-street.js?v=1';
@@ -27,7 +28,7 @@ import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=arcade-tokens-2';
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-cash-2';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
-import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=maybe-later-1';
+import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=kongy-1';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
@@ -842,10 +843,14 @@ start.addEventListener('click',play);document.querySelector('#pause').addEventLi
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
 window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}
 if(ping){
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const controls=ping.kind?['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d',' ','Escape']:['ArrowUp','ArrowDown','w','s',' ','Escape'];
+  if(!controls.includes(k)&&!(ping.crossed&&k.length===1))return;
   e.preventDefault();
   if(ping.crossed){if(!e.repeat&&running){ping.continueCrossing();keys.clear();}return;}
-  if(k==='Escape'||ping.over&&k===' '&&!e.repeat){ping=null;keys.clear();startSpaceHeld=true;canvas.focus();}
-  else if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d'].includes(k))keys.add(k);
+  if(ping.won&&k!=='Escape')return;
+  if(k==='Escape'||ping.over&&k===' '&&!e.repeat){ping=null;keys.clear();startSpaceHeld=k===' ';canvas.focus();}
+  else if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d',' '].includes(k))keys.add(k);
   return;
 }
 if(inventoryBox.open){
@@ -864,6 +869,9 @@ if(windowView&&running&&k!=='Escape'){
 }
 if(k==='i'&&running&&!staffTalk){e.preventDefault();if(!e.repeat)toggleInventory();return;}
 if(staffTalk){
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const choice=/^[1-9]$/.test(k)&&!staffTalk.line&&Number(k)<=staffTalk.script.length;
+  if(!['Escape',' ','ArrowUp','ArrowDown','w','s'].includes(k)&&!choice)return;
   e.preventDefault();
   if(e.repeat)return;
   if(k==='Escape'){staffTalk=null;canvas.focus();showStaffTalk();}
@@ -923,7 +931,7 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){notice=2.5;noticeText=pickedUp;return;}if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){const reply=tryArcadeGame(machine,inventory);if(reply==='PING'||reply==='GROG'){ping=reply==='PING'?new Ping():new Frog();keys.clear();shiftKeys.clear();coverPressed=false;notice=0;document.querySelector('#message').textContent='';document.querySelector('#pace').hidden=true;canvas.focus();}else{notice=3.5;noticeText=reply;}return;}}if(useSeat())return;if(useDoor())return;if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){notice=2.5;noticeText=pickedUp;return;}if(insideHotel&&hotelLife.held&&facingHotelRobot(player,hotelLife.walker)){talkToStaff(ROBOT_TALK,'Talk to the robot');return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){const reply=tryArcadeGame(machine,inventory);if(reply==='PING'||reply==='GROG'||reply==='KONGY KONG'){ping=reply==='PING'?new Ping():reply==='GROG'?new Frog():new KongyKong();keys.clear();shiftKeys.clear();coverPressed=false;notice=0;document.querySelector('#message').textContent='';document.querySelector('#pace').hidden=true;canvas.focus();}else{notice=3.5;noticeText=reply;}return;}}if(useSeat())return;if(useDoor())return;if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player);if(reply){notice=2.5;noticeText=reply;}else if(facingReceptionistAcrossDesk(player))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -936,7 +944,8 @@ for(const button of document.querySelectorAll('[data-key]')){
   button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||inventoryBox.open||banshee||staffTalk)return;e.preventDefault();button.setPointerCapture(e.pointerId);if(ping?.crossed){ping.continueCrossing();keys.clear();return;}keys.add(button.dataset.key);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
-canvas.addEventListener('pointerdown',()=>{if(running&&ping?.crossed){ping.continueCrossing();keys.clear();}});
+canvas.addEventListener('pointerdown',()=>{if(!running)return;if(ping?.crossed){ping.continueCrossing();keys.clear();}else if(ping?.kind==='kong')keys.add(' ');});
+for(const event of ['pointerup','pointercancel','pointerleave'])canvas.addEventListener(event,()=>keys.delete(' '));
 function tick(now){
   // Camera input follows elapsed time through ordinary slow frames. Bound long
   // stalls, while retaining the smaller simulation step for safe movement.
@@ -947,8 +956,8 @@ function tick(now){
     document.querySelector('#message').textContent='';
     if(!bansheeFrame((now-banshee.started)/1000).active){banshee=null;notice=3.5;noticeText='WTF WAS THAT??...';}
   }
-  if(running&&ping)ping.update(cameraDt,(keys.has('ArrowDown')||keys.has('s')?1:0)-(keys.has('ArrowUp')||keys.has('w')?1:0),ping.kind==='frog'?(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0):0);
-  if(ping?.crossed)keys.clear();
+  if(running&&ping)ping.update(cameraDt,(keys.has('ArrowDown')||keys.has('s')?1:0)-(keys.has('ArrowUp')||keys.has('w')?1:0),(ping.kind==='frog'||ping.kind==='kong')?(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0):0,keys.has(' '));
+  if(ping?.crossed||ping?.won)keys.clear();
   if(running&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk){
     shootingStars.update(cameraDt,!indoors()&&onRiverWalk(player),skyView());
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);

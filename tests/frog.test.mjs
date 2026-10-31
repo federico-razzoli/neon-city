@@ -12,7 +12,7 @@ test('Frog is adjacent to Ping and consumes exactly one token',()=>{
   assert.equal(tryArcadeGame(FROG_CABINET,inventory),'TO PLAY GAMES YOU NEED TOKENS.');
   inventory.take(arcadeTokens(2));
   assert.equal(tryArcadeGame(FROG_CABINET,inventory),'GROG');assert.equal(inventory.current.count,1);
-  assert.equal(tryArcadeGame(ARCADE.cabinets[7],inventory),'THIS GAME IS NOT AVAILABLE YET.');
+  assert.equal(tryArcadeGame(ARCADE.cabinets[8],inventory),'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(inventory.current.count,1);
 });
 test('Frog hops on a grid, scores forward progress and limits repeat input',()=>{

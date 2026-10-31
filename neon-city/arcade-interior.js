@@ -43,6 +43,7 @@ export function facingArcadeDoor(player,buildings){
 }
 export const PING_CABINET=ARCADE.cabinets[5];
 export const FROG_CABINET=ARCADE.cabinets[6];
+export const KONG_CABINET=ARCADE.cabinets[7];
 export function facingArcadeGame(player){
   const machines=[...ARCADE.cabinets,...ARCADE.pinballs];
   const targets=machines.filter(b=>player.z<b.z).map(machine=>({x:machine.x+machine.w/2,z:machine.z,radius:.65,machine}));
@@ -51,12 +52,12 @@ export function facingArcadeGame(player){
 export function tryArcadeGame(machine,inventory){
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
-  if(machine!==PING_CABINET&&machine!==FROG_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
+  if(machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
   if(--tokens.count===0){
     inventory.items.splice(inventory.items.indexOf(tokens),1);
     inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   }
-  return machine===PING_CABINET?'PING':'GROG';
+  return machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':'KONGY KONG';
 }
 // Token purchases share the staff dialogue's block and answer sequencing.
 export function arcadeTalk(wallet,inventory){
@@ -101,7 +102,7 @@ export function moveInArcade(player,dx,dz){
 }
 // The black shell catches more light where it curves away at the sides.
 const SHELL_SHADES=['#121318','#14151b','#18191f','#1e1f26','#25272f','#2d2f38'];
-const FONT={F:['111','100','110','100','100'],R:['110','101','110','101','101'],P:['110','101','110','100','100'],A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
+const FONT={Y:['101','101','010','010','010'],F:['111','100','110','100','100'],R:['110','101','110','101','101'],P:['110','101','110','100','100'],A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
 export function drawArcadeInterior({face,quad,box}){
   const panel=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   const label=(word,x,y,z,s,color,direction=1)=>{
@@ -146,6 +147,12 @@ export function drawArcadeInterior({face,quad,box}){
       panel(x+.2,1.45,z+.35,1.1,.29,'#272c3a');
       for(let j=0;j<3;j++)panel(x+.25+j*.35,1.94,z+.34,.14,.05,'#aa7040');
       panel(x+.7,1.74,z+.33,.1,.1,'#9bf25e');
+    }else if(b===KONG_CABINET){
+      label('KONGY KONG',x+.13,2.4,z+.30,.029,'#14263c');
+      for(let j=0;j<4;j++)panel(x+.2,1.46+j*.18,z+.35,1.1,.03,'#ff3058');
+      panel(x+.27,2.03,z+.34,.23,.13,'#702800');
+      panel(x+1.04,2.01,z+.34,.07,.14,'#ff70be');
+      panel(x+.75,1.5,z+.34,.03,.32,'#00dfff');
     }else if(i%3===0){
       for(let a=0;a<3;a++)for(let row=0;row<2;row++){
         panel(x+.24+a*.35,1.82+row*.18,z+.35,.19,.08,'#93f4a2');
