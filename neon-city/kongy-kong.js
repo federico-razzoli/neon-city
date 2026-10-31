@@ -19,7 +19,7 @@ function drawCharacter(ctx,name,x,y,scale=1,facing=1){
   }));
 }
 export class KongyKong{
-  kind='kong';lives=3;score=0;over=false;won=false;victoryTime=0;time=90;barrels=[];spawnIn=1.8;clock=0;hammer=0;delay=0;jumpHeld=false;
+  kind='kong';lives=3;score=0;over=false;won=false;victoryTime=0;time=90;barrels=[];spawnIn=1.8;clock=0;stomp=0;hammer=0;delay=0;jumpHeld=false;
   hammers=[{floor:1,x:185,taken:false},{floor:3,x:335,taken:false}];
   constructor(){this.resetPlayer();}
   resetPlayer(){this.player={x:58,y:girderY(0,58),floor:0,vy:0,air:false,climb:null,facing:1};this.hammer=0;}
@@ -46,11 +46,15 @@ export class KongyKong{
     this.resetPlayer();this.jumpHeld=false;
     for(const hammer of this.hammers)hammer.taken=false;
   }
+  monkeyPose(){
+    const lift=this.stomp?Math.sin(Math.PI*Math.min(1,this.stomp/.3))*14:0;
+    return {x:60,y:girderY(5,90)-51-lift,scale:3};
+  }
   escapePose(){
     const t=this.victoryTime,carrying=t>=2;
     const x=t<2?100+175*t:450+Math.max(0,t-2.6)*100;
-    return {monkeyX:x,monkeyY:191-(carrying?Math.min(1,(t-2)/.6)*8:0),
-      girlX:carrying?x+12:470,girlY:carrying?171:211,carrying};
+    return {monkeyX:x,monkeyY:174-(carrying?Math.min(1,(t-2)/.6)*8:0),
+      girlX:carrying?x+12:470,girlY:carrying?154:211,carrying};
   }
   update(dt,vertical=0,horizontal=0,jump=false){
     if(this.over)return;
@@ -66,6 +70,11 @@ export class KongyKong{
   step(dt,vertical,horizontal,jump){
     this.clock+=dt;
     if(this.delay>0){this.delay=Math.max(0,this.delay-dt);return;}
+    if(this.stomp){
+      this.stomp+=dt;
+      if(this.stomp>=.45){this.stomp=0;this.die();}
+      return;
+    }
     this.time-=dt;if(this.time<=0){this.die();return;}
     this.hammer=Math.max(0,this.hammer-dt);
     const p=this.player;
@@ -86,6 +95,9 @@ export class KongyKong{
       if(jump&&!this.jumpHeld&&!p.air&&!this.hammer){p.air=true;p.jumpDirection=horizontal;p.vy=-155;this.jumpHeld=true;for(const b of this.barrels)b.jumped=false;}
       if(p.air){p.vy+=500*dt;p.y+=p.vy*dt;if(p.vy>0&&p.y>=girderY(p.floor,p.x)){p.y=girderY(p.floor,p.x);p.air=false;p.vy=0;}}
       else p.y=girderY(p.floor,p.x);
+    }
+    if(p.x>=48&&p.x<=134&&p.floor===5&&p.y<=girderY(5,p.x)+8){
+      this.stomp=dt;return;
     }
     for(const item of this.hammers)if(!item.taken&&!p.air&&!p.climb&&item.floor===p.floor&&Math.abs(item.x-p.x)<14){item.taken=true;this.hammer=8;}
     if(p.floor===6&&p.x>=500){this.won=true;this.victoryTime=0;this.score+=1000+Math.ceil(this.time)*10;return;}
@@ -118,7 +130,7 @@ export class KongyKong{
       if(this.won){
         ctx.fillStyle='#ff3058';ctx.fillRect(60,225,560,4);
         const pose=this.escapePose();
-        drawCharacter(ctx,'monkey',pose.monkeyX,pose.monkeyY,2);
+        drawCharacter(ctx,'monkey',pose.monkeyX,pose.monkeyY,3);
         drawCharacter(ctx,'girl',pose.girlX,pose.girlY);
       }
       ctx.font='14px monospace';ctx.fillStyle='#ffffff';
@@ -138,13 +150,18 @@ export class KongyKong{
       rect(l.x-6,top,2,Math.ceil(bottom-top),'#00dfff');rect(l.x+5,top,2,Math.ceil(bottom-top),'#00dfff');
       for(let y=top+4;y<bottom;y+=6)rect(l.x-4,y,9,2,'#00dfff');
     }
-    sprite('monkey',60,70,2);sprite('girl',540,48);
+    const monkey=this.monkeyPose();
+    sprite('monkey',monkey.x,monkey.y,monkey.scale);sprite('girl',540,48);
+    if(this.stomp>=.3){
+      rect(54,girderY(5,90)-3,72,3,'#ffff00');
+      rect(this.player.x-7,this.player.y-4,14,4,'#ff3030');
+    }
     rect(46,91,10,14,'#b86b18');rect(34,91,10,14,'#b86b18');
     const hammer=(x,y,side=1)=>{rect(x,y-14,3,14,'#ffbd80');rect(x+(side<0?-9:-3),y-19,12,7,'#00dfff');};
     for(const h of this.hammers)if(!h.taken)hammer(h.x,girderY(h.floor,h.x)-7);
     for(const b of this.barrels){rect(b.x-6,b.y-10,12,10,'#b86b18');rect(b.x-4,b.y-9,2,8,'#ffbd80');rect(b.x+2,b.y-9,2,8,'#ffbd80');rect(b.x-3,b.y-6,6,2,'#702800');}
     const p=this.player;
-    if(!this.delay||Math.floor(this.clock*10)%2)drawCharacter(ctx,'player',p.x-6,p.y-14,1,p.facing);
+    if(this.stomp<.3&&(!this.delay||Math.floor(this.clock*10)%2))drawCharacter(ctx,'player',p.x-6,p.y-14,1,p.facing);
     if(this.hammer){
       const head=this.hammerPose();
       if(head.state==='raised')rect(p.x-1,p.y-26,3,17,'#ffbd80');

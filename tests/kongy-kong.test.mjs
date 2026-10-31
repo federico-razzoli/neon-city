@@ -13,6 +13,25 @@ test('Kongy Kong is next to Grog, costs one token, and other machines stay unava
   assert.equal(tryArcadeGame(ARCADE.cabinets[8],inventory),'THIS GAME IS NOT AVAILABLE YET.');assert.equal(inventory.current.count,1);
 });
 function quietGame(){const game=new KongyKong();game.spawnIn=1000;return game;}
+test('the larger monkey stomps nearby players on its platform, even with a hammer',()=>{
+  for(const lives of [1,3]){
+    const game=quietGame(),p=game.player;game.lives=lives;
+    p.floor=5;p.x=130;p.y=girderY(5,p.x);game.hammer=8;
+    const resting=game.monkeyPose();assert.equal(resting.scale,3);
+    game.update(.1);assert.ok(game.stomp>0);assert.equal(game.lives,lives);
+    assert.ok(game.monkeyPose().y<resting.y);
+    const x=p.x;game.update(.2,0,1,true);assert.equal(p.x,x);
+    game.update(.2);assert.equal(game.lives,lives-1);assert.equal(game.stomp,0);
+    assert.equal(game.over,lives===1);
+    if(lives>1){assert.equal(game.player.floor,0);game.update(.1);assert.equal(game.lives,2);}
+  }
+});
+test('the monkey leaves distant players and players below its platform alone',()=>{
+  for(const [floor,x] of [[5,150],[4,90],[0,90],[6,470]]){
+    const game=quietGame();Object.assign(game.player,{floor,x,y:girderY(floor,x)});
+    game.update(.1);assert.equal(game.stomp,0);assert.equal(game.lives,3);
+  }
+});
 test('jumps keep their launch direction until landing, including stationary jumps',()=>{
   for(const direction of [-1,0,1]){
     const game=quietGame(),p=game.player;p.x=320;p.y=girderY(0,p.x);
@@ -120,7 +139,7 @@ test('the girl is small, blonde and barefoot, and the monkey uses brown colours'
   assert.ok(girl.length>0);assert.ok(girl.some(([color])=>color==='#ffe050'));
   const feet=girl.filter(([,x,y])=>y===61);assert.ok(feet.length>0);
   assert.ok(feet.every(([color])=>color==='#ffbd80'));
-  const monkey=rects.filter(([,x,y,w,h])=>x>=60&&x<100&&y>=70&&y<104&&w===2&&h===2);
+  const monkey=rects.filter(([,x,y,w,h])=>x>=60&&x<120&&y>=50&&y<105&&w===3&&h===3);
   assert.ok(monkey.length>0);assert.ok(monkey.every(([color])=>['#9c4a18','#502000','#d88b45'].includes(color)));
 });
 
