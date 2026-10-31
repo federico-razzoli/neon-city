@@ -9,8 +9,19 @@ function prices(talk){
   talk.confirm(0);
   assert.equal(talk.line,'1 TOKEN: £0.5\n3 TOKENS: £1\n6 TOKENS: £666');
   talk.confirm();
-  assert.deepEqual(talk.script.map(o=>o.ask),['1 TOKEN','3 TOKENS','6 TOKENS']);
+  assert.deepEqual(talk.script.map(o=>o.ask),['1 TOKEN','3 TOKENS','6 TOKENS','MAYBE LATER.']);
 }
+test('declining tokens answers with an ellipsis and returns to the first block',()=>{
+  const wallet=new Wallet(),inventory=new Inventory();wallet.pence=500;
+  const talk=new StaffTalk(arcadeTalk(wallet,inventory),{});
+  prices(talk);talk.confirm(3);
+  assert.equal(talk.line,'...');
+  talk.confirm();
+  assert.equal(talk.line,null);
+  assert.deepEqual(talk.script.map(o=>o.ask),['HOW MUCH FOR A TOKEN?','I LOVE RETRO GAMING!','BYE!']);
+  assert.equal(talk.over,false);
+  assert.equal(wallet.pence,500);assert.equal(inventory.items.length,0);
+});
 test('arcade purchases check funds, charge each price once and stack tokens',()=>{
   for(const [choice,count,price] of [[0,1,50],[1,3,100],[2,6,66600]]){
     const wallet=new Wallet(),inventory=new Inventory();

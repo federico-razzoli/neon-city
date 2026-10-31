@@ -73,7 +73,8 @@ export function arcadeTalk(wallet,inventory){
   ],[
     {ask:'1 TOKEN',answer:buy(1,50),next:0},
     {ask:'3 TOKENS',answer:buy(3,100),next:0},
-    {ask:'6 TOKENS',answer:buy(6,66600),next:0}
+    {ask:'6 TOKENS',answer:buy(6,66600),next:0},
+    {ask:'MAYBE LATER.',answer:['...'],next:0}
   ]];
 }
 export const facingArcadeAttendant=player=>facingAcrossCounter(player,ARCADE.desk,ARCADE.attendant);
