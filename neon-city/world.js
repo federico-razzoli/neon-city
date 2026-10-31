@@ -304,6 +304,8 @@ export class City {
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
       buildings.push({x: x * BLOCK + 14 + i * 18, z: z * BLOCK + 14 + j * 18, w:18, d:18, h:12 + Math.floor(r() * 8) * 3, color:['#24233c','#30233c','#1f303b','#38283c'][Math.floor(r()*4)], sign:signs[Math.floor(r()*signs.length)], neon:neon[Math.floor(r()*neon.length)], seed:Math.floor(r()*10000), i, j});
     }
+    // The building beside the starting position is always a pub.
+    if(x===0&&z===0)buildings[0].sign='NEON PUB';
     // Jitter separated slots so new pedestrians never spawn inside each other.
     // Assign speed once, using a separate random draw from appearance.
     for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:streetType(r()),reverse:r()>.5,variant:r(),walkTime:0});

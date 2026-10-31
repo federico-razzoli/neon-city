@@ -3818,6 +3818,16 @@ test('the NIGHT RIVER arrow points to the river on screen from either side, with
   }
 });
 
+test('the closest building at the start is always a pub',async()=>{
+  const {START}=await import('../neon-city/world.js');
+  for(let seed=1;seed<=100;seed++){
+    const city=new City(seed);city.update(START.x,START.z);
+    const distance=b=>Math.hypot(Math.max(b.x-START.x,0,START.x-b.x-b.w),Math.max(b.z-START.z,0,START.z-b.z-b.d));
+    const nearest=[...city.chunks.values()].flatMap(c=>c.buildings).sort((a,b)=>distance(a)-distance(b))[0];
+    assert.equal(nearest.sign,'NEON PUB',`seed ${seed}`);
+  }
+});
+
 test('the game starts beside the building corner, just far enough to see the fingerpost boards on the sidewalk corner',async()=>{
   const {START,START_SIGN,RIVER_SIGN,LOWER_BOARD}=await import('../neon-city/world.js');
   const city=new City(1);city.update(START.x,START.z);
