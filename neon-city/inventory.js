@@ -24,11 +24,18 @@ export const PINE_CONE={id:'pine-cone',name:'PINE CONE',description:'A PINE CONE
 export const LADYBUG={id:'ladybug',name:'LADYBUG',description:'THIS BUG IS A LADY. I THINK.'};
 export const FLOWER={id:'flower',name:'FLOWER',description:'A FLOWER.'};
 export const HOTEL_NOTE={id:'hotel-note',name:'HOTEL NOTE',description:'IT READS: LISA HAS THE KEY.'};
+export function arcadeTokens(count){
+  return {id:'arcade-token',count,get name(){return `${this.count} TOKEN${this.count===1?'':'S'}`;},description:'ARCADE TOKENS.'};
+}
 export class Inventory{
   items=[];
   selected=0;
   description=false;
   take(item){
+    if(item.id==='arcade-token'){
+      const stack=this.items.find(entry=>entry.id===item.id);
+      if(stack){stack.count+=item.count;return TAKEN;}
+    }
     if(this.items.some(entry=>entry.id===item.id))return ALREADY_HAVE_ONE;
     this.items.push(item);
     return TAKEN;
@@ -63,13 +70,31 @@ function takeNaturalItem(player,chunks,inventory,includeFlowers){
 
 export function dropItem(inventory,player,chunk,room='street',ground=0){
   if(!inventory.current||!chunk)return null;
-  const [item]=inventory.items.splice(inventory.selected,1);
+  let item=inventory.current;
+  if(item.id==='arcade-token'&&item.count>1){
+    item.count--;
+    item=arcadeTokens(1);
+  }else [item]=inventory.items.splice(inventory.selected,1);
   inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   inventory.description=false;
   if(item.id===LADYBUG.id)return {item,lost:true};
   const dropped={item,room,x:player.x,z:player.z,ground,angle:player.angle,length:.22,radius:.07};
   (chunk.droppedItems??=[]).push(dropped);
   return dropped;
+}
+// A small brass coin with a raised rim and an inset square arcade mark.
+export function drawDroppedToken(item,face){
+  const {x,z,ground=0,angle=0}=item,r=.09,bottom=ground+.006,top=bottom+.018;
+  const point=(radius,a,y)=>({x:x+Math.cos(a+angle)*radius,y,z:z+Math.sin(a+angle)*radius});
+  const rim=[],centre=[];
+  for(let i=0;i<16;i++){
+    const a=i*Math.PI/8,b=(i+1)*Math.PI/8;
+    face([point(r,a,bottom),point(r,b,bottom),point(r,b,top),point(r,a,top)],i<8?'#98702b':'#c3943e');
+    rim.push(point(r,a,top));centre.push(point(r*.73,a,top+.001));
+  }
+  face(rim,'#e9c56b');
+  face(centre,'#bc8d36');
+  face([0,1,2,3].map(i=>point(r*.38,Math.PI/4+i*Math.PI/2,top+.002)),'#edca70');
 }
 export function takeDroppedItem(player,chunks,inventory,room='street',ground=0){
   let nearest=null,owner=null,distance=3.5;

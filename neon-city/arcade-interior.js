@@ -17,8 +17,9 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {arcadeTokens} from './inventory.js?v=arcade-tokens-2';
 import {facesEntrance} from './entrances.js';
-import {facingDoorway,facingNearest,drawStaff,BLONDE_RECEPTIONIST,BARTENDER_REPLY,drawCylinder,drawRod} from './pub-interior.js?v=court-shoes-1';
+import {facingAcrossCounter,facingDoorway,facingNearest,drawStaff,BLONDE_RECEPTIONIST,BARTENDER_REPLY,drawCylinder,drawRod} from './pub-interior.js?v=court-shoes-1';
 
 // The room runs a metre deeper than the bridge console needs, so its chairs
 // leave the aisle behind them as wide as before.
@@ -40,6 +41,25 @@ export function facingArcadeDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
+// Token purchases share the staff dialogue's block and answer sequencing.
+export function arcadeTalk(wallet,inventory){
+  const buy=(count,price)=>()=>{
+    if(wallet.pence<price)return ['SURE. BUT FIRST COME BACK WITH THE MONEY, SIR.'];
+    wallet.pence-=price;
+    inventory.take(arcadeTokens(count));
+    return count===6?["SERIOUSLY?!","OH, WELL. YOUR CALL."]:['THANK YOU, SIR!'];
+  };
+  return [[
+    {ask:'HOW MUCH FOR A TOKEN?',answer:['1 TOKEN: £0.5\n3 TOKENS: £1\n6 TOKENS: £666'],next:1},
+    {ask:'I LOVE RETRO GAMING!',answer:["I KNOW. THAT'S WHY YOU'RE HERE, RIGHT?",'SOME RECENT GAMES FEEL LIKE OLD GAMES...']},
+    {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}
+  ],[
+    {ask:'1 TOKEN',answer:buy(1,50),next:0},
+    {ask:'3 TOKENS',answer:buy(3,100),next:0},
+    {ask:'6 TOKENS',answer:buy(6,66600),next:0}
+  ]];
+}
+export const facingArcadeAttendant=player=>facingAcrossCounter(player,ARCADE.desk,ARCADE.attendant);
 export const facingArcadeExit=player=>player.z>0&&facingDoorway(player,ARCADE.door,.85);
 export const facingArcadeSeat=player=>facingNearest(player,ARCADE.bridgeChairs);
 export const DESK_THING_REPLY="DON'T TOUCH IT, PLEASE.";

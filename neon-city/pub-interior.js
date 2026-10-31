@@ -173,7 +173,7 @@ export class StaffTalk{
       if(!option)return;
       if(option.action==='give'){this.returnSelection=choice;this.giving=true;this.selected=0;return;}
       if(option.action==='back'){this.giving=false;this.selected=this.returnSelection;return;}
-      this.selected=choice;this.chosen=option;this.answer=[...option.answer];
+      this.selected=choice;this.chosen=option;this.answer=[...(typeof option.answer==='function'?option.answer():option.answer)];
     }
     if(this.answer[0]?.sets)this.record[this.answer[0].sets]=true;
     if(this.line)return;

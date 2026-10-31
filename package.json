@@ -1,1 +1,1 @@
-{"name":"browser-games","private":true,"license":"AGPL-3.0-only","type":"module","scripts":{"test":"node --test tests/world.test.mjs tests/banshee.test.mjs"}}
+{"name":"browser-games","private":true,"license":"AGPL-3.0-only","type":"module","scripts":{"test":"node --test tests/world.test.mjs tests/banshee.test.mjs tests/arcade-tokens.test.mjs"}}
