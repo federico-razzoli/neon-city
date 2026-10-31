@@ -152,6 +152,7 @@ export const BARTENDER_TALK=[
   {ask:'HEY!',answer:['HELLO THERE!']},
   {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.'],needs:'PUB_PARANORMAL_ACTIVITIES'},
   {ask:'ABOUT THE STAFF ROOM...',answer:['THE STAFF ROOM IS A PRIVATE SPACE.','IT HIDES NO SECRET, ANYWAY.'],needs:'PUB_STAFF_ROOM_NOISES'},
+  {ask:'DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?',answer:["THEY'RE CALLED THE RADIOACTIVE COWS.","AND NO, I DON'T LIKE WEIRD POLKA METAL."],needs:'RADIOACTIVE_COWS_TICKET_MENTIONED'},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
 export class StaffTalk{
   constructor(script=BARTENDER_TALK,record=register,inventory=null,gifts={}){this.gifts=gifts;this.inventory=inventory;this.giving=false;this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}

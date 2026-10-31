@@ -2300,10 +2300,19 @@ test('Nurse Joy\'s Poké Ball stays on the counter, from either side of the bar 
 
 test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
   const {BARTENDER_TALK,StaffTalk}=await import('../neon-city/pub-interior.js');
-  assert.deepEqual(BARTENDER_TALK.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','ABOUT THE STAFF ROOM...','BYE!']);
+  assert.deepEqual(BARTENDER_TALK.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','ABOUT THE STAFF ROOM...','DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?','BYE!']);
   assert.deepEqual(new StaffTalk(BARTENDER_TALK,{}).script.map(o=>o.ask),['HEY!','BYE!'],'nothing to ask about the toilet or the staff room at first');
   assert.deepEqual(new StaffTalk(BARTENDER_TALK,{PUB_PARANORMAL_ACTIVITIES:true}).script.map(o=>o.ask),['HEY!','ABOUT THE TOILET...','BYE!'],'the toilet once the banshee has appeared');
   assert.deepEqual(new StaffTalk(BARTENDER_TALK,{PUB_STAFF_ROOM_NOISES:true}).script.map(o=>o.ask),['HEY!','ABOUT THE STAFF ROOM...','BYE!'],'the staff room once its noises are mentioned');
+  const ticketTalk=new StaffTalk(BARTENDER_TALK,{RADIOACTIVE_COWS_TICKET_MENTIONED:true});
+  assert.deepEqual(ticketTalk.script.map(o=>o.ask),['HEY!','DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?','BYE!']);
+  ticketTalk.confirm(1);
+  assert.equal(ticketTalk.line,"THEY'RE CALLED THE RADIOACTIVE COWS.");
+  ticketTalk.confirm();
+  assert.equal(ticketTalk.line,"AND NO, I DON'T LIKE WEIRD POLKA METAL.");
+  ticketTalk.confirm();
+  assert.equal(ticketTalk.line,null);
+  assert.equal(ticketTalk.over,false);
   const talk=new StaffTalk(BARTENDER_TALK,{PUB_PARANORMAL_ACTIVITIES:true,PUB_STAFF_ROOM_NOISES:true});
   assert.equal(talk.selected,0);assert.equal(talk.line,null);
   talk.confirm();
