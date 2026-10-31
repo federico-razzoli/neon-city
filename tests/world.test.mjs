@@ -183,7 +183,7 @@ test('each lobby has Nurse Joy or a blonde receptionist and the hotel colours, w
     drawHotelInterior({look,receptionist,face:(v,color)=>colors.add(color),quad:(x,y,z,w,d,color)=>colors.add(color),box:(x,y,z,w,h,d,...c)=>c.forEach(color=>colors.add(color))});
     const nurse=receptionist===NURSE_JOY;
     assert.equal(colors.has('#ee7c9e'),nurse,'pink hair');
-    assert.equal(colors.has('#d94650'),nurse,'only Nurse Joy keeps a Poké Ball');
+    assert.equal(colors.has('#d94650'),false,'no Poké Ball on the hotel desk');
     assert.equal(colors.has('#d9b45a'),!nurse,'blonde hair');
     for(const color of [look.floor[0],look.floor[1],look.velvet[0],look.metal])assert.ok(colors.has(color),`uses the hotel colour ${color}`);
     // Walls are lit-up versions of the facade's dark colours.
@@ -2272,11 +2272,15 @@ test('the pint on the bar belongs to someone else, from either side of the bar',
   assert.equal(facingBartenderAcrossBar(front),true);
 });
 
-test('Nurse Joy\'s Poké Ball stays on the counter, from either side of the bar or desk',async()=>{
+test('counter objects can be targeted from either side of the bar or desk, and staff have no Poké Ball',async()=>{
   const {PUB,NURSE_JOY,BLONDE_RECEPTIONIST,POKE_BALL_REPLY,hasPokeBall,facingPokeBall,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
   const {HOTEL,moveInHotel}=await import('../neon-city/hotel-interior.js');
   assert.equal(POKE_BALL_REPLY,"I SHOULDN'T TAKE IT.");
-  assert.equal(hasPokeBall(NURSE_JOY),true);
+  assert.equal(hasPokeBall(NURSE_JOY),false);
+  const {drawPubInterior}=await import('../neon-city/pub-interior.js');
+  const colors=new Set();
+  drawPubInterior({bartenderType:NURSE_JOY,face:(v,color)=>colors.add(color),quad(){},box(){}});
+  assert.equal(colors.has('#d94650'),false,'no Poké Ball on the pub bar');
   for(const type of [0,1,2,BLONDE_RECEPTIONIST])assert.equal(hasPokeBall(type),false);
   const aim=(p,ball)=>({...p,angle:Math.atan2(ball.x-p.x,ball.z-p.z)});
   // Pressed against the bar from the customers' side, straight on or from along it.

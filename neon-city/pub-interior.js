@@ -247,7 +247,7 @@ export function drawRod(face,a,b,r,color){
 // a Poké Ball have it drawn at counter (x, y, z).
 export const NURSE_JOY=3,BLONDE_RECEPTIONIST=4;
 // Optional per-staff traits; anyone missing here has the defaults.
-const STAFF_TRAITS={[NURSE_JOY]:{pokeBall:true}};
+const STAFF_TRAITS={};
 export const hasPokeBall=type=>STAFF_TRAITS[type]?.pokeBall??false;
 export function drawStaff({face,box},at,type,counter){
   const {x,z}=at;
