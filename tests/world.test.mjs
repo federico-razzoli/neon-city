@@ -4296,7 +4296,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
+  const sandbox={...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
     ...await import('../neon-city/walker-talk.js'),arcadeName:()=>'ARCADIA',
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
@@ -4306,7 +4306,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;}};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get ping(){return ping;}};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'ARCADE'}],manholes:[],newspaperMachines:[]});
   const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -4336,6 +4336,22 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.equal(element('#message').textContent,'');
   Object.assign(player,{x:attendant.x-1.1,z:attendant.z,angle:Math.PI/2});press();
   assert.equal(element('#message').textContent,'CLIENTS ON THE OTHER SIDE, PLEASE.');
+  const cabinet=arcadeInterior.PING_CABINET;
+  Object.assign(player,{x:cabinet.x+.75,z:cabinet.z-.8,angle:0});press();
+  assert.equal(element('#message').textContent,'TO PLAY GAMES YOU NEED TOKENS.');
+  sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(2));
+  press();assert.ok(sandbox.game.ping,'Space starts Ping');
+  assert.equal(sandbox.game.inventory.current.count,1);
+  const standing={x:player.x,z:player.z};
+  events.keydown(arrow('ArrowUp'));tick(ms+=100);events.keyup(arrow('ArrowUp'));
+  assert.ok(sandbox.game.ping.playerY<180,'arrow keys move the paddle');
+  assert.deepEqual({x:player.x,z:player.z},standing,'Ping holds the player in place');
+  sandbox.game.ping.over=true;press();assert.equal(sandbox.game.ping,null,'Space leaves GAME OVER');
+  const other=arcadeInterior.ARCADE.cabinets[6];
+  Object.assign(player,{x:other.x+.75,z:other.z-.8,angle:0});press();
+  assert.equal(element('#message').textContent,'THIS GAME IS NOT AVAILABLE YET.');
+  assert.equal(sandbox.game.inventory.current.count,1,'unavailable games keep the token');
+
 });
 
 test('arcade desk replies depend on what is faced and from which side',async()=>{

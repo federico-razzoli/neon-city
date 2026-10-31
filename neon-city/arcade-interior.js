@@ -41,6 +41,22 @@ export function facingArcadeDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
+export const PING_CABINET=ARCADE.cabinets[5];
+export function facingArcadeGame(player){
+  const machines=[...ARCADE.cabinets,...ARCADE.pinballs];
+  const targets=machines.filter(b=>player.z<b.z).map(machine=>({x:machine.x+machine.w/2,z:machine.z,radius:.65,machine}));
+  return facingNearest(player,targets)?.machine??null;
+}
+export function tryArcadeGame(machine,inventory){
+  const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
+  if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
+  if(machine!==PING_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
+  if(--tokens.count===0){
+    inventory.items.splice(inventory.items.indexOf(tokens),1);
+    inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
+  }
+  return 'PING';
+}
 // Token purchases share the staff dialogue's block and answer sequencing.
 export function arcadeTalk(wallet,inventory){
   const buy=(count,price)=>()=>{
@@ -83,7 +99,7 @@ export function moveInArcade(player,dx,dz){
 }
 // The black shell catches more light where it curves away at the sides.
 const SHELL_SHADES=['#121318','#14151b','#18191f','#1e1f26','#25272f','#2d2f38'];
-const FONT={A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
+const FONT={P:['110','101','110','100','100'],A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
 export function drawArcadeInterior({face,quad,box}){
   const panel=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   const label=(word,x,y,z,s,color,direction=1)=>{
@@ -116,8 +132,13 @@ export function drawArcadeInterior({face,quad,box}){
     box(x,1.05,z-.02,w,.17,.62,c);box(x,1.22,z+.38,w,1.1,1.12,'#202338');
     box(x,2.32,z+.32,w,.32,1.18,c);panel(x+.13,2.39,z+.31,w-.26,.16,'#fff0b0');
     panel(x+.13,1.4,z+.365,w-.26,.79,'#080e24');
-    // Distinct decorative game screens: invaders, a maze, and a racer.
-    if(i%3===0){
+    // Ping occupies the leftmost cabinet in the row nearest the door.
+    if(b===PING_CABINET){
+      label('PING',x+.43,2.4,z+.30,.035,'#14263c');
+      panel(x+.25,1.65,z+.35,.05,.3,'#8fffe1');
+      panel(x+1.18,1.65,z+.35,.05,.3,'#8fffe1');
+      panel(x+.7,1.8,z+.35,.07,.07,'#fff4ce');
+    }else if(i%3===0){
       for(let a=0;a<3;a++)for(let row=0;row<2;row++){
         panel(x+.24+a*.35,1.82+row*.18,z+.35,.19,.08,'#93f4a2');
         panel(x+.27+a*.35,1.79+row*.18,z+.345,.04,.14,'#93f4a2');
