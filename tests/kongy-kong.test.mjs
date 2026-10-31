@@ -13,6 +13,33 @@ test('Kongy Kong is next to Grog, costs one token, and other machines stay unava
   assert.equal(tryArcadeGame(ARCADE.cabinets[8],inventory),'THIS GAME IS NOT AVAILABLE YET.');assert.equal(inventory.current.count,1);
 });
 function quietGame(){const game=new KongyKong();game.spawnIn=1000;return game;}
+test('jumps keep their launch direction until landing, including stationary jumps',()=>{
+  for(const direction of [-1,0,1]){
+    const game=quietGame(),p=game.player;p.x=320;p.y=girderY(0,p.x);
+    game.update(.05,0,direction,true);assert.ok(p.air);
+    const x=p.x,facing=p.facing;
+    game.update(.1,0,direction?-direction:1);
+    assert.ok(Math.abs(p.x-x-direction*8.4)<1e-8);
+    assert.equal(p.facing,facing);
+    game.update(.1);assert.ok(Math.abs(p.x-x-direction*16.8)<1e-8);
+    while(p.air)game.update(.05);
+    const landed=p.x;game.update(.05,0,-1);assert.ok(p.x<landed);assert.equal(p.facing,-1);
+  }
+});
+test('climbing pauses without input and can reverse toward either end',()=>{
+  const game=quietGame(),p=game.player;p.x=540;p.y=girderY(0,p.x);
+  game.update(.2,-1);const middle=p.y;assert.ok(p.climb);
+  game.update(.2);assert.equal(p.y,middle);
+  game.update(.05,1);assert.ok(p.y>middle);
+  for(let i=0;i<20;i++)game.update(.05,1);
+  assert.equal(p.floor,0);assert.equal(p.climb,null);assert.equal(p.y,girderY(0,p.x));
+  for(let i=0;i<25;i++)game.update(.05,-1);
+  assert.equal(p.floor,1);assert.equal(p.climb,null);
+  game.update(.2,1);const descending=p.y;assert.ok(p.climb);
+  game.update(.2);assert.equal(p.y,descending);
+  for(let i=0;i<20;i++)game.update(.05,-1);
+  assert.equal(p.floor,1);assert.equal(p.climb,null);assert.equal(p.y,girderY(1,p.x));
+});
 test('walking follows slopes, jumping lands, and ladders work in both directions',()=>{
   const game=quietGame(),p=game.player;
   game.update(.1,0,1);assert.ok(p.x>58);assert.equal(p.y,girderY(0,p.x));
@@ -20,9 +47,9 @@ test('walking follows slopes, jumping lands, and ladders work in both directions
   for(let i=0;i<10;i++)game.update(.1);
   assert.equal(p.air,false);assert.equal(p.y,girderY(0,p.x));
   p.x=540;p.y=girderY(0,540);game.update(.02,-1);assert.ok(p.climb);
-  for(let i=0;i<20;i++)game.update(.05);
+  for(let i=0;i<20;i++)game.update(.05,-1);
   assert.equal(p.floor,1);assert.equal(p.climb,null);
-  game.update(.02,1);for(let i=0;i<20;i++)game.update(.05);
+  game.update(.02,1);for(let i=0;i<20;i++)game.update(.05,1);
   assert.equal(p.floor,0);
 });
 test('barrels spawn from the monkey and drop onto the next girder',()=>{
@@ -54,7 +81,7 @@ test('all six ladder crossings reach the girl and end level one',()=>{
   for(let floor=0;floor<6;floor++){
     const ladder=KONG_LADDERS.find(l=>l.floor===floor);
     p.x=ladder.x;p.y=girderY(floor,p.x);p.floor=floor;
-    game.update(.02,-1);for(let i=0;i<30&&!game.won;i++)game.update(.05);
+    game.update(.02,-1);for(let i=0;i<30&&!game.won;i++)game.update(.05,-1);
     assert.equal(p.floor,floor+1);
   }
   assert.equal(game.won,true);assert.equal(game.lives,3);assert.ok(game.score>=1000);

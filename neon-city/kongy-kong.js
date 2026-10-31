@@ -12,10 +12,10 @@ const SPRITES={
   girl:['...yyyy...','..yyyyyy..','..yssss...','..yssss...','...sss....','..ppppp...','.ppppppp..','sspppppss.','..ppppp...','.ppppppp..','ppppppppp.','...s.s....','...s.s....','..ss.ss...']
 };
 const PALETTE={r:'#ff3030',b:'#2448ee',s:'#ffbd80',h:'#702800',p:'#ff70be',y:'#ffe050'};
-function drawCharacter(ctx,name,x,y,scale=1){
+function drawCharacter(ctx,name,x,y,scale=1,facing=1){
   const palette=name==='monkey'?{...PALETTE,b:'#9c4a18',h:'#502000',s:'#d88b45'}:PALETTE;
   SPRITES[name].forEach((row,j)=>[...row].forEach((c,i)=>{
-    if(palette[c]){ctx.fillStyle=palette[c];ctx.fillRect(Math.round(x+i*scale),Math.round(y+j*scale),scale,scale);}
+    if(palette[c]){ctx.fillStyle=palette[c];ctx.fillRect(Math.round(x+(facing<0?SPRITES[name][0].length-1-i:i)*scale),Math.round(y+j*scale),scale,scale);}
   }));
 }
 export class KongyKong{
@@ -70,16 +70,20 @@ export class KongyKong{
     this.hammer=Math.max(0,this.hammer-dt);
     const p=this.player;
     if(p.climb){
-      const target=girderY(p.climb.target,p.climb.x);
-      p.y+=Math.sign(target-p.y)*52*dt;
-      if(Math.abs(p.y-target)<1){p.y=target;p.floor=p.climb.target;p.climb=null;}
+      if(vertical){
+        const floor=p.climb.floor+(vertical<0?1:0),target=girderY(floor,p.climb.x);
+        const distance=target-p.y;
+        p.y+=Math.sign(distance)*Math.min(Math.abs(distance),52*dt);
+        if(p.y===target){p.floor=floor;p.climb=null;}
+      }
     }else{
       if(!p.air&&!this.hammer&&vertical){
         const ladder=KONG_LADDERS.find(l=>Math.abs(l.x-p.x)<12&&(vertical<0?l.floor===p.floor:l.floor+1===p.floor));
-        if(ladder){p.x=ladder.x;p.climb={x:ladder.x,target:p.floor+(vertical<0?1:-1)};return;}
+        if(ladder){p.x=ladder.x;p.climb={x:ladder.x,floor:ladder.floor};return;}
       }
-      if(horizontal){p.facing=Math.sign(horizontal);p.x=Math.max(p.floor===6?460:LEFT+6,Math.min(p.floor===6?590:RIGHT-6,p.x+horizontal*84*dt));}
-      if(jump&&!this.jumpHeld&&!p.air&&!this.hammer){p.air=true;p.vy=-155;this.jumpHeld=true;for(const b of this.barrels)b.jumped=false;}
+      const movement=p.air?(p.jumpDirection??0):horizontal;
+      if(movement){if(!p.air)p.facing=Math.sign(movement);p.x=Math.max(p.floor===6?460:LEFT+6,Math.min(p.floor===6?590:RIGHT-6,p.x+movement*84*dt));}
+      if(jump&&!this.jumpHeld&&!p.air&&!this.hammer){p.air=true;p.jumpDirection=horizontal;p.vy=-155;this.jumpHeld=true;for(const b of this.barrels)b.jumped=false;}
       if(p.air){p.vy+=500*dt;p.y+=p.vy*dt;if(p.vy>0&&p.y>=girderY(p.floor,p.x)){p.y=girderY(p.floor,p.x);p.air=false;p.vy=0;}}
       else p.y=girderY(p.floor,p.x);
     }
@@ -140,7 +144,7 @@ export class KongyKong{
     for(const h of this.hammers)if(!h.taken)hammer(h.x,girderY(h.floor,h.x)-7);
     for(const b of this.barrels){rect(b.x-6,b.y-10,12,10,'#b86b18');rect(b.x-4,b.y-9,2,8,'#ffbd80');rect(b.x+2,b.y-9,2,8,'#ffbd80');rect(b.x-3,b.y-6,6,2,'#702800');}
     const p=this.player;
-    if(!this.delay||Math.floor(this.clock*10)%2)sprite('player',p.x-6,p.y-14);
+    if(!this.delay||Math.floor(this.clock*10)%2)drawCharacter(ctx,'player',p.x-6,p.y-14,1,p.facing);
     if(this.hammer){
       const head=this.hammerPose();
       if(head.state==='raised')rect(p.x-1,p.y-26,3,17,'#ffbd80');
