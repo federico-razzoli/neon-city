@@ -35,6 +35,7 @@ export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,ang
   pokeBall:{x:9.8,z:13.55,radius:.18},
   // A customer's pint left on the counter, between the taps.
   barBeer:{x:7.1,z:13.35,radius:.13},
+  barBeerPositions:[{x:7.1,z:13.35,radius:.13},{x:10.3,z:13.35,radius:.13}],
   tables:[{x:4,z:4,radius:1.6},{x:14,z:4,radius:1.6},{x:4,z:9,radius:1.6},
     {x:22,z:3.5,radius:1.6},{x:27,z:3.5,radius:1.6},{x:24.5,z:9,radius:1.6},
     {x:22,z:14.5,radius:1.6},{x:27,z:14.5,radius:1.6}]};
@@ -132,7 +133,11 @@ export const facingBartenderAcrossBar=player=>facingAcrossCounter(player,PUB.bar
 // Staff who keep a Poké Ball on the counter in front of them, and won't part with it.
 export const POKE_BALL_REPLY="I SHOULDN'T TAKE IT.";
 // The pint on the bar is someone else's; it is aimed at just like the ball.
-export const BAR_BEER_REPLY="THAT'S NOT YOURS!";
+export const BAR_BEER_REPLY="IT SMELLS GOOD, BUT IT'S NOT MINE.";
+// Each pub keeps the pint first seen on its counter.
+export function pubBarBeer(pub,rng=Math.random){
+  return pub.barBeer??=({...PUB.barBeerPositions[Math.floor(rng()*PUB.barBeerPositions.length)],dark:rng()<.5});
+}
 // The crosshair has to sit on the ball itself, so the staff beside it can
 // still be addressed. It is in reach across the counter from either side.
 export function facingPokeBall(player,ball){
@@ -349,7 +354,7 @@ export function drawStaff({face,box},at,type,counter){
     for(const side of [-1,1])staffBox(x+side*.175-.035,1.38,z-.17,.07,.4,.1,hair);
   }
 }
-export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1}){
+export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1,barBeer=PUB.barBeer}){
   for(let x=0;x<PUB.width;x+=2)for(let z=0;z<PUB.depth;z+=2){
     quad(x,0,z,2,2,'#70513c');
     quad(x,PUB.height,z,2,2,'#31262a');
@@ -493,7 +498,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     cylinder(x,1.88,13.9,.035,.14,'#c7a973');
     cylinder(x,2.02,13.9,.065,.2,'#312a2a','#6a513a');
   }
-  pint(PUB.barBeer.x,1.3,PUB.barBeer.z);
+  pint(barBeer.x,1.3,barBeer.z,barBeer.dark);
   // Four regulars behind the bar: chosen once when this pub is first entered.
   drawStaff({face,box},PUB.bartender,bartenderType,{...PUB.pokeBall,y:1.48});
   // Suspended antique brass chandeliers, each with six curved candle arms.

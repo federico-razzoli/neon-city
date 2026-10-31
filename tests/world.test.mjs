@@ -2253,9 +2253,28 @@ test('the bartender is reached across the bar, though not as far without one',as
   assert.equal(facingBartenderAcrossBar({x:16.5,z:12.6,angle:Math.atan2(bartender.x-16.5,bartender.z-12.6)}),false);
 });
 
+test('each pub keeps a randomly positioned blonde or dark pint, rendered at its selected position',async()=>{
+  const {PUB,pubBarBeer,drawPubInterior,facingPokeBall}=await import('../neon-city/pub-interior.js');
+  for(const position of [0,1])for(const dark of [false,true]){
+    const draws=[position===0?0:.999,dark?0:.999],pub={};
+    const beer=pubBarBeer(pub,()=>draws.shift());
+    assert.deepEqual(beer,{...PUB.barBeerPositions[position],dark});
+    assert.equal(pubBarBeer(pub,()=>assert.fail('must keep the existing pint')),beer);
+    const glass=[];
+    drawPubInterior({barBeer:beer,quad(){},box(){},face(vertices,color){
+      if(color===(dark?'#492c22':'#bd873d'))glass.push(...vertices);
+    }});
+    assert.ok(glass.length>0);
+    assert.ok(glass.every(v=>Math.abs(v.x-beer.x)<=.131&&Math.abs(v.z-beer.z)<=.131));
+    assert.equal(facingPokeBall({x:beer.x,z:12.5,angle:0},beer),true);
+    const other=PUB.barBeerPositions[1-position];
+    assert.equal(facingPokeBall({x:other.x,z:12.5,angle:0},beer),false);
+  }
+});
+
 test('the pint on the bar belongs to someone else, from either side of the bar',async()=>{
   const {PUB,BAR_BEER_REPLY,facingPokeBall,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
-  assert.equal(BAR_BEER_REPLY,"THAT'S NOT YOURS!");
+  assert.equal(BAR_BEER_REPLY,"IT SMELLS GOOD, BUT IT'S NOT MINE.");
   const beer=PUB.barBeer,aim=p=>({...p,angle:Math.atan2(beer.x-p.x,beer.z-p.z)});
   for(const dx of [0,-1.5,1.5]){
     const p={x:beer.x+dx,z:11,angle:0};moveInPub(p,0,3);
