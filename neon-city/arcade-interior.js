@@ -49,11 +49,11 @@ export function facingArcadeGame(player){
   const targets=machines.filter(b=>player.z<b.z).map(machine=>({x:machine.x+machine.w/2,z:machine.z,radius:.65,machine}));
   return facingNearest(player,targets)?.machine??null;
 }
-export function tryArcadeGame(machine,inventory){
+export function tryArcadeGame(machine,inventory,consume=true){
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
   if(machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
-  if(--tokens.count===0){
+  if(consume&&--tokens.count===0){
     inventory.items.splice(inventory.items.indexOf(tokens),1);
     inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   }

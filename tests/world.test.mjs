@@ -4317,6 +4317,12 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get ping(){return ping;}};",sandbox);
+  let loads=0,disposals=0,failNext=false;
+  sandbox.loadCabinetGame=name=>{
+    loads++;
+    const Type={PING:sandbox.Ping,GROG:sandbox.Frog,'KONGY KONG':sandbox.KongyKong}[name];
+    return {ready:failNext?Promise.reject(new Error('load failed')):Promise.resolve(new Type()),dispose(){disposals++;}};
+  };
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'ARCADE'}],manholes:[],newspaperMachines:[]});
   const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -4350,19 +4356,21 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   Object.assign(player,{x:cabinet.x+.75,z:cabinet.z-.8,angle:0});press();
   assert.equal(element('#message').textContent,'TO PLAY GAMES YOU NEED TOKENS.');
   sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(2));
-  press();assert.ok(sandbox.game.ping,'Space starts Ping');
+  assert.equal(loads,0,'entering the arcade does not load games');
+  press();await new Promise(resolve=>setImmediate(resolve));assert.ok(sandbox.game.ping,'Space starts Ping');
   assert.equal(sandbox.game.inventory.current.count,1);
   const standing={x:player.x,z:player.z};
   events.keydown(arrow('ArrowUp'));tick(ms+=100);events.keyup(arrow('ArrowUp'));
   assert.ok(sandbox.game.ping.playerY<180,'arrow keys move the paddle');
   assert.deepEqual({x:player.x,z:player.z},standing,'Ping holds the player in place');
   sandbox.game.ping.over=true;press();assert.equal(sandbox.game.ping,null,'Space leaves GAME OVER');
+  assert.equal(disposals,1,'leaving the cabinet disposes its runtime');
   const other=arcadeInterior.ARCADE.cabinets[8];
   Object.assign(player,{x:other.x+.75,z:other.z-.8,angle:0});press();
   assert.equal(element('#message').textContent,'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(sandbox.game.inventory.current.count,1,'unavailable games keep the token');
   const frogCabinet=arcadeInterior.FROG_CABINET;
-  Object.assign(player,{x:frogCabinet.x+.75,z:frogCabinet.z-.8,angle:0});press();
+  Object.assign(player,{x:frogCabinet.x+.75,z:frogCabinet.z-.8,angle:0});press();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sandbox.game.ping.kind,'frog');
   assert.equal(sandbox.game.inventory.items.length,0,'Frog charges one token');
   for(let i=0;i<10;i++)tick(ms+=20);
@@ -4386,7 +4394,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.equal(sandbox.game.ping,null,'Escape leaves Frog');
   sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(1));
   const kongCabinet=arcadeInterior.KONG_CABINET;
-  Object.assign(player,{x:kongCabinet.x+.75,z:kongCabinet.z-.8,angle:0});press();
+  Object.assign(player,{x:kongCabinet.x+.75,z:kongCabinet.z-.8,angle:0});press();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sandbox.game.ping.kind,'kong');assert.equal(sandbox.game.inventory.items.length,0);
   const assertBrowserShortcuts=()=>{
     for(const shortcut of [{key:'r',ctrlKey:true},{key:'r',metaKey:true},{key:'w',ctrlKey:true},{key:'ArrowLeft',altKey:true},{key:'F5'},{key:'F12'},{key:'Tab'},{key:'x'}]){
@@ -4408,6 +4416,19 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   for(let i=0;i<260;i++)tick(ms+=20);
   assert.equal(kong.won,false);assert.equal(kong.player.floor,0,'victory restarts level one');
   assert.equal(sandbox.game.ping,kong,'restarting keeps the same paid session');
+  assert.equal(loads,3,'only requested cabinets load');
+  events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));
+  assert.equal(disposals,3);assert.equal(sandbox.game.ping,null);
+  sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(1));
+  failNext=true;press();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(sandbox.game.ping,null,'failed loading returns to the arcade');
+  assert.equal(sandbox.game.inventory.current.count,1,'failed loading does not charge a token');
+  assert.equal(disposals,4);
+  failNext=false;press();events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(sandbox.game.ping,null,'cancelled load cannot reopen the game');
+  assert.equal(sandbox.game.inventory.current.count,1,'cancelled loading does not charge');
+  assert.equal(disposals,5);
+
 
 
 
