@@ -33,6 +33,7 @@ test('Ping paddle movement, rebounds, scoring and three misses end the game',()=
     Object.assign(ping,{delay:0,x:1,y:90,vx:-220,vy:0});ping.update(.02);assert.equal(ping.lives,lives);
   }
   assert.equal(ping.over,true);const score=ping.score;ping.update(1);assert.equal(ping.score,score);
-  const text=[],ctx={fillRect(){},fillText(t){text.push(t);}};ping.draw(ctx);
+  const text=[],rects=[],ctx={fillRect(...rect){rects.push(rect);},fillText(t){text.push(t);}};ping.draw(ctx);
+  assert.deepEqual(rects,[[0,0,640,360]],'GAME OVER replaces the entire playfield');
   assert.ok(text.includes('GAME OVER'));assert.ok(text.includes('SCORE 110'));
 });

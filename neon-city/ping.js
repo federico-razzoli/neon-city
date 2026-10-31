@@ -30,17 +30,17 @@ export class Ping{
     ctx.fillStyle='#080e18';ctx.fillRect(0,0,640,360);
     ctx.textAlign='center';ctx.font='bold 18px monospace';ctx.fillStyle='#8fffe1';
     ctx.fillText('PING',320,23);ctx.fillText(`SCORE ${this.score}`,120,23);ctx.fillText(`LIVES ${this.lives}`,520,23);
+    if(this.over){
+      ctx.fillStyle='#ffdb97';ctx.font='bold 38px monospace';ctx.fillText('GAME OVER',320,160);
+      ctx.font='18px monospace';ctx.fillText(`SCORE ${this.score}`,320,197);
+      ctx.font='14px monospace';ctx.fillText('SPACE / ENTER TO RETURN',320,233);
+      ctx.textAlign='start';return;
+    }
     ctx.fillStyle='#294b51';ctx.fillRect(0,30,640,2);ctx.fillRect(0,340,640,2);
     for(let y=40;y<338;y+=16)ctx.fillRect(319,y,2,8);
     ctx.fillStyle='#8fffe1';ctx.fillRect(24,this.playerY-28,8,56);ctx.fillRect(608,this.computerY-28,8,56);
     ctx.fillStyle='#fff4ce';ctx.fillRect(this.x-4,this.y-4,8,8);
     ctx.font='11px monospace';ctx.fillText('↑ ↓ / W S MOVE · ESC LEAVE',320,355);
-    if(this.over){
-      ctx.fillStyle='#080e18e8';ctx.fillRect(80,110,480,150);
-      ctx.fillStyle='#ffdb97';ctx.font='bold 38px monospace';ctx.fillText('GAME OVER',320,160);
-      ctx.font='18px monospace';ctx.fillText(`SCORE ${this.score}`,320,197);
-      ctx.font='14px monospace';ctx.fillText('SPACE / ENTER TO RETURN',320,233);
-    }
     ctx.textAlign='start';
   }
 }

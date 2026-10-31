@@ -4296,7 +4296,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
+  const sandbox={...await import('../neon-city/frog.js'),...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
     ...await import('../neon-city/walker-talk.js'),arcadeName:()=>'ARCADIA',
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
@@ -4347,10 +4347,29 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.ok(sandbox.game.ping.playerY<180,'arrow keys move the paddle');
   assert.deepEqual({x:player.x,z:player.z},standing,'Ping holds the player in place');
   sandbox.game.ping.over=true;press();assert.equal(sandbox.game.ping,null,'Space leaves GAME OVER');
-  const other=arcadeInterior.ARCADE.cabinets[6];
+  const other=arcadeInterior.ARCADE.cabinets[7];
   Object.assign(player,{x:other.x+.75,z:other.z-.8,angle:0});press();
   assert.equal(element('#message').textContent,'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(sandbox.game.inventory.current.count,1,'unavailable games keep the token');
+  const frogCabinet=arcadeInterior.FROG_CABINET;
+  Object.assign(player,{x:frogCabinet.x+.75,z:frogCabinet.z-.8,angle:0});press();
+  assert.equal(sandbox.game.ping.kind,'frog');
+  assert.equal(sandbox.game.inventory.items.length,0,'Frog charges one token');
+  for(let i=0;i<10;i++)tick(ms+=20);
+  const frogX=sandbox.game.ping.x;
+  events.keydown(arrow('ArrowRight'));tick(ms+=20);events.keyup(arrow('ArrowRight'));
+  assert.equal(sandbox.game.ping.x,frogX+40,'right arrow hops in Frog');
+  const grog=sandbox.game.ping;grog.cooldown=0;grog.row=1;grog.hop(0,-1);
+  assert.equal(grog.crossed,true);tick(ms+=20);
+  events.keydown({...arrow('ArrowUp'),repeat:true});
+  assert.equal(grog.crossed,true,'held key repeat does not skip the congratulations screen');
+  events.keydown(arrow(' '));events.keyup(arrow(' '));
+  assert.equal(grog.crossed,false,'a new button press restarts the crossing');
+  assert.equal(grog.row,11);assert.equal(grog.lives,3);
+
+  events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));tick(ms+=20);
+  assert.equal(sandbox.game.ping,null,'Escape leaves Frog');
+
 
 });
 
