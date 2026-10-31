@@ -175,7 +175,11 @@ function drawCorridorWindow(face,quad,box,look,floor,progress){
   for(const [block,[left,right]] of [[-60,-20],[-8,12],[24,60]].entries()){
     const count=Math.ceil((right-left)/6),width=(right-left)/count;
     for(let lot=0;lot<count;lot++){
-      const bx=left+lot*width,i=Math.round((bx+60)/2),bz=D+12.12,roof=3+(i*7%5)-elevation;
+      const bx=left+lot*width,i=Math.round((bx+60)/2),bz=D+12.12;
+      // Use the lot order on the side blocks so rounded positions cannot
+      // turn their roof heights into a steadily rising or falling sequence.
+      const height=block===1?3+(i*7%5):3+(lot%2)*3+(Math.floor(lot/2)+block)%2;
+      const roof=height-elevation;
       box(bx,ground,bz,width,roof-ground,24,i%2?'#443747':'#3d4054');
       box(bx,roof,bz,width,.16,24,'#77707b');
       for(let wy=roof-1.8;wy>ground+3.51;wy-=2.8)for(let col=0;col<3;col++)

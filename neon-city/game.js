@@ -19,7 +19,7 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import {loadCabinetGame} from './cabinet-loader.js?v=1';
 import {hotelStreetLife} from './hotel-street.js?v=1';
-import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=window-shops-1';
+import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=alternating-roofs-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
@@ -54,7 +54,7 @@ import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=visit-buffer-1
 import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=court-shoes-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
-import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=1';
+import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=window-2';
 import {projectSky,skyHorizon,URSA_MAJOR,skyDirection,starProjector} from './sky.js?v=stars-2';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
 import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=shared-pixels-1';
@@ -768,7 +768,10 @@ function render(){
     drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue,hotelCorridor?'#000000':'#3a2d36');
-    if(hotelCorridor)drawStarfield(interiorRenderer.depth);
+    if(hotelCorridor){
+      drawStarfield(interiorRenderer.depth);
+      shootingStars.draw(ctx,skyView(),interiorRenderer.depth);
+    }
     return;
   }
   if(insideCubicle){
@@ -978,7 +981,7 @@ function tick(now){
   if(running&&ping)ping.update(cameraDt,(keys.has('ArrowDown')||keys.has('s')?1:0)-(keys.has('ArrowUp')||keys.has('w')?1:0),(ping.kind==='frog'||ping.kind==='kong')?(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0):0,keys.has(' '));
   if(ping?.crossed||ping?.won)keys.clear();
   if(running&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk){
-    shootingStars.update(cameraDt,!indoors()&&onRiverWalk(player),skyView());
+    shootingStars.update(cameraDt,Boolean(hotelCorridor&&windowView)||!indoors()&&onRiverWalk(player),skyView());
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     if(hotelCorridor&&!windowView&&keys.has('ArrowUp')){
       windowView=corridorWindowView(player,corridorWindowState(currentHotel,hotelStairs.floor));

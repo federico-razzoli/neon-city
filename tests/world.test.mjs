@@ -371,7 +371,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},inventory};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,shootingStars,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   const hotel={x:14,z:14,w:18,d:18,j:0,sign:'HOTEL'};
   city.chunks.set('0,0',{buildings:[hotel],manholes:[],newspaperMachines:[]});
@@ -395,6 +395,14 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   assert.equal(hotel.corridorWindows[1].open,true);
   assert.ok(hotel.corridorWindows[1].progress>0&&hotel.corridorWindows[1].progress<1,'game ticks animate the window');
   press();assert.equal(hotel.corridorWindows[1].open,false);
+  assert.equal(sandbox.game.shootingStars.remaining,null,'corridor walking does not start the shooting star timer');
+  Object.assign(hotel.corridorWindows[1],{open:true,progress:1});
+  events.keydown({key:'ArrowUp',preventDefault(){}});tick(ms+=20);
+  events.keyup({key:'ArrowUp'});tick(ms+=20);
+  assert.ok(sandbox.game.shootingStars.remaining>0,'looking out starts the riverside shooting star timer');
+  press();
+  assert.equal(sandbox.game.shootingStars.remaining,null,'stepping back stops the shooting stars');
+  Object.assign(hotel.corridorWindows[1],{open:false,progress:0});
   Object.assign(player,{x:.8,z:4,angle:-Math.PI/2});press();
   assert.equal(element('#message').textContent,"IT'S LOCKED...");
   Object.assign(player,{x:2.4,z:1.2,angle:Math.PI});press();
@@ -4469,6 +4477,21 @@ test('shooting stars stay on river walks and choose visible paths every 10–30 
     effect.update(0,false,view);assert.equal(effect.remaining,null);
     effect.update(1,true,view);assert.equal(effect.star,null);
   }
+});
+
+test('window shooting stars only paint sky pixels, including each pixel of the bright head',async()=>{
+  const {ShootingStars}=await import('../neon-city/shooting-stars.js');
+  const effect=new ShootingStars(()=>.5),view={angle:0,width:640,focal:355,horizon:164,pitch:0};
+  effect.update(20,true,view);effect.update(.2,true,view);
+  const pixels=[],ctx={save(){},restore(){},fillRect(x,y,w){for(let dx=0;dx<w;dx++)pixels.push(y*640+x+dx);}};
+  effect.draw(ctx,view);
+  const visible=[...pixels];assert.ok(visible.length>0);
+  const depth=new Float32Array(640*360);
+  for(const index of visible)if(index%2===0)depth[index]=1;
+  pixels.length=0;effect.draw(ctx,view,depth);
+  assert.deepEqual(pixels,visible.filter(index=>depth[index]===0));
+  depth.fill(1);pixels.length=0;effect.draw(ctx,view,depth);
+  assert.equal(pixels.length,0,'walls and buildings hide the entire trail');
 });
 
 test('normal traffic has varied 6.5–7 second gaps while riverside spacing stays unchanged',async()=>{

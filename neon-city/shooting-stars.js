@@ -48,7 +48,7 @@ export class ShootingStars {
     const direction=this.random()<.5?-1:1;
     this.star={age:0,view:{...view},x,y,dx:direction*(70+35*this.random()),dy:20+15*this.random()};
   }
-  draw(ctx,view){
+  draw(ctx,view,depth=null){
     const s=this.star;if(!s)return;
     const t=s.age/1.1,fade=Math.min(1,t*10)*(1-t);
     ctx.save();
@@ -60,7 +60,12 @@ export class ShootingStars {
       if(!screen)continue;
       ctx.globalAlpha=fade*(1-i/13);
       ctx.fillStyle=i===0?'#fff6eb':'#b6c9f3';
-      ctx.fillRect(Math.floor(screen.x),Math.floor(screen.y),i===0?2:1,1);
+      const x=Math.floor(screen.x),y=Math.floor(screen.y),width=i===0?2:1;
+      if(!depth)ctx.fillRect(x,y,width,1);
+      else for(let pixel=x;pixel<x+width;pixel++){
+        if(pixel>=0&&pixel<view.width&&y>=0&&y<depth.length/view.width&&depth[y*view.width+pixel]===0)
+          ctx.fillRect(pixel,y,1,1);
+      }
     }
     ctx.restore();
   }
