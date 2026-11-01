@@ -194,6 +194,7 @@ export class StaffTalk{
   }
 }
 export function pubPersonBlocks(start,end,person){
+  if(Array.isArray(person))return person.some(p=>pubPersonBlocks(start,end,p));
   if(!person)return false;
   const clearance=.85,dx=end.x-start.x,dz=end.z-start.z;
   const distance=Math.hypot(start.x-person.x,start.z-person.z);

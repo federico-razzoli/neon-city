@@ -64,7 +64,7 @@ export function interactStairwellLight(player,state,record=register){
 // west rises southwards to floor 3. Railings prevent entering either from the side.
 export function moveInHotelStairwell(player,dx,dz,state,guest){
   const step=(x,z)=>{
-    if(guest&&Math.abs(stairwellHeight(player,state)-guest.y)<1.5&&pubPersonBlocks(player,{x,z},guest))return;
+    if([guest].flat().some(g=>g&&Math.abs(stairwellHeight(player,state)-g.y)<1.5&&pubPersonBlocks(player,{x,z},g)))return;
     if(x<.3||x>7.7||z<.3||z>D-.3)return;
     if(state.flight!==null){
       if(state.flight===1&&x<5.3||state.flight===2&&x>2.7)return;

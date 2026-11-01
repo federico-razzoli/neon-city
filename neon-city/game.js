@@ -51,7 +51,7 @@ import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=visit-buffer-1';
 import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=visit-buffer-1';
-import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BUSINESSWOMAN_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=hotel-shortcut-interiors-4';
+import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BUSINESSWOMAN_TALK,COMPANION_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=businessman-companion-1';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=window-2';
@@ -185,7 +185,8 @@ function useSeat(){
   return true;
 }
 const hotelGuestScene=()=>hotelStorage?'storage':hotelCorridor?`corridor:${hotelStairs.floor}`:hotelStairs?'stairs':'lobby';
-const hotelGuest=()=>hotelLife?.guest(hotelGuestScene());
+const hotelGuests=()=>hotelLife?.guests(hotelGuestScene())??[];
+const hotelGuest=()=>hotelGuests()[0];
 function canSeeHotelGuest(guest){
   // Corridors have an unobstructed view along their length. Looking out of
   // the window faces away from the guest closing it inside.
@@ -195,12 +196,13 @@ function canSeeHotelGuest(guest){
   return depth>.3&&Math.abs(side)<depth*W/(2*F);
 }
 function talkToHotelGuest(){
-  const guest=hotelGuest();
   const ground=hotelStairs&&!hotelCorridor?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z);
-  if(!guest||Math.abs(guest.y-ground)>=1.5||!facingHotelRobot(player,guest))return false;
-  if(![7,8].includes(guest.type)&&!hotelLife.held)return false;
-  const business=[7,8].includes(guest.type);
-  talkToStaff(guest.type===8?BUSINESSWOMAN_TALK:business?BUSINESSMAN_TALK:ROBOT_TALK,business?`Talk to the ${guest.type===8?'businesswoman':'businessman'}`:'Talk to the robot',{},business?null:inventory);
+  const guest=hotelGuests().filter(g=>Math.abs(g.y-ground)<1.5&&facingHotelRobot(player,g))
+    .sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
+  if(!guest)return false;
+  if(!guest.companion&&![7,8].includes(guest.type)&&!hotelLife.held)return false;
+  const business=guest.companion||[7,8].includes(guest.type);
+  talkToStaff(guest.companion?COMPANION_TALK:guest.type===8?BUSINESSWOMAN_TALK:business?BUSINESSMAN_TALK:ROBOT_TALK,guest.companion?'Talk to the sexy woman':business?`Talk to the ${guest.type===8?'businesswoman':'businessman'}`:'Talk to the robot',{},business?null:inventory);
   return true;
 }
 function itemRoom(){
@@ -783,7 +785,7 @@ function render(){
     }
     else drawHotelInterior({face,quad,box,look:hotelLook(currentHotel),receptionist:currentHotel.receptionist,lampOn:currentHotel.lampOn});
     // Guests share the player's interior and keep their feet at the route's height.
-    if(hotelGuest())seatedPatron(hotelGuest(),true,characterHeight(hotelGuest().type));
+    for(const guest of hotelGuests())seatedPatron(guest,true,characterHeight(guest.type));
     drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);
     interiorRenderer.render(queue,hotelCorridor?'#000000':'#3a2d36');
@@ -1067,11 +1069,11 @@ function tick(now){
     }else if(insideHotel){
       hotelLife.update(dt,player,hotelGuestScene(),hotelStairs&&!hotelCorridor?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z),canSeeHotelGuest);
       if(hotelCorridor)advanceCorridorWindow(corridorWindowState(currentHotel,hotelStairs.floor),dt);
-      if(hotelCorridor){if(!windowView)moveInHotelCorridor(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelGuest());
+      if(hotelCorridor){if(!windowView)moveInHotelCorridor(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelGuests());
       }else if(hotelStorage)moveInHotelStorage(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
-      else if(hotelStairs)moveInHotelStairwell(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelStairs,hotelGuest());
+      else if(hotelStairs)moveInHotelStairwell(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelStairs,hotelGuests());
 
-      if(!hotelStairs&&!playerSeat)moveInHotel(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelGuest());
+      if(!hotelStairs&&!playerSeat)moveInHotel(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelGuests());
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=hotelCorridor?`HOTEL / FLOOR ${hotelStairs.floor} / CORRIDOR`:hotelStorage?'HOTEL / FLOOR 2 / STORAGE':hotelStairs?`HOTEL / FLOOR ${hotelStairs.floor} / STAIRWELL`:'HOTEL / LOBBY';
     }else{

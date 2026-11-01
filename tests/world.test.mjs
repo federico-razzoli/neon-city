@@ -637,7 +637,28 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   key('3');assert.equal(talkBox.innerHTML,answer('I THINK THEY HAVE AN INSANE PASSION FOR LADIES.'));
   press();assert.equal(talkBox.innerHTML,answer('BOTH LADYWOMEN AND LADYBUGS.'));
   press();key('4');press();
-  life.walker=null;life.wait=1000;
+  // Speaking to either member of a real pair freezes both guests.
+  life.finishEvent();life.firstEvent=false;life.state.businessmanInside=false;
+  const pairRolls=[.5,.25];life.random=()=>pairRolls.shift()??.5;
+  Object.assign(player,{x:2,z:8,angle:0});life.skipEvent(player);
+  for(let i=0;i<100&&life.companion.hidden;i++)tick(ms+=20);
+  assert.equal(life.companion.hidden,false);
+  for(const partner of [life.companion,life.walker]){
+    Object.assign(player,{x:partner.x+1,z:partner.z,angle:-Math.PI/2});press();
+    assert.equal(talkBox.hidden,false);
+    assert.equal(talkBox.ariaLabel,partner.companion?'Talk to the sexy woman':'Talk to the businessman');
+    const positions=[life.walker.x,life.walker.z,life.companion.x,life.companion.z];
+    for(let i=0;i<20;i++)tick(ms+=100);
+    assert.deepEqual([life.walker.x,life.walker.z,life.companion.x,life.companion.z],positions);
+    if(partner.companion){
+      assert.match(talkBox.innerHTML,/YOUR EYES ARE BEAUTIFUL/);
+      key('4');assert.equal(talkBox.innerHTML,answer("SORRY, I'M NOT HERE FOR YOU..."));
+      press();assert.equal(talkBox.innerHTML,answer('(whispering) ...UNFORTUNATELY.'));press();
+    }
+    key(partner.companion?'5':'4');assert.equal(talkBox.innerHTML,answer('HAVE A GOOD NIGHT.'));press();
+    assert.equal(talkBox.hidden,true);
+  }
+  life.finishEvent();life.wait=1000;
   // The receptionist now has one more question to answer, before BYE!.
   Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x,z:11.7,angle:0});
   press();
@@ -2791,6 +2812,135 @@ test('only witnessing a window closure unlocks the businesswoman window conversa
     const man=new StaffTalk(BUSINESSMAN_TALK);man.confirm(2);
     assert.equal(man.line,"I CAN'T SAY I FEEL SAFE NEAR THEM.");assert.equal(option(man),-1);
   }finally{delete register[key];}
+});
+
+test('businessman arrival selection stays unchanged and half his arrivals have a companion',async()=>{
+  const {HotelLife}=await import('../neon-city/hotel-interior.js');
+  const away={x:-20,z:-20};
+  for(const [selection,type] of [[0,11],[1/3,7],[2/3-.00001,7],[2/3,8],[.99999,8]]){
+    const rolls=[.5,selection,.25],life=new HotelLife(()=>rolls.shift()??.5);
+    life.firstEvent=false;life.skipEvent(away);assert.equal(life.walker.type,type);
+    assert.equal(!!life.companion,type===7,'only businessman events can include her');
+  }
+  const pendingRolls=[.5,.5,.25];let draws=0;
+  const pending=new HotelLife(()=>{draws++;return pendingRolls.shift()??1;});
+  pending.firstEvent=false;pending.wait=0;
+  const {HOTEL}=await import('../neon-city/hotel-interior.js');
+  pending.update(0,{x:HOTEL.door.x,z:.4});
+  assert.equal(pending.walker,null);assert.equal(draws,3);
+  pending.update(1,{x:HOTEL.door.x,z:.4});
+  assert.equal(draws,3,'a blocked entrance does not reroll the event or companion');
+  pending.update(0,away);assert.ok(pending.companion);assert.equal(draws,3);
+  for(const [roll,paired] of [[0,true],[.49999,true],[.5,false],[.99999,false]]){
+    const rolls=[.5,.5,roll],state={},life=new HotelLife(()=>rolls.shift()??.5,state);
+    life.firstEvent=false;life.skipEvent(away);
+    assert.equal(!!life.companion,paired);assert.equal(state.businessmanCompanionInside,paired);
+    life.skipEvent(away);assert.equal(life.companion,null);
+    const later=new HotelLife(()=>.5,state);later.firstEvent=false;later.skipEvent(away);
+    assert.equal(later.walker.arriving,false);assert.equal(!!later.companion,paired,'companion returns with him even after a skipped arrival and hotel reentry');
+    assert.equal(state.businessmanCompanionInside,false);
+    later.skipEvent(away);later.skipEvent(away);
+    assert.equal(later.companion,null,'a new solo arrival does not retain the previous companion');
+  }
+});
+
+test('businessman companion follows across scenes, waits at reception and finishes after him',async()=>{
+  const {HotelLife}=await import('../neon-city/hotel-interior.js');
+  const rolls=[.5,.5,.25],state={},life=new HotelLife(()=>rolls.shift()??.5,state),away={x:-20,z:-20};
+  life.firstEvent=false;life.skipEvent(away);
+  for(const arriving of [true,false]){
+    const leader=life.walker,follower=life.companion,scenes=new Set();
+    assert.equal(leader.arriving,arriving);assert.ok(follower.hidden,'she emerges after him');
+    let stopped=false,leaderFinished=false,tailTime=0;
+    for(let i=0;i<15000&&life.walker;i++){
+      life.update(.02,away);
+      assert.equal(follower.type,1,'companion keeps her own appearance');
+      if(!follower.hidden)scenes.add(follower.scene??'lobby');
+      if(leader.receptionWait>1&&!stopped){
+        const positions=[leader.x,leader.z,follower.x,follower.z];
+        life.update(.5,away);
+        assert.deepEqual([leader.x,leader.z,follower.x,follower.z],positions,'she stands behind him throughout the reception stop');
+        assert.ok(Math.hypot(leader.x-follower.x,leader.z-follower.z)>.8);
+        stopped=true;
+      }
+      if(leader.done){
+        leaderFinished=true;tailTime+=.02;
+        assert.ok(!life.guests(leader.scene).includes(leader),'he has gone through the destination door');
+        if(life.walker)assert.equal(life.wait,0,'no interval or new event until she reaches the door');
+      }else if(!follower.hidden){
+        assert.ok(Math.abs(life.leadDistance-life.followDistance-.9)<1e-8,'she follows the same path closely');
+      }
+    }
+    assert.equal(life.walker,null);assert.equal(life.companion,null);
+    assert.ok(stopped);assert.ok(leaderFinished);assert.ok(tailTime<1,'she goes through the door immediately after him');
+    assert.ok(scenes.has('lobby')&&scenes.has('stairs')&&scenes.has('corridor:3'));
+    assert.equal(follower.x,leader.x);assert.equal(follower.z,leader.z);
+    assert.equal(state.businessmanCompanionInside,arriving);
+    if(arriving)life.skipEvent(away);
+  }
+});
+
+test('blocking either member of the businessman pair stops both and doorway transitions respect the companion scene',async()=>{
+  const {HotelLife,moveInHotel}=await import('../neon-city/hotel-interior.js');
+  const {moveInHotelCorridor}=await import('../neon-city/hotel-corridor.js');
+  const {moveInHotelStairwell}=await import('../neon-city/hotel-stairwell.js');
+  const away={x:-20,z:-20},rolls=[.5,.5,.25],life=new HotelLife(()=>rolls.shift()??.5);
+  life.firstEvent=false;life.skipEvent(away);life.update(2,away);
+  const leader=life.walker,follower=life.companion;
+  for(const actor of [leader,follower]){
+    const blocker={x:actor.x+actor.facingX*.3-actor.facingZ*.8,z:actor.z+actor.facingZ*.3+actor.facingX*.8};
+    for(let i=0;i<100&&!life.held;i++)life.update(.02,blocker);
+    assert.equal(life.held,true);
+    const positions=[leader.x,leader.z,follower.x,follower.z];
+    life.update(2,blocker);
+    assert.deepEqual([leader.x,leader.z,follower.x,follower.z],positions,'both remain stopped');
+    life.update(.2,away);assert.equal(life.held,false);
+  }
+  // Player movement treats both guests as solid in each interior.
+  for(const move of [
+    p=>moveInHotel(p,0,1,[{x:10,z:10},{x:2,z:5}]),
+    p=>moveInHotelCorridor(p,0,1,[{x:4,z:10},{x:2,z:5}]),
+    p=>moveInHotelStairwell(p,0,1,{floor:1,flight:null},[{x:7,z:10,y:0},{x:2,z:5,y:0}])]){
+    const player={x:2,z:4};move(player);assert.ok(player.z<4.2,'cannot walk through the companion');
+  }
+});
+
+test('companion doorway blocking holds the event until both guests finish',async()=>{
+  const {HotelLife}=await import('../neon-city/hotel-interior.js');
+  const rolls=[.5,.5,.25],life=new HotelLife(()=>rolls.shift()??.5),away={x:-20,z:-20};
+  life.firstEvent=false;life.skipEvent(away);
+  const w=life.walker,c=life.companion;
+  // Block the companion's stairwell entrance only after he has crossed it.
+  for(let i=0;i<10000&&(w.scene!=='stairs'||c.scene==='stairs');i++)life.update(.02,away);
+  assert.equal(w.scene,'stairs');assert.equal(c.scene,'lobby');
+  const entrance=w.route.find(p=>p.scene==='stairs');
+  for(let i=0;i<100&&!life.held;i++)life.update(.02,entrance,'stairs',entrance.y);
+  assert.equal(life.held,true);assert.equal(c.scene,'lobby');
+  const positions=[w.x,w.z,c.x,c.z];life.update(1,entrance,'stairs',entrance.y);
+  assert.deepEqual([w.x,w.z,c.x,c.z],positions);
+  life.update(.1,away,'stairs',entrance.y);assert.equal(life.held,false);
+  for(let i=0;i<15000&&!w.done;i++)life.update(.02,away);
+  assert.equal(w.done,true);assert.equal(life.walker,w);
+  const room=w.route.at(-1),blocker={x:room.x-.1,z:room.z};
+  for(let i=0;i<100&&!life.held;i++)life.update(.02,blocker,'corridor:3',0);
+  assert.equal(life.held,true);assert.equal(life.walker,w);
+  const finalPosition=[c.x,c.z];life.update(20,blocker,'corridor:3',0);
+  assert.deepEqual([c.x,c.z],finalPosition,'waiting companion keeps the event active');
+  for(let i=0;i<100&&life.walker;i++)life.update(.02,away);
+  assert.equal(life.walker,null);assert.equal(life.companion,null);assert.equal(life.wait,8.5);
+});
+
+test('companion conversation repeats her two lines for every option except goodbye',async()=>{
+  const {COMPANION_TALK,BUSINESSMAN_TALK}=await import('../neon-city/hotel-interior.js');
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const talk=new StaffTalk(COMPANION_TALK,{});
+  assert.deepEqual(talk.script.map(o=>o.ask),[...BUSINESSMAN_TALK[0].slice(0,-1).map(o=>o.ask),'YOUR EYES ARE BEAUTIFUL.','BYE!']);
+  for(let i=0;i<4;i++){
+    talk.confirm(i);assert.equal(talk.line,"SORRY, I'M NOT HERE FOR YOU...");
+    talk.confirm();assert.equal(talk.line,'(whispering) ...UNFORTUNATELY.');
+    talk.confirm();assert.equal(talk.over,false);assert.equal(talk.line,null);
+  }
+  talk.confirm(4);assert.equal(talk.line,'HAVE A GOOD NIGHT.');talk.confirm();assert.equal(talk.over,true);
 });
 
 test('businessman conversation has the requested choices, answer sequence and goodbye',async()=>{

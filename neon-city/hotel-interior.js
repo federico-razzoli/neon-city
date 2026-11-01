@@ -141,9 +141,9 @@ export const ROBOT_ROUTE=(()=>{
     {x:HOTEL.receptionist.x,z:HOTEL.desk.z-.9,wait:5},{x:door.x,z:.4}];
 })();
 export class HotelLife{
-  constructor(random=Math.random,state={}){this.state=state;this.firstEvent=true;this.pending=null;this.random=random;this.wait=this.delay();this.walker=null;this.held=false;}
+  constructor(random=Math.random,state={}){this.state=state;this.firstEvent=true;this.pending=null;this.random=random;this.wait=this.delay();this.walker=null;this.companion=null;this.trail=[];this.held=false;}
   delay(){return 5+this.random()*7;}
-  finishEvent(){this.walker=null;this.held=false;this.wait=this.delay();}
+  finishEvent(){this.walker=null;this.companion=null;this.trail=[];this.held=false;this.wait=this.delay();}
   skipEvent(player,scene='lobby',playerY=hotelFloorHeight(player?.x??0,player?.z??0)){
     // Arrival state is committed at spawn, so dismissing a guest completes
     // their trip without reversing their next destination.
@@ -162,11 +162,43 @@ export class HotelLife{
     if(w.arriving)w.route.splice(w.leg,1,...detour);
     else w.route.splice(w.leg,0,...detour,point(w.z));
   }
-  guest(scene='lobby'){return (this.walker?.scene??'lobby')===scene?this.walker:null;}
+  guests(scene='lobby'){
+    return [this.walker,this.companion].filter(w=>w&&!w.done&&!w.hidden&&(w.scene??'lobby')===scene);
+  }
+  guest(scene='lobby'){return this.guests(scene)[0]??null;}
+  // Follow the actual path by distance, including zero-distance doorway
+  // transitions. Check her next step before committing his movement, so a
+  // player blocking either guest holds the whole pair.
+  followStep(position,distance,player,scene,playerY,finishing=false){
+    const total=this.leadDistance+(finishing?0:distance);
+    const trail=finishing?this.trail:[...this.trail,{...position,distance:total}];
+    const progress=finishing?Math.min(total,this.followDistance+distance):Math.max(0,total-.9);
+    let index=0;
+    while(index+1<trail.length&&trail[index+1].distance<=progress)index++;
+    const a=trail[index],b=trail[index+1]??a;
+    const t=b.distance>a.distance?(progress-a.distance)/(b.distance-a.distance):0;
+    const next={scene:a.scene,x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,y:a.y+(b.y-a.y)*t,
+      facingX:b.facingX,facingZ:b.facingZ,walkTime:progress/GUEST_SPEED,hidden:total<.9};
+    const follower=this.companion;
+    if(!next.hidden&&(next.scene??'lobby')===scene&&Math.abs(next.y-playerY)<1.5&&
+      pubPersonBlocks(follower.hidden||follower.scene!==next.scene?next:follower,next,player))return false;
+    Object.assign(follower,next);
+    this.trail=trail.slice(index);this.leadDistance=total;this.followDistance=progress;
+    return true;
+  }
   update(dt,player,scene='lobby',playerY=hotelFloorHeight(player?.x??0,player?.z??0),canSeeGuest=()=>false){
     this.held=false;
     if(this.walker){
       const w=this.walker;let travel=dt*GUEST_SPEED;
+      if(w.done){
+        while(travel>0){
+          const move=Math.min(travel,.05);
+          if(!this.followStep(null,move,player,scene,playerY,true)){this.held=true;return;}
+          if(this.followDistance>=this.leadDistance){this.finishEvent();return;}
+          travel-=move;
+        }
+        return;
+      }
       while(travel>0){
         this.checkGuestWindow(w);
         if(w.receptionWait>0){
@@ -178,6 +210,7 @@ export class HotelLife{
         if((target.scene??'lobby')!==(w.scene??'lobby')){
           if((target.scene??'lobby')===scene&&pubPersonBlocks(target,target,player)){this.held=true;return;}
           Object.assign(w,{x:target.x,z:target.z,y:target.y??hotelFloorHeight(target.x,target.z),scene:target.scene});
+          if(this.companion)this.trail.push({...w,distance:this.leadDistance});
           continue;
         }
         const dx=target.x-w.x,dz=target.z-w.z,d=Math.hypot(dx,dz);
@@ -187,14 +220,21 @@ export class HotelLife{
             if(window.open&&scene===w.scene&&canSeeGuest(w))register.BUSINESSWOMAN_WINDOW_CLOSING_SEEN=true;
             window.open=false;
           }
-          if(++w.leg===(w.route??ROBOT_ROUTE).length){this.finishEvent();return;}
+          if(++w.leg===(w.route??ROBOT_ROUTE).length){
+            if(this.companion)w.done=true;
+            else this.finishEvent();
+            return;
+          }
           if(target.wait){w.receptionWait=target.wait;w.facingX=0;w.facingZ=1;}
           continue;
         }
         w.facingX=dx/d;w.facingZ=dz/d;
         const move=Math.min(d,travel,.05),next={x:w.x+dx/d*move,z:w.z+dz/d*move};
-        if(this.guest(scene)&&Math.abs(w.y-playerY)<1.5&&pubPersonBlocks(w,next,player)){this.held=true;return;}
-        w.x=move===d?target.x:next.x;w.z=move===d?target.z:next.z;w.y=(w.scene??'lobby')==='lobby'?hotelFloorHeight(w.x,w.z):w.y+((target.y??0)-w.y)*(move/d);w.walkTime+=move/GUEST_SPEED;travel-=move;
+        if((w.scene??'lobby')===scene&&Math.abs(w.y-playerY)<1.5&&pubPersonBlocks(w,next,player)){this.held=true;return;}
+        next.x=move===d?target.x:next.x;next.z=move===d?target.z:next.z;
+        next.y=(w.scene??'lobby')==='lobby'?hotelFloorHeight(next.x,next.z):w.y+((target.y??0)-w.y)*(move/d);
+        if(this.companion&&!this.followStep({...w,...next},move,player,scene,playerY)){this.held=true;return;}
+        Object.assign(w,next);w.walkTime+=move/GUEST_SPEED;travel-=move;
       }
       return;
     }
@@ -204,13 +244,19 @@ export class HotelLife{
       const type=this.firstEvent?ROBOT:[ROBOT,7,8][Math.min(2,Math.floor(this.random()*3))];
       const stateKey=type===7?'businessmanInside':type===8?'businesswomanInside':null;
       const arriving=stateKey?!this.state[stateKey]:false;
-      this.pending={type,stateKey,arriving,route:stateKey?businessmanRoute(arriving,type===8?2:3):robotRoute(this.random)};
+      const withCompanion=type===7&&(arriving?this.random()<.5:!!this.state.businessmanCompanionInside);
+      this.pending={type,stateKey,arriving,withCompanion,route:stateKey?businessmanRoute(arriving,type===8?2:3):robotRoute(this.random)};
     }
-    const {type,stateKey,arriving,route}=this.pending,[start]=route;
+    const {type,stateKey,arriving,withCompanion,route}=this.pending,[start]=route;
     // Someone standing at that door keeps it shut until they step aside.
     if((start.scene??'lobby')===scene&&pubPersonBlocks(start,start,player))return;
     this.walker={...start,y:start.y??hotelFloorHeight(start.x,start.z),route,arriving,leg:1,type,variant:0,walkTime:0,facingX:0,facingZ:stateKey&&arriving?1:-1};
     if(stateKey)this.state[stateKey]=arriving;
+    if(type===7)this.state.businessmanCompanionInside=arriving&&withCompanion;
+    if(withCompanion){
+      this.companion={...this.walker,type:1,companion:true,hidden:true};
+      this.leadDistance=0;this.followDistance=0;this.trail=[{...this.walker,distance:0}];
+    }
     this.checkGuestWindow(this.walker);
     this.firstEvent=false;this.pending=null;
   }
@@ -222,6 +268,12 @@ export const BUSINESSMAN_TALK=[[
   {ask:'WOULD YOU RECOMMEND THIS HOTEL?',answer:['THE SERVICE IS EXCELLENT.',"BUT... I DON'T LIKE TO SEE SO MANY ROBOTS AROUND."]},
   {ask:'WHAT DO YOU THINK ABOUT ROBOTS?',answer:["I CAN'T SAY I FEEL SAFE NEAR THEM."]},
   {ask:'BYE!',answer:['HAVE A GOOD NIGHT.'],ends:true}
+]];
+export const COMPANION_TALK=[[
+  ...BUSINESSMAN_TALK[0].filter(option=>!option.ends).map(option=>({...option,
+    answer:["SORRY, I'M NOT HERE FOR YOU...",'(whispering) ...UNFORTUNATELY.']})),
+  {ask:'YOUR EYES ARE BEAUTIFUL.',answer:["SORRY, I'M NOT HERE FOR YOU...",'(whispering) ...UNFORTUNATELY.']},
+  BUSINESSMAN_TALK[0].at(-1)
 ]];
 export const BUSINESSWOMAN_TALK=[[
   ...BUSINESSMAN_TALK[0].slice(0,2),
