@@ -18,8 +18,8 @@ If not, see <https://www.gnu.org/licenses/>.
 */
 
 import {drawBlockShops} from './hotel-shopfronts.js?v=1';
-import {HOTEL_STAIRWELL} from './hotel-stairwell.js?v=hotel-cash-2';
-import {facingDoorway} from './pub-interior.js?v=taps-turned-1';
+import {HOTEL_STAIRWELL} from './hotel-layout.js';
+import {facingDoorway,pubPersonBlocks} from './pub-interior.js?v=taps-turned-1';
 import {hotelInteriorLook,drawHotelDoubleDoor} from './hotel-interior.js?v=street-lights-1';
 
 export const HOTEL_CORRIDOR={width:4.8,depth:24,height:HOTEL_STAIRWELL.rise,spawn:{x:2.4,z:1.2,angle:0},window:{x:.5,y:.65,w:3.8,h:2.4}};
@@ -35,7 +35,8 @@ export function corridorReply(player,floor){
   }
   return null;
 }
-export function moveInHotelCorridor(player,dx,dz){
+export function moveInHotelCorridor(player,dx,dz,guest){
+  if(guest&&pubPersonBlocks(player,{x:player.x+dx,z:player.z+dz},guest))return;
   player.x=Math.max(.3,Math.min(HOTEL_CORRIDOR.width-.3,player.x+dx));
   player.z=Math.max(.3,Math.min(HOTEL_CORRIDOR.depth-.3,player.z+dz));
 }

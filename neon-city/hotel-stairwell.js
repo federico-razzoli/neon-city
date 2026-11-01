@@ -18,11 +18,12 @@ If not, see <https://www.gnu.org/licenses/>.
 */
 
 import {register} from './register.js';
-import {facingDoorway,facingNearest,drawRod} from './pub-interior.js?v=taps-turned-1';
+import {facingDoorway,facingNearest,drawRod,pubPersonBlocks} from './pub-interior.js?v=taps-turned-1';
 import {hotelInteriorLook,drawHotelDoubleDoor,STAIR_CARPET} from './hotel-interior.js?v=street-lights-1';
 
 // Door frames are 2.65m tall: the former 1.35m gap above them is now 2.025m.
-export const HOTEL_STAIRWELL={width:8,depth:16,rise:4.675,floors:3,steps:24,stairStart:3,stairEnd:13,spawn:{x:4,z:1.2,angle:0}};
+import {HOTEL_STAIRWELL} from './hotel-layout.js';
+export {HOTEL_STAIRWELL};
 const {depth:D,rise:R,steps:N,stairStart:S,stairEnd:E}=HOTEL_STAIRWELL;
 const RUN=E-S;
 // Each hotel keeps its own cash pickup in the first-floor recess beyond the upward flight.
@@ -61,8 +62,9 @@ export function interactStairwellLight(player,state,record=register){
 
 // The two flights share one continuous space: east rises northwards to floor 2,
 // west rises southwards to floor 3. Railings prevent entering either from the side.
-export function moveInHotelStairwell(player,dx,dz,state){
+export function moveInHotelStairwell(player,dx,dz,state,guest){
   const step=(x,z)=>{
+    if(guest&&Math.abs(stairwellHeight(player,state)-guest.y)<1.5&&pubPersonBlocks(player,{x,z},guest))return;
     if(x<.3||x>7.7||z<.3||z>D-.3)return;
     if(state.flight!==null){
       if(state.flight===1&&x<5.3||state.flight===2&&x>2.7)return;

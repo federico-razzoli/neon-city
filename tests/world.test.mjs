@@ -548,7 +548,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   // A robot from the rooms stops for the player in its way on the stairs,
   // and Space then starts a chat with it. Once the way is clear it walks out.
   const life=sandbox.game.hotelLife,{ROBOT_ROUTE}=hotelInterior;
-  life.walker=null;life.wait=.01;
+  life.walker=null;life.wait=.01;life.firstEvent=true;life.pending=null;
   Object.assign(player,{x:ROBOT_ROUTE[0].x,z:8,angle:0});
   for(let i=0;i<400&&!life.held;i++)tick(ms+=20);
   assert.equal(life.held,true,'waits for the player');
@@ -580,6 +580,18 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   Object.assign(player,{x:2,z:8,angle:0});
   for(let i=0;i<2000&&life.walker;i++)tick(ms+=20);
   assert.equal(life.walker,null,'gone out to the street');
+  // A businessman can be stopped for a conversation while walking through the lobby.
+  life.random=()=>1;life.firstEvent=false;life.state.businessmanInside=false;life.wait=0;
+  tick(ms+=20);
+  assert.equal(life.walker.type,7);
+  Object.assign(player,{x:life.walker.x,z:life.walker.z+1,angle:Math.PI});
+  press();assert.equal(talkBox.hidden,false);assert.equal(talkBox.ariaLabel,'Talk to the businessman');
+  assert.match(talkBox.innerHTML,/HI![\s\S]*WOULD YOU RECOMMEND THIS HOTEL\?[\s\S]*WHAT DO YOU THINK ABOUT ROBOTS\?[\s\S]*BYE!/);
+  const guestX=life.walker.x,guestZ=life.walker.z;
+  tick(ms+=100);assert.equal(life.walker.x,guestX);assert.equal(life.walker.z,guestZ);
+  key('4');assert.equal(talkBox.innerHTML,answer('HAVE A GOOD NIGHT.'));press();
+  assert.equal(talkBox.hidden,true);
+  life.walker=null;life.wait=1000;
   // The receptionist now has one more question to answer, before BYE!.
   Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x,z:11.7,angle:0});
   press();
@@ -2519,6 +2531,70 @@ test('hotel robots face reception and wait five seconds before leaving',async()=
   life.update(.02,away);assert.ok(w.z<stop.z);assert.ok(w.walkTime>walkTime);
   for(let i=0;i<2000&&life.walker;i++)life.update(.01,away);
   assert.equal(life.walker,null);
+});
+
+test('hotel events start with a robot, then split evenly and alternate businessman trips to room 310',async()=>{
+  const {HotelLife,HOTEL}=await import('../neon-city/hotel-interior.js');
+  const {HOTEL_STAIRWELL}=await import('../neon-city/hotel-stairwell.js');
+  let roll=.99;const state={},life=new HotelLife(()=>roll,state),away={x:-20,z:-20};
+  const spawn=()=>{life.wait=0;life.update(.01,away);return life.walker;};
+  const finish=()=>{
+    const seen=[];
+    for(let i=0;i<15000&&life.walker;i++){
+      const w=life.walker;seen.push({...w});life.update(.02,away);
+    }
+    assert.equal(life.walker,null);return seen;
+  };
+  assert.equal(spawn().type,11,'first event is a robot even with a high random roll');finish();
+  roll=.49999;assert.equal(spawn().type,11);finish();
+  roll=.5;let w=spawn();assert.equal(w.type,7);assert.equal(w.arriving,true);
+  assert.equal(w.z,.4);assert.equal(state.businessmanInside,true);
+  const route=w.route,room=route.at(-1);
+  assert.equal(room.scene,'corridor:3');assert.equal(room.z,20);assert.equal(room.x,4.5);
+  assert.ok(route.some(p=>p.scene==='stairs'&&p.y===HOTEL_STAIRWELL.rise*2));
+  let seen=finish();
+  assert.ok(seen.some(p=>p.receptionWait>0&&p.x===HOTEL.receptionist.x));
+  assert.ok(seen.some(p=>p.scene==='corridor:3'&&p.z>19));
+  roll=0;assert.equal(spawn().type,11);finish();
+  roll=1;w=spawn();assert.equal(w.type,7);assert.equal(w.arriving,false);
+  assert.equal(w.scene,'corridor:3');assert.equal(w.z,20);
+  assert.equal(w.route.at(-1).scene,'lobby');assert.equal(w.route.at(-1).z,.4);
+  seen=finish();assert.ok(seen.some(p=>p.receptionWait>0));
+  assert.equal(spawn().arriving,true,'next businessman visit goes upstairs again');
+  const reentered=new HotelLife(()=>1,state);reentered.wait=0;reentered.update(.01,away);
+  assert.equal(reentered.walker.type,11,'entering a hotel always resets its first event to a robot');
+});
+
+test('hotel guests are visible and block movement only in their current interior and height',async()=>{
+  const {HotelLife}=await import('../neon-city/hotel-interior.js');
+  const {moveInHotelCorridor}=await import('../neon-city/hotel-corridor.js');
+  const life=new HotelLife(()=>1);
+  life.firstEvent=false;life.state.businessmanInside=true;life.wait=0;
+  life.update(.01,{x:0,z:0},'lobby');
+  const w=life.walker;assert.equal(life.guest('lobby'),null);
+  assert.equal(life.guest('corridor:2'),null);assert.equal(life.guest('corridor:3'),w);
+  const player={x:w.x-.9,z:w.z};
+  life.update(.2,player,'corridor:3',0);assert.equal(life.held,true);
+  const x=w.x;life.update(.2,player,'corridor:2',0);assert.ok(w.x<x,'another floor does not block him');
+  w.x=4.5;life.update(.2,player,'corridor:3',5);assert.ok(w.x<4.5,'another height does not block him');
+  const visitor={x:2.4,z:18.8},guest={x:2.4,z:20};
+  moveInHotelCorridor(visitor,0,.5,guest);assert.equal(visitor.z,18.8);
+  moveInHotelCorridor(visitor,0,-.5,guest);assert.equal(visitor.z,18.3);
+});
+
+test('businessman conversation has the requested choices, answer sequence and goodbye',async()=>{
+  const {BUSINESSMAN_TALK,facingHotelRobot}=await import('../neon-city/hotel-interior.js');
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const talk=new StaffTalk(BUSINESSMAN_TALK,{});
+  assert.deepEqual(talk.script.map(o=>o.ask),['HI!','WOULD YOU RECOMMEND THIS HOTEL?','WHAT DO YOU THINK ABOUT ROBOTS?','BYE!']);
+  for(const [choice,answers] of [[0,['NICE TO MEET YOU.']],[1,['THE SERVICE IS EXCELLENT.',"BUT... I DON'T LIKE TO SEE SO MANY ROBOTS AROUND."]],[2,["I CAN'T SAY I FEEL SAFE NEAR THEM."]],[3,['HAVE A GOOD NIGHT.']]]){
+    talk.confirm(choice);
+    for(const answer of answers){assert.equal(talk.line,answer);talk.confirm();}
+  }
+  assert.equal(talk.over,true);
+  const guest={x:4,z:8,type:7},player={x:4,z:7,angle:0};
+  assert.equal(facingHotelRobot(player,guest),true);
+  guest.receptionWait=5;assert.equal(facingHotelRobot(player,guest),false);
 });
 
 test('a chat with a waiting robot moves to robot-friendly hotels and back, and ends with BYE!',async()=>{
