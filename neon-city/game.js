@@ -51,7 +51,7 @@ import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=visit-buffer-1';
 import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=visit-buffer-1';
-import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=business-guests-4';
+import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BUSINESSWOMAN_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,drawHotelInterior} from './hotel-interior.js?v=hotel-shortcut-interiors-4';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=window-2';
@@ -186,12 +186,21 @@ function useSeat(){
 }
 const hotelGuestScene=()=>hotelStorage?'storage':hotelCorridor?`corridor:${hotelStairs.floor}`:hotelStairs?'stairs':'lobby';
 const hotelGuest=()=>hotelLife?.guest(hotelGuestScene());
+function canSeeHotelGuest(guest){
+  // Corridors have an unobstructed view along their length. Looking out of
+  // the window faces away from the guest closing it inside.
+  if(windowView)return false;
+  const dx=guest.x-player.x,dz=guest.z-player.z,sin=Math.sin(player.angle),cos=Math.cos(player.angle);
+  const depth=dx*sin+dz*cos,side=dx*cos-dz*sin;
+  return depth>.3&&Math.abs(side)<depth*W/(2*F);
+}
 function talkToHotelGuest(){
   const guest=hotelGuest();
   const ground=hotelStairs&&!hotelCorridor?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z);
   if(!guest||Math.abs(guest.y-ground)>=1.5||!facingHotelRobot(player,guest))return false;
-  if(guest.type!==7&&!hotelLife.held)return false;
-  talkToStaff(guest.type===7?BUSINESSMAN_TALK:ROBOT_TALK,guest.type===7?'Talk to the businessman':'Talk to the robot',{},guest.type===7?null:inventory);
+  if(![7,8].includes(guest.type)&&!hotelLife.held)return false;
+  const business=[7,8].includes(guest.type);
+  talkToStaff(guest.type===8?BUSINESSWOMAN_TALK:business?BUSINESSMAN_TALK:ROBOT_TALK,business?`Talk to the ${guest.type===8?'businesswoman':'businessman'}`:'Talk to the robot',{},business?null:inventory);
   return true;
 }
 function itemRoom(){
@@ -872,8 +881,22 @@ function render(){
 function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;startSpaceHeld=false;running=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
+let hotelEventPresses=0,hotelEventKey=null;
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
-window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}
+window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;
+if(running&&insideHotel&&!pubMenu.open&&!inventoryBox.open&&!staffTalk&&!windowView&&['h','x'].includes(k)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+  e.preventDefault();
+  if(!e.repeat){
+    if(hotelEventKey!==k){hotelEventKey=k;hotelEventPresses=0;}
+    if(++hotelEventPresses===3){
+      hotelEventPresses=0;
+      hotelLife.skipEvent(player,hotelGuestScene(),hotelStairs&&!hotelCorridor?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z));
+    }
+  }
+  return;
+}
+hotelEventPresses=0;hotelEventKey=null;
+if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}
 if(ping){
   if(e.ctrlKey||e.metaKey||e.altKey)return;
   const controls=ping.kind?['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d',' ','Escape']:['ArrowUp','ArrowDown','w','s',' ','Escape'];
@@ -1042,7 +1065,7 @@ function tick(now){
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=currentArcadeName;
     }else if(insideHotel){
-      hotelLife.update(dt,player,hotelGuestScene(),hotelStairs&&!hotelCorridor?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z));
+      hotelLife.update(dt,player,hotelGuestScene(),hotelStairs&&!hotelCorridor?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z),canSeeHotelGuest);
       if(hotelCorridor)advanceCorridorWindow(corridorWindowState(currentHotel,hotelStairs.floor),dt);
       if(hotelCorridor){if(!windowView)moveInHotelCorridor(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,hotelGuest());
       }else if(hotelStorage)moveInHotelStorage(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);

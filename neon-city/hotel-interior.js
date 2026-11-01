@@ -17,7 +17,9 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {businessmanRoute} from './hotel-guest-route.js';
+import {register} from './register.js';
+import {HOTEL_CORRIDOR,corridorWindowState} from './hotel-corridor.js';
+import {businessmanRoute,robotRoute} from './hotel-guest-route.js';
 import {facesEntrance} from './entrances.js';
 import {drawCylinder,drawRod,drawStaff,facingAcrossCounter,facingDoorway,facingNearest,pubPersonBlocks,BARTENDER_REPLY,NURSE_JOY,BLONDE_RECEPTIONIST} from './pub-interior.js?v=court-shoes-1';
 
@@ -127,8 +129,9 @@ export const RECEPTIONIST_TALK=[
     {ask:'NEVER MIND.',answer:[],next:0}]];
 // Offered items the receptionist answers differently from a plain refusal; the item is kept.
 export const RECEPTIONIST_GIFTS={'hotel-note':["I'LL PRETEND I HAVEN'T SEEN THIS. PUT IT AWAY."]};
-// Every 20–30 seconds a robot guest comes out of the door to the rooms on
-// the landing, walks down the middle of the stairs, steps off them and
+// After a 5–12 second idle interval, a guest starts their route.
+// A robot guest leaves a random first-floor room, crosses the stairwell,
+// walks down the lobby stairs and
 // visits reception for five seconds before heading to the street doors.
 // It waits while the player is in its path, and held reports that it is waiting.
 const ROBOT=11,GUEST_SPEED=1.3;
@@ -139,13 +142,33 @@ export const ROBOT_ROUTE=(()=>{
 })();
 export class HotelLife{
   constructor(random=Math.random,state={}){this.state=state;this.firstEvent=true;this.pending=null;this.random=random;this.wait=this.delay();this.walker=null;this.held=false;}
-  delay(){return 20+this.random()*10;}
+  delay(){return 5+this.random()*7;}
+  finishEvent(){this.walker=null;this.held=false;this.wait=this.delay();}
+  skipEvent(player,scene='lobby',playerY=hotelFloorHeight(player?.x??0,player?.z??0)){
+    // Arrival state is committed at spawn, so dismissing a guest completes
+    // their trip without reversing their next destination.
+    if(this.walker){this.finishEvent();return;}
+    this.wait=0;
+    this.update(0,player,scene,playerY);
+  }
+  checkGuestWindow(w){
+    if(w.type!==8||w.scene!=='corridor:2'||w.windowChecked)return;
+    w.windowChecked=true;
+    if(!corridorWindowState(this.state,2).open)return;
+    const point=(z,closeWindow=false)=>({x:HOTEL_CORRIDOR.width/2,z,y:0,scene:'corridor:2',closeWindow});
+    const detour=[point(w.z),point(HOTEL_CORRIDOR.depth-.8,true)];
+    // On arrival, replace the corridor entrance waypoint so the remaining
+    // route leads straight to her room after she closes the window.
+    if(w.arriving)w.route.splice(w.leg,1,...detour);
+    else w.route.splice(w.leg,0,...detour,point(w.z));
+  }
   guest(scene='lobby'){return (this.walker?.scene??'lobby')===scene?this.walker:null;}
-  update(dt,player,scene='lobby',playerY=hotelFloorHeight(player?.x??0,player?.z??0)){
+  update(dt,player,scene='lobby',playerY=hotelFloorHeight(player?.x??0,player?.z??0),canSeeGuest=()=>false){
     this.held=false;
     if(this.walker){
       const w=this.walker;let travel=dt*GUEST_SPEED;
       while(travel>0){
+        this.checkGuestWindow(w);
         if(w.receptionWait>0){
           const elapsed=Math.min(w.receptionWait,travel/GUEST_SPEED);
           w.receptionWait=Math.max(0,w.receptionWait-elapsed);travel-=elapsed*GUEST_SPEED;
@@ -155,10 +178,16 @@ export class HotelLife{
         if((target.scene??'lobby')!==(w.scene??'lobby')){
           if((target.scene??'lobby')===scene&&pubPersonBlocks(target,target,player)){this.held=true;return;}
           Object.assign(w,{x:target.x,z:target.z,y:target.y??hotelFloorHeight(target.x,target.z),scene:target.scene});
+          continue;
         }
         const dx=target.x-w.x,dz=target.z-w.z,d=Math.hypot(dx,dz);
         if(!d){
-          if(++w.leg===(w.route??ROBOT_ROUTE).length){this.walker=null;return;}
+          if(target.closeWindow){
+            const window=corridorWindowState(this.state,2);
+            if(window.open&&scene===w.scene&&canSeeGuest(w))register.BUSINESSWOMAN_WINDOW_CLOSING_SEEN=true;
+            window.open=false;
+          }
+          if(++w.leg===(w.route??ROBOT_ROUTE).length){this.finishEvent();return;}
           if(target.wait){w.receptionWait=target.wait;w.facingX=0;w.facingZ=1;}
           continue;
         }
@@ -172,16 +201,17 @@ export class HotelLife{
     this.wait-=dt;
     if(this.wait>0)return;
     if(!this.pending){
-      const business=!this.firstEvent&&this.random()>=.5;
-      const arriving=!this.state.businessmanInside;
-      this.pending={business,arriving,route:business?businessmanRoute(arriving):ROBOT_ROUTE};
+      const type=this.firstEvent?ROBOT:[ROBOT,7,8][Math.min(2,Math.floor(this.random()*3))];
+      const stateKey=type===7?'businessmanInside':type===8?'businesswomanInside':null;
+      const arriving=stateKey?!this.state[stateKey]:false;
+      this.pending={type,stateKey,arriving,route:stateKey?businessmanRoute(arriving,type===8?2:3):robotRoute(this.random)};
     }
-    const {business,arriving,route}=this.pending,[start]=route;
+    const {type,stateKey,arriving,route}=this.pending,[start]=route;
     // Someone standing at that door keeps it shut until they step aside.
     if((start.scene??'lobby')===scene&&pubPersonBlocks(start,start,player))return;
-    this.wait=this.delay();
-    this.walker={...start,y:start.y??hotelFloorHeight(start.x,start.z),route,arriving,leg:1,type:business?7:ROBOT,variant:0,walkTime:0,facingX:0,facingZ:business&&arriving?1:-1};
-    if(business)this.state.businessmanInside=arriving;
+    this.walker={...start,y:start.y??hotelFloorHeight(start.x,start.z),route,arriving,leg:1,type,variant:0,walkTime:0,facingX:0,facingZ:stateKey&&arriving?1:-1};
+    if(stateKey)this.state[stateKey]=arriving;
+    this.checkGuestWindow(this.walker);
     this.firstEvent=false;this.pending=null;
   }
 }
@@ -192,6 +222,12 @@ export const BUSINESSMAN_TALK=[[
   {ask:'WOULD YOU RECOMMEND THIS HOTEL?',answer:['THE SERVICE IS EXCELLENT.',"BUT... I DON'T LIKE TO SEE SO MANY ROBOTS AROUND."]},
   {ask:'WHAT DO YOU THINK ABOUT ROBOTS?',answer:["I CAN'T SAY I FEEL SAFE NEAR THEM."]},
   {ask:'BYE!',answer:['HAVE A GOOD NIGHT.'],ends:true}
+]];
+export const BUSINESSWOMAN_TALK=[[
+  ...BUSINESSMAN_TALK[0].slice(0,2),
+  {ask:'WHAT DO YOU THINK ABOUT ROBOTS?',answer:['I THINK THEY HAVE AN INSANE PASSION FOR LADIES.','BOTH LADYWOMEN AND LADYBUGS.']},
+  {ask:'ABOUT THE WINDOW...',answer:['I KNOW. SOME IDIOT KEEPS OPENING IT.'],needs:'BUSINESSWOMAN_WINDOW_CLOSING_SEEN'},
+  BUSINESSMAN_TALK[0].at(-1)
 ]];
 export const ROBOT_TALK=[
   [{ask:'HEY!',answer:['HELLO THERE, HUMAN!']},

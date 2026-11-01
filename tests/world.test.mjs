@@ -371,7 +371,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,shootingStars,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},inventory};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,shootingStars,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},canSeeHotelGuest,inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   const hotel={x:14,z:14,w:18,d:18,j:0,sign:'HOTEL'};
   city.chunks.set('0,0',{buildings:[hotel],manholes:[],newspaperMachines:[]});
@@ -386,11 +386,35 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   assert.ok(musicVolumes.at(-1)>0&&musicVolumes.at(-1)===LOBBY_MUSIC.volume,'ambient music in the lobby');
   assert.equal(musicChoices.length,1,'a piece is chosen on entering');assert.ok(LOBBY_PIECES.includes(musicChoices[0]));
   assert.deepEqual({x:player.x,z:player.z,angle:player.angle},hotelInterior.HOTEL.spawn);
+  const shortcut=k=>{
+    for(let i=0;i<3;i++){
+      events.keydown({key:k,repeat:false,preventDefault(){}});
+      events.keyup({key:k});
+    }
+  };
+  const checkHotelShortcut=()=>{
+    const life=sandbox.game.hotelLife;
+    life.walker=null;life.pending=null;life.wait=1000;life.firstEvent=true;life.random=()=>0;
+    shortcut('h');assert.equal(life.walker?.type,11,'triple H starts an event in this hotel interior');
+    shortcut('h');assert.equal(life.walker,null,'triple H dismisses the active guest');
+    shortcut('x');assert.ok(life.walker,'triple X also works');
+    shortcut('x');assert.equal(life.walker,null);
+    life.wait=1000;
+  };
   // The double doors above the lobby stairs open into the first-floor stairwell.
   Object.assign(player,{x:18.2,z:15.1,angle:0});press();
   assert.equal(location(),'HOTEL / FLOOR 1 / STAIRWELL');
+  checkHotelShortcut();
   Object.assign(player,{x:4,z:15,angle:0});press();
   assert.equal(location(),'HOTEL / FLOOR 1 / CORRIDOR');
+  checkHotelShortcut();
+  Object.assign(player,{x:.3,z:4});
+  shortcut('h');
+  assert.equal(sandbox.game.hotelLife.walker,null,'shortcut respects an occupied room door in the current corridor');
+  assert.ok(sandbox.game.hotelLife.pending);
+  Object.assign(player,{x:2.4,z:1.2});shortcut('h');
+  assert.ok(sandbox.game.hotelLife.walker,'moving aside allows the pending event');
+  shortcut('h');sandbox.game.hotelLife.wait=1000;
   Object.assign(player,{x:2.4,z:22,angle:0});press();
   assert.equal(hotel.corridorWindows[1].open,true);
   assert.ok(hotel.corridorWindows[1].progress>0&&hotel.corridorWindows[1].progress<1,'game ticks animate the window');
@@ -548,9 +572,18 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   // A robot from the rooms stops for the player in its way on the stairs,
   // and Space then starts a chat with it. Once the way is clear it walks out.
   const life=sandbox.game.hotelLife,{ROBOT_ROUTE}=hotelInterior;
+  life.walker=null;life.wait=30;life.firstEvent=true;life.pending=null;
+  key('x');key('x');
+  assert.equal(life.walker,null,'two X presses do not skip the timer');
+  events.keydown({key:'x',repeat:true,preventDefault(){}});
+  assert.equal(life.walker,null,'held X does not count as another press');
+  key('x');
+  assert.equal(life.walker?.type,11,'triple X starts the normal first robot event');
+  key('x');key('x');key('x');
+  assert.equal(life.walker,null,'another triple X dismisses the guest');
   life.walker=null;life.wait=.01;life.firstEvent=true;life.pending=null;
   Object.assign(player,{x:ROBOT_ROUTE[0].x,z:8,angle:0});
-  for(let i=0;i<400&&!life.held;i++)tick(ms+=20);
+  for(let i=0;i<4000&&!life.held;i++)tick(ms+=20);
   assert.equal(life.held,true,'waits for the player');
   press();
   assert.equal(talkBox.hidden,false);assert.equal(talkBox.ariaLabel,'Talk to the robot');
@@ -581,7 +614,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   for(let i=0;i<2000&&life.walker;i++)tick(ms+=20);
   assert.equal(life.walker,null,'gone out to the street');
   // A businessman can be stopped for a conversation while walking through the lobby.
-  life.random=()=>1;life.firstEvent=false;life.state.businessmanInside=false;life.wait=0;
+  life.random=()=>.5;life.firstEvent=false;life.state.businessmanInside=false;life.wait=0;
   tick(ms+=20);
   assert.equal(life.walker.type,7);
   Object.assign(player,{x:life.walker.x,z:life.walker.z+1,angle:Math.PI});
@@ -591,6 +624,19 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   tick(ms+=100);assert.equal(life.walker.x,guestX);assert.equal(life.walker.z,guestZ);
   key('4');assert.equal(talkBox.innerHTML,answer('HAVE A GOOD NIGHT.'));press();
   assert.equal(talkBox.hidden,true);
+  life.walker.type=8;
+  const {canSeeHotelGuest}=sandbox.game;
+  const woman=life.walker;
+  Object.assign(player,{x:woman.x,z:woman.z-2,angle:0});
+  assert.equal(canSeeHotelGuest(woman),true,'guest ahead is visible');
+  player.angle=Math.PI;assert.equal(canSeeHotelGuest(woman),false,'guest behind is not seen');
+  player.angle=Math.PI/2;assert.equal(canSeeHotelGuest(woman),false,'guest outside the field of view is not seen');
+  Object.assign(player,{x:woman.x,z:woman.z+1,angle:Math.PI});press();
+  assert.equal(talkBox.ariaLabel,'Talk to the businesswoman');
+  assert.doesNotMatch(talkBox.innerHTML,/ABOUT THE WINDOW/);
+  key('3');assert.equal(talkBox.innerHTML,answer('I THINK THEY HAVE AN INSANE PASSION FOR LADIES.'));
+  press();assert.equal(talkBox.innerHTML,answer('BOTH LADYWOMEN AND LADYBUGS.'));
+  press();key('4');press();
   life.walker=null;life.wait=1000;
   // The receptionist now has one more question to answer, before BYE!.
   Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x,z:11.7,angle:0});
@@ -2460,24 +2506,24 @@ test('the receptionist is talked to across the desk from the lobby, not round it
   assert.equal(facingReceptionistAcrossDesk(behind),false);assert.equal(facingReceptionist(behind),true);
 });
 
-test('every 20-30 seconds a robot comes out of the rooms, down the stairs and out of the hotel',async()=>{
+test('after 5-12 idle seconds a robot comes out of the rooms, down the stairs and out of the hotel',async()=>{
   const {HOTEL,ROBOT_ROUTE,HotelLife,hotelFloorHeight,moveInHotel}=await import('../neon-city/hotel-interior.js');
   const {landing,stairs,door}=HOTEL,away={x:2,z:8};
   const run=(life,player,seconds)=>{for(let t=0;t<seconds;t+=.02)life.update(.02,player);};
-  assert.equal(new HotelLife(()=>0).wait,20);
-  assert.equal(new HotelLife(()=>.5).wait,25);
-  assert.ok(new HotelLife(()=>.999).wait<30);
+  assert.equal(new HotelLife(()=>0).wait,5);
+  assert.equal(new HotelLife(()=>.5).wait,8.5);
+  assert.ok(new HotelLife(()=>.999).wait<12);
   const life=new HotelLife(()=>0);
-  run(life,away,19.9);
+  run(life,away,4.9);
   assert.equal(life.walker,null,'not yet');
   run(life,away,.2);
   // It steps out of the door on the landing, at the landing's height.
   const w=life.walker;
   assert.equal(w.type,11);
-  assert.ok(w.x>landing.x&&w.x<landing.x+landing.w&&w.z>HOTEL.depth-1);
-  assert.equal(w.y,landing.y);
+  assert.equal(w.scene,'corridor:1');
+  assert.ok(w.x>=.3&&w.x<.6);assert.equal(w.z,4);assert.equal(w.y,0);
   const path=[];
-  for(let i=0;i<3500&&life.walker;i++){life.update(.02,away);if(life.walker)path.push({x:w.x,y:w.y,z:w.z});}
+  for(let i=0;i<3500&&life.walker;i++){life.update(.02,away);if(life.guest())path.push({x:w.x,y:w.y,z:w.z});}
   assert.equal(life.walker,null,'reached the exit');
   // Straight down the middle of the stairs, feet on each step, then over to the doors.
   for(const p of path){
@@ -2486,12 +2532,12 @@ test('every 20-30 seconds a robot comes out of the rooms, down the stairs and ou
   }
   assert.ok(path.some(p=>p.y>0&&p.y<landing.y),'walks down the stairs');
   assert.ok(Math.abs(path.at(-1).x-door.x)<.1&&path.at(-1).z<.5,'out through the street doors');
-  assert.equal(life.wait,20,'the next one is due 20-30 seconds after');
+  assert.equal(life.wait,5,'the next one is due 5-12 seconds after completion');
   // The player in its path stops it; stepping aside lets it go on.
   const held=new HotelLife(()=>0);
   held.wait=.01;held.update(.02,away);
   const blocker={x:ROBOT_ROUTE[0].x,z:9};
-  run(held,blocker,8);
+  run(held,blocker,45);
   const stopped={x:held.walker.x,z:held.walker.z};
   assert.ok(Math.hypot(stopped.x-blocker.x,stopped.z-blocker.z)>=.85,'keeps its distance');
   run(held,blocker,3);
@@ -2499,7 +2545,7 @@ test('every 20-30 seconds a robot comes out of the rooms, down the stairs and ou
   assert.equal(held.held,true,'reports that it is held');
   run(held,away,.02);
   assert.equal(held.held,false);
-  run(held,away,50);
+  for(let i=0;i<5000&&held.walker;i++)held.update(.02,away);
   assert.equal(held.walker,null,'goes on once the way is clear');
   // Nor can the player walk through it.
   const robot={x:10,z:5},player={x:10,z:3};
@@ -2509,10 +2555,59 @@ test('every 20-30 seconds a robot comes out of the rooms, down the stairs and ou
   assert.ok(Math.abs(player.z-(close-.5))<1e-9,'free to back away');
   // Standing at the rooms' door keeps it shut until the player steps aside.
   const shut=new HotelLife(()=>0);
-  shut.wait=.01;shut.update(.02,{x:ROBOT_ROUTE[0].x,z:HOTEL.depth-.6});
+  shut.wait=.01;shut.update(.02,{x:.3,z:4},'corridor:1',0);
   assert.equal(shut.walker,null);
   shut.update(.02,away);
   assert.ok(shut.walker);
+});
+
+test('robots leave each first-floor room and traverse the corridor, stairwell and lobby',async()=>{
+  const {HotelLife,ROBOT_ROUTE}=await import('../neon-city/hotel-interior.js');
+  const {corridorRooms,HOTEL_CORRIDOR}=await import('../neon-city/hotel-corridor.js');
+  const rooms=corridorRooms(1),away={x:-20,z:-20};
+  for(const [i,room] of rooms.entries()){
+    let calls=0;
+    const life=new HotelLife(()=>{calls++;return (i+.5)/rooms.length;});
+    const start={x:room.side==='left'?.3:room.x-.3,z:room.z};
+    life.wait=0;life.update(0,start,'corridor:1',0);
+    assert.equal(life.walker,null,'occupied room door delays the event');
+    const route=life.pending.route,draws=calls;
+    life.update(1,start,'corridor:1',0);
+    assert.equal(life.pending.route,route);assert.equal(calls,draws,'blocked door keeps its selected room');
+    life.update(0,away,'corridor:1',0);
+    const w=life.walker;
+    assert.equal(w.type,11);assert.equal(w.scene,'corridor:1');
+    assert.equal(w.x,start.x);assert.equal(w.z,room.z);assert.equal(w.y,0);
+    assert.equal(w.route[1].x,HOTEL_CORRIDOR.width/2);
+    const scenes=new Set();let waited=false;
+    for(let step=0;step<6000&&life.walker;step++){
+      scenes.add(w.scene);waited ||= w.receptionWait>0;
+      life.update(.02,away,w.scene,w.y);
+    }
+    assert.equal(life.walker,null,'reaches the street');
+    assert.deepEqual([...scenes],['corridor:1','stairs','lobby']);
+    assert.ok(waited,'stops at reception');
+    assert.equal(w.x,ROBOT_ROUTE.at(-1).x);assert.equal(w.z,ROBOT_ROUTE.at(-1).z);
+  }
+});
+
+test('hotel intervals are drawn at completion and active guests cannot overlap',async()=>{
+  const {HotelLife}=await import('../neon-city/hotel-interior.js');
+  let roll=0,calls=0;
+  const life=new HotelLife(()=>{calls++;return roll;}),away={x:-20,z:-20};
+  life.update(5,away);
+  const robot=life.walker;
+  assert.ok(robot);assert.equal(calls,2,'starting the first event only draws its room, not its next interval');
+  life.update(100,{x:robot.x+.8,z:robot.z},'corridor:1',0);
+  assert.equal(life.walker,robot,'a blocked guest remains the only event beyond the maximum interval');
+  roll=1;
+  for(let i=0;i<10000&&life.walker;i++)life.update(.02,away);
+  assert.equal(life.walker,null);assert.equal(life.wait,12);
+  assert.equal(calls,3,'completion draws a fresh interval');
+  life.update(11.9,away);assert.equal(life.walker,null);
+  life.update(.11,away);assert.ok(life.walker);
+  roll=.5;life.skipEvent(away);
+  assert.equal(life.walker,null);assert.equal(life.wait,8.5,'dismissal also starts a fresh interval');
 });
 
 test('hotel robots face reception and wait five seconds before leaving',async()=>{
@@ -2533,7 +2628,7 @@ test('hotel robots face reception and wait five seconds before leaving',async()=
   assert.equal(life.walker,null);
 });
 
-test('hotel events start with a robot, then split evenly and alternate businessman trips to room 310',async()=>{
+test('hotel events start with a robot, then split evenly across three guests and alternate businessman trips to room 310',async()=>{
   const {HotelLife,HOTEL}=await import('../neon-city/hotel-interior.js');
   const {HOTEL_STAIRWELL}=await import('../neon-city/hotel-stairwell.js');
   let roll=.99;const state={},life=new HotelLife(()=>roll,state),away={x:-20,z:-20};
@@ -2546,7 +2641,7 @@ test('hotel events start with a robot, then split evenly and alternate businessm
     assert.equal(life.walker,null);return seen;
   };
   assert.equal(spawn().type,11,'first event is a robot even with a high random roll');finish();
-  roll=.49999;assert.equal(spawn().type,11);finish();
+  roll=1/3-.00001;assert.equal(spawn().type,11);finish();
   roll=.5;let w=spawn();assert.equal(w.type,7);assert.equal(w.arriving,true);
   assert.equal(w.z,.4);assert.equal(state.businessmanInside,true);
   const route=w.route,room=route.at(-1);
@@ -2556,19 +2651,45 @@ test('hotel events start with a robot, then split evenly and alternate businessm
   assert.ok(seen.some(p=>p.receptionWait>0&&p.x===HOTEL.receptionist.x));
   assert.ok(seen.some(p=>p.scene==='corridor:3'&&p.z>19));
   roll=0;assert.equal(spawn().type,11);finish();
-  roll=1;w=spawn();assert.equal(w.type,7);assert.equal(w.arriving,false);
+  roll=.5;w=spawn();assert.equal(w.type,7);assert.equal(w.arriving,false);
   assert.equal(w.scene,'corridor:3');assert.equal(w.z,20);
   assert.equal(w.route.at(-1).scene,'lobby');assert.equal(w.route.at(-1).z,.4);
   seen=finish();assert.ok(seen.some(p=>p.receptionWait>0));
-  assert.equal(spawn().arriving,true,'next businessman visit goes upstairs again');
+  assert.equal(spawn().arriving,true,'next businessman visit goes upstairs again');finish();
+  roll=2/3;assert.equal(spawn().type,8,'upper third selects the businesswoman');finish();
   const reentered=new HotelLife(()=>1,state);reentered.wait=0;reentered.update(.01,away);
   assert.equal(reentered.walker.type,11,'entering a hotel always resets its first event to a robot');
+});
+
+test('skipping hotel events preserves selection rules, blocked doors and businessman destinations',async()=>{
+  const {HotelLife}=await import('../neon-city/hotel-interior.js');
+  let roll=1;const state={},life=new HotelLife(()=>roll,state),away={x:-20,z:-20};
+  life.wait=0;life.update(0,{x:4.5,z:20},'corridor:1',0);
+  assert.equal(life.walker,null,'normal doorway blocking still applies');
+  assert.ok(life.pending);
+  life.skipEvent(away);
+  assert.equal(life.walker.type,11,'first event remains a robot');
+  life.held=true;life.skipEvent(away);
+  assert.equal(life.walker,null);assert.equal(life.held,false);
+  roll=.5;life.skipEvent(away);
+  assert.equal(life.walker.type,7);assert.equal(life.walker.arriving,true);
+  life.skipEvent(away);
+  assert.equal(state.businessmanInside,true);
+  roll=0;life.skipEvent(away);
+  assert.equal(life.walker.type,11,'later events still use the normal random selection');
+  life.skipEvent(away);
+  roll=.5;life.skipEvent(away);
+  assert.equal(life.walker.arriving,false,'dismissed arrival is followed by departure');
+  life.skipEvent(away);
+  assert.equal(state.businessmanInside,false);
+  life.skipEvent(away);
+  assert.equal(life.walker.arriving,true,'dismissed departure is followed by arrival');
 });
 
 test('hotel guests are visible and block movement only in their current interior and height',async()=>{
   const {HotelLife}=await import('../neon-city/hotel-interior.js');
   const {moveInHotelCorridor}=await import('../neon-city/hotel-corridor.js');
-  const life=new HotelLife(()=>1);
+  const life=new HotelLife(()=>.5);
   life.firstEvent=false;life.state.businessmanInside=true;life.wait=0;
   life.update(.01,{x:0,z:0},'lobby');
   const w=life.walker;assert.equal(life.guest('lobby'),null);
@@ -2580,6 +2701,96 @@ test('hotel guests are visible and block movement only in their current interior
   const visitor={x:2.4,z:18.8},guest={x:2.4,z:20};
   moveInHotelCorridor(visitor,0,.5,guest);assert.equal(visitor.z,18.8);
   moveInHotelCorridor(visitor,0,-.5,guest);assert.equal(visitor.z,18.3);
+});
+
+test('businesswoman alternates room 210 trips and only closes windows open on corridor entry',async()=>{
+  const {HotelLife}=await import('../neon-city/hotel-interior.js');
+  const {corridorWindowState,HOTEL_CORRIDOR}=await import('../neon-city/hotel-corridor.js');
+  const {HOTEL_STAIRWELL}=await import('../neon-city/hotel-stairwell.js');
+  const away={x:-20,z:-20};
+  for(const arriving of [true,false])for(const initiallyOpen of [true,false]){
+    const state={businesswomanInside:!arriving},life=new HotelLife(()=>.9,state);
+    const window=corridorWindowState(state,2),otherWindow=corridorWindowState(state,3);
+    window.open=initiallyOpen;window.progress=initiallyOpen?1:0;otherWindow.open=true;
+    life.firstEvent=false;life.wait=0;life.update(0,away);
+    const w=life.walker;
+    assert.equal(w.type,8);assert.equal(w.arriving,arriving);
+    assert.equal(state.businesswomanInside,arriving);assert.equal(state.businessmanInside,undefined);
+    assert.ok(w.route.some(p=>p.scene==='stairs'&&p.y===HOTEL_STAIRWELL.rise));
+    assert.ok(!w.route.some(p=>p.scene==='corridor:3'||p.y>HOTEL_STAIRWELL.rise));
+    const room=arriving?w.route.at(-1):w.route[0];
+    assert.equal(room.scene,'corridor:2');assert.equal(room.x,4.5);assert.equal(room.z,20);
+    let waited=false;
+    for(let i=0;i<10000&&!w.windowChecked;i++){life.update(.02,away);waited ||= w.receptionWait>0;}
+    assert.equal(w.windowChecked,true);assert.equal(w.scene,'corridor:2');
+    assert.equal(window.open,initiallyOpen,'window stays as it was until she reaches it');
+    if(!initiallyOpen)window.open=true;
+    let closed=false;
+    for(let i=0;i<15000&&life.walker;i++){
+      const wasOpen=window.open;
+      life.update(.02,away);
+      if(arriving&&closed){
+        assert.equal(w.scene,'corridor:2');
+        assert.ok(w.z>=room.z,'after closing the window she heads directly to her room');
+      }
+      waited ||= w.receptionWait>0;
+      if(wasOpen&&!window.open){
+        closed=true;
+        assert.equal(w.scene,'corridor:2');
+        assert.ok(Math.abs(w.z-(HOTEL_CORRIDOR.depth-.8))<.03,'closes it at the window');
+        assert.equal(w.x,HOTEL_CORRIDOR.width/2);
+        window.open=true; // Reopening after her check must also be ignored.
+      }
+    }
+    assert.equal(life.walker,null,'completes her trip');assert.ok(waited,'visits reception');
+    assert.equal(closed,initiallyOpen,'only a window open at corridor entry attracts her attention');
+    assert.equal(window.open,true,'later opening is ignored');assert.equal(otherWindow.open,true);
+    life.skipEvent(away);
+    assert.equal(life.walker.type,8);assert.equal(life.walker.arriving,!arriving,'next visit reverses direction');
+    life.skipEvent(away);life.skipEvent(away);
+    assert.equal(life.walker.arriving,arriving,'dismissal also preserves alternation');
+    const reentered=new HotelLife(()=>.9,state);
+    reentered.firstEvent=false;reentered.wait=0;reentered.update(0,away);
+    assert.equal(reentered.walker.arriving,!arriving,'location persists when reentering the hotel');
+  }
+});
+
+test('only witnessing a window closure unlocks the businesswoman window conversation globally',async()=>{
+  const {HotelLife,BUSINESSWOMAN_TALK,BUSINESSMAN_TALK}=await import('../neon-city/hotel-interior.js');
+  const {StaffTalk}=await import('../neon-city/pub-interior.js');
+  const {register}=await import('../neon-city/register.js');
+  const {corridorWindowState}=await import('../neon-city/hotel-corridor.js');
+  const key='BUSINESSWOMAN_WINDOW_CLOSING_SEEN',away={x:-20,z:-20};
+  const option=talk=>talk.script.findIndex(o=>o.ask==='ABOUT THE WINDOW...');
+  delete register[key];
+  try{
+    const close=(scene,visible,open=true)=>{
+      const state={},life=new HotelLife(()=>.9,state),window=corridorWindowState(state,2);
+      window.open=open;
+      // Begin at the closing waypoint to isolate the observation itself.
+      life.walker={type:8,scene:'corridor:2',windowChecked:true,x:2.4,z:23.2,y:0,leg:1,walkTime:0,
+        route:[{x:2.4,z:23.2,scene:'corridor:2'},{x:2.4,z:23.2,scene:'corridor:2',closeWindow:true}]};
+      life.update(.02,away,scene,0,()=>visible);
+      assert.equal(window.open,false);
+    };
+    const talk=new StaffTalk(BUSINESSWOMAN_TALK);
+    assert.equal(option(talk),-1);
+    close('lobby',true);assert.equal(key in register,false,'another interior cannot witness it');
+    close('corridor:3',true);assert.equal(key in register,false,'another floor cannot witness it');
+    close('corridor:2',false);assert.equal(key in register,false,'looking away does not count');
+    close('corridor:2',true,false);assert.equal(key in register,false,'an already closed window does not count');
+    close('corridor:2',true);assert.equal(register[key],true);
+    assert.ok(option(talk)>=0,'existing conversation reads the global register');
+    const later=new StaffTalk(BUSINESSWOMAN_TALK);
+    later.confirm(option(later));assert.equal(later.line,'I KNOW. SOME IDIOT KEEPS OPENING IT.');
+    later.confirm();assert.equal(later.line,null);assert.equal(later.over,false);
+    const robots=new StaffTalk(BUSINESSWOMAN_TALK);
+    robots.confirm(2);assert.equal(robots.line,'I THINK THEY HAVE AN INSANE PASSION FOR LADIES.');
+    robots.confirm();assert.equal(robots.line,'BOTH LADYWOMEN AND LADYBUGS.');
+    robots.confirm();assert.equal(robots.line,null);
+    const man=new StaffTalk(BUSINESSMAN_TALK);man.confirm(2);
+    assert.equal(man.line,"I CAN'T SAY I FEEL SAFE NEAR THEM.");assert.equal(option(man),-1);
+  }finally{delete register[key];}
 });
 
 test('businessman conversation has the requested choices, answer sequence and goodbye',async()=>{
