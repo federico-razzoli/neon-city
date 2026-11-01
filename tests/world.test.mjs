@@ -6359,3 +6359,25 @@ test('river ripple scratch geometry preserves every animated segment without ret
     assert.ok(checks>0);assert.equal(skippedFaces,0);assert.equal(water,0,'rejected tiles skip water and ripple work');
   }
 });
+
+
+test('receptionist waits for a continuously lit lamp, switches it off and returns behind the desk',async()=>{
+  const {HOTEL,switchHotelLamp,advanceHotelReceptionist,hotelReceptionistPosition}=await import('../neon-city/hotel-interior.js');
+  const hotel={};
+  switchHotelLamp(hotel);advanceHotelReceptionist(hotel,2.9);
+  assert.deepEqual(hotelReceptionistPosition(hotel),HOTEL.receptionist);
+  switchHotelLamp(hotel);advanceHotelReceptionist(hotel,1);
+  switchHotelLamp(hotel);advanceHotelReceptionist(hotel,2.9);
+  assert.deepEqual(hotelReceptionistPosition(hotel),HOTEL.receptionist,'switching off resets the delay');
+  advanceHotelReceptionist(hotel,.2);
+  assert.ok(hotelReceptionistPosition(hotel).x<HOTEL.receptionist.x);
+  assert.equal(hotel.lampOn,true,'she switches it off only on arrival');
+  for(let i=0;i<60;i++){
+    advanceHotelReceptionist(hotel,.1);
+    assert.ok(hotelReceptionistPosition(hotel).z>HOTEL.desk.z+HOTEL.desk.d,'she stays behind the desk');
+  }
+  assert.equal(hotel.lampOn,false);
+  assert.deepEqual(hotelReceptionistPosition(hotel),HOTEL.receptionist);
+  assert.equal(hotel.lampSwitches,3,'automatic switching does not count as player mischief');
+  assert.equal(hotel.receptionistTrip,null);
+});

@@ -29,9 +29,14 @@ export const corridorRooms=floor=>Array.from({length:10},(_,i)=>({
   x:i%2?HOTEL_CORRIDOR.width:0,z:4+Math.floor(i/2)*4
 }));
 export const facingCorridorExit=player=>facingDoorway(player,{x:HOTEL_CORRIDOR.width/2,z:0},1.2);
-export function corridorReply(player,floor){
+export function corridorReply(player,floor,hotel={}){
   for(const room of corridorRooms(floor)){
-    if(facingDoorway({x:player.z,z:player.x,angle:Math.PI/2-player.angle},{x:room.z,z:room.x},.55))return "IT'S LOCKED...";
+    if(facingDoorway({x:player.z,z:player.x,angle:Math.PI/2-player.angle},{x:room.z,z:room.x},.55)){
+      if(room.number==='310'&&hotel.businessmanInside)return hotel.businessmanCompanionInside
+        ?"I HEAR THAT SOMEONE'S HAVING FUN INSIDE!"
+        :"I HEAR THAT SOMEONE'S PLAYING VIDEOGAMES INSIDE.";
+      return "IT'S LOCKED...";
+    }
   }
   return null;
 }

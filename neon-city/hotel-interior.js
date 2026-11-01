@@ -70,11 +70,11 @@ export function hotelDropSpot(player){
 // The stairs are entered from their bottom step only: the banister runs the
 // length of their open side and round the landing, so nobody climbs over it.
 // A robot walking out is in the way, as people are in the pub.
-export function moveInHotel(player,dx,dz,walker){
+export function moveInHotel(player,dx,dz,walker,hotel={}){
   const radius=.3,boxes=obstacles(),{stairs:s}=HOTEL;
   const clear=(x,z)=>!pubPersonBlocks(player,{x,z},walker)&&x>=radius&&x<=HOTEL.width-radius&&z>=radius&&z<=HOTEL.depth-radius&&
     !boxes.some(b=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius)&&
-    ![...HOTEL.palms,HOTEL.receptionist].some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+radius)&&
+    ![...HOTEL.palms,hotelReceptionistPosition(hotel)].some(p=>Math.hypot(x-p.x,z-p.z)<p.radius+radius)&&
     !(z>s.z-.02&&Math.abs(x-s.x)<radius);
   // Substeps keep running and diagonal motion from crossing furniture or walls.
   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
@@ -107,9 +107,9 @@ export const BELL_ANSWER="I'M HERE...";
 // Behind the desk the receptionist sends the player back to the lobby side,
 // and the key cabinet on the wall there is in reach.
 export const behindDesk=player=>player.z>HOTEL.desk.z+HOTEL.desk.d;
-export const facingReceptionist=player=>behindDesk(player)&&facingNearest(player,[HOTEL.receptionist])!=null;
+export const facingReceptionist=(player,hotel={})=>behindDesk(player)&&facingNearest(player,[hotelReceptionistPosition(hotel)])!=null;
 // From the lobby, across the desk, the receptionist has a chat (see StaffTalk).
-export const facingReceptionistAcrossDesk=player=>facingAcrossCounter(player,HOTEL.desk,HOTEL.receptionist);
+export const facingReceptionistAcrossDesk=(player,hotel={})=>facingAcrossCounter(player,HOTEL.desk,hotelReceptionistPosition(hotel));
 export const RECEPTIONIST_TALK=[
   [{ask:'HEY!',answer:['GOOD EVENING! HOW CAN I HELP YOU?']},
     {ask:'WHAT TIME DO YOU CLOSE THE DOOR?',answer:["WE'RE OPEN 24/7!"]},
@@ -298,16 +298,46 @@ export const facingKeys=player=>{
 export const LAMP_PATIENCE=2;
 export function switchHotelLamp(hotel){
   hotel.lampOn=!hotel.lampOn;
+  hotel.lampOnTime=0;
   hotel.lampSwitches=(hotel.lampSwitches??0)+1;
   return hotel.lampSwitches>LAMP_PATIENCE?'CAN YOU NOT, PLEASE?':null;
 }
+// Keep the receptionist and her lamp routine in this hotel's persistent state.
+export const hotelReceptionistPosition=hotel=>hotel.receptionistPosition??HOTEL.receptionist;
+export function advanceHotelReceptionist(hotel,dt){
+  let remaining=Math.max(0,dt);
+  if(!hotel.receptionistTrip){
+    if(!hotel.lampOn){hotel.lampOnTime=0;return;}
+    const wait=Math.max(0,3-(hotel.lampOnTime??0));
+    hotel.lampOnTime=(hotel.lampOnTime??0)+remaining;
+    if(remaining<wait)return;
+    remaining-=wait;
+    hotel.receptionistTrip='lamp';
+  }
+  const at=hotel.receptionistPosition??={...HOTEL.receptionist};
+  // Stay behind the counter, close enough to reach the lamp.
+  const lamp={x:HOTEL.lamp.x,z:HOTEL.desk.z+HOTEL.desk.d+.65};
+  if(hotel.receptionistTrip==='lamp'&&!hotel.lampOn)hotel.receptionistTrip='home';
+  while(hotel.receptionistTrip){
+    const target=hotel.receptionistTrip==='lamp'?lamp:HOTEL.receptionist;
+    const dx=target.x-at.x,dz=target.z-at.z,distance=Math.hypot(dx,dz),speed=1.2;
+    if(distance>remaining*speed){
+      at.x+=dx/distance*remaining*speed;at.z+=dz/distance*remaining*speed;
+      return;
+    }
+    at.x=target.x;at.z=target.z;remaining-=distance/speed;
+    if(hotel.receptionistTrip==='lamp'){
+      hotel.lampOn=false;hotel.lampOnTime=0;hotel.receptionistTrip='home';
+    }else hotel.receptionistTrip=null;
+  }
+}
 // What Space says in the lobby, or null where there is nothing to try.
-export function hotelReply(player,receptionBusy=false){
+export function hotelReply(player,receptionBusy=false,hotel={}){
   const {lift,liftButton}=HOTEL;
   if(hotelFloorHeight(player.x,player.z)>0)return null;
   if(player.z<liftButton.z&&facingDoorway(player,liftButton,liftButton.halfWidth))return "IT'S OUT OF SERVICE";
   if(player.z<lift.z&&facingDoorway(player,lift,lift.halfWidth))return 'TRY PRESSING THE BUTTON...';
-  if(!receptionBusy&&facingReceptionist(player))return BARTENDER_REPLY;
+  if(!receptionBusy&&facingReceptionist(player,hotel))return BARTENDER_REPLY;
   if(facingKeys(player))return KEYS_REPLY;
   if(facingHotelVase(player))return VASE_REPLY;
   if(facingHotelPlant(player))return "IT'S JUST A PLANT.";
@@ -329,7 +359,7 @@ export function drawHotelDoubleDoor(box,x,y,z,look,facing=-1){
 }
 
 // The lobby in the hotel's own colours (see hotelLook), empty but for the receptionist.
-export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false}){
+export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false,receptionistPosition=HOTEL.receptionist}){
   const look=hotelInteriorLook(facade);
   const {width:W,depth:D,height:H}=HOTEL;
   const cylinder=(...args)=>drawCylinder(face,...args);
@@ -367,7 +397,7 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
     face([{x:x0,y:H-.35,z:z0},{x:x1,y:H-.35,z:z1},{x:x1,y:H-.2,z:z1},{x:x0,y:H-.2,z:z0}],look.metal);
 
   // Reception: a marble-topped desk, the key cabinet and the receptionist.
-  const {desk,receptionist:at}=HOTEL;
+  const {desk}=HOTEL,at=receptionistPosition;
   box(desk.x,0,desk.z,desk.w,1.15,desk.d,look.wood[0]);
   box(desk.x-.05,1.15,desk.z-.1,desk.w+.1,.15,desk.d+.15,look.column[1],look.column[0]);
   // Raised panels about 1.1 m wide, spaced evenly along the whole front.
