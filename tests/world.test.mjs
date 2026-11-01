@@ -569,7 +569,16 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   press();
   assert.equal(talkBox.hidden,true,'BYE! ends the chat');
   Object.assign(player,{x:2,z:8,angle:0});
-  for(let i=0;i<1000&&life.walker;i++)tick(ms+=20);
+  for(let i=0;i<2000&&!life.walker?.receptionWait;i++)tick(ms+=20);
+  assert.ok(life.walker.receptionWait>0,'robot is talking to reception');
+  Object.assign(player,{x:life.walker.x,z:life.walker.z-1,angle:0});
+  life.held=true;press();
+  assert.equal(talkBox.hidden,true,'cannot interrupt the robot');
+  Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x,z:11.7,angle:0});
+  press();
+  assert.equal(talkBox.hidden,true,'cannot interrupt the receptionist');
+  Object.assign(player,{x:2,z:8,angle:0});
+  for(let i=0;i<2000&&life.walker;i++)tick(ms+=20);
   assert.equal(life.walker,null,'gone out to the street');
   // The receptionist now has one more question to answer, before BYE!.
   Object.assign(player,{x:hotelInterior.HOTEL.receptionist.x,z:11.7,angle:0});
@@ -2456,12 +2465,12 @@ test('every 20-30 seconds a robot comes out of the rooms, down the stairs and ou
   assert.ok(w.x>landing.x&&w.x<landing.x+landing.w&&w.z>HOTEL.depth-1);
   assert.equal(w.y,landing.y);
   const path=[];
-  for(let i=0;i<2000&&life.walker;i++){life.update(.02,away);if(life.walker)path.push({x:w.x,y:w.y,z:w.z});}
+  for(let i=0;i<3500&&life.walker;i++){life.update(.02,away);if(life.walker)path.push({x:w.x,y:w.y,z:w.z});}
   assert.equal(life.walker,null,'reached the exit');
   // Straight down the middle of the stairs, feet on each step, then over to the doors.
   for(const p of path){
     assert.ok(Math.abs(p.y-hotelFloorHeight(p.x,p.z))<1e-9);
-    if(p.z>stairs.z)assert.ok(Math.abs(p.x-(stairs.x+stairs.w/2))<1e-9,'on the stairs, it keeps to the middle');
+    if(p.y>0)assert.ok(Math.abs(p.x-(stairs.x+stairs.w/2))<1e-9,'on the stairs, it keeps to the middle');
   }
   assert.ok(path.some(p=>p.y>0&&p.y<landing.y),'walks down the stairs');
   assert.ok(Math.abs(path.at(-1).x-door.x)<.1&&path.at(-1).z<.5,'out through the street doors');
@@ -2478,7 +2487,7 @@ test('every 20-30 seconds a robot comes out of the rooms, down the stairs and ou
   assert.equal(held.held,true,'reports that it is held');
   run(held,away,.02);
   assert.equal(held.held,false);
-  run(held,away,20);
+  run(held,away,50);
   assert.equal(held.walker,null,'goes on once the way is clear');
   // Nor can the player walk through it.
   const robot={x:10,z:5},player={x:10,z:3};
@@ -2492,6 +2501,24 @@ test('every 20-30 seconds a robot comes out of the rooms, down the stairs and ou
   assert.equal(shut.walker,null);
   shut.update(.02,away);
   assert.ok(shut.walker);
+});
+
+test('hotel robots face reception and wait five seconds before leaving',async()=>{
+  const {HOTEL,ROBOT_ROUTE,HotelLife}=await import('../neon-city/hotel-interior.js');
+  const life=new HotelLife(()=>0),away={x:2,z:8};
+  life.wait=0;life.update(.01,away);
+  for(let i=0;i<4000&&!life.walker?.receptionWait;i++)life.update(.01,away);
+  const w=life.walker,stop=ROBOT_ROUTE.find(p=>p.wait);
+  assert.ok(w?.receptionWait>4.98);
+  assert.equal(w.x,HOTEL.receptionist.x);assert.equal(w.z,stop.z);
+  assert.ok(w.z<HOTEL.desk.z);assert.equal(w.facingX,0);assert.equal(w.facingZ,1);
+  const walkTime=w.walkTime,remaining=w.receptionWait;
+  life.update(remaining-.01,away);
+  assert.equal(w.x,stop.x);assert.equal(w.z,stop.z);assert.equal(w.walkTime,walkTime);
+  assert.equal(life.held,false);
+  life.update(.02,away);assert.ok(w.z<stop.z);assert.ok(w.walkTime>walkTime);
+  for(let i=0;i<2000&&life.walker;i++)life.update(.01,away);
+  assert.equal(life.walker,null);
 });
 
 test('a chat with a waiting robot moves to robot-friendly hotels and back, and ends with BYE!',async()=>{

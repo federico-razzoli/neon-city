@@ -128,12 +128,13 @@ export const RECEPTIONIST_TALK=[
 export const RECEPTIONIST_GIFTS={'hotel-note':["I'LL PRETEND I HAVEN'T SEEN THIS. PUT IT AWAY."]};
 // Every 20–30 seconds a robot guest comes out of the door to the rooms on
 // the landing, walks down the middle of the stairs, steps off them and
-// crosses the hall to the street doors. It waits while the player is in its
-// path, and held reports that it is waiting.
+// visits reception for five seconds before heading to the street doors.
+// It waits while the player is in its path, and held reports that it is waiting.
 const ROBOT=11,ROBOT_SPEED=1.3;
 export const ROBOT_ROUTE=(()=>{
   const {landing:l,stairs:s,door}=HOTEL,x=l.x+l.w/2;
-  return [{x,z:HOTEL.depth-.4},{x,z:s.z-1},{x:door.x,z:.4}];
+  return [{x,z:HOTEL.depth-.4},{x,z:s.z-1},{x:s.x-1,z:s.z-1},
+    {x:HOTEL.receptionist.x,z:HOTEL.desk.z-.9,wait:5},{x:door.x,z:.4}];
 })();
 export class HotelLife{
   constructor(random=Math.random){this.random=random;this.wait=this.delay();this.walker=null;this.held=false;}
@@ -143,12 +144,21 @@ export class HotelLife{
     if(this.walker){
       const w=this.walker;let travel=dt*ROBOT_SPEED;
       while(travel>0){
+        if(w.receptionWait>0){
+          const elapsed=Math.min(w.receptionWait,travel/ROBOT_SPEED);
+          w.receptionWait=Math.max(0,w.receptionWait-elapsed);travel-=elapsed*ROBOT_SPEED;
+          if(w.receptionWait>0||travel<=0)return;
+        }
         const target=ROBOT_ROUTE[w.leg],dx=target.x-w.x,dz=target.z-w.z,d=Math.hypot(dx,dz);
-        if(!d){if(++w.leg===ROBOT_ROUTE.length){this.walker=null;return;}continue;}
+        if(!d){
+          if(++w.leg===ROBOT_ROUTE.length){this.walker=null;return;}
+          if(target.wait){w.receptionWait=target.wait;w.facingX=0;w.facingZ=1;}
+          continue;
+        }
         w.facingX=dx/d;w.facingZ=dz/d;
         const move=Math.min(d,travel,.05),next={x:w.x+dx/d*move,z:w.z+dz/d*move};
         if(pubPersonBlocks(w,next,player)){this.held=true;return;}
-        w.x=next.x;w.z=next.z;w.y=hotelFloorHeight(w.x,w.z);w.walkTime+=move/ROBOT_SPEED;travel-=move;
+        w.x=move===d?target.x:next.x;w.z=move===d?target.z:next.z;w.y=hotelFloorHeight(w.x,w.z);w.walkTime+=move/ROBOT_SPEED;travel-=move;
       }
       return;
     }
@@ -162,7 +172,7 @@ export class HotelLife{
   }
 }
 // A robot kept waiting by the player has a chat with them (see StaffTalk).
-export const facingHotelRobot=(player,walker)=>!!walker&&facingNearest(player,[{x:walker.x,z:walker.z,radius:.4}])!=null;
+export const facingHotelRobot=(player,walker)=>!!walker&&!(walker.receptionWait>0)&&facingNearest(player,[{x:walker.x,z:walker.z,radius:.4}])!=null;
 export const ROBOT_TALK=[
   [{ask:'HEY!',answer:['HELLO THERE, HUMAN!']},
     {ask:'WOULD YOU RECOMMEND THIS HOTEL?',answer:['NOT REALLY.','BUT MY CREATORS HAVE PAID THIS HOTEL FOR ME.']},
@@ -184,12 +194,12 @@ export function switchHotelLamp(hotel){
   return hotel.lampSwitches>LAMP_PATIENCE?'CAN YOU NOT, PLEASE?':null;
 }
 // What Space says in the lobby, or null where there is nothing to try.
-export function hotelReply(player){
+export function hotelReply(player,receptionBusy=false){
   const {lift,liftButton}=HOTEL;
   if(hotelFloorHeight(player.x,player.z)>0)return null;
   if(player.z<liftButton.z&&facingDoorway(player,liftButton,liftButton.halfWidth))return "IT'S OUT OF SERVICE";
   if(player.z<lift.z&&facingDoorway(player,lift,lift.halfWidth))return 'TRY PRESSING THE BUTTON...';
-  if(facingReceptionist(player))return BARTENDER_REPLY;
+  if(!receptionBusy&&facingReceptionist(player))return BARTENDER_REPLY;
   if(facingKeys(player))return KEYS_REPLY;
   if(facingHotelVase(player))return VASE_REPLY;
   if(facingHotelPlant(player))return "IT'S JUST A PLANT.";
