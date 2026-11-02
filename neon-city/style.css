@@ -34,3 +34,11 @@ If not, see <https://www.gnu.org/licenses/>.
 #staff-talk .talk-separator{border-top:1px solid #cdbcd766;margin-top:8px;padding-top:8px}#staff-talk .give-prompt{margin:0 0 12px;color:#cdbcd7;font-size:12px}#staff-talk{max-height:75dvh;overflow:auto}
 
 #money{margin-left:auto;margin-right:16px;color:#a7edc1;font-size:16px;font-weight:bold;white-space:nowrap;background:#100b25c0;border:1px solid #a7edc166;padding:8px}#pace{margin-right:16px}
+
+/* Workbench needs the whole screen and direct touch dragging. */
+#game.amigos canvas{touch-action:none}
+#game.amigos header,#game.amigos footer,#game.amigos #touch,#game.amigos .scanlines{display:none}
+
+#game.amigos.amigos-pointer canvas{cursor:none}
+
+.amigos-shell-input{position:absolute;z-index:2;box-sizing:border-box;margin:0;border:1px solid #555;border-radius:0;padding:1px 3px;background:#fff;color:#000;font-family:monospace;font-weight:bold;outline:none;touch-action:manipulation}

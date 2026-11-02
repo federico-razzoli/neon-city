@@ -4886,7 +4886,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.deepEqual({x:player.x,z:player.z},standing,'Ping holds the player in place');
   sandbox.game.ping.over=true;press();assert.equal(sandbox.game.ping,null,'Space leaves GAME OVER');
   assert.equal(disposals,1,'leaving the cabinet disposes its runtime');
-  const other=arcadeInterior.ARCADE.cabinets[8];
+  const other=arcadeInterior.ARCADE.cabinets[0];
   Object.assign(player,{x:other.x+.75,z:other.z-.8,angle:0});press();
   assert.equal(element('#message').textContent,'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(sandbox.game.inventory.current.count,1,'unavailable games keep the token');
