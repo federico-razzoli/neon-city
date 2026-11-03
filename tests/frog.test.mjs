@@ -15,13 +15,25 @@ test('Frog is adjacent to Ping and consumes exactly one token',()=>{
   assert.equal(tryArcadeGame(ARCADE.cabinets[0],inventory),'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(inventory.current.count,1);
 });
-test('Frog hops on a grid, scores forward progress and limits repeat input',()=>{
+test('Frog only hops forward; sideways and backward controls do nothing',()=>{
   const frog=new Frog();frog.cooldown=0;
-  frog.update(.016,0,1);assert.equal(frog.x,340);assert.equal(frog.row,11);
-  frog.update(.016,0,1);assert.equal(frog.x,340);
-  frog.cooldown=0;frog.hop(0,-1);assert.equal(frog.row,10);assert.equal(frog.score,10);
-  frog.cooldown=0;frog.hop(0,1);frog.cooldown=0;frog.hop(0,-1);assert.equal(frog.score,10);
-  frog.row=11;frog.x=20;frog.cooldown=0;frog.hop(-1,0);assert.equal(frog.x,20);
+  for(const [vertical,horizontal] of [[0,1],[0,-1],[1,0]])frog.update(.016,vertical,horizontal);
+  assert.equal(frog.x,300);assert.equal(frog.row,11);
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[1,-1],[0,-2]])frog.hop(dx,dy);
+  assert.equal(frog.x,300);assert.equal(frog.row,11);
+  frog.hop(0,-1);assert.equal(frog.row,10);assert.equal(frog.score,10);
+  frog.hop(0,-1);assert.equal(frog.row,10,'keyboard hop cooldown still applies');
+});
+test('each tap advances once without creating held input; taps can restart a crossing',()=>{
+  const frog=new Frog();frog.lanes=[];
+  frog.tap();assert.equal(frog.row,10);assert.equal(frog.x,300);
+  frog.update(.2);assert.equal(frog.row,10,'holding the pointer does not repeat');
+  frog.tap();assert.equal(frog.row,9);
+  frog.tap();assert.equal(frog.row,8);
+  frog.row=1;frog.tap();assert.equal(frog.crossed,true);
+  frog.tap();assert.equal(frog.crossed,false);assert.equal(frog.row,11);
+  frog.delay=.5;frog.tap();assert.equal(frog.row,11,'respawn delay still applies');
+  frog.delay=0;frog.over=true;frog.tap();assert.equal(frog.row,11);
 });
 test('cars, water, drifting offscreen and expired time each cost one life',()=>{
   for(const cause of ['car','water','edge','time']){

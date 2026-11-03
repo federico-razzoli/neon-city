@@ -1,5 +1,5 @@
 // Grog: cross traffic and ride wooden platforms to the far bank.
-const WIDTH=640,TOP=40,CELL=40,ROW=24;
+const WIDTH=640,TOP=40,ROW=24;
 const wrap=(value,size)=>((value%size)+size)%size;
 export class Frog{
   kind='frog';lives=3;score=0;level=1;over=false;crossed=false;restartIn=0;time=40;cooldown=0;delay=0;
@@ -28,15 +28,19 @@ export class Frog{
     else{this.reset();this.delay=.65;}
   }
   hop(dx,dy){
-    if(this.over||this.crossed||this.delay>0||this.cooldown>0)return;
+    if(dx!==0||dy!==-1||this.over||this.crossed||this.delay>0||this.cooldown>0)return;
     this.cooldown=.15;
-    this.x=Math.max(20,Math.min(620,this.x+dx*CELL));
-    this.row=Math.max(0,Math.min(11,this.row+dy));
+    this.row=Math.max(0,this.row-1);
     if(this.row<this.furthest){this.score+=10;this.furthest=this.row;}
     if(this.row===0){
       this.score+=100+Math.ceil(this.time);
       this.crossed=true;this.restartIn=5;
     }
+  }
+  tap(){
+    if(this.crossed){this.continueCrossing();return;}
+    if(this.over||this.delay>0)return;
+    this.cooldown=0;this.hop(0,-1);
   }
   continueCrossing(){
     if(!this.crossed)return;
@@ -57,7 +61,7 @@ export class Frog{
     this.cooldown=Math.max(0,this.cooldown-dt);
     if(this.delay>0){this.delay=Math.max(0,this.delay-dt);return;}
     this.time-=dt;if(this.time<=0){this.die();return;}
-    if(vertical||horizontal)this.hop(vertical?0:horizontal,vertical);
+    if(vertical<0)this.hop(0,-1);
     if(this.over||this.crossed||this.delay>0)return;
     const lane=this.lanes.find(l=>l.row===this.row);
     if(!lane)return;
@@ -98,7 +102,7 @@ export class Frog{
       if(!lane.water){ctx.fillStyle='#111827';for(const off of [7,lane.length-14]){ctx.fillRect(x+off,y+1,7,3);ctx.fillRect(x+off,y+20,7,3);}}
     }
     if(!this.delay||Math.floor(this.delay*12)%2)frog(this.x,TOP+this.row*ROW+12);
-    ctx.fillStyle='#b6f780';ctx.font='11px monospace';ctx.fillText(`TIME ${Math.ceil(this.time)} · LEVEL ${this.level} · ↑ ↓ ← → / W A S D · ESC LEAVE`,320,349);
+    ctx.fillStyle='#b6f780';ctx.font='11px monospace';ctx.fillText(`TIME ${Math.ceil(this.time)} · LEVEL ${this.level} · ↑ / W / TAP FORWARD · ESC LEAVE`,320,349);
     ctx.textAlign='start';
   }
 }

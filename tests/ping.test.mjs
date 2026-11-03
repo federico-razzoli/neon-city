@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Ping} from '../neon-city/ping.js';
-import {ARCADE,PING_CABINET,facingArcadeGame,tryArcadeGame} from '../neon-city/arcade-interior.js';
+import {ARCADE,SUPER_CABINET,PING_CABINET,facingArcadeGame,tryArcadeGame} from '../neon-city/arcade-interior.js';
 import {Inventory,arcadeTokens,PINE_CONE} from '../neon-city/inventory.js';
 
 test('the nearest row leftmost cabinet is Ping; games require tokens, only Ping charges',()=>{
@@ -9,7 +9,7 @@ test('the nearest row leftmost cabinet is Ping; games require tokens, only Ping 
   assert.equal(PING_CABINET.x,Math.min(...ARCADE.cabinets.filter(b=>b.z===PING_CABINET.z).map(b=>b.x)));
   const inventory=new Inventory();
   for(const machine of [...ARCADE.cabinets,...ARCADE.pinballs,ARCADE.bridgeConsole]){
-    assert.equal(tryArcadeGame(machine,inventory),'TO PLAY GAMES YOU NEED TOKENS.');
+    assert.equal(tryArcadeGame(machine,inventory),machine===SUPER_CABINET?'SUPER':'TO PLAY GAMES YOU NEED TOKENS.');
   }
   inventory.take(PINE_CONE);inventory.take(arcadeTokens(2));inventory.selected=1;
   assert.equal(tryArcadeGame(ARCADE.cabinets[0],inventory),'THIS GAME IS NOT AVAILABLE YET.');

@@ -4897,7 +4897,10 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   for(let i=0;i<10;i++)tick(ms+=20);
   const frogX=sandbox.game.ping.x;
   events.keydown(arrow('ArrowRight'));tick(ms+=20);events.keyup(arrow('ArrowRight'));
-  assert.equal(sandbox.game.ping.x,frogX+40,'right arrow hops in Frog');
+  assert.equal(sandbox.game.ping.x,frogX,'right arrow cannot move Grog sideways');
+  sandbox.game.ping.cooldown=0;
+  events.pointerdown({preventDefault(){},stopImmediatePropagation(){}});
+  assert.equal(sandbox.game.ping.row,10,'a screen tap advances Grog exactly one row');
   const grog=sandbox.game.ping;grog.cooldown=0;grog.row=1;grog.hop(0,-1);
   assert.equal(grog.crossed,true);tick(ms+=20);
   for(const shortcut of [{key:'r',ctrlKey:true},{key:'r',metaKey:true},{key:'F5'}]){

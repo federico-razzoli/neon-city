@@ -41,6 +41,7 @@ export function facingArcadeDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
+export const SUPER_CABINET=ARCADE.cabinets[3];
 export const METEORS_CABINET=ARCADE.cabinets[4];
 export const PING_CABINET=ARCADE.cabinets[5];
 export const FROG_CABINET=ARCADE.cabinets[6];
@@ -52,6 +53,7 @@ export function facingArcadeGame(player){
   return facingNearest(player,targets)?.machine??null;
 }
 export function tryArcadeGame(machine,inventory,consume=true){
+  if(machine===SUPER_CABINET)return 'SUPER';
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
   if(machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
@@ -104,7 +106,7 @@ export function moveInArcade(player,dx,dz){
 }
 // The black shell catches more light where it curves away at the sides.
 const SHELL_SHADES=['#121318','#14151b','#18191f','#1e1f26','#25272f','#2d2f38'];
-const FONT={M:['101','111','111','101','101'],Y:['101','101','010','010','010'],F:['111','100','110','100','100'],R:['110','101','110','101','101'],P:['110','101','110','100','100'],A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
+const FONT={U:['101','101','101','101','111'],M:['101','111','111','101','101'],Y:['101','101','010','010','010'],F:['111','100','110','100','100'],R:['110','101','110','101','101'],P:['110','101','110','100','100'],A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
 export function drawArcadeInterior({face,quad,box}){
   const panel=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   const label=(word,x,y,z,s,color,direction=1)=>{
@@ -138,7 +140,12 @@ export function drawArcadeInterior({face,quad,box}){
     box(x,2.32,z+.32,w,.32,1.18,c);panel(x+.13,2.39,z+.31,w-.26,.16,'#fff0b0');
     panel(x+.13,1.4,z+.365,w-.26,.79,'#080e24');
     // Ping occupies the leftmost cabinet in the row nearest the door.
-    if(b===METEORS_CABINET){
+    if(b===SUPER_CABINET){
+      label('SUPER',x+.4,2.4,z+.30,.035,'#14263c');
+      panel(x+.13,1.4,z+.35,w-.26,.79,'#0000aa');
+      panel(x+.62,2.04,z+.34,.26,.055,'#c0c0c0');
+      for(let j=0;j<5;j++)panel(x+.23,1.91-j*.075,z+.34,j===4?.58:.98,.016,'#fff');
+    }else if(b===METEORS_CABINET){
       label('METEORS',x+.26,2.4,z+.30,.035,'#14263c');
       for(const [a,t] of [[.3,1.9],[1.05,1.6],[.95,2.02]]){
         panel(x+a,t,z+.35,.13,.04,'#adc9d3');panel(x+a-.025,t+.04,z+.35,.04,.09,'#adc9d3');panel(x+a+.12,t+.04,z+.35,.04,.09,'#adc9d3');panel(x+a,t+.13,z+.35,.13,.04,'#adc9d3');
