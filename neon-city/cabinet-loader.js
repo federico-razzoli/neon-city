@@ -16,7 +16,7 @@ export function loadCabinetGame(name,doc=document){
     frame.onerror=()=>{clearTimeout(timeout);disposed=true;remove();reject(new Error('Cabinet failed to load'));};
   });
   const timeout=setTimeout(()=>{disposed=true;remove();rejectReady(new Error('Cabinet loading timed out'));},15000);
-  frame.src=new URL('./cabinet-runtime.html?v=meteors-2',import.meta.url).href;
+  frame.src=new URL('./cabinet-runtime.html?v=meteors-3',import.meta.url).href;
   doc.body.append(frame);
   return {ready,dispose(){
     if(disposed)return;

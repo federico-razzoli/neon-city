@@ -1,9 +1,10 @@
 // Vector space shooter. Each token buys exactly three lives.
 const W=640,H=302,TOP=32;
+const ROCK_COLOURS=['#ffb86b','#81cfff','#ff82b2','#c2a0ff','#f4df78','#98e6ab'];
 const wrap=(n,size)=>(n%size+size)%size;
 const distance=(a,b)=>Math.hypot(Math.min(Math.abs(a.x-b.x),W-Math.abs(a.x-b.x)),Math.min(Math.abs(a.y-b.y),H-Math.abs(a.y-b.y)));
 export class Meteors{
-  kind='meteors';width=640;height=360;lives=3;score=0;level=0;over=false;rocks=[];bullets=[];cooldown=0;explosion=null;
+  kind='meteors';width=640;height=360;lives=3;score=0;level=0;over=false;rocks=[];bullets=[];cooldown=0;explosion=null;nextRockColour=0;
   constructor(random=Math.random){this.random=random;this.respawn();this.nextWave();}
   respawn(){this.ship={x:W/2,y:H/2,vx:0,vy:0,angle:-Math.PI/2};this.invulnerable=2.5;this.bullets=[];}
   hit(){
@@ -27,7 +28,7 @@ export class Meteors{
   }
   rock(x,y,size){
     const angle=this.random()*Math.PI*2,speed=30+this.level*6+(3-size)*20;
-    return {x,y,size,radius:size*10+4,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,angle,spin:this.random()-.5,shape:Array.from({length:10},()=>.72+this.random()*.28)};
+    return {x,y,size,colour:ROCK_COLOURS[this.nextRockColour++%ROCK_COLOURS.length],radius:size*10+4,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,angle,spin:this.random()-.5,shape:Array.from({length:10},()=>.72+this.random()*.28)};
   }
   nextWave(){
     this.level++;
@@ -88,9 +89,9 @@ export class Meteors{
     ctx.save();ctx.beginPath();ctx.rect(0,TOP,W,H);ctx.clip();ctx.translate(0,TOP);ctx.lineWidth=1.5;
     // Repeat edge copies so objects cross the screen without popping.
     for(const dx of [-W,0,W])for(const dy of [-H,0,H]){
-      ctx.save();ctx.translate(dx,dy);ctx.strokeStyle='#adc9d3';
+      ctx.save();ctx.translate(dx,dy);
       for(const r of this.rocks){
-        ctx.beginPath();r.shape.forEach((length,i)=>{const a=r.angle+i*Math.PI/5,x=r.x+Math.cos(a)*r.radius*length,y=r.y+Math.sin(a)*r.radius*length;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.stroke();
+        ctx.strokeStyle=r.colour;ctx.beginPath();r.shape.forEach((length,i)=>{const a=r.angle+i*Math.PI/5,x=r.x+Math.cos(a)*r.radius*length,y=r.y+Math.sin(a)*r.radius*length;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.stroke();
       }
       ctx.fillStyle='#fff4ce';for(const b of this.bullets)ctx.fillRect(b.x-1.5,b.y-1.5,3,3);
       if(this.explosion){
