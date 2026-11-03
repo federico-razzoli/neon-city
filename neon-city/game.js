@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {loadCabinetGame} from './cabinet-loader.js?v=punch-2';
+import {loadCabinetGame} from './cabinet-loader.js?v=ghost-4';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
@@ -26,7 +26,7 @@ import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=arcade-tokens-2';
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
-import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=punch-2';
+import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=ghost-4';
 import {ArcadeLife} from './arcade-life.js?v=arcade-visitors-3';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
@@ -77,6 +77,7 @@ function closeCabinet(){
   ping?.dispose?.();
   document.querySelector('#game').classList.toggle('amigos',false);
   document.querySelector('#game').classList.toggle('punch',false);
+  document.querySelector('#game').classList.toggle('ghost',false);
   document.querySelector('#game').classList.toggle('amigos-pointer',false);
   ping=null;
   cabinetSession?.dispose();cabinetSession=null;
@@ -95,7 +96,7 @@ async function playCabinet(name,machine){
     const reply=tryArcadeGame(machine,inventory);
     if(reply!==name){closeCabinet();notice=3.5;noticeText=reply;return;}
     game.audioContext=audioContext;
-    ping=game;document.querySelector('#game').classList.toggle('punch',game.kind==='punch');document.querySelector('#game').classList.toggle('amigos',game.kind==='amigos');keys.clear();canvas.focus();
+    ping=game;document.querySelector('#game').classList.toggle('ghost',game.kind==='ghost');document.querySelector('#game').classList.toggle('punch',game.kind==='punch');document.querySelector('#game').classList.toggle('amigos',game.kind==='amigos');keys.clear();canvas.focus();
   }catch(error){
     if(cabinetSession!==session)return;
     closeCabinet();notice=3.5;noticeText='THIS GAME COULD NOT BE LOADED. PLEASE TRY AGAIN.';
@@ -912,6 +913,13 @@ hotelEventPresses=0;hotelEventKey=null;
 if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}
 if(ping){
   if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(ping.kind==='ghost'){
+    if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d',' ','Escape'].includes(k))return;
+    e.preventDefault();
+    if(k==='Escape'||ping.over&&k===' '&&!e.repeat){closeCabinet();startSpaceHeld=k===' ';canvas.focus();}
+    else if(running&&!e.repeat)ping.keyDown(k);
+    return;
+  }
   if(ping.kind==='punch'){
     if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d','z','x',' ','Escape'].includes(k))return;
     e.preventDefault();
@@ -1007,7 +1015,7 @@ if(running){
     }
     return;
   }
-  if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){notice=2.5;noticeText=pickedUp;return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){if(arcadeLife?.occupied(machine)){notice=2.5;noticeText='SOMEONE IS ALREADY PLAYING THIS CABINET.';return;}const reply=tryArcadeGame(machine,inventory,false);if(reply==='PUNCH'||reply==='PING'||reply==='GROG'||reply==='KONGY KONG'||reply==='AMIGOS'||reply==='METEORS'||reply==='SUPER'){playCabinet(reply,machine);}else{notice=3.5;noticeText=reply;}return;}}if(useSeat())return;if(useDoor())return;if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(!arcadeLife?.deskBusy&&facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player,hotelLife.guest()?.receptionWait>0,currentHotel);if(reply){notice=2.5;noticeText=reply;}else if(!(hotelLife.guest()?.receptionWait>0)&&facingReceptionistAcrossDesk(player,currentHotel))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){const tapReply=pubTapReply(player);if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,currentVenue.barBeer??PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(tapReply){notice=2.5;noticeText=tapReply;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
+  if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){notice=2.5;noticeText=pickedUp;return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){if(arcadeLife?.occupied(machine)){notice=2.5;noticeText='SOMEONE IS ALREADY PLAYING THIS CABINET.';return;}const reply=tryArcadeGame(machine,inventory,false);if(reply==='GHOST'||reply==='PUNCH'||reply==='PING'||reply==='GROG'||reply==='KONGY KONG'||reply==='AMIGOS'||reply==='METEORS'||reply==='SUPER'){playCabinet(reply,machine);}else{notice=3.5;noticeText=reply;}return;}}if(useSeat())return;if(useDoor())return;if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(!arcadeLife?.deskBusy&&facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(hasPokeBall(currentHotel.receptionist)&&facingPokeBall(player,HOTEL.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;return;}if(facingHotelLamp(player)){const complaint=switchHotelLamp(currentHotel);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player,hotelLife.guest()?.receptionWait>0,currentHotel);if(reply){notice=2.5;noticeText=reply;}else if(!(hotelLife.guest()?.receptionWait>0)&&facingReceptionistAcrossDesk(player,currentHotel))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){const tapReply=pubTapReply(player);if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(hasPokeBall(bartenderType)&&facingPokeBall(player,PUB.pokeBall)){notice=2.5;noticeText=POKE_BALL_REPLY;}else if(facingPokeBall(player,currentVenue.barBeer??PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(tapReply){notice=2.5;noticeText=tapReply;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
   keys.add(k);syncShift(e);
 }});
 function syncShift(e){
@@ -1036,8 +1044,8 @@ function amigosPointer(e,type){
   if(ping.exitRequested)closeCabinet();
   return true;
 }
-function punchPointer(e,type){
-  if(!running||ping?.kind!=='punch')return;
+function cabinetPointer(e,type){
+  if(!running||!['punch','ghost'].includes(ping?.kind))return;
   e.preventDefault();
   if(type==='down'){
     if(ping.over){closeCabinet();return;}
@@ -1046,7 +1054,7 @@ function punchPointer(e,type){
   const r=canvas.getBoundingClientRect();
   ping.pointer(type,(e.clientX-r.left)*640/r.width,(e.clientY-r.top)*360/r.height);
 }
-for(const [event,type] of [['pointerdown','down'],['pointerup','up'],['pointercancel','cancel']])canvas.addEventListener(event,e=>punchPointer(e,type));
+for(const [event,type] of [['pointerdown','down'],['pointerup','up'],['pointercancel','cancel']])canvas.addEventListener(event,e=>cabinetPointer(e,type));
 canvas.addEventListener('pointermove',e=>amigosPointer(e,'move'));
 canvas.addEventListener('pointercancel',e=>amigosPointer(e,'cancel'));
 canvas.addEventListener('pointerup',e=>amigosPointer(e,'up'));

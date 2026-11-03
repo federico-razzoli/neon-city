@@ -46,3 +46,6 @@ If not, see <https://www.gnu.org/licenses/>.
 #game.punch header,#game.punch footer,#game.punch #touch{display:none}
 
 #game.punch canvas{touch-action:none}
+
+#game.ghost header,#game.ghost footer,#game.ghost #touch{display:none}
+#game.ghost canvas{touch-action:none}
