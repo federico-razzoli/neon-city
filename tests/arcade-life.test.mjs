@@ -20,6 +20,38 @@ test('first entry is 5–10 seconds; visitor walks to desk, talks five seconds, 
     stepUntil(life,()=>p.state==='playing');assert.ok(p.wait>=5&&p.wait<=10);assert.ok(life.occupied(p.machine));
   }
 });
+test('departures restart the arrival delay at 5–10 seconds and exclude the last departing character',()=>{
+  for(const value of [0,.5,.999])for(const type of ARCADE_VISITOR_TYPES){
+    const life=new ArcadeLife(()=>value);
+    const others=ARCADE_VISITOR_TYPES.filter(t=>t!==type).slice(0,2);
+    const p={type,state:'to-exit',x:ARCADE.door.x,z:.51,route:[{x:ARCADE.door.x,z:.5}],walkTime:0};
+    life.people=[p,...others.map((t,i)=>playing(t,ARCADE.cabinets[i],100))];
+    life.arrival=-100;
+    life.update(.1);
+    assert.equal(life.people.length,2);
+    assert.equal(life.lastDepartedType,type);
+    assert.equal(life.arrival,5+value*5,'delay starts when the visitor actually exits');
+    life.update(life.arrival-.01);assert.equal(life.people.length,2);
+    life.update(.02);assert.equal(life.people.length,3);
+    const entrant=life.people.find(person=>person.state==='to-desk');
+    assert.ok(entrant);
+    assert.notEqual(entrant.type,type);
+    assert.ok(!others.includes(entrant.type));
+    assert.equal(life.people.filter(person=>person.state!=='playing'&&person.state!=='desk').length,1);
+  }
+});
+test('an expired post-departure delay still waits for the active visitor',()=>{
+  const life=new ArcadeLife(()=>0);
+  life.lastDepartedType=14;life.arrival=5;
+  const p=playing(15,ARCADE.cabinets[0]);
+  p.state='desk';p.wait=100;life.people=[p];
+  life.update(6);
+  assert.equal(life.people.length,1);
+  p.state='playing';p.wait=100;
+  life.update(.01);
+  assert.equal(life.people.length,2);
+  assert.notEqual(life.people[1].type,14);
+});
 test('all cabinet routes avoid furniture, chairs and the attendant',()=>{
   const start={x:ARCADE.attendant.x,z:ARCADE.desk.z-.85};
   for(const machine of ARCADE.cabinets){

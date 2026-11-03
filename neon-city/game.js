@@ -27,7 +27,7 @@ import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} fro
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=arcade-visitors-1';
-import {ArcadeLife} from './arcade-life.js?v=arcade-visitors-2';
+import {ArcadeLife} from './arcade-life.js?v=arcade-visitors-3';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';

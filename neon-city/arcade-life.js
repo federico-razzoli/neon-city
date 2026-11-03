@@ -61,7 +61,7 @@ export function arcadeRoute(start,end,people=[]){
 }
 
 export class ArcadeLife{
-  constructor(random=Math.random){this.random=random;this.people=[];this.arrival=5+random()*5;}
+  constructor(random=Math.random){this.random=random;this.people=[];this.arrival=5+random()*5;this.lastDepartedType=null;}
   get busy(){return this.people.some(p=>p.state!=='playing');}
   get deskBusy(){return this.people.some(p=>p.state==='desk');}
   occupied(machine){return this.people.some(p=>p.machine===machine);}
@@ -106,7 +106,11 @@ export class ArcadeLife{
         }
         if(!p.route.length){
           p.walkTime=1/6;
-          if(p.state==='to-exit'){this.people.splice(this.people.indexOf(p),1);}
+          if(p.state==='to-exit'){
+            this.people.splice(this.people.indexOf(p),1);
+            this.lastDepartedType=p.type;
+            this.arrival=5+this.random()*5;
+          }
           else if(p.state==='to-desk'){p.state='desk';p.wait=5;p.facingX=0;p.facingZ=1;}
           else{p.state='playing';p.wait=5+this.random()*5;p.facingX=0;p.facingZ=1;}
         }
@@ -115,7 +119,7 @@ export class ArcadeLife{
     }
     if(this.arrival<=0&&this.people.length<3){
       if(player&&Math.hypot(player.x-entrance.x,player.z-entrance.z)<.6)return;
-      const types=ARCADE_VISITOR_TYPES.filter(type=>!this.people.some(p=>p.type===type));
+      const types=ARCADE_VISITOR_TYPES.filter(type=>type!==this.lastDepartedType&&!this.people.some(p=>p.type===type));
       const p={...entrance,type:types[Math.floor(this.random()*types.length)],variant:this.random(),walkTime:0,facingX:0,facingZ:1};
       if(!this.travel(p,'to-desk',desk))return;
       this.people.push(p);this.arrival=this.delay();return;
