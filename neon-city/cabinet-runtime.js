@@ -1,6 +1,7 @@
 // This script and the selected game live only in the disposable cabinet frame.
 window.createCabinetGame=async name=>{
   switch(name){
+    case 'PUNCH':{const {Punch}=await import('./punch.js?v=2');return new Punch();}
     case 'SUPER':{const {Super}=await import('./super.js?v=1');return new Super();}
     case 'METEORS':{const {Meteors}=await import('./meteors.js?v=3');return new Meteors();}
     case 'AMIGOS':{const {Amigos}=await import('./amigos.js?v=1');return new Amigos();}

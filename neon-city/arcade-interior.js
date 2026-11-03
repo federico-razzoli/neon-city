@@ -41,6 +41,7 @@ export function facingArcadeDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
+export const PUNCH_CABINET=ARCADE.cabinets[2];
 export const SUPER_CABINET=ARCADE.cabinets[3];
 export const METEORS_CABINET=ARCADE.cabinets[4];
 export const PING_CABINET=ARCADE.cabinets[5];
@@ -56,12 +57,12 @@ export function tryArcadeGame(machine,inventory,consume=true){
   if(machine===SUPER_CABINET)return 'SUPER';
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
-  if(machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
+  if(machine!==PUNCH_CABINET&&machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
   if(consume&&--tokens.count===0){
     inventory.items.splice(inventory.items.indexOf(tokens),1);
     inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   }
-  return machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
+  return machine===PUNCH_CABINET?'PUNCH':machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
 }
 // Token purchases share the staff dialogue's block and answer sequencing.
 export function arcadeTalk(wallet,inventory){
@@ -141,7 +142,14 @@ export function drawArcadeInterior({face,quad,box}){
     box(x,2.32,z+.32,w,.32,1.18,c);panel(x+.13,2.39,z+.31,w-.26,.16,'#fff0b0');
     panel(x+.13,1.4,z+.365,w-.26,.79,'#080e24');
     // Ping occupies the leftmost cabinet in the row nearest the door.
-    if(b===SUPER_CABINET){
+    if(b===PUNCH_CABINET){
+      label('PUNCH',x+.36,2.4,z+.30,.035,'#14263c');
+      for(const y of [1.52,1.7,1.88])panel(x+.2,y,z+.35,1.1,.025,'#ddd3bd');
+      panel(x+.63,1.65,z+.34,.25,.32,'#c88a60');
+      panel(x+.66,1.95,z+.34,.18,.16,'#c88a60');
+      for(const dx of [.44,.9])panel(x+dx,1.85,z+.33,.17,.16,'#e64b65');
+      panel(x+.62,1.58,z+.33,.27,.12,'#6654ba');
+    }else if(b===SUPER_CABINET){
       label('SUPER',x+.4,2.4,z+.30,.035,'#14263c');
       panel(x+.13,1.4,z+.35,w-.26,.79,'#0000aa');
       panel(x+.62,2.04,z+.34,.26,.055,'#c0c0c0');
