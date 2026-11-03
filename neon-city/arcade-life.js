@@ -4,7 +4,16 @@ export const ARCADE_VISITOR_TYPES=[14,15,4,0];
 const entrance={x:ARCADE.door.x,z:.5};
 const desk={x:ARCADE.attendant.x,z:ARCADE.desk.z-.85};
 const cabinetSpot=b=>({x:b.x+b.w/2,z:b.z-.7});
-const obstacles=[ARCADE.bridgeConsole,ARCADE.desk,...ARCADE.cabinets,...ARCADE.pinballs];
+// Visitors go around cabinet rows instead of squeezing between adjacent games.
+const cabinetRows=[];
+for(const cabinet of ARCADE.cabinets){
+  const row=cabinetRows.find(b=>b.z===cabinet.z);
+  if(row){
+    const right=Math.max(row.x+row.w,cabinet.x+cabinet.w);
+    row.x=Math.min(row.x,cabinet.x);row.w=right-row.x;row.d=Math.max(row.d,cabinet.d);
+  }else cabinetRows.push({...cabinet});
+}
+const obstacles=[ARCADE.bridgeConsole,ARCADE.desk,...cabinetRows,...ARCADE.pinballs];
 export function arcadeWalkable(p,people=[]){
   const r=.3;
   return p.x>=r&&p.x<=ARCADE.width-r&&p.z>=r&&p.z<=ARCADE.depth-r&&

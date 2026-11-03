@@ -32,6 +32,29 @@ test('all cabinet routes avoid furniture, chairs and the attendant',()=>{
     }
   }
 });
+test('visitors route around cabinet rows rather than through the gaps',()=>{
+  for(const [i,left] of ARCADE.cabinets.entries()){
+    const right=ARCADE.cabinets[i+1];
+    if(!right||right.z!==left.z)continue;
+    const x=(left.x+left.w+right.x)/2;
+    assert.equal(arcadeWalkable({x,z:left.z+left.d/2}),false);
+    if(left.z+left.d+.4>ARCADE.depth-.3)continue; // The back row meets the wall.
+    const start={x,z:left.z-.7},end={x,z:left.z+left.d+.4};
+    const route=arcadeRoute(start,end);assert.ok(route,'both sides of the row remain reachable');
+    const row=ARCADE.cabinets.filter(b=>b.z===left.z);
+    const minX=Math.min(...row.map(b=>b.x))-.3,maxX=Math.max(...row.map(b=>b.x+b.w))+.3;
+    let a=start;
+    for(const b of route){
+      const n=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.025);
+      for(let j=0;j<=n;j++){
+        const p={x:a.x+(b.x-a.x)*j/n,z:a.z+(b.z-a.z)*j/n};
+        if(p.z>left.z-.3&&p.z<left.z+left.d+.3)
+          assert.ok(p.x<=minX||p.x>=maxX,'cross the row only beyond its ends');
+      }
+      a=b;
+    }
+  }
+});
 test('post-game decisions use 35% exit, 15% desk, 50% another cabinet',()=>{
   for(const [value,state] of [[0,'to-exit'],[.3499,'to-exit'],[.35,'to-desk'],[.4999,'to-desk'],[.5,'to-cabinet'],[.999,'to-cabinet']]){
     const life=new ArcadeLife(()=>value);life.arrival=100;
