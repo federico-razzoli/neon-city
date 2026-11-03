@@ -49,3 +49,6 @@ If not, see <https://www.gnu.org/licenses/>.
 
 #game.ghost header,#game.ghost footer,#game.ghost #touch{display:none}
 #game.ghost canvas{touch-action:none}
+
+#game.byker header,#game.byker footer,#game.byker .scanlines{display:none}
+#game.byker canvas{image-rendering:auto}

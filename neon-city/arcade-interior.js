@@ -41,6 +41,7 @@ export function facingArcadeDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
+export const BYKER_CABINET=ARCADE.cabinets[0];
 export const GHOST_CABINET=ARCADE.cabinets[1];
 export const PUNCH_CABINET=ARCADE.cabinets[2];
 export const SUPER_CABINET=ARCADE.cabinets[3];
@@ -58,12 +59,12 @@ export function tryArcadeGame(machine,inventory,consume=true){
   if(machine===SUPER_CABINET)return 'SUPER';
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
-  if(machine!==GHOST_CABINET&&machine!==PUNCH_CABINET&&machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
+  if(machine!==BYKER_CABINET&&machine!==GHOST_CABINET&&machine!==PUNCH_CABINET&&machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
   if(consume&&--tokens.count===0){
     inventory.items.splice(inventory.items.indexOf(tokens),1);
     inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   }
-  return machine===GHOST_CABINET?'GHOST':machine===PUNCH_CABINET?'PUNCH':machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
+  return machine===BYKER_CABINET?'BYKER':machine===GHOST_CABINET?'GHOST':machine===PUNCH_CABINET?'PUNCH':machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
 }
 // Token purchases share the staff dialogue's block and answer sequencing.
 export function arcadeTalk(wallet,inventory){
@@ -109,7 +110,7 @@ export function moveInArcade(player,dx,dz,people=[]){
 }
 // The black shell catches more light where it curves away at the sides.
 const SHELL_SHADES=['#121318','#14151b','#18191f','#1e1f26','#25272f','#2d2f38'];
-const FONT={U:['101','101','101','101','111'],M:['101','111','111','101','101'],Y:['101','101','010','010','010'],F:['111','100','110','100','100'],R:['110','101','110','101','101'],P:['110','101','110','100','100'],A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
+const FONT={B:['110','101','110','101','110'],U:['101','101','101','101','111'],M:['101','111','111','101','101'],Y:['101','101','010','010','010'],F:['111','100','110','100','100'],R:['110','101','110','101','101'],P:['110','101','110','100','100'],A:['010','101','111','101','101'],C:['111','100','100','100','111'],H:['101','101','111','101','101'],N:['1001','1101','1011','1001','1001'],G:['111','100','101','101','111'],E:['111','100','110','100','111'],K:['101','101','110','101','101'],O:['111','101','101','101','111'],S:['111','100','111','001','111'],X:['101','101','010','101','101'],I:['111','010','010','010','111'],T:['111','010','010','010','010']};
 export function drawArcadeInterior({face,quad,box}){
   const panel=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   const label=(word,x,y,z,s,color,direction=1)=>{
@@ -151,6 +152,12 @@ export function drawArcadeInterior({face,quad,box}){
       for(const dx of [.68,.77])panel(x+dx,1.94,z+.33,.035,.04,'#10192a');
       for(const [j,col] of ['#ff5669','#ff9fce','#58e4ed','#ffb45c'].entries())panel(x+.38+j*.19,1.59,z+.34,.1,.1,col);
       panel(x+.31,1.91,z+.34,.08,.08,'#86f4bd');
+    }else if(b===BYKER_CABINET){
+      label('BYKER',x+.4,2.4,z+.30,.035,'#14263c');
+      panel(x+.2,1.45,z+.35,1.1,.7,'#79cdd6');
+      panel(x+.5,1.45,z+.34,.5,.5,'#3b4a57');
+      panel(x+.7,1.5,z+.33,.12,.25,'#ff795e');
+      panel(x+.7,1.75,z+.33,.12,.12,'#eaf4de');
     }else if(b===PUNCH_CABINET){
       label('PUNCH',x+.36,2.4,z+.30,.035,'#14263c');
       for(const y of [1.52,1.7,1.88])panel(x+.2,y,z+.35,1.1,.025,'#ddd3bd');
