@@ -93,11 +93,12 @@ export function arcadeReply(player){
   const thing=facingNearest(player,behind?[attendant,...deskThings]:deskThings);
   return thing===attendant?BARTENDER_REPLY:thing?DESK_THING_REPLY:null;
 }
-export function moveInArcade(player,dx,dz){
+export function moveInArcade(player,dx,dz,people=[]){
   const r=.3,obstacles=[ARCADE.bridgeConsole,ARCADE.desk,...ARCADE.cabinets,...ARCADE.pinballs];
   const clear=(x,z)=>x>=r&&x<=ARCADE.width-r&&z>=r&&z<=ARCADE.depth-r&&
     !obstacles.some(b=>x>b.x-r&&x<b.x+b.w+r&&z>b.z-r&&z<b.z+b.d+r)&&
-    [ARCADE.attendant,...ARCADE.bridgeChairs].every(c=>Math.hypot(x-c.x,z-c.z)>=r+c.radius);
+    [ARCADE.attendant,...ARCADE.bridgeChairs].every(c=>Math.hypot(x-c.x,z-c.z)>=r+c.radius)&&
+    people.every(c=>Math.hypot(x-c.x,z-c.z)>=.6);
   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
   for(let i=0;i<count;i++){
     if(dx&&clear(player.x+dx/count,player.z))player.x+=dx/count;

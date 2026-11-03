@@ -4827,7 +4827,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/kongy-kong.js'),...await import('../neon-city/frog.js'),...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
+  const sandbox={...await import('../neon-city/kongy-kong.js'),...await import('../neon-city/frog.js'),...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,...await import('../neon-city/arcade-life.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
     ...await import('../neon-city/walker-talk.js'),arcadeName:()=>'ARCADIA',
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
@@ -4837,7 +4837,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get ping(){return ping;}};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get arcadeLife(){return arcadeLife;},get staffTalk(){return staffTalk;},get ping(){return ping;}};",sandbox);
   let loads=0,disposals=0,failNext=false;
   sandbox.loadCabinetGame=name=>{
     loads++;
@@ -4852,6 +4852,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   press();// starts the game
   Object.assign(player,{x:23,z:12.5,angle:0});press();
   assert.equal(element('#location').textContent,'ARCADIA');
+  const life=sandbox.game.arcadeLife;assert.ok(life.arrival>=5&&life.arrival<=10);life.arrival=Infinity;
   const chair=arcadeInterior.ARCADE.bridgeChairs[1];
   assert.equal(arcadeInterior.facingArcadeSeat({x:chair.x,z:3.2,angle:0}),null,'turned away');
   Object.assign(player,{x:chair.x,z:3.2,angle:Math.PI});press();
@@ -4952,6 +4953,21 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.equal(sandbox.game.ping,null,'cancelled load cannot reopen the game');
   assert.equal(sandbox.game.inventory.current.count,1,'cancelled loading does not charge');
   assert.equal(disposals,5);
+  const visitor={type:14,x:14.5,z:12.95,state:'desk',wait:5,walkTime:0,facingX:0,facingZ:1};
+  life.people=[visitor];
+  Object.assign(player,{x:14.5,z:13.3,angle:0});press();
+  assert.equal(sandbox.game.staffTalk,null,'cannot interrupt the visitor and attendant');
+  visitor.state='playing';visitor.machine=kongCabinet;visitor.wait=8;
+  visitor.x=kongCabinet.x+.75;visitor.z=kongCabinet.z-.7;
+  Object.assign(player,{x:visitor.x,z:visitor.z-.8,angle:0});const loadsBefore=loads;press();
+  assert.equal(loads,loadsBefore,'occupied cabinets do not load');
+  assert.equal(sandbox.game.inventory.current.count,1,'occupied cabinets do not charge tokens');
+  assert.equal(element('#message').textContent,'SOMEONE IS ALREADY PLAYING THIS CABINET.');
+  Object.assign(player,{x:cabinet.x+.75,z:cabinet.z-.8,angle:0});press();await new Promise(resolve=>setImmediate(resolve));
+  assert.ok(sandbox.game.ping);const remaining=visitor.wait;tick(ms+=100);
+  assert.ok(visitor.wait<remaining,'visitors continue playing while the player plays');
+  events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));
+
 
 
 
