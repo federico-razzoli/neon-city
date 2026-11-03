@@ -10,7 +10,14 @@ export class Byker{
     this.lives=3;this.score=0;this.level=1;this.time=55;this.length=2600;this.over=false;
     this.combo=0;this.bestCombo=0;this.nearMisses=0;this.invulnerable=0;this.crash=0;this.elapsed=0;
     this.message='COL DU SOLEIL';this.messageTime=4;this.obstacles=[];this.nextTraffic=110;
+    this.intro=true;this.introTime=0;
     this.populate();
+  }
+  skipIntro(){this.intro=false;this.introTime=6.2;}
+  introPose(){
+    const t=this.introTime,ride=Math.max(0,t-2.2),scale=1/(1+ride*ride*2.4);
+    return {frame:Math.min(3,Math.floor(t/.6)),scale,x:320+60*scale,y:155+157*scale,
+      fade:clamp((t-5.6)/.6,0,1)};
   }
   centre(z){return Math.sin(z/310+this.phase)*75+Math.sin(z/780+this.phase)*130;}
   tangent(z){return Math.cos(z/310+this.phase)*75/310+Math.cos(z/780+this.phase)*130/780;}
@@ -33,6 +40,13 @@ export class Byker{
   }
   update(dt,vertical=0,horizontal=0){
     if(this.over)return;
+    if(this.intro){
+      // Asset loading and the opening sequence never consume the time budget.
+      if(this.introSprite&&!this.introSprite.complete)return;
+      this.introTime+=clamp(dt,0,.1);
+      if(this.introTime>=6.2)this.skipIntro();
+      return;
+    }
     const duration=clamp(dt,0,.1),steps=Math.ceil(duration/.01);
     for(let i=0;i<steps&&!this.over;i++)this.step(duration/steps,vertical,horizontal);
   }
@@ -89,7 +103,8 @@ export class Byker{
       gain.gain.setTargetAtTime(running&&!this.over ? .035 : 0,t,.08);
       // Gear changes drop the engine note while speed keeps increasing.
       const gear=Math.max(1,Math.min(6,Math.ceil(this.speed/16)));
-      engine.frequency.setTargetAtTime(36+(this.speed-(gear-1)*14)*3,t,.07);
+      const frequency=this.intro?40+Math.min(150,Math.max(0,this.introTime-1.8)*80):36+(this.speed-(gear-1)*14)*3;
+      engine.frequency.setTargetAtTime(frequency,t,.07);
       filter.frequency.setTargetAtTime(180+this.speed*6,t,.1);
     }
   }
@@ -107,6 +122,9 @@ export class Byker{
     const line=(color,width,pts)=>{ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.stroke();};
     const ellipse=(color,x,y,rx,ry)=>{ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();};
     if(!this.panorama){
+      this.introSprite=new ctx.canvas.ownerDocument.defaultView.Image();
+      this.introSprite.onerror=()=>this.skipIntro();
+      this.introSprite.src=new URL('./assets/byker/rider-intro.png',import.meta.url).href;
       this.panorama=new ctx.canvas.ownerDocument.defaultView.Image();
       this.panorama.src=new URL('./assets/byker/alpine-panorama.png',import.meta.url).href;
       const tile=ctx.canvas.ownerDocument.createElement('canvas');tile.width=256;tile.height=256;
@@ -172,9 +190,9 @@ export class Byker{
           ctx.fillStyle=side<0?'#e8d7a0':'#de7854';ctx.fillRect(x-p.s*.06,p.y-.72*p.s,p.s*.12,p.s*.12);
         }
       }
-      if(Math.floor(z/35)!==Math.floor((this.distance+b.dz)/35)){
+      if(Math.floor(z/70)!==Math.floor((this.distance+b.dz)/70)){
         for(const side of [-1,1]){
-          const n=Math.floor(z/35),x=p.x+side*(9+hash(n)*11)*p.s,h=(5+hash(n+3)*8)*p.s,y=p.y+1.2*p.s;
+          const n=Math.floor(z/70),x=p.x+side*(9+hash(n)*11)*p.s,h=(5+hash(n+3)*8)*p.s,y=p.y+1.2*p.s;
           line('#554c3b',Math.max(.5,p.s*.18),[[x,y],[x,y-h]]);
           this.drawTree(ctx,x,y,h,n+side*17);
         }
@@ -192,8 +210,32 @@ export class Byker{
     ctx.globalAlpha=.2;ctx.fillStyle=this.asphalt;ctx.fill(asphaltPath);ctx.globalAlpha=1;
     // Lens shading gives the bright distance more depth without hiding the road.
     g=ctx.createRadialGradient(320,150,90,320,160,380);g.addColorStop(0,'#00000000');g.addColorStop(1,'#05131788');ctx.fillStyle=g;ctx.fillRect(0,0,640,360);
-    this.drawCockpit(ctx,poly,line,ellipse);
-    ctx.restore();this.drawHud(ctx);
+    if(this.intro)this.drawIntro(ctx,ellipse);
+    else this.drawCockpit(ctx,poly,line,ellipse);
+    ctx.restore();
+    if(!this.intro)this.drawHud(ctx);
+  }
+  drawIntro(ctx,ellipse){
+    const pose=this.introPose(),sprite=this.introSprite,size=190*pose.scale;
+    if(sprite?.complete&&sprite.naturalWidth){
+      const cell=sprite.naturalWidth/4;
+      ellipse('#10191a66',pose.x,pose.y,size*.26,size*.035);
+      const height=size*sprite.naturalHeight/cell;
+      const drawFrame=(frame,alpha)=>{
+        ctx.globalAlpha=alpha;
+        ctx.drawImage(sprite,frame*cell,0,cell,sprite.naturalHeight,
+          pose.x-size*.6,pose.y-height*.97,size,height);
+      };
+      const blend=pose.frame>0&&this.introTime<1.92?clamp((this.introTime-pose.frame*.6)/.12,0,1):1;
+      if(blend<1)drawFrame(pose.frame-1,1-blend);
+      drawFrame(pose.frame,blend);ctx.globalAlpha=1;
+    }
+    // A brief fade carries the fixed roadside camera into the riding view.
+    if(pose.fade>0){ctx.fillStyle=`rgba(5,14,17,${pose.fade})`;ctx.fillRect(0,0,W,H);}
+    ctx.fillStyle='#07171b';ctx.fillRect(0,0,W,28);ctx.fillRect(0,332,W,28);
+    ctx.textAlign='left';ctx.fillStyle='#f1e5cf';ctx.font='italic bold 19px sans-serif';ctx.fillText('BYKER',20,55);
+    ctx.font='8px sans-serif';ctx.fillStyle='#d1d9c8';ctx.fillText('COL DU SOLEIL',21,69);
+    ctx.textAlign='center';ctx.font='9px sans-serif';ctx.fillStyle='#e9dbc0';ctx.fillText('PRESS ANY KEY TO RIDE',320,350);
   }
   drawTree(ctx,x,y,h,seed){
     if(h<2||x+h*.3<0||x-h*.3>640||y-h>360)return;

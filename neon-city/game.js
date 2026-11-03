@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {loadCabinetGame} from './cabinet-loader.js?v=byker-7';
+import {loadCabinetGame} from './cabinet-loader.js?v=byker-9';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
@@ -26,8 +26,8 @@ import {drawFlower} from './flowers.js';
 import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=arcade-tokens-2';
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
-import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=byker-7';
-import {ArcadeLife} from './arcade-life.js?v=arcade-visitors-3';
+import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=byker-9';
+import {ArcadeLife} from './arcade-life.js?v=arcade-visitors-4';
 import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
@@ -921,6 +921,11 @@ if(running&&insideHotel&&!pubMenu.open&&!inventoryBox.open&&!staffTalk&&!windowV
 hotelEventPresses=0;hotelEventKey=null;
 if(pubMenu.open){e.preventDefault();if(k===' '&&!e.repeat)togglePubMenu();return;}
 if(ping){
+  if(ping.kind==='byker'&&ping.intro&&running){
+    ping.skipIntro();keys.clear();
+    if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&!['F5','F12','Tab'].includes(k))e.preventDefault();
+    return;
+  }
   if(e.ctrlKey||e.metaKey||e.altKey)return;
   if(ping.kind==='ghost'){
     if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d',' ','Escape'].includes(k))return;
@@ -1035,6 +1040,7 @@ window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='E
 window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
 // Capture taps across the whole screen before movement buttons handle them.
 window.addEventListener('pointerdown',e=>{
+  if(running&&ping?.kind==='byker'&&ping.intro){e.preventDefault();e.stopImmediatePropagation();ping.skipIntro();keys.clear();return;}
   if(!running||ping?.kind!=='frog')return;
   e.preventDefault();e.stopImmediatePropagation();
   keys.clear();

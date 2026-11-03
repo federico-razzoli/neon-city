@@ -3,6 +3,9 @@ import {ARCADE} from './arcade-interior.js?v=arcade-visitors-1';
 export const ARCADE_VISITOR_TYPES=[14,15,4,0];
 const entrance={x:ARCADE.door.x,z:.5};
 const desk={x:ARCADE.attendant.x,z:ARCADE.desk.z-.85};
+// Cabinet data can come from independently versioned module imports.
+const sameMachine=(a,b)=>Boolean(a&&b&&a.x===b.x&&a.z===b.z);
+const machineKey=machine=>`${machine.x},${machine.z}`;
 const cabinetSpot=b=>({x:b.x+b.w/2,z:b.z-.7});
 // Visitors go around cabinet rows instead of squeezing between adjacent games.
 const cabinetRows=[];
@@ -61,10 +64,10 @@ export function arcadeRoute(start,end,people=[]){
 }
 
 export class ArcadeLife{
-  constructor(random=Math.random){this.random=random;this.people=[];this.arrival=5+random()*5;this.lastDepartedType=null;}
+  constructor(random=Math.random){this.random=random;this.people=[];this.arrival=5+random()*5;this.lastDepartedType=null;this.playedCabinets=new Set();}
   get busy(){return this.people.some(p=>p.state!=='playing');}
   get deskBusy(){return this.people.some(p=>p.state==='desk');}
-  occupied(machine){return this.people.some(p=>p.machine===machine);}
+  occupied(machine,except=null){return this.people.some(p=>p!==except&&sameMachine(p.machine,machine));}
   delay(){return 10+this.random()*10;}
   travel(p,state,target){
     const route=arcadeRoute(p,target,this.people.filter(other=>other!==p));
@@ -72,12 +75,17 @@ export class ArcadeLife{
     p.state=state;p.route=route;p.machine=null;return true;
   }
   play(p,playerMachine){
-    const free=ARCADE.cabinets.filter(b=>b!==p.machine&&b!==playerMachine&&!this.occupied(b));
-    if(!free.length)return false;
-    const offset=Math.floor(this.random()*free.length);
-    for(let i=0;i<free.length;i++){
-      const machine=free[(offset+i)%free.length];
-      if(this.travel(p,'to-cabinet',cabinetSpot(machine))){p.machine=machine;return true;}
+    const free=ARCADE.cabinets.filter(b=>!sameMachine(b,p.machine)&&!sameMachine(b,playerMachine)&&!this.occupied(b));
+    // Share a random rotation across visitors, so a small crowd does not keep
+    // returning to the same few games. Occupied games remain eligible later.
+    const fresh=free.filter(machine=>!this.playedCabinets.has(machineKey(machine)));
+    const repeated=free.filter(machine=>this.playedCabinets.has(machineKey(machine)));
+    for(const [cycle,candidates] of [fresh,repeated].entries())while(candidates.length){
+      const [machine]=candidates.splice(Math.floor(this.random()*candidates.length),1);
+      if(this.travel(p,'to-cabinet',cabinetSpot(machine))){
+        if(cycle===1)this.playedCabinets.clear();
+        this.playedCabinets.add(machineKey(machine));p.machine=machine;return true;
+      }
     }
     return false;
   }
@@ -87,6 +95,11 @@ export class ArcadeLife{
     const active=this.people.find(p=>p.state!=='playing');
     if(active){
       const p=active;
+      if(p.state==='to-cabinet'&&(sameMachine(p.machine,playerMachine)||this.occupied(p.machine,p))){
+        // Reservations normally prevent this; also handle a player taking the
+        // target while the visitor approaches, or independently restored state.
+        if(!this.play(p,playerMachine))return;
+      }
       if(p.state==='desk'){
         p.wait=Math.max(0,p.wait-dt);
         if(p.wait===0)this.play(p,playerMachine);

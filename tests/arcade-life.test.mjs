@@ -130,3 +130,65 @@ test('player can block arrivals, movement and desk access without losing the vis
   life.update(1,null,null,true);assert.equal(p.state,'to-desk');assert.equal(life.deskBusy,false);
   stepUntil(life,()=>life.deskBusy);assert.equal(p.wait,5);
 });
+
+test('random choice can select every cabinet, regardless of character type',()=>{
+  for(const type of ARCADE_VISITOR_TYPES)for(let i=0;i<ARCADE.cabinets.length;i++){
+    const life=new ArcadeLife(()=>(i+.5)/ARCADE.cabinets.length);
+    const p={type,state:'desk',machine:null,x:ARCADE.attendant.x,z:ARCADE.desk.z-.85,walkTime:0};
+    life.people=[p];assert.equal(life.play(p,null),true);
+    assert.deepEqual({x:p.machine.x,z:p.machine.z},{x:ARCADE.cabinets[i].x,z:ARCADE.cabinets[i].z});
+  }
+});
+test('occupancy works across versioned cabinet imports for the player and visitors',async()=>{
+  const {ARCADE:otherArcade}=await import('../neon-city/arcade-interior.js?v=occupancy-test');
+  const life=new ArcadeLife(()=>0),p=playing(14,otherArcade.cabinets[0],100);
+  life.people=[p];
+  assert.equal(life.occupied(ARCADE.cabinets[0]),true,'player sees visitor reservations across module copies');
+  const visitor={type:4,state:'desk',machine:null,x:ARCADE.attendant.x,z:ARCADE.desk.z-.85,walkTime:0};
+  life.people.push(visitor);
+  assert.equal(life.play(visitor,otherArcade.cabinets[1]),true);
+  assert.deepEqual({x:visitor.machine.x,z:visitor.machine.z},{x:ARCADE.cabinets[2].x,z:ARCADE.cabinets[2].z});
+  assert.equal(life.occupied({...visitor.machine}),true,'walking visitors reserve the destination');
+});
+test('visitors reselect if their destination becomes occupied before arrival',()=>{
+  for(const occupiedBy of ['player','visitor']){
+    const life=new ArcadeLife(()=>.6);life.arrival=100;
+    const p={type:14,state:'desk',wait:0,machine:null,x:ARCADE.attendant.x,z:ARCADE.desk.z-.85,walkTime:0};
+    life.people=[p];life.play(p,null);const target=p.machine;
+    if(occupiedBy==='visitor')life.people.push(playing(4,{...target},100));
+    const playerMachine=occupiedBy==='player'?{...target}:null;
+    life.update(.01,null,playerMachine);
+    assert.notDeepEqual(p.machine,target);
+    for(let i=0;i<2000&&p.state!=='playing';i++)life.update(.05,null,playerMachine);
+    assert.equal(p.state,'playing');assert.notDeepEqual(p.machine,target);
+  }
+});
+test('when every other cabinet is reserved, visitors wait without taking an occupied game',()=>{
+  const life=new ArcadeLife(()=>0);life.arrival=100;
+  const p={type:14,state:'desk',wait:0,machine:null,x:ARCADE.attendant.x,z:ARCADE.desk.z-.85,walkTime:0};
+  life.people=[p,...ARCADE.cabinets.slice(1).map((machine,i)=>playing(i,{...machine},100))];
+  life.update(.1,null,{...ARCADE.cabinets[0]});assert.equal(p.state,'desk');assert.equal(p.machine,null);
+  life.people.pop();life.update(.1,null,{...ARCADE.cabinets[0]});assert.equal(p.state,'to-cabinet');
+  assert.deepEqual(p.machine,ARCADE.cabinets.at(-1));
+});
+
+test('visitors share a random rotation through free cabinets before repeating',()=>{
+  for(const value of [0,.35,.7,.999]){
+    const life=new ArcadeLife(()=>value),chosen=[];
+    for(let i=0;i<ARCADE.cabinets.length*2;i++){
+      // Alternate visitors, returning to the desk between choices.
+      const p={type:ARCADE_VISITOR_TYPES[i%4],state:'desk',machine:null,x:ARCADE.attendant.x,z:ARCADE.desk.z-.85,walkTime:0};
+      life.people=[p];assert.equal(life.play(p,null),true);chosen.push(p.machine);
+    }
+    for(const start of [0,ARCADE.cabinets.length])assert.equal(new Set(chosen.slice(start,start+ARCADE.cabinets.length)).size,ARCADE.cabinets.length);
+  }
+});
+test('a cabinet skipped while occupied stays in the rotation when released',()=>{
+  const life=new ArcadeLife(()=>0),blocked=ARCADE.cabinets[0];
+  const choose=playerMachine=>{
+    const p={type:14,state:'desk',machine:null,x:ARCADE.attendant.x,z:ARCADE.desk.z-.85,walkTime:0};
+    life.people=[p];assert.ok(life.play(p,playerMachine));return p.machine;
+  };
+  for(let i=1;i<ARCADE.cabinets.length;i++)assert.notDeepEqual(choose({...blocked}),blocked);
+  assert.deepEqual(choose(null),blocked);
+});
