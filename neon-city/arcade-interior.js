@@ -41,6 +41,7 @@ export function facingArcadeDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
+export const METEORS_CABINET=ARCADE.cabinets[4];
 export const PING_CABINET=ARCADE.cabinets[5];
 export const FROG_CABINET=ARCADE.cabinets[6];
 export const KONG_CABINET=ARCADE.cabinets[7];
@@ -53,12 +54,12 @@ export function facingArcadeGame(player){
 export function tryArcadeGame(machine,inventory,consume=true){
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
-  if(machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
+  if(machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
   if(consume&&--tokens.count===0){
     inventory.items.splice(inventory.items.indexOf(tokens),1);
     inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   }
-  return machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
+  return machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
 }
 // Token purchases share the staff dialogue's block and answer sequencing.
 export function arcadeTalk(wallet,inventory){
@@ -137,7 +138,13 @@ export function drawArcadeInterior({face,quad,box}){
     box(x,2.32,z+.32,w,.32,1.18,c);panel(x+.13,2.39,z+.31,w-.26,.16,'#fff0b0');
     panel(x+.13,1.4,z+.365,w-.26,.79,'#080e24');
     // Ping occupies the leftmost cabinet in the row nearest the door.
-    if(b===PING_CABINET){
+    if(b===METEORS_CABINET){
+      label('METEORS',x+.26,2.4,z+.30,.035,'#14263c');
+      for(const [a,t] of [[.3,1.9],[1.05,1.6],[.95,2.02]]){
+        panel(x+a,t,z+.35,.13,.04,'#adc9d3');panel(x+a-.025,t+.04,z+.35,.04,.09,'#adc9d3');panel(x+a+.12,t+.04,z+.35,.04,.09,'#adc9d3');panel(x+a,t+.13,z+.35,.13,.04,'#adc9d3');
+      }
+      panel(x+.65,1.7,z+.34,.06,.2,'#a6ffe4');panel(x+.59,1.7,z+.34,.18,.04,'#a6ffe4');
+    }else if(b===PING_CABINET){
       label('PING',x+.43,2.4,z+.30,.035,'#14263c');
       panel(x+.25,1.65,z+.35,.05,.3,'#8fffe1');
       panel(x+1.18,1.65,z+.35,.05,.3,'#8fffe1');
