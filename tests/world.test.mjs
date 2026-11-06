@@ -20,6 +20,26 @@ If not, see <https://www.gnu.org/licenses/>.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {drawArcade} from '../neon-city/arcade.js';
+import {createTexturePrewarmer} from '../neon-city/texture-pixels.js';
+
+test('seated texture preparation spreads readbacks and retains completed pixels after cancellation',async()=>{
+  const {createTexturePrewarmer,texturePixels}=await import('../neon-city/texture-pixels.js');
+  const callbacks=new Map();let id=0,reads=0;
+  const warmer=createTexturePrewarmer(callback=>{callbacks.set(++id,callback);return id;},handle=>callbacks.delete(handle));
+  const texture=()=>({width:1,height:1,getContext:()=>({getImageData:()=>{reads++;return {data:new Uint8ClampedArray([1,2,3,255])};}})});
+  const a=texture(),b=texture();
+  const runNext=()=>{const [handle,callback]=callbacks.entries().next().value;callbacks.delete(handle);callback();};
+  warmer.add(a);warmer.add(a);warmer.add(b);
+  assert.equal(reads,0,'sitting does not synchronously read pixels');
+  assert.equal(callbacks.size,1);
+  runNext();assert.equal(reads,1,'one texture is read per callback');
+  warmer.cancel();assert.equal(callbacks.size,0);
+  const cached=texturePixels(a);
+  assert.strictEqual(texturePixels(a),cached);assert.equal(reads,1,'standing preserves completed cache entries');
+  warmer.add(a);assert.equal(callbacks.size,0,'cached textures need no scheduled work');
+  warmer.add(b);runNext();assert.equal(reads,2,'cancelled textures can be prepared on a later seat visit');
+  assert.equal(callbacks.size,0);
+});
 
 test('hotel window street life moves continuously on sidewalks and lanes and matches across floors',async()=>{
   const {hotelStreetLife}=await import('../neon-city/hotel-street.js');
@@ -371,6 +391,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,shootingStars,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},canSeeHotelGuest,inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   const hotel={x:14,z:14,w:18,d:18,j:0,sign:'HOTEL'};
@@ -1302,6 +1323,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={tick};",sandbox);
   const {tick}=sandbox.game,message=()=>element('#message').textContent;
   events.keydown({key:' ',code:'Space',repeat:false,preventDefault(){}});tick(0);
@@ -1780,6 +1802,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera:v=>{prepareCamera();return camera(v);},inventory,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
@@ -3257,6 +3280,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'NEON PUB'}],manholes:[],newspaperMachines:[]});
@@ -3332,6 +3356,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,tick,goToPub(){currentVenue={x:14,z:14};insidePub=true;currentPubName='THE PUB';},get seat(){return playerSeat;}};",sandbox);
   const {player,tick}=sandbox.game,location=()=>element('#location').textContent;
   const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -4837,6 +4862,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get arcadeLife(){return arcadeLife;},get staffTalk(){return staffTalk;},get ping(){return ping;}};",sandbox);
   let loads=0,disposals=0,failNext=false;
   sandbox.loadCabinetGame=name=>{

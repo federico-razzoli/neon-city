@@ -18,6 +18,7 @@ If not, see <https://www.gnu.org/licenses/>.
 */
 
 import {loadCabinetGame} from './cabinet-loader.js?v=byker-9';
+import {createTexturePrewarmer} from './texture-pixels.js';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
@@ -160,10 +161,12 @@ function useDoor(){
 // position, limited turning, and looking up or down, until Space returns the
 // player to their feet. Getting up from the toilet flushes it.
 const SEATED_EYE=1.5;
+const seatedTexturePrewarmer=createTexturePrewarmer();
 function useSeat(){
   if(hotelStairs)return false;
   let greet=false;
   if(playerSeat){
+    seatedTexturePrewarmer.cancel();
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
     if(playerSeat.toilet)playFlush(audioContext);
@@ -397,6 +400,9 @@ function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
 function clip(vertices){const out=[];for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],ai=a.z>=.15,bi=b.z>=.15;if(ai)out.push(a);if(ai!==bi){const t=(.15-a.z)/(b.z-a.z),v={};for(const k of ['x','y','z','u','v'])v[k]=a[k]+(b[k]-a[k])*t;out.push(v);}}return out;}
 let vehicleSurface=null,vehicleTurn=null;
 function face(vertices,color,texture=null,smooth=false,buildingWall=false){
+  // Include textures above and beside the current view: they can become visible
+  // when a seated player looks up or turns. Reuse the normal scene traversal.
+  if(texture&&playerSeat&&!indoors()&&running)seatedTexturePrewarmer.add(texture);
   if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
   if(vehicleTurn){
     const {x,z,angle}=vehicleTurn,c=Math.cos(angle),s=Math.sin(angle);
@@ -901,7 +907,7 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
-function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;seatedTexturePrewarmer.cancel();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 let hotelEventPresses=0,hotelEventKey=null;

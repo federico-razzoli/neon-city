@@ -24,3 +24,31 @@ export function texturePixels(texture){
   if(!pixels.has(texture))pixels.set(texture,texture.getContext('2d').getImageData(0,0,texture.width,texture.height));
   return pixels.get(texture);
 }
+
+// One readback per idle callback keeps sitting down from reading every wall
+// at once. Cancelling releases queued textures, but preserves cached pixels.
+export function createTexturePrewarmer(
+  schedule=callback=>globalThis.requestIdleCallback?
+    globalThis.requestIdleCallback(callback,{timeout:1000}):setTimeout(callback,32),
+  cancel=handle=>globalThis.cancelIdleCallback?globalThis.cancelIdleCallback(handle):clearTimeout(handle)
+){
+  const pending=new Set();
+  let handle=null;
+  function next(){
+    handle=null;
+    const texture=pending.values().next().value;
+    if(texture){pending.delete(texture);texturePixels(texture);}
+    if(pending.size)handle=schedule(next);
+  }
+  return {
+    add(texture){
+      if(pixels.has(texture))return;
+      pending.add(texture);
+      if(handle===null)handle=schedule(next);
+    },
+    cancel(){
+      if(handle!==null)cancel(handle);
+      handle=null;pending.clear();
+    }
+  };
+}
