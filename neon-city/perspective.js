@@ -17,33 +17,23 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {wallColumnKernel} from './wall-columns-wasm.js';
 import {texturePixels} from './texture-pixels.js';
 
-// Vertical walls have constant depth along each screen column. Interpolate
-// reciprocal depth across the screen, then recover texture coordinates.
+// Expose WASM columns as objects for callers that inspect projected geometry.
 export function* wallColumns(points,vertices,width){
-  const start=Math.max(0,Math.ceil(Math.min(...points.map(p=>p.x))-.5));
-  const end=Math.min(width,Math.ceil(Math.max(...points.map(p=>p.x))-.5));
-  for(let x=start;x<end;x++){
-    const center=x+.5,hits=[];
-    for(let i=0;i<points.length;i++){
-      const j=(i+1)%points.length,a=points[i],b=points[j];
-      if(center<Math.min(a.x,b.x)||center>=Math.max(a.x,b.x))continue;
-      const t=(center-a.x)/(b.x-a.x),va=vertices[i],vb=vertices[j];
-      const inverseDepth=(1-t)/va.z+t/vb.z;
-      hits.push({y:a.y+(b.y-a.y)*t,depth:1/inverseDepth,
-        u:((1-t)*va.u/va.z+t*vb.u/vb.z)/inverseDepth,
-        v:((1-t)*va.v/va.z+t*vb.v/vb.z)/inverseDepth});
-    }
-    if(hits.length<2)continue;
-    hits.sort((a,b)=>a.y-b.y);
-    yield {x,top:hits[0],bottom:hits.at(-1)};
+  const {count,data}=wallColumnKernel(points,vertices,width);
+  for(let i=0;i<count;i++){
+    const k=i*9;
+    yield {x:data[k],top:{y:data[k+1],depth:data[k+2],u:data[k+3],v:data[k+4]},
+      bottom:{y:data[k+5],depth:data[k+6],u:data[k+7],v:data[k+8]}};
   }
 }
 
 export const wallFog=depth=>Math.min(.94,Math.max(0,(depth-22)/135));
 
 export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false,continuousFog=false){
+  const packed=wallColumnKernel(points,vertices,width);
   ctx.save();
   ctx.imageSmoothingEnabled=smooth;
   // Building panels partition the integer columns by pixel centre. Clipping
@@ -53,21 +43,23 @@ export function drawWallTexture(ctx,points,vertices,texture,width,smooth=false,c
     points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
     ctx.closePath();ctx.clip();
   }
-  const columns=[...wallColumns(points,vertices,width)];
-  for(let i=0;i<columns.length;i++){
-    const {x,top,bottom}=columns[i];
-    if(bottom.y<=top.y||bottom.v<=top.v)continue;
-    const u=Math.max(0,Math.min(texture.width-1,top.u));
+  const {count,data}=packed;
+  for(let i=0;i<count;i++){
+    const k=i*9,x=data[k],topY=data[k+1],depth=data[k+2],topU=data[k+3];
+    const topV=data[k+4],bottomY=data[k+5],bottomV=data[k+8];
+    if(bottomY<=topY||bottomV<=topV)continue;
+    const u=Math.max(0,Math.min(texture.width-1,topU));
     // At oblique angles a screen column covers several texture columns.
     // Filter that footprint rather than skipping letters between single texels.
-    const adjacent=columns[i+1]??columns[i-1];
-    const span=smooth&&adjacent?Math.max(1,Math.abs(adjacent.top.u-top.u)):1;
+    const adjacent=i+1<count?i+1:i-1;
+    const adjacentU=adjacent>=0?data[adjacent*9+3]:0;
+    const span=smooth&&adjacent>=0?Math.max(1,Math.abs(adjacentU-topU)):1;
     const left=smooth?Math.max(0,u-span/2):u;
     const sampleWidth=Math.min(span,texture.width-left);
-    ctx.drawImage(texture,left,top.v,sampleWidth,bottom.v-top.v,x,top.y,1,bottom.y-top.y);
+    ctx.drawImage(texture,left,topV,sampleWidth,bottomV-topV,x,topY,1,bottomY-topY);
     if(continuousFog){
-      const fog=wallFog(top.depth);
-      if(fog>0){ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fillRect(x,top.y,1,bottom.y-top.y);}
+      const fog=wallFog(depth);
+      if(fog>0){ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fillRect(x,topY,1,bottomY-topY);}
     }
   }
   ctx.restore();

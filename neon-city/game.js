@@ -58,7 +58,7 @@ import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=window-2';
 import {projectSky,skyHorizon,URSA_MAJOR,skyDirection,starProjector} from './sky.js?v=stars-2';
 import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
-import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=shared-pixels-1';
+import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=wasm-columns-1';
 import {hotelHIsDim,dimHotelH,drawHotel,hotelLook} from './hotel.js?v=park-entrances-1';
 import {HornWarning,playHorn} from './horn.js?v=junction-priority-1';
 
