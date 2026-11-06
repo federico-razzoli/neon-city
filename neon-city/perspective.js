@@ -112,10 +112,13 @@ export function rasterizePitchedWall(points,vertices,texture,width,height,pixels
         pixels[offset]=source[a];pixels[offset+1]=source[a+1];pixels[offset+2]=source[a+2];pixels[offset+3]=source[a+3];
       }else{
         const b=(iy*tw+Math.min(tw-1,ix+1))*4,c=(Math.min(th-1,iy+1)*tw+ix)*4,d=(Math.min(th-1,iy+1)*tw+Math.min(tw-1,ix+1))*4;
-        const fx=tx-ix,fy=ty-iy,weights=[(1-fx)*(1-fy),fx*(1-fy),(1-fx)*fy,fx*fy],indices=[a,b,c,d];
-        const alpha=indices.reduce((sum,index,i)=>sum+source[index+3]*weights[i],0);
+        const fx=tx-ix,fy=ty-iy;
+        const wa=(1-fx)*(1-fy),wb=fx*(1-fy),wc=(1-fx)*fy,wd=fx*fy;
+        // Keep the original reduction order, including its initial zero.
+        const alpha=(((0+source[a+3]*wa)+source[b+3]*wb)+source[c+3]*wc)+source[d+3]*wd;
         pixels[offset+3]=alpha;
-        for(let channel=0;channel<3;channel++)pixels[offset+channel]=alpha?indices.reduce((sum,index,i)=>sum+source[index+channel]*source[index+3]*weights[i],0)/alpha:0;
+        for(let channel=0;channel<3;channel++)pixels[offset+channel]=alpha?
+          ((((0+source[a+channel]*source[a+3]*wa)+source[b+channel]*source[b+3]*wb)+source[c+channel]*source[c+3]*wc)+source[d+channel]*source[d+3]*wd)/alpha:0;
       }
       if(continuousFog&&iw<1/22){
         const fog=wallFog(1/iw);

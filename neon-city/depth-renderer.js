@@ -64,17 +64,19 @@ export class DepthRenderer{
           const depth=u*za+v*zb+t*zc,index=y*w+x;
           if(depth<=this.depth[index])continue;
           this.depth[index]=depth;this.depthX[index]=depthX;this.depthY[index]=depthY;
-          let ink=color;
+          let red=color[0],green=color[1],blue=color[2];
+          const offset=index*4;
           if(texture){
-            const offset=index*4;
-            ink=this.textureFrame.subarray(offset,offset+3);
+            red=this.textureFrame[offset];green=this.textureFrame[offset+1];blue=this.textureFrame[offset+2];
             // Cancel an explicit scene overlay for artwork whose colours must match outdoors.
             if(f.textureOverlay){
               const {color:shade,alpha}=f.textureOverlay;
-              ink=Array.from(ink,(value,c)=>(value-alpha*shade[c])/(1-alpha));
+              red=(red-alpha*shade[0])/(1-alpha);
+              green=(green-alpha*shade[1])/(1-alpha);
+              blue=(blue-alpha*shade[2])/(1-alpha);
             }
           }
-          const offset=index*4;pixels[offset]=ink[0];pixels[offset+1]=ink[1];pixels[offset+2]=ink[2];
+          pixels[offset]=red;pixels[offset+1]=green;pixels[offset+2]=blue;
         }
       }
     }
