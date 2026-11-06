@@ -2,7 +2,33 @@
 
 WebAssembly (WASM) could reduce CPU time in Neon City's software rasterizers. A focused experiment is justified if profiling confirms that these functions consume a substantial part of the frame budget. A broad rewrite is not currently justified, and memory savings would likely come primarily from data layout and allocation changes that are also possible in JavaScript.
 
-This assessment is based on source inspection, not browser profiling or a benchmark against a WASM implementation. The rankings below are hypotheses to validate, not measured speedups.
+The original candidate assessment below is based on source inspection. An upright-wall column kernel has since been implemented in WASM, as described below. The remaining candidate rankings and further kernel optimisations are hypotheses, not measured speedups.
+
+## Current implementation state
+
+The upright-wall column projection is implemented in [wall-columns.c](neon-city/wall-columns.c), compiled to [wall-columns.wasm](neon-city/wall-columns.wasm), and loaded through [wall-columns-wasm.js](neon-city/wall-columns-wasm.js). [perspective.js](neon-city/perspective.js) uses its packed output to issue Canvas drawing calls.
+
+- Committed as `522971c` (`Render street wall columns with WebAssembly by default`) and pushed to `origin/wasm-street-walls`. The branch has not been merged.
+- WASM is enabled by default. Module loading completes before rendering starts; the opt-in URL switch and old JavaScript column calculation and rendering fallback have been removed. Version control retains the previous implementation.
+- Input and output buffers are reused, with one JavaScript/WASM call per wall. The kernel supports 3–32 polygon vertices and viewport widths up to 8192 pixels; unsupported dimensions throw an error.
+- Canvas drawing, filtering selection, and fog application remain in JavaScript. Pitched-wall and interior pixel rasterization have not been ported by this change.
+- Build with `sh tools/build-wall-columns.sh`. The compiler uses `-O3`, disables floating-point contraction, and does not enable fast-math, to preserve arithmetic rounding.
+- The user observed a small improvement in the running app. No verified numerical speedup is recorded here.
+- Before removal of the JavaScript fallback, all 361 tests passed, including comparisons of column values and Canvas operations. Tests were updated for the WASM-only implementation but were not run after that change, at the user's instruction. The earlier results do not validate the final implementation.
+- Further kernel edits made during the subsequent assessment were undone. None of the opportunities below has been applied; the working tree was clean before this documentation update.
+
+## Further optimisations within the WASM kernel
+
+These opportunities concern the existing upright-wall kernel only. They do not require extending WASM to another subsystem. Their performance benefit remains unmeasured.
+
+| Opportunity | Proposed change | Possible side effects |
+| --- | --- | --- |
+| Precompute edge geometry once per wall | Calculate edge bounds, coordinate differences, and next-vertex indices before the screen-column loop. | Adds per-wall setup and temporary storage. Very narrow walls may become slower because few columns reuse the work. Keeping the same expressions and precision should preserve pixels; changing arithmetic order could affect rounding. This is the lowest-risk candidate. |
+| Process only edges crossing each column | Avoid scanning every polygon edge for every column by maintaining the relevant edges or their column ranges. | Bookkeeping may cost more than scanning small polygons. Incorrect fractional boundaries, vertical-edge handling, or shared-vertex handling could produce missing columns or seams. Changing edge order could change which tied intersection supplies texture coordinates and depth. |
+| Track top and bottom intersections directly | Select the extremes while calculating intersections, eliminating the temporary intersection array and second scan. | Must preserve the current tie rules: first minimum for the top, last maximum for the bottom. Otherwise texture coordinates or depth can change at tied intersections. Additional comparisons in the intersection loop may offset the saved array scan. |
+| Replace divisions with reciprocal multiplication | Precompute reciprocals and multiply where the kernel currently divides repeatedly. | Changes floating-point rounding and may shift texture sampling, panel boundaries, or fog values, causing different pixels or occasional seams. This carries the greatest risk of visual differences, and a speedup is not guaranteed. |
+
+The first three can preserve output with careful arithmetic, boundary, and tie handling. The reciprocal approach requires accepting or ruling out rounding differences through visual comparison. Any future evaluation should measure both kernel cost and complete frame time, including narrow walls and small polygons where setup overhead matters. Do not install Firefox for validation; the user explicitly prohibited future Firefox installations.
 
 ## Candidates
 
@@ -79,11 +105,11 @@ Other relevant memory considerations are:
 2. **Separate the costs.** Measure geometry preparation, surface ordering, rasterization, Canvas submission, and synthesis. Record frame-time distributions and slow frames, as well as retained and peak memory. Account for warm-up and distinguish first-use costs from steady-state behavior.
 3. **Apply inexpensive JavaScript improvements.** Remove per-pixel allocations and simplify the filtering calculations. Evaluate narrower depth buffers separately, with visual checks. Preserve these improvements in the baseline used to judge WASM.
 4. **Prototype one numeric workload.** Choose the rasterizer that profiling identifies as most expensive. Pass a batch of packed inputs and reuse its working buffers. Keep browser interaction in JavaScript and include packing, copies, and output submission in the measured cost.
-5. **Check correctness and portability.** Compare rendered output for depth intersections, lettering, artwork, filtering, and fog. Test representative browsers and a slower device. Measure module loading and initialization as well as steady-state performance.
-6. **Make an adoption decision from end-to-end results.** Adopt the port only if the user-visible improvement justifies the build tooling, integration code, debugging cost, and maintenance burden. Retain a JavaScript fallback if the experiment is adopted incrementally.
+5. **Check correctness and portability.** Compare rendered output for depth intersections, lettering, artwork, filtering, and fog. Use available permitted browsers and a slower device; do not install Firefox. Measure module loading and initialization as well as steady-state performance.
+6. **Make an adoption decision from end-to-end results.** Adopt the port only if the user-visible improvement justifies the build tooling, integration code, debugging cost, and maintenance burden. For the current upright-wall implementation, WASM is the sole path and the previous code remains in version control. Decide the integration strategy separately for any future port.
 
 A faster isolated kernel does not guarantee a proportionate frame-rate improvement. For example, if rasterization accounts for 40% of frame time and becomes twice as fast, total frame time falls by 20% before integration overhead. This is an illustrative calculation, not a measurement of Neon City.
 
 ## Recommendation
 
-Prioritize profiling and allocation cleanup in `DepthRenderer.render()` and `rasterizePitchedWall()`. If these remain substantial CPU bottlenecks, trial a batched WASM implementation of one rasterizer. Treat memory optimization as a separate data-layout and lifetime task, and defer broader game-system rewrites until measurements establish a need.
+For further work on the existing WASM kernel, consider the opportunities and side effects above. For additional ports, prioritize profiling and allocation cleanup in `DepthRenderer.render()` and `rasterizePitchedWall()`. If these remain substantial CPU bottlenecks, trial a batched WASM implementation of one rasterizer. Treat memory optimization as a separate data-layout and lifetime task, and defer broader game-system rewrites until measurements establish a need.
