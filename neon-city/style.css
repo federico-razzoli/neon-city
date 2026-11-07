@@ -52,3 +52,6 @@ If not, see <https://www.gnu.org/licenses/>.
 
 #game.byker header,#game.byker footer,#game.byker .scanlines{display:none}
 #game.byker canvas{image-rendering:auto}
+
+#game.pinball header,#game.pinball footer,#game.pinball #touch,#game.pinball .scanlines{display:none}
+#game.pinball canvas{image-rendering:auto;touch-action:none}

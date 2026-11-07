@@ -50,6 +50,7 @@ export const PING_CABINET=ARCADE.cabinets[5];
 export const FROG_CABINET=ARCADE.cabinets[6];
 export const KONG_CABINET=ARCADE.cabinets[7];
 export const AMIGOS_CABINET=ARCADE.cabinets[8];
+export const PINBALL_MACHINE=ARCADE.pinballs[0];
 export function facingArcadeGame(player){
   const machines=[...ARCADE.cabinets,...ARCADE.pinballs];
   const targets=machines.filter(b=>player.z<b.z).map(machine=>({x:machine.x+machine.w/2,z:machine.z,radius:.65,machine}));
@@ -59,12 +60,12 @@ export function tryArcadeGame(machine,inventory,consume=true){
   if(machine===SUPER_CABINET)return 'SUPER';
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
-  if(machine!==BYKER_CABINET&&machine!==GHOST_CABINET&&machine!==PUNCH_CABINET&&machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET)return 'THIS GAME IS NOT AVAILABLE YET.';
+  if(machine!==BYKER_CABINET&&machine!==GHOST_CABINET&&machine!==PUNCH_CABINET&&machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET&&machine!==PINBALL_MACHINE)return 'THIS GAME IS NOT AVAILABLE YET.';
   if(consume&&--tokens.count===0){
     inventory.items.splice(inventory.items.indexOf(tokens),1);
     inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   }
-  return machine===BYKER_CABINET?'BYKER':machine===GHOST_CABINET?'GHOST':machine===PUNCH_CABINET?'PUNCH':machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
+  return machine===PINBALL_MACHINE?'PINBALL':machine===BYKER_CABINET?'BYKER':machine===GHOST_CABINET?'GHOST':machine===PUNCH_CABINET?'PUNCH':machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
 }
 // Token purchases share the staff dialogue's block and answer sequencing.
 export function arcadeTalk(wallet,inventory){
@@ -169,7 +170,8 @@ export function drawArcadeInterior({face,quad,box}){
       label('SUPER',x+.4,2.4,z+.30,.035,'#14263c');
       panel(x+.13,1.4,z+.35,w-.26,.79,'#0000aa');
       panel(x+.62,2.04,z+.34,.26,.055,'#c0c0c0');
-      for(let j=0;j<5;j++)panel(x+.23,1.91-j*.075,z+.34,j===4?.58:.98,.016,'#fff');
+      if(b===PINBALL_MACHINE)label('PINBALL',x+.35,2.17,z+d-.25,.019,'#69ffe3');
+    for(let j=0;j<5;j++)panel(x+.23,1.91-j*.075,z+.34,j===4?.58:.98,.016,'#fff');
     }else if(b===METEORS_CABINET){
       label('METEORS',x+.26,2.4,z+.30,.035,'#14263c');
       for(const [a,t] of [[.3,1.9],[1.05,1.6],[.95,2.02]]){
@@ -231,6 +233,7 @@ export function drawArcadeInterior({face,quad,box}){
     for(const a of [.4,.85])box(x+a,1.23,z+.4,.27,.05,.08,'#fff0c3');
     drawCylinder(face,x+1.13,1.23,z+.45,.055,.07,'#ecf8ff');
     box(x,1.5,z+d-.22,w,.95,.22,c);panel(x+.09,1.64,z+d-.23,w-.18,.63,'#131c30');
+    if(b===PINBALL_MACHINE)label('PINBALL',x+.35,2.17,z+d-.25,.019,'#69ffe3');
     for(let j=0;j<5;j++)panel(x+.2+j*.23,1.87,z+d-.24,.12,.19,'#ffdf80');
     box(x+w-.12,1.01,z-.12,.08,.08,.16,'#d5d7dc');
   }
