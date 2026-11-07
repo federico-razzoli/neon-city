@@ -43,6 +43,31 @@ test('a weak shot rolls back onto the spring; a full shot reaches the playfield'
     if(!strong){assert.equal(g.ready,true);assert.equal(g.lives,3);assert.equal(g.ball.y,796);}
   }
 });
+test('weak shots near the launch lane exit gain no energy from the guide',()=>{
+  for(const speed of [10,60,150]){
+    const g=new Pinball();g.ready=false;
+    g.ball={x:450,y:200,vx:0,vy:-speed};
+    const energy=()=>.5*(g.ball.vx**2+g.ball.vy**2)-480*g.ball.y;
+    for(let i=0;i<120;i++){
+      const before=energy();g.step(1/480);
+      assert.ok(energy()<=before+1e-6,'the stationary guide cannot add energy');
+    }
+  }
+});
+test('side nudges tilt on a second push within one second and reset after draining',()=>{
+  const g=new Pinball();g.nudge(-1);assert.equal(g.ball.vx,0,'waiting balls cannot be nudged');
+  g.ready=false;g.ball={x:240,y:500,vx:0,vy:0};
+  g.nudge(-1);assert.equal(g.ball.vx,-160);
+  g.time+=1.01;g.nudge(1);assert.equal(g.ball.vx,0);assert.equal(g.tilted,false);
+  g.time+=.2;g.nudge(-1);assert.equal(g.tilted,true);assert.equal(g.ball.vx,0);
+  g.update(.1,0,0,false,true,true);
+  assert.ok(g.flippers.every(f=>f.a===f.rest),'tilt disables flippers');
+  const p=g.bumpers[0];g.ball={x:p.x,y:p.y-p.r-7,vx:0,vy:150};g.step(.002);
+  assert.equal(g.score,0,'tilt disables scoring');
+  g.ball={x:240,y:866,vx:0,vy:100};g.step(.002);
+  assert.equal(g.lives,2);assert.equal(g.tilted,false);
+  g.ready=false;g.nudge(1);assert.equal(g.ball.vx,160);assert.equal(g.tilted,false);
+});
 test('pop bumpers impart an outward impulse and score once per impact',()=>{
   const g=new Pinball(),p=g.bumpers[0];g.ready=false;
   g.ball={x:p.x,y:p.y-p.r-7,vx:0,vy:150};g.step(.002);

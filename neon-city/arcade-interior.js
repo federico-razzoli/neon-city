@@ -170,7 +170,6 @@ export function drawArcadeInterior({face,quad,box}){
       label('SUPER',x+.4,2.4,z+.30,.035,'#14263c');
       panel(x+.13,1.4,z+.35,w-.26,.79,'#0000aa');
       panel(x+.62,2.04,z+.34,.26,.055,'#c0c0c0');
-      if(b===PINBALL_MACHINE)label('PINBALL',x+.35,2.17,z+d-.25,.019,'#69ffe3');
     for(let j=0;j<5;j++)panel(x+.23,1.91-j*.075,z+.34,j===4?.58:.98,.016,'#fff');
     }else if(b===METEORS_CABINET){
       label('METEORS',x+.26,2.4,z+.30,.035,'#14263c');
@@ -233,7 +232,6 @@ export function drawArcadeInterior({face,quad,box}){
     for(const a of [.4,.85])box(x+a,1.23,z+.4,.27,.05,.08,'#fff0c3');
     drawCylinder(face,x+1.13,1.23,z+.45,.055,.07,'#ecf8ff');
     box(x,1.5,z+d-.22,w,.95,.22,c);panel(x+.09,1.64,z+d-.23,w-.18,.63,'#131c30');
-    if(b===PINBALL_MACHINE)label('PINBALL',x+.35,2.17,z+d-.25,.019,'#69ffe3');
     for(let j=0;j<5;j++)panel(x+.2+j*.23,1.87,z+d-.24,.12,.19,'#ffdf80');
     box(x+w-.12,1.01,z-.12,.08,.08,.16,'#d5d7dc');
   }

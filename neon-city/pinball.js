@@ -22,7 +22,12 @@ export class Pinball{
       ...[125,202,280,357].map(x=>[x,106,x,185])];
     this.pointers=new Map();this.serve();
   }
-  serve(){this.ball={x:450,y:796,vx:0,vy:0};this.ready=true;this.charge=0;this.plungerPull=0;this.springTime=null;}
+  serve(){this.tilted=false;this.lastNudge=-Infinity;this.ball={x:450,y:796,vx:0,vy:0};this.ready=true;this.charge=0;this.plungerPull=0;this.springTime=null;}
+  nudge(direction){
+    if(this.over||this.ready||this.tilted)return;
+    if(this.time-this.lastNudge<1){this.tilted=true;this.sound('drain');return;}
+    this.lastNudge=this.time;this.ball.vx+=direction*160;
+  }
   sound(kind='rubber'){
     const c=this.audioContext;if(!c||c.state!=='running'||this.time<(this.soundAfter||0))return;
     this.soundAfter=this.time+.022;
@@ -62,7 +67,7 @@ export class Pinball{
     const steps=Math.max(1,Math.ceil(dt/(1/480))),h=dt/steps;
     for(let i=0;i<steps;i++){
       for(const [j,f] of this.flippers.entries()){
-        const target=(j===0?left:right)?f.active:f.rest,old=f.a;
+        const target=(!this.tilted&&(j===0?left:right))?f.active:f.rest,old=f.a;
         f.a+=clamp(target-f.a,-h*15,h*15);f.omega=h?(f.a-old)/h:0;
         if(Math.abs(f.omega)>0&&old===f.rest)this.sound('flipper');
       }
@@ -88,14 +93,12 @@ export class Pinball{
     return v<0;
   }
   step(dt){
-    const b=this.ball,oldY=b.y;
+    const b=this.ball,oldY=b.y,score=this.score;
     b.vy+=480*dt;b.vx*=1-.028*dt;b.vy*=1-.028*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;
-    // A ball rising in the shooter lane follows the curved launch guide.
-    if(b.x>422&&b.y<208&&b.vy<0)b.vx-=2100*dt;
     for(const [i,r] of this.rails.entries())this.rail(...r,i<this.arch.length-1?.5:.78);
     for(const f of this.flippers)this.rail(f.x,f.y,f.x+Math.cos(f.a)*FLIPPER_LENGTH,f.y+Math.sin(f.a)*FLIPPER_LENGTH,.83,f,8);
     for(const p of this.posts)this.round(p,.9);
-    for(const p of this.bumpers)if(this.round(p,1,210)){this.score+=100;p.lit=.18;this.sound('bumper');}
+    for(const p of this.bumpers)if(this.round(p,1,this.tilted?0:210)){this.score+=100;p.lit=.18;this.sound('bumper');}
     for(const t of this.targets)if(!t.down&&this.rail(t.x,t.y-14,t.x,t.y+14,.8,null,4)){
       t.down=true;this.score+=500;this.sound('target');
       if(this.targets.every(t=>t.down)){this.score+=3000;this.bankReset=1.8;}
@@ -104,7 +107,7 @@ export class Pinball{
       const [a,c,d]=s.points;
       const front=this.rail(...a,...c,1.05,null,5);
       this.rail(...c,...d,.8,null,5);this.rail(...d,...a,.8,null,5);
-      if(front&&!s.lit){b.vy-=190;b.vx+=s===this.slings[0]?130:-130;this.score+=10;s.lit=.15;this.sound('rubber');}
+      if(front&&!s.lit&&!this.tilted){b.vy-=190;b.vx+=s===this.slings[0]?130:-130;this.score+=10;s.lit=.15;this.sound('rubber');}
     }
     if(oldY<180&&b.y>=180&&b.vy>0)for(const r of this.rollovers)if(Math.abs(b.x-r.x)<28&&!r.on){
       r.on=true;this.score+=250;this.sound('target');
@@ -112,9 +115,10 @@ export class Pinball{
     }
     // A spinner switch is crossed by the ball; it is not a solid wall.
     if((oldY-302)*(b.y-302)<0&&Math.abs(b.x-153)<18){this.score+=100;this.spinnerUntil=this.time+1;this.sound('target');}
+    if(this.tilted)this.score=score;
     const speed=Math.hypot(b.vx,b.vy);if(speed>1450){b.vx*=1450/speed;b.vy*=1450/speed;}
     // An underpowered shot rolls back onto the plunger without spending a ball.
-    if(b.x>442&&b.y>=796&&b.vy>0){this.serve();return;}
+    if(!this.tilted&&b.x>442&&b.y>=796&&b.vy>0){this.serve();return;}
     if(b.y>865){this.sound('drain');if(--this.lives===0)this.over=true;else this.serve();}
   }
   draw(ctx){drawPinball(ctx,this);}

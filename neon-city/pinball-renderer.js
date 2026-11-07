@@ -92,7 +92,7 @@ function drawFixed(g,game){
   plate(g,[[13,828],[427,828],[427,900],[13,900]],5,apron,'#86999e',1);
   plate(g,[[25,840],[159,840],[159,888],[25,888]],6,'#f0e6cc','#adad95',.6);
   plate(g,[[307,840],[416,840],[416,888],[307,888]],6,'#f0e6cc','#adad95',.6);
-  print(g,'FLIPPERS  ←  →  /  A  D',92,859,10,'#273a40',7);print(g,'3 BALLS  ·  ESC TO LEAVE',92,880,10,'#273a40',7);
+  print(g,'FLIPPERS ← → · NUDGE A D',92,859,10,'#273a40',7);print(g,'3 BALLS  ·  ESC TO LEAVE',92,880,10,'#273a40',7);
   print(g,'HOLD ↓ TO PULL',361,858,10,'#273a40',7);print(g,'RELEASE TO LAUNCH',361,880,10,'#273a40',7);
   print(g,'PINBALL',235,872,15,'#e4d7b5',8);
   // Full-length stainless side trims. No surrounding dashboard.
@@ -161,7 +161,8 @@ export function drawPinball(g,game){
   g.save();g.translate(320,0);g.scale(.58,.58);g.translate(-320,0);
   g.fillStyle='#132026';g.fillRect(196,20,188,18);g.fillRect(394,20,48,18);
   g.textAlign='right';g.fillStyle='#f5ead1';g.font='500 21px Arial, sans-serif';g.fillText(String(game.score).padStart(7,'0'),381,37);
-  g.font='500 18px Arial, sans-serif';g.fillText(`${Math.min(3,4-game.lives)}`,430,36);
+  g.font='500 18px Arial, sans-serif';g.fillText(`${game.lives}`,430,36);
+  if(game.tilted&&!game.over){g.textAlign='center';g.font='600 12px Arial';g.fillStyle='#ff866b';g.fillText('TILT',285,34);}
   if(game.over){g.fillStyle='#112027';g.fillRect(190,7,260,32);g.textAlign='center';g.font='600 10px Arial';g.fillStyle='#f6e4ba';g.fillText(`GAME OVER    ${game.score}`,320,20);g.font='7px Arial';g.fillText('SPACE / ENTER TO RETURN TO ARCADE',320,32);}
   g.restore();
   // The lock bar closes the cabinet, leaving the entire table in view.

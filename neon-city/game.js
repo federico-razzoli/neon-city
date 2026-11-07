@@ -956,6 +956,7 @@ if(ping){
     else if(running){if(!e.repeat)ping.keyDown(k);keys.add(k);}
     return;
   }
+  if(ping.kind==='pinball'&&(k==='a'||k==='d')){e.preventDefault();if(running&&!e.repeat)ping.nudge(k==='a'?-1:1);return;}
   if(ping.kind==='pinball'&&ping.over&&k==='Enter'){e.preventDefault();closeCabinet();canvas.focus();return;}
   const controls=ping.kind?['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','s','a','d',' ','Escape']:['ArrowUp','ArrowDown','w','s',' ','Escape'];
   if(!controls.includes(k)&&!(ping.crossed&&k.length===1))return;
