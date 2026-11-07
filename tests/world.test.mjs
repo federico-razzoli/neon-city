@@ -4867,8 +4867,8 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   let loads=0,disposals=0,failNext=false;
   sandbox.loadCabinetGame=name=>{
     loads++;
-    const Type={PING:sandbox.Ping,GROG:sandbox.Frog,'KONGY KONG':sandbox.KongyKong,'PINBALL II':sandbox.Pinball}[name];
-    return {ready:failNext?Promise.reject(new Error('load failed')):Promise.resolve(new Type(name==='PINBALL II'?2:undefined)),dispose(){disposals++;}};
+    const Type={PING:sandbox.Ping,GROG:sandbox.Frog,'KONGY KONG':sandbox.KongyKong,PINBALL:sandbox.Pinball}[name];
+    return {ready:failNext?Promise.reject(new Error('load failed')):Promise.resolve(new Type()),dispose(){disposals++;}};
   };
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'ARCADE'}],manholes:[],newspaperMachines:[]});
@@ -4913,11 +4913,11 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.deepEqual({x:player.x,z:player.z},standing,'Ping holds the player in place');
   sandbox.game.ping.over=true;press();assert.equal(sandbox.game.ping,null,'Space leaves GAME OVER');
   assert.equal(disposals,1,'leaving the cabinet disposes its runtime');
-  const other=arcadeInterior.ARCADE.pinballs[1];
+  const other=arcadeInterior.PINBALL_MACHINE;
   Object.assign(player,{x:other.x+.75,z:other.z-.8,angle:0});press();
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(sandbox.game.ping.variant,2,'second machine loads its variation');
-  assert.equal(sandbox.game.inventory.items.length,0,'second pinball charges one token');
+  assert.equal(sandbox.game.ping.kind,'pinball','remaining machine loads pinball');
+  assert.equal(sandbox.game.inventory.items.length,0,'pinball charges one token');
   sandbox.game.ping.over=true;press();
   sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(1));
   const frogCabinet=arcadeInterior.FROG_CABINET;

@@ -7,14 +7,7 @@ const CLASSIC={
   flipper:['#8f2421','#6a2823','#df4333','#ffb99a'],rubber:'#f0e9db',
   sling:'#19566ed9',slingAccent:'#cc4c38',apron:['#293b43','#40525b','#172e39'],insert:'#e6aa36',
 };
-const SECOND={
-  field:['#222448','#38365c','#171e37'],stripe:'#8271cf',accent:'#39c7d5',
-  ring:'#55528b',ringCenter:'#253e59',ink:'#d4c6ff',pale:'#b8f4ef',
-  bumper:['#a4fff0','#20b6b9','#188b9b','#65efe0'],lit:['#ffffff','#75fff1','#36d9cf'],glow:'#75fff1',
-  flipper:['#8a5b18','#523f30','#edb948','#fff0a5'],rubber:'#e6ebff',
-  sling:'#6554a5e6',slingAccent:'#3dc9d3',apron:['#211d3c','#4d416f','#191a30'],insert:'#79f6e0',
-};
-const theme=game=>game.variant===2?SECOND:CLASSIC;
+const theme=()=>CLASSIC;
 const project=(x,y,z=0)=>{const s=.36+y/900*.045;return {x:320+(x-240)*s,y:34+y/900*310-z*.22,s};};
 function polygon(g,points,fill,stroke=null,width=1){g.beginPath();points.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();if(fill){g.fillStyle=fill;g.fill();}if(stroke){g.strokeStyle=stroke;g.lineWidth=width;g.stroke();}}
 function plate(g,points,z,fill,stroke=null,width=1){polygon(g,points.map(([x,y])=>project(x,y,z)),fill,stroke,width);}
@@ -99,7 +92,7 @@ function drawFixed(g,game){
   }
   for(const p of game.posts)post(g,p.x,p.y,t);
   // Return-lane wire guides and switches.
-  for(const points of [[[70,543],[107,683],[138,720]],(game.variant===2?[[405,544],[365,638],[332,709]]:[[405,543],[377,683],[347,720]])]){
+  for(const points of [[[70,543],[107,683],[138,720]],[[405,543],[377,683],[347,720]]]){
     metal(g,points,17,2);for(const [x,y] of [points[0],points[1]]){post(g,x,y,t);}
   }
   for(const b of game.bumpers)bumper(g,b,false,t);
@@ -110,10 +103,10 @@ function drawFixed(g,game){
   plate(g,[[307,840],[416,840],[416,888],[307,888]],6,'#f0e6cc','#adad95',.6);
   print(g,'FLIPPERS ← → · NUDGE A D',92,859,10,'#273a40',7);print(g,'3 BALLS  ·  ESC TO LEAVE',92,880,10,'#273a40',7);
   print(g,'HOLD ↓ TO PULL',361,858,10,'#273a40',7);print(g,'RELEASE TO LAUNCH',361,880,10,'#273a40',7);
-  print(g,game.variant===2?'PINBALL II':'PINBALL',235,872,15,'#e4d7b5',8);
+  print(g,'PINBALL',235,872,15,'#e4d7b5',8);
   // Full-length stainless side trims. No surrounding dashboard.
   for(const [a,b] of [[-17,-5],[484,496]]){
-    const trim=g.createLinearGradient(project(a,0).x,0,project(b,900).x,0);trim.addColorStop(0,game.variant===2?'#55496d':'#526069');trim.addColorStop(.35,game.variant===2?'#e1daf7':'#e3e5e2');trim.addColorStop(.6,game.variant===2?'#9c8bad':'#838e91');trim.addColorStop(1,game.variant===2?'#302a45':'#2d3a43');
+    const trim=g.createLinearGradient(project(a,0).x,0,project(b,900).x,0);trim.addColorStop(0,'#526069');trim.addColorStop(.35,'#e3e5e2');trim.addColorStop(.6,'#838e91');trim.addColorStop(1,'#2d3a43');
     plate(g,[[a,-5],[b,-5],[b,900],[a,900]],15,trim,'#9ca8ab',.5);
     for(const y of [60,465,850])screw(g,(a+b)/2,y,17);
   }
@@ -152,9 +145,12 @@ export function drawPinball(g,game){
     game.art=document.createElement('canvas');game.art.width=640*resolution;game.art.height=360*resolution;game.artResolution=resolution;
     const a=game.art.getContext('2d');a.scale(resolution,resolution);drawFixed(a,game);
   }
-  g.save();g.drawImage(game.art,0,0,640,360);
+  g.save();
+  const shake=Math.max(0,(game.nudgeUntil??0)-game.time)/.24;
+  if(shake>0)g.translate(game.nudgeDirection*3*shake*Math.sin((1-shake)*Math.PI*3),0);
+  g.drawImage(game.art,0,0,640,360);
   // Lit inserts, moving targets and the physical parts that move during play.
-  for(const [i,r] of game.rollovers.entries())insert(g,r.x,202,r.on,(game.variant===2?t.insert:['#e9b944','#eab846','#e9b944'][i]),10);
+  for(const [i,r] of game.rollovers.entries())insert(g,r.x,202,r.on,['#e9b944','#eab846','#e9b944'][i],10);
   for(const [i,y] of [602,635,670].entries())insert(g,240,y,game.score>=(i+1)*1000,t.insert,8);
   for(const target of game.targets)if(!target.down){
     plate(g,[[target.x-3,target.y-13],[target.x+5,target.y-13],[target.x+5,target.y+13],[target.x-3,target.y+13]],22,'#eee2c5','#8e9a97',.7);

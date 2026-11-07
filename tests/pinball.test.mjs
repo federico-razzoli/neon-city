@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Pinball} from '../neon-city/pinball.js';
+import {Pinball,NUDGE_IMPULSE} from '../neon-city/pinball.js';
 import {ARCADE,PINBALL_MACHINE,tryArcadeGame} from '../neon-city/arcade-interior.js';
 
 test('the first pinball consumes one token',()=>{
@@ -14,47 +14,10 @@ test('the first pinball consumes one token',()=>{
   assert.equal(inventory.items.length,0);
   assert.equal(tryArcadeGame(PINBALL_MACHINE,inventory),'TO PLAY GAMES YOU NEED TOKENS.');
 });
-test('the second pinball costs one token and loads the five bumper variation',async()=>{
-  const inventory={items:[{id:'arcade-token',count:2}],selected:0};
-  assert.equal(tryArcadeGame(ARCADE.pinballs[1],inventory,false),'PINBALL II');
-  assert.equal(inventory.items[0].count,2);
-  assert.equal(tryArcadeGame(ARCADE.pinballs[1],inventory),'PINBALL II');
-  assert.equal(inventory.items[0].count,1);
-  const previous=globalThis.window;globalThis.window={};
-  try{
-    await import('../neon-city/cabinet-runtime.js?second-pinball');
-    const g=await window.createCabinetGame('PINBALL II');
-    assert.equal(g.kind,'pinball');assert.equal(g.variant,2);
-    assert.equal(g.bumpers.length,5);assert.equal(g.flippers.length,3);
-    const first=new Pinball();assert.equal(first.bumpers.length,3);assert.equal(first.flippers.length,2);
-  }finally{if(previous===undefined)delete globalThis.window;else globalThis.window=previous;}
-});
-test('a timed right flipper tap saves a ball entering the side drain lane',()=>{
-  for(const save of [false,true]){
-    const g=new Pinball(2);g.ready=false;
-    g.ball={x:411,y:570,vx:0,vy:200};
-    let returned=false;
-    for(let i=0;i<480;i++){
-      g.update(1/240,0,0,false,false,save&&i<38);
-      if(g.ball.x<390&&g.ball.y<540)returned=true;
-    }
-    assert.equal(returned,save,'a timely tap returns the ball over the inner lane guide');
-    assert.equal(g.lives,save?3:2,'an unprotected side lane drains the ball');
-  }
-});
-test('the short side flipper uses the right control and obeys tilt',()=>{
-  const g=new Pinball(2),f=g.flippers[2];
-  g.update(.15,0,0,false,false,true);
-  assert.equal(g.flippers[0].a,g.flippers[0].rest);
-  assert.equal(f.a,f.active);assert.notEqual(g.flippers[1].a,g.flippers[1].rest);
-  g.tilted=true;g.update(.15,0,0,false,false,true);assert.equal(f.a,f.rest);
-});
-test('all five variation bumpers score and kick the ball',()=>{
-  const g=new Pinball(2);g.ready=false;
-  for(const [i,p] of g.bumpers.entries()){
-    g.ball={x:p.x,y:p.y-p.r-7,vx:0,vy:150};g.step(.002);
-    assert.equal(g.score,(i+1)*100);assert.ok(g.ball.vy<0);
-  }
+test('the arcade has one pinball beside the right wall',()=>{
+  assert.equal(ARCADE.pinballs.length,1);
+  assert.equal(PINBALL_MACHINE,ARCADE.pinballs[0]);
+  assert.ok(ARCADE.width-PINBALL_MACHINE.x-PINBALL_MACHINE.w<=.25);
 });
 test('Down progressively pulls the spring; release returns it to the ball before launching',()=>{
   const g=new Pinball();
@@ -96,10 +59,27 @@ test('weak shots near the launch lane exit gain no energy from the guide',()=>{
     }
   }
 });
+test('a single nudge visibly deflects the ball in either direction on both tables',()=>{
+  for(const direction of [-1,1]){
+    const g=new Pinball();g.ready=false;
+    g.ball={x:240,y:210,vx:0,vy:100};g.nudge(direction);
+    for(let i=0;i<12;i++)g.update(.01);
+    assert.ok((g.ball.x-240)*direction>45,'a push moves the ball more than five ball radii in 120ms');
+    assert.equal(g.tilted,false);
+    assert.ok(g.nudgeUntil>g.time,'a valid push gives brief visual feedback');
+  }
+});
+test('a nudge can reverse moderate sideways motion rather than merely slow it',()=>{
+  for(const direction of [-1,1]){
+    const g=new Pinball();g.ready=false;
+    g.ball={x:240,y:210,vx:-direction*200,vy:100};g.nudge(direction);
+    g.update(.1);assert.ok((g.ball.x-240)*direction>15);
+  }
+});
 test('side nudges tilt on a second push within one second and reset after draining',()=>{
   const g=new Pinball();g.nudge(-1);assert.equal(g.ball.vx,0,'waiting balls cannot be nudged');
   g.ready=false;g.ball={x:240,y:500,vx:0,vy:0};
-  g.nudge(-1);assert.equal(g.ball.vx,-160);
+  g.nudge(-1);assert.equal(g.ball.vx,-NUDGE_IMPULSE);
   g.time+=1.01;g.nudge(1);assert.equal(g.ball.vx,0);assert.equal(g.tilted,false);
   g.time+=.2;g.nudge(-1);assert.equal(g.tilted,true);assert.equal(g.ball.vx,0);
   g.update(.1,0,0,false,true,true);
@@ -108,7 +88,7 @@ test('side nudges tilt on a second push within one second and reset after draini
   assert.equal(g.score,0,'tilt disables scoring');
   g.ball={x:240,y:866,vx:0,vy:100};g.step(.002);
   assert.equal(g.lives,2);assert.equal(g.tilted,false);
-  g.ready=false;g.nudge(1);assert.equal(g.ball.vx,160);assert.equal(g.tilted,false);
+  g.ready=false;g.nudge(1);assert.equal(g.ball.vx,NUDGE_IMPULSE);assert.equal(g.tilted,false);
 });
 test('pop bumpers impart an outward impulse and score once per impact',()=>{
   const g=new Pinball(),p=g.bumpers[0];g.ready=false;

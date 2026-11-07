@@ -1,8 +1,9 @@
 // A pinball table: one steel ball, mechanical flippers, rubber and scoring switches.
-import {drawPinball} from './pinball-renderer.js?v=5';
+import {drawPinball} from './pinball-renderer.js?v=9';
 const TAU=Math.PI*2;
 export const BALL_RADIUS=8;
 export const FLIPPER_LENGTH=76;
+export const NUDGE_IMPULSE=420;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 function segments(points){return points.slice(1).map((p,i)=>[...points[i],...p]);}
 function arc(cx,cy,rx,ry,from,to,steps){return Array.from({length:steps+1},(_,i)=>{const a=from+(to-from)*i/steps;return [cx+Math.cos(a)*rx,cy+Math.sin(a)*ry];});}
@@ -15,24 +16,19 @@ export class Pinball{
   flippers=[{x:150,y:744,a:.38,rest:.38,active:-.5},{x:330,y:744,a:Math.PI-.38,rest:Math.PI-.38,active:Math.PI+.5}];
   slings=[{points:[[92,564],[140,675],[101,658]],lit:0},{points:[[387,564],[339,675],[378,658]],lit:0}];
   arch=arc(249,145,219,100,Math.PI,TAU,32);
-  constructor(variant=1){
-    this.variant=variant;
-    if(variant===2){
-      this.bumpers=[{x:151,y:246,r:22,lit:0},{x:307,y:289,r:22,lit:0},{x:221,y:367,r:23,lit:0},{x:339,y:432,r:22,lit:0},{x:178,y:492,r:22,lit:0}];
-      // A short save flipper closes the right outlane mouth against its inner guide.
-      this.flippers.push({x:420,y:594,length:38,a:Math.PI/2,rest:Math.PI/2,active:Math.PI+.18});
-    }
+  constructor(){
     this.rails=[...segments(this.arch),[30,145,30,610],...segments([[30,360],[38,430],[64,490],[104,530]]),[468,145,468,850],[431,205,431,850],
       ...segments([[30,610],[56,694],[84,772],[124,823]]),...segments([[431,610],[414,694],[392,772],[352,823]]),
       [71,544,118,709],[405,544,365,638],[365,638,332,709],
       ...[125,202,280,357].map(x=>[x,106,x,185])];
     this.pointers=new Map();this.serve();
   }
-  serve(){this.tilted=false;this.lastNudge=-Infinity;this.ball={x:450,y:796,vx:0,vy:0};this.ready=true;this.charge=0;this.plungerPull=0;this.springTime=null;}
+  serve(){this.nudgeUntil=0;this.tilted=false;this.lastNudge=-Infinity;this.ball={x:450,y:796,vx:0,vy:0};this.ready=true;this.charge=0;this.plungerPull=0;this.springTime=null;}
   nudge(direction){
     if(this.over||this.ready||this.tilted)return;
     if(this.time-this.lastNudge<1){this.tilted=true;this.sound('drain');return;}
-    this.lastNudge=this.time;this.ball.vx+=direction*160;
+    this.lastNudge=this.time;this.ball.vx+=direction*NUDGE_IMPULSE;
+    this.nudgeUntil=this.time+.24;this.nudgeDirection=direction;
   }
   sound(kind='rubber'){
     const c=this.audioContext;if(!c||c.state!=='running'||this.time<(this.soundAfter||0))return;
@@ -44,7 +40,10 @@ export class Pinball{
     o.onended=()=>{o.disconnect();g.disconnect();};
   }
   pointer(type,x,y,id=0){
-    if(type==='down')this.pointers.set(id,x>394&&x<425&&y>280?'launch':x<320?'left':'right');
+    if(type==='down'){
+      const launch=x>394&&x<425&&y>280;
+      this.pointers.set(id,launch?'launch':x<320?'left':'right');
+    }
     else this.pointers.delete(id);
   }
   syncInput(_canvas,running){if(!running){this.pointers.clear();this.launchHeld=false;this.charge=0;this.plungerPull=0;this.springTime=null;}}
