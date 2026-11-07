@@ -3,16 +3,58 @@ import assert from 'node:assert/strict';
 import {Pinball} from '../neon-city/pinball.js';
 import {ARCADE,PINBALL_MACHINE,tryArcadeGame} from '../neon-city/arcade-interior.js';
 
-test('only the first pinball is playable and consumes one token',()=>{
+test('the first pinball consumes one token',()=>{
   const inventory={items:[{id:'arcade-token',count:2}],selected:0};
   assert.equal(tryArcadeGame(PINBALL_MACHINE,inventory,false),'PINBALL');
   assert.equal(inventory.items[0].count,2);
   assert.equal(tryArcadeGame(PINBALL_MACHINE,inventory),'PINBALL');
   assert.equal(inventory.items[0].count,1);
-  assert.equal(tryArcadeGame(ARCADE.pinballs[1],inventory),'THIS GAME IS NOT AVAILABLE YET.');
+  assert.equal(tryArcadeGame(ARCADE.bridgeConsole,inventory),'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(tryArcadeGame(PINBALL_MACHINE,inventory),'PINBALL');
   assert.equal(inventory.items.length,0);
   assert.equal(tryArcadeGame(PINBALL_MACHINE,inventory),'TO PLAY GAMES YOU NEED TOKENS.');
+});
+test('the second pinball costs one token and loads the five bumper variation',async()=>{
+  const inventory={items:[{id:'arcade-token',count:2}],selected:0};
+  assert.equal(tryArcadeGame(ARCADE.pinballs[1],inventory,false),'PINBALL II');
+  assert.equal(inventory.items[0].count,2);
+  assert.equal(tryArcadeGame(ARCADE.pinballs[1],inventory),'PINBALL II');
+  assert.equal(inventory.items[0].count,1);
+  const previous=globalThis.window;globalThis.window={};
+  try{
+    await import('../neon-city/cabinet-runtime.js?second-pinball');
+    const g=await window.createCabinetGame('PINBALL II');
+    assert.equal(g.kind,'pinball');assert.equal(g.variant,2);
+    assert.equal(g.bumpers.length,5);assert.equal(g.flippers.length,3);
+    const first=new Pinball();assert.equal(first.bumpers.length,3);assert.equal(first.flippers.length,2);
+  }finally{if(previous===undefined)delete globalThis.window;else globalThis.window=previous;}
+});
+test('a timed right flipper tap saves a ball entering the side drain lane',()=>{
+  for(const save of [false,true]){
+    const g=new Pinball(2);g.ready=false;
+    g.ball={x:411,y:570,vx:0,vy:200};
+    let returned=false;
+    for(let i=0;i<480;i++){
+      g.update(1/240,0,0,false,false,save&&i<38);
+      if(g.ball.x<390&&g.ball.y<540)returned=true;
+    }
+    assert.equal(returned,save,'a timely tap returns the ball over the inner lane guide');
+    assert.equal(g.lives,save?3:2,'an unprotected side lane drains the ball');
+  }
+});
+test('the short side flipper uses the right control and obeys tilt',()=>{
+  const g=new Pinball(2),f=g.flippers[2];
+  g.update(.15,0,0,false,false,true);
+  assert.equal(g.flippers[0].a,g.flippers[0].rest);
+  assert.equal(f.a,f.active);assert.notEqual(g.flippers[1].a,g.flippers[1].rest);
+  g.tilted=true;g.update(.15,0,0,false,false,true);assert.equal(f.a,f.rest);
+});
+test('all five variation bumpers score and kick the ball',()=>{
+  const g=new Pinball(2);g.ready=false;
+  for(const [i,p] of g.bumpers.entries()){
+    g.ball={x:p.x,y:p.y-p.r-7,vx:0,vy:150};g.step(.002);
+    assert.equal(g.score,(i+1)*100);assert.ok(g.ball.vy<0);
+  }
 });
 test('Down progressively pulls the spring; release returns it to the ball before launching',()=>{
   const g=new Pinball();

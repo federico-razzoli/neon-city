@@ -51,6 +51,7 @@ export const FROG_CABINET=ARCADE.cabinets[6];
 export const KONG_CABINET=ARCADE.cabinets[7];
 export const AMIGOS_CABINET=ARCADE.cabinets[8];
 export const PINBALL_MACHINE=ARCADE.pinballs[0];
+export const SECOND_PINBALL_MACHINE=ARCADE.pinballs[1];
 export function facingArcadeGame(player){
   const machines=[...ARCADE.cabinets,...ARCADE.pinballs];
   const targets=machines.filter(b=>player.z<b.z).map(machine=>({x:machine.x+machine.w/2,z:machine.z,radius:.65,machine}));
@@ -60,12 +61,12 @@ export function tryArcadeGame(machine,inventory,consume=true){
   if(machine===SUPER_CABINET)return 'SUPER';
   const tokens=inventory.items.find(item=>item.id==='arcade-token'&&item.count>0);
   if(!tokens)return 'TO PLAY GAMES YOU NEED TOKENS.';
-  if(machine!==BYKER_CABINET&&machine!==GHOST_CABINET&&machine!==PUNCH_CABINET&&machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET&&machine!==PINBALL_MACHINE)return 'THIS GAME IS NOT AVAILABLE YET.';
+  if(machine!==BYKER_CABINET&&machine!==GHOST_CABINET&&machine!==PUNCH_CABINET&&machine!==PING_CABINET&&machine!==FROG_CABINET&&machine!==KONG_CABINET&&machine!==AMIGOS_CABINET&&machine!==METEORS_CABINET&&machine!==PINBALL_MACHINE&&machine!==SECOND_PINBALL_MACHINE)return 'THIS GAME IS NOT AVAILABLE YET.';
   if(consume&&--tokens.count===0){
     inventory.items.splice(inventory.items.indexOf(tokens),1);
     inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
   }
-  return machine===PINBALL_MACHINE?'PINBALL':machine===BYKER_CABINET?'BYKER':machine===GHOST_CABINET?'GHOST':machine===PUNCH_CABINET?'PUNCH':machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
+  return machine===SECOND_PINBALL_MACHINE?'PINBALL II':machine===PINBALL_MACHINE?'PINBALL':machine===BYKER_CABINET?'BYKER':machine===GHOST_CABINET?'GHOST':machine===PUNCH_CABINET?'PUNCH':machine===METEORS_CABINET?'METEORS':machine===PING_CABINET?'PING':machine===FROG_CABINET?'GROG':machine===KONG_CABINET?'KONGY KONG':'AMIGOS';
 }
 // Token purchases share the staff dialogue's block and answer sequencing.
 export function arcadeTalk(wallet,inventory){

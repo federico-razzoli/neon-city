@@ -10,7 +10,7 @@ test('Kongy Kong is next to Grog, costs one token, and other machines stay unava
   assert.equal(facingArcadeGame({x:KONG_CABINET.x+.75,z:KONG_CABINET.z-.8,angle:0}),KONG_CABINET);
   const inventory=new Inventory();assert.equal(tryArcadeGame(KONG_CABINET,inventory),'TO PLAY GAMES YOU NEED TOKENS.');
   inventory.take(arcadeTokens(2));assert.equal(tryArcadeGame(KONG_CABINET,inventory),'KONGY KONG');assert.equal(inventory.current.count,1);
-  assert.equal(tryArcadeGame(ARCADE.pinballs[1],inventory),'THIS GAME IS NOT AVAILABLE YET.');assert.equal(inventory.current.count,1);
+  assert.equal(tryArcadeGame(ARCADE.bridgeConsole,inventory),'THIS GAME IS NOT AVAILABLE YET.');assert.equal(inventory.current.count,1);
 });
 function quietGame(){const game=new KongyKong();game.spawnIn=1000;return game;}
 test('the larger monkey stomps nearby players on its platform, even with a hammer',()=>{

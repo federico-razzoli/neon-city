@@ -1,5 +1,20 @@
 // The screen depicts the table itself. All marks belong to its playfield or apron.
 const TAU=Math.PI*2;
+const CLASSIC={
+  field:['#d2c19d','#eee0bc','#d4bc86'],stripe:'#2b7181',accent:'#c54b36',
+  ring:'#256a77',ringCenter:'#e4c877',ink:'#963d2d',pale:'#f5deaa',
+  bumper:['#fb7964','#ba2d2a','#b83c30','#cf3830'],lit:['#fff3bc','#ff8d39','#ef8541'],glow:'#ffbd74',
+  flipper:['#8f2421','#6a2823','#df4333','#ffb99a'],rubber:'#f0e9db',
+  sling:'#19566ed9',slingAccent:'#cc4c38',apron:['#293b43','#40525b','#172e39'],insert:'#e6aa36',
+};
+const SECOND={
+  field:['#222448','#38365c','#171e37'],stripe:'#8271cf',accent:'#39c7d5',
+  ring:'#55528b',ringCenter:'#253e59',ink:'#d4c6ff',pale:'#b8f4ef',
+  bumper:['#a4fff0','#20b6b9','#188b9b','#65efe0'],lit:['#ffffff','#75fff1','#36d9cf'],glow:'#75fff1',
+  flipper:['#8a5b18','#523f30','#edb948','#fff0a5'],rubber:'#e6ebff',
+  sling:'#6554a5e6',slingAccent:'#3dc9d3',apron:['#211d3c','#4d416f','#191a30'],insert:'#79f6e0',
+};
+const theme=game=>game.variant===2?SECOND:CLASSIC;
 const project=(x,y,z=0)=>{const s=.36+y/900*.045;return {x:320+(x-240)*s,y:34+y/900*310-z*.22,s};};
 function polygon(g,points,fill,stroke=null,width=1){g.beginPath();points.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();if(fill){g.fillStyle=fill;g.fill();}if(stroke){g.strokeStyle=stroke;g.lineWidth=width;g.stroke();}}
 function plate(g,points,z,fill,stroke=null,width=1){polygon(g,points.map(([x,y])=>project(x,y,z)),fill,stroke,width);}
@@ -16,43 +31,44 @@ function screw(g,x,y,z){const p=project(x,y,z);ellipse(g,x,y,3.5,z,'#c9d0d2','#6
 function print(g,s,x,y,size=8,color='#31434a',z=0){const p=project(x,y,z);g.textAlign='center';g.fillStyle=color;g.font=`600 ${size*p.s}px Arial, sans-serif`;g.fillText(s,p.x,p.y);}
 function rubber(g,points,z=13,color='#f5ebe0',width=4){line(g,points.map(([x,y])=>[x+3,y+8]),0,'#17212650',width+2);line(g,points,z,'#675d52',width+1.5);line(g,points,z+1,color,width);}
 function metal(g,points,z=10,width=3){line(g,points.map(([x,y])=>[x+4,y+9]),0,'#17212640',width+3);line(g,points,z,'#48565d',width+1.3);line(g,points,z+1,'#d0d9dc',width);line(g,points,z+2,'#f7fafa',Math.max(.6,width*.24));}
-function post(g,x,y){ellipse(g,x+3,y+6,11,0,'#19272c40');cylinder(g,x,y,9,2,14,'#df4637','#b94937');ellipse(g,x,y,10,9,'#eee7d6','#a9a79a',.5);ellipse(g,x,y,6,16,'#f5ede1','#b1b5b5',.7);screw(g,x,y,17);}
+function post(g,x,y,t=CLASSIC){ellipse(g,x+3,y+6,11,0,'#19272c40');cylinder(g,x,y,9,2,14,t.flipper[2],t.flipper[0]);ellipse(g,x,y,10,9,'#eee7d6','#a9a79a',.5);ellipse(g,x,y,6,16,'#f5ede1','#b1b5b5',.7);screw(g,x,y,17);}
 function insert(g,x,y,on,color='#ebbc48',r=10){ellipse(g,x,y,r+2,0,'#73623a','#7c785f',.5);const p=project(x,y);g.save();if(on){g.shadowColor=color;g.shadowBlur=10;}ellipse(g,x,y,r,0,on?color:'#ac956969');g.restore();ellipse(g,x-2,y-2,r*.55,0,on?'#fff6c580':'#ffffff18');}
-function bumper(g,b,on=false){
+function bumper(g,b,on=false,t=CLASSIC){
   const {x,y,r}=b,p=project(x,y,30);
   ellipse(g,x+8,y+17,r+6,0,'#29312b48');
   cylinder(g,x,y,r+3,2,7,'#c7d0cd','#88999e');
   cylinder(g,x,y,r-10,7,27,'#d0d5ce','#acb9b9');
-  g.save();if(on){g.shadowColor='#ffbd74';g.shadowBlur=18;}
-  const red=radial(g,p.x,p.y,r*p.s,on?'#fff3bc':'#fb7964',on?'#ff8d39':'#ba2d2a');
-  cylinder(g,x,y,r-5,27,34,red,on?'#ef8541':'#b83c30');g.restore();
-  ellipse(g,x,y,r-15,35,'#f7e8cc','#e8ad86',.5);ellipse(g,x,y,r-19,35,on?'#fff7d4':'#cf3830');
+  g.save();if(on){g.shadowColor=t.glow;g.shadowBlur=18;}
+  const red=radial(g,p.x,p.y,r*p.s,on?t.lit[0]:t.bumper[0],on?t.lit[1]:t.bumper[1]);
+  cylinder(g,x,y,r-5,27,34,red,on?t.lit[2]:t.bumper[2]);g.restore();
+  ellipse(g,x,y,r-15,35,'#f7e8cc','#e8ad86',.5);ellipse(g,x,y,r-19,35,on?t.lit[0]:t.bumper[3]);
   print(g,'100',x,y+7,10,'#fff0d0',36);screw(g,x-r+7,y,34);screw(g,x+r-7,y,34);
 }
 function drawFixed(g,game){
+  const t=theme(game);
   // The only surrounding scenery is the dark gap beside the machine.
   g.fillStyle='#11161b';g.fillRect(0,0,640,360);
   const ambient=g.createLinearGradient(0,0,640,0);ambient.addColorStop(0,'#12131a');ambient.addColorStop(.5,'#31383c');ambient.addColorStop(1,'#11161b');g.fillStyle=ambient;g.fillRect(0,0,640,360);
   // Cabinet, playfield wood and steel side channels.
   plate(g,[[-23,-10],[503,-10],[503,915],[-23,915]],0,'#090d11');
-  const wood=g.createLinearGradient(0,50,0,355);wood.addColorStop(0,'#d2c19d');wood.addColorStop(.45,'#eee0bc');wood.addColorStop(1,'#d4bc86');
+  const wood=g.createLinearGradient(0,50,0,355);wood.addColorStop(0,t.field[0]);wood.addColorStop(.45,t.field[1]);wood.addColorStop(1,t.field[2]);
   plate(g,[[0,0],[480,0],[480,900],[0,900]],0,wood,'#d1d1c5',1);
   g.save();plate(g,[[9,4],[471,4],[471,900],[9,900]],0,null);g.clip();
   // Restrained printed stripes are paint under the mechanisms, not screen graphics.
   for(const [x,offset] of [[45,0],[420,1]]){
-    plate(g,[[x-11,70],[x+17,70],[x+(offset?-55:55),510],[x+(offset?-90:90),777],[x+(offset?-120:120),790],[x+(offset?-77:77),510]],0,'#2b7181');
-    plate(g,[[x+22,82],[x+28,82],[x+(offset?-40:72),510],[x+(offset?-113:143),790],[x+(offset?-123:133),790],[x+(offset?-48:64),510]],0,'#c54b36');
+    plate(g,[[x-11,70],[x+17,70],[x+(offset?-55:55),510],[x+(offset?-90:90),777],[x+(offset?-120:120),790],[x+(offset?-77:77),510]],0,t.stripe);
+    plate(g,[[x+22,82],[x+28,82],[x+(offset?-40:72),510],[x+(offset?-113:143),790],[x+(offset?-123:133),790],[x+(offset?-48:64),510]],0,t.accent);
   }
   // Faint grain and small varnish highlights.
   for(let i=0;i<170;i++){const y=(i*49.717)%900,x=(i*97.13)%480;line(g,[[x,y],[x+8+(i%15),y+1]],0,i%3?'#7e66380b':'#fff7dc18',.5);}
   // Repeating arcs printed around the bumper nest.
-  for(const b of game.bumpers){ellipse(g,b.x,b.y,b.r+16,0,'#256a77','#ded1a5',1);ellipse(g,b.x,b.y,b.r+11,0,'#e4c877','#b99049',1);}
+  for(const b of game.bumpers){ellipse(g,b.x,b.y,b.r+16,0,t.ring,'#ded1a5',1);ellipse(g,b.x,b.y,b.r+11,0,t.ringCenter,'#b99049',1);}
   for(const [x,y] of [[185,500],[296,500],[240,573]]){
-    plate(g,[[x,y-23],[x+17,y+5],[x+6,y+5],[x+6,y+40],[x-6,y+40],[x-6,y+5],[x-17,y+5]],0,'#ba4632','#f5deaa',1);
+    plate(g,[[x,y-23],[x+17,y+5],[x+6,y+5],[x+6,y+40],[x-6,y+40],[x-6,y+5],[x-17,y+5]],0,t.accent,t.pale,1);
   }
-  print(g,'500',76,414,10,'#963d2d');print(g,'100',153,350,9,'#315560');
-  print(g,'BONUS',240,641,9,'#4e5350');print(g,'1000',240,663,10,'#9e392c');
-  for(const [x,y] of [[58,698],[390,713]])print(g,'OUT',x,y,8,'#99533d');
+  print(g,'500',76,414,10,t.ink);print(g,'100',153,350,9,t.ink);
+  print(g,'BONUS',240,641,9,t.ink);print(g,'1000',240,663,10,t.ink);
+  for(const [x,y] of [[58,698],[390,713]])print(g,'OUT',x,y,8,t.ink);
   g.restore();
   // Shooter groove, formed by two steel rails; it has a real spring and plunger.
   plate(g,[[431,205],[468,145],[468,850],[431,850]],0,'#7c8e91');
@@ -63,11 +79,11 @@ function drawFixed(g,game){
   // Four rollover lane guides with two mounting screws each.
   for(const x of [125,202,280,357]){metal(g,[[x,106],[x,185]],18,3);screw(g,x,111,18);screw(g,x,179,18);}
   for(const [i,r] of game.rollovers.entries()){
-    print(g,String(i+1),r.x,116,11,'#a94430');
+    print(g,String(i+1),r.x,116,11,t.ink);
     metal(g,[[r.x-6,165],[r.x+6,165]],3,1.5);
   }
   // Drop-target bank: a plastic bracket, three slots and replaceable targets.
-  plate(g,[[76,343],[111,343],[111,476],[76,476]],8,'#2b5d70','#b5c9c9',.8);
+  plate(g,[[76,343],[111,343],[111,476],[76,476]],8,t.ring,'#b5c9c9',.8);
   for(const t of game.targets)plate(g,[[91,t.y-16],[108,t.y-16],[108,t.y+16],[91,t.y+16]],9,'#253940','#bfc7c2',.6);
   screw(g,82,350,10);screw(g,82,468,10);
   // Spinner: a hanging metal paddle between a pair of actual wire uprights.
@@ -77,27 +93,27 @@ function drawFixed(g,game){
   for(const s of game.slings){
     const [a,b,c]=s.points;
     rubber(g,[a,b,c,a],15,'#f8f0e0',4);
-    plate(g,[[a[0],a[1]+9],[b[0],b[1]-8],[c[0]+(a[0]<200?2:-2),c[1]-4]],24,'#19566ed9','#d2e5e2',1);
-    plate(g,[[a[0]+(a[0]<200?5:-5),a[1]+30],[b[0]+(a[0]<200?-8:8),b[1]-18],[c[0]+(a[0]<200?8:-8),c[1]-17]],25,'#cc4c38','#eec6a0',.6);
+    plate(g,[[a[0],a[1]+9],[b[0],b[1]-8],[c[0]+(a[0]<200?2:-2),c[1]-4]],24,t.sling,'#d2e5e2',1);
+    plate(g,[[a[0]+(a[0]<200?5:-5),a[1]+30],[b[0]+(a[0]<200?-8:8),b[1]-18],[c[0]+(a[0]<200?8:-8),c[1]-17]],25,t.slingAccent,'#eec6a0',.6);
     screw(g,a[0],a[1]+19,26);screw(g,c[0]+(a[0]<200?6:-6),c[1]-6,26);
   }
-  for(const p of game.posts)post(g,p.x,p.y);
+  for(const p of game.posts)post(g,p.x,p.y,t);
   // Return-lane wire guides and switches.
-  for(const points of [[[70,543],[107,683],[138,720]],[[405,543],[377,683],[347,720]]]){
-    metal(g,points,17,2);for(const [x,y] of [points[0],points[1]]){post(g,x,y);}
+  for(const points of [[[70,543],[107,683],[138,720]],(game.variant===2?[[405,544],[365,638],[332,709]]:[[405,543],[377,683],[347,720]])]){
+    metal(g,points,17,2);for(const [x,y] of [points[0],points[1]]){post(g,x,y,t);}
   }
-  for(const b of game.bumpers)bumper(g,b);
+  for(const b of game.bumpers)bumper(g,b,false,t);
   // Brushed metal apron and its small physical instruction cards.
-  const apron=g.createLinearGradient(0,317,640,358);apron.addColorStop(0,'#293b43');apron.addColorStop(.5,'#40525b');apron.addColorStop(1,'#172e39');
+  const apron=g.createLinearGradient(0,317,640,358);apron.addColorStop(0,t.apron[0]);apron.addColorStop(.5,t.apron[1]);apron.addColorStop(1,t.apron[2]);
   plate(g,[[13,828],[427,828],[427,900],[13,900]],5,apron,'#86999e',1);
   plate(g,[[25,840],[159,840],[159,888],[25,888]],6,'#f0e6cc','#adad95',.6);
   plate(g,[[307,840],[416,840],[416,888],[307,888]],6,'#f0e6cc','#adad95',.6);
   print(g,'FLIPPERS ← → · NUDGE A D',92,859,10,'#273a40',7);print(g,'3 BALLS  ·  ESC TO LEAVE',92,880,10,'#273a40',7);
   print(g,'HOLD ↓ TO PULL',361,858,10,'#273a40',7);print(g,'RELEASE TO LAUNCH',361,880,10,'#273a40',7);
-  print(g,'PINBALL',235,872,15,'#e4d7b5',8);
+  print(g,game.variant===2?'PINBALL II':'PINBALL',235,872,15,'#e4d7b5',8);
   // Full-length stainless side trims. No surrounding dashboard.
   for(const [a,b] of [[-17,-5],[484,496]]){
-    const trim=g.createLinearGradient(project(a,0).x,0,project(b,900).x,0);trim.addColorStop(0,'#526069');trim.addColorStop(.35,'#e3e5e2');trim.addColorStop(.6,'#838e91');trim.addColorStop(1,'#2d3a43');
+    const trim=g.createLinearGradient(project(a,0).x,0,project(b,900).x,0);trim.addColorStop(0,game.variant===2?'#55496d':'#526069');trim.addColorStop(.35,game.variant===2?'#e1daf7':'#e3e5e2');trim.addColorStop(.6,game.variant===2?'#9c8bad':'#838e91');trim.addColorStop(1,game.variant===2?'#302a45':'#2d3a43');
     plate(g,[[a,-5],[b,-5],[b,900],[a,900]],15,trim,'#9ca8ab',.5);
     for(const y of [60,465,850])screw(g,(a+b)/2,y,17);
   }
@@ -112,15 +128,16 @@ function drawFixed(g,game){
   // Glass reflection on the score panel only; the playfield stays clear.
   polygon(g,[{x:188,y:8},{x:302,y:8},{x:277,y:38},{x:188,y:38}],'#ffffff05');g.restore();
 }
-function flipper(g,f){
+function flipper(g,f,t=CLASSIC){
+  const tip=(f.length??76)-4;
   const world=(x,y)=>[f.x+Math.cos(f.a)*x-Math.sin(f.a)*y,f.y+Math.sin(f.a)*x+Math.cos(f.a)*y];
   const points=[];
   for(let i=0;i<=12;i++){const a=Math.PI/2+i*Math.PI/12;points.push(world(Math.cos(a)*11,Math.sin(a)*11));}
-  for(let i=0;i<=12;i++){const a=-Math.PI/2+i*Math.PI/12;points.push(world(72+Math.cos(a)*6,Math.sin(a)*6));}
+  for(let i=0;i<=12;i++){const a=-Math.PI/2+i*Math.PI/12;points.push(world(tip+Math.cos(a)*6,Math.sin(a)*6));}
   plate(g,points.map(([x,y])=>[x+5,y+9]),0,'#1c252b60');
-  plate(g,points,7,'#8f2421','#6a2823',1);plate(g,points,14,'#df4333','#ffb99a',.8);
-  line(g,[world(0,0),world(70,0)],16,'#f0e9db',10);
-  line(g,[world(2,-3),world(68,-2)],17,'#fffaf0',1.3);
+  plate(g,points,7,t.flipper[0],t.flipper[1],1);plate(g,points,14,t.flipper[2],t.flipper[3],.8);
+  line(g,[world(0,0),world(tip-2,0)],16,t.rubber,10);
+  line(g,[world(2,-3),world(tip-4,-2)],17,'#fffaf0',1.3);
   screw(g,f.x,f.y,18);
 }
 function plunger(g,game){
@@ -129,6 +146,7 @@ function plunger(g,game){
   metal(g,[[450,y],[450,909+game.plungerPull*45]],8,2.5);metal(g,[[440,y],[460,y]],10,4);
 }
 export function drawPinball(g,game){
+  const t=theme(game);
   const resolution=Math.max(1,Math.min(3,g.getTransform().a));
   if(!game.art||game.artResolution!==resolution){
     game.art=document.createElement('canvas');game.art.width=640*resolution;game.art.height=360*resolution;game.artResolution=resolution;
@@ -136,17 +154,17 @@ export function drawPinball(g,game){
   }
   g.save();g.drawImage(game.art,0,0,640,360);
   // Lit inserts, moving targets and the physical parts that move during play.
-  for(const [i,r] of game.rollovers.entries())insert(g,r.x,202,r.on,['#e9b944','#eab846','#e9b944'][i],10);
-  for(const [i,y] of [602,635,670].entries())insert(g,240,y,game.score>=(i+1)*1000,'#e6aa36',8);
-  for(const t of game.targets)if(!t.down){
-    plate(g,[[t.x-3,t.y-13],[t.x+5,t.y-13],[t.x+5,t.y+13],[t.x-3,t.y+13]],22,'#eee2c5','#8e9a97',.7);
-    line(g,[[t.x+2,t.y-11],[t.x+2,t.y+11]],23,'#d44932',2.2);
+  for(const [i,r] of game.rollovers.entries())insert(g,r.x,202,r.on,(game.variant===2?t.insert:['#e9b944','#eab846','#e9b944'][i]),10);
+  for(const [i,y] of [602,635,670].entries())insert(g,240,y,game.score>=(i+1)*1000,t.insert,8);
+  for(const target of game.targets)if(!target.down){
+    plate(g,[[target.x-3,target.y-13],[target.x+5,target.y-13],[target.x+5,target.y+13],[target.x-3,target.y+13]],22,'#eee2c5','#8e9a97',.7);
+    line(g,[[target.x+2,target.y-11],[target.x+2,target.y+11]],23,t.accent,2.2);
   }
   const spin=(game.spinnerUntil||0)>game.time?Math.cos(game.time*35):1;
-  const p=project(153,301,29);g.fillStyle='#c74b35';g.strokeStyle='#efd1a4';g.lineWidth=.6;g.fillRect(p.x-5,p.y-6*Math.abs(spin),10,12*Math.abs(spin));g.strokeRect(p.x-5,p.y-6*Math.abs(spin),10,12*Math.abs(spin));
-  for(const b of game.bumpers)if(b.lit>0)bumper(g,b,true);
-  for(const s of game.slings)if(s.lit>0){const p=project(s.points[0][0],s.points[0][1]+45,22);g.save();g.globalAlpha=s.lit*3;g.fillStyle='#ffe2a3';g.beginPath();g.ellipse(p.x,p.y,10,5,0,0,TAU);g.fill();g.restore();}
-  for(const f of game.flippers)flipper(g,f);
+  const p=project(153,301,29);g.fillStyle=t.accent;g.strokeStyle='#efd1a4';g.lineWidth=.6;g.fillRect(p.x-5,p.y-6*Math.abs(spin),10,12*Math.abs(spin));g.strokeRect(p.x-5,p.y-6*Math.abs(spin),10,12*Math.abs(spin));
+  for(const b of game.bumpers)if(b.lit>0)bumper(g,b,true,t);
+  for(const s of game.slings)if(s.lit>0){const p=project(s.points[0][0],s.points[0][1]+45,22);g.save();g.globalAlpha=s.lit*3;g.fillStyle=t.glow;g.beginPath();g.ellipse(p.x,p.y,10,5,0,0,TAU);g.fill();g.restore();}
+  for(const f of game.flippers)flipper(g,f,t);
   plunger(g,game);
   // A sphere stays round in projection; only its shadow lies flat on the wood.
   const b=game.ball,pb=project(b.x,b.y,8),r=8*pb.s;
@@ -155,7 +173,7 @@ export function drawPinball(g,game){
   const chrome=g.createRadialGradient(pb.x-r*.35,pb.y-r*.45,.2,pb.x,pb.y,r);
   for(const [t,c] of [[0,'#fff'],[.15,'#fffef0'],[.31,'#dbe2df'],[.45,'#81949b'],[.56,'#31434f'],[.74,'#172833'],[.86,'#bbc8c7'],[1,'#5c747d']])chrome.addColorStop(t,c);
   g.fillStyle=chrome;g.beginPath();g.arc(pb.x,pb.y,r,0,TAU);g.fill();g.strokeStyle='#c6d1d0';g.lineWidth=.5;g.stroke();
-  for(const b of game.bumpers)if(game.ball.y<b.y&&Math.abs(game.ball.x-b.x)<b.r+10)bumper(g,b,b.lit>0);
+  for(const b of game.bumpers)if(game.ball.y<b.y&&Math.abs(game.ball.x-b.x)<b.r+10)bumper(g,b,b.lit>0,t);
   }
   // The only live score readout is the machine's own display.
   g.save();g.translate(320,0);g.scale(.58,.58);g.translate(-320,0);

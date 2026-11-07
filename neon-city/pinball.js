@@ -1,5 +1,5 @@
 // A pinball table: one steel ball, mechanical flippers, rubber and scoring switches.
-import {drawPinball} from './pinball-renderer.js?v=4';
+import {drawPinball} from './pinball-renderer.js?v=5';
 const TAU=Math.PI*2;
 export const BALL_RADIUS=8;
 export const FLIPPER_LENGTH=76;
@@ -15,7 +15,13 @@ export class Pinball{
   flippers=[{x:150,y:744,a:.38,rest:.38,active:-.5},{x:330,y:744,a:Math.PI-.38,rest:Math.PI-.38,active:Math.PI+.5}];
   slings=[{points:[[92,564],[140,675],[101,658]],lit:0},{points:[[387,564],[339,675],[378,658]],lit:0}];
   arch=arc(249,145,219,100,Math.PI,TAU,32);
-  constructor(){
+  constructor(variant=1){
+    this.variant=variant;
+    if(variant===2){
+      this.bumpers=[{x:151,y:246,r:22,lit:0},{x:307,y:289,r:22,lit:0},{x:221,y:367,r:23,lit:0},{x:339,y:432,r:22,lit:0},{x:178,y:492,r:22,lit:0}];
+      // A short save flipper closes the right outlane mouth against its inner guide.
+      this.flippers.push({x:420,y:594,length:38,a:Math.PI/2,rest:Math.PI/2,active:Math.PI+.18});
+    }
     this.rails=[...segments(this.arch),[30,145,30,610],...segments([[30,360],[38,430],[64,490],[104,530]]),[468,145,468,850],[431,205,431,850],
       ...segments([[30,610],[56,694],[84,772],[124,823]]),...segments([[431,610],[414,694],[392,772],[352,823]]),
       [71,544,118,709],[405,544,365,638],[365,638,332,709],
@@ -96,7 +102,7 @@ export class Pinball{
     const b=this.ball,oldY=b.y,score=this.score;
     b.vy+=480*dt;b.vx*=1-.028*dt;b.vy*=1-.028*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;
     for(const [i,r] of this.rails.entries())this.rail(...r,i<this.arch.length-1?.5:.78);
-    for(const f of this.flippers)this.rail(f.x,f.y,f.x+Math.cos(f.a)*FLIPPER_LENGTH,f.y+Math.sin(f.a)*FLIPPER_LENGTH,.83,f,8);
+    for(const f of this.flippers)this.rail(f.x,f.y,f.x+Math.cos(f.a)*(f.length??FLIPPER_LENGTH),f.y+Math.sin(f.a)*(f.length??FLIPPER_LENGTH),.83,f,8);
     for(const p of this.posts)this.round(p,.9);
     for(const p of this.bumpers)if(this.round(p,1,this.tilted?0:210)){this.score+=100;p.lit=.18;this.sound('bumper');}
     for(const t of this.targets)if(!t.down&&this.rail(t.x,t.y-14,t.x,t.y+14,.8,null,4)){

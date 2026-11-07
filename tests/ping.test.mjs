@@ -12,7 +12,7 @@ test('the nearest row leftmost cabinet is Ping; games require tokens, only Ping 
     assert.equal(tryArcadeGame(machine,inventory),machine===SUPER_CABINET?'SUPER':'TO PLAY GAMES YOU NEED TOKENS.');
   }
   inventory.take(PINE_CONE);inventory.take(arcadeTokens(2));inventory.selected=1;
-  assert.equal(tryArcadeGame(ARCADE.pinballs[1],inventory),'THIS GAME IS NOT AVAILABLE YET.');
+  assert.equal(tryArcadeGame(ARCADE.bridgeConsole,inventory),'THIS GAME IS NOT AVAILABLE YET.');
   assert.equal(inventory.current.count,2);
   assert.equal(tryArcadeGame(PING_CABINET,inventory),'PING');assert.equal(inventory.current.count,1);
   assert.equal(tryArcadeGame(PING_CABINET,inventory),'PING');assert.equal(inventory.current,PINE_CONE);

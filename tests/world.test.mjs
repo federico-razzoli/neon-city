@@ -4852,7 +4852,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/kongy-kong.js'),...await import('../neon-city/frog.js'),...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,...await import('../neon-city/arcade-life.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
+  const sandbox={...await import('../neon-city/pinball.js'),...await import('../neon-city/kongy-kong.js'),...await import('../neon-city/frog.js'),...await import('../neon-city/ping.js'),...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/pub-interior.js'),...await import('../neon-city/hotel-interior.js'),...arcadeInterior,...await import('../neon-city/arcade-life.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,
     ...await import('../neon-city/walker-talk.js'),arcadeName:()=>'ARCADIA',
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
@@ -4867,8 +4867,8 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   let loads=0,disposals=0,failNext=false;
   sandbox.loadCabinetGame=name=>{
     loads++;
-    const Type={PING:sandbox.Ping,GROG:sandbox.Frog,'KONGY KONG':sandbox.KongyKong}[name];
-    return {ready:failNext?Promise.reject(new Error('load failed')):Promise.resolve(new Type()),dispose(){disposals++;}};
+    const Type={PING:sandbox.Ping,GROG:sandbox.Frog,'KONGY KONG':sandbox.KongyKong,'PINBALL II':sandbox.Pinball}[name];
+    return {ready:failNext?Promise.reject(new Error('load failed')):Promise.resolve(new Type(name==='PINBALL II'?2:undefined)),dispose(){disposals++;}};
   };
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'ARCADE'}],manholes:[],newspaperMachines:[]});
@@ -4915,8 +4915,11 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.equal(disposals,1,'leaving the cabinet disposes its runtime');
   const other=arcadeInterior.ARCADE.pinballs[1];
   Object.assign(player,{x:other.x+.75,z:other.z-.8,angle:0});press();
-  assert.equal(element('#message').textContent,'THIS GAME IS NOT AVAILABLE YET.');
-  assert.equal(sandbox.game.inventory.current.count,1,'unavailable games keep the token');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(sandbox.game.ping.variant,2,'second machine loads its variation');
+  assert.equal(sandbox.game.inventory.items.length,0,'second pinball charges one token');
+  sandbox.game.ping.over=true;press();
+  sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(1));
   const frogCabinet=arcadeInterior.FROG_CABINET;
   Object.assign(player,{x:frogCabinet.x+.75,z:frogCabinet.z-.8,angle:0});press();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sandbox.game.ping.kind,'frog');
@@ -4967,18 +4970,18 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   for(let i=0;i<260;i++)tick(ms+=20);
   assert.equal(kong.won,false);assert.equal(kong.player.floor,0,'victory restarts level one');
   assert.equal(sandbox.game.ping,kong,'restarting keeps the same paid session');
-  assert.equal(loads,3,'only requested cabinets load');
+  assert.equal(loads,4,'only requested cabinets load');
   events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));
-  assert.equal(disposals,3);assert.equal(sandbox.game.ping,null);
+  assert.equal(disposals,4);assert.equal(sandbox.game.ping,null);
   sandbox.game.inventory.take((await import('../neon-city/inventory.js')).arcadeTokens(1));
   failNext=true;press();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sandbox.game.ping,null,'failed loading returns to the arcade');
   assert.equal(sandbox.game.inventory.current.count,1,'failed loading does not charge a token');
-  assert.equal(disposals,4);
+  assert.equal(disposals,5);
   failNext=false;press();events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));await new Promise(resolve=>setImmediate(resolve));
   assert.equal(sandbox.game.ping,null,'cancelled load cannot reopen the game');
   assert.equal(sandbox.game.inventory.current.count,1,'cancelled loading does not charge');
-  assert.equal(disposals,5);
+  assert.equal(disposals,6);
   const visitor={type:14,x:14.5,z:12.95,state:'desk',wait:5,walkTime:0,facingX:0,facingZ:1};
   life.people=[visitor];
   Object.assign(player,{x:14.5,z:13.3,angle:0});press();
