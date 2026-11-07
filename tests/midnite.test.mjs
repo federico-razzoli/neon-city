@@ -28,6 +28,25 @@ test('bookshop renders finite geometry',()=>{
   assert.ok(count>500);
 });
 
+test('both window shelves block movement while the entrance stays clear',()=>{
+  for(const shelf of BOOKSHOP.windowShelves){
+    const player={x:shelf.x+shelf.w/2,z:2};
+    moveInBookshop(player,0,-4);
+    assert.ok(player.z>=shelf.z+shelf.d+.3-1e-9);
+  }
+  const player={...BOOKSHOP.spawn};
+  moveInBookshop(player,0,-4);
+  assert.ok(player.z<.5);
+});
+
+test('window shelf books reply when approached along either display',()=>{
+  for(const shelf of BOOKSHOP.windowShelves)for(const offset of [.5,3,5.5]){
+    const player={x:shelf.x+offset,z:1.5,angle:Math.PI};
+    assert.equal(bookshopReply(player),"I SHOULDN'T TAKE THESE.");
+    assert.notEqual(bookshopReply({...player,angle:0}),"I SHOULDN'T TAKE THESE.");
+  }
+});
+
 test('bookseller asks clients behind the desk to return to the other side',()=>{
   const player={x:15.5,z:17,angle:Math.PI};
   assert.equal(bookshopReply(player),'CLIENTS ON THE OTHER SIDE, PLEASE.');

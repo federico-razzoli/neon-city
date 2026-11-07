@@ -25,6 +25,7 @@ export const BOOKSHOP={width:18,depth:18,height:4.5,door:{x:9,z:0},spawn:{x:9,z:
   shelves:[{x:0,z:4,w:1.2,d:14},{x:16.8,z:4,w:1,d:9},
     {x:1.2,z:16.8,w:10.8,d:1.2},{x:4,z:6,w:1,d:7},{x:12,z:6,w:1,d:7}],
   tables:[{x:7,z:6,w:3,d:1.8},{x:7,z:11,w:3,d:1.8}],
+  windowShelves:[{x:1,z:.1,w:6,d:.6},{x:11,z:.1,w:6,d:.6}],
   counter:{x:13.8,z:14,w:3.6,d:1.2},bookseller:{x:15.5,z:16,radius:.55},
   till:{x:14.525,z:14.425,radius:.2835,reach:1.5},
   deskBook:{x:16.7,z:14.55,radius:.35,reach:1.5},
@@ -52,14 +53,15 @@ export function bookshopReply(player){
   if(deskTarget===BOOKSHOP.till)return "DON'T PLAY WITH THE TILL, PLEASE.";
   if(player.z>BOOKSHOP.counter.z+BOOKSHOP.counter.d&&facingNearest(player,[BOOKSHOP.bookseller]))return BARTENDER_REPLY;
   const targets=[...BOOKSHOP.shelves.map((b,i)=>({x:b.x+b.w/2,z:b.z+b.d/2,radius:.7,reach:1.7,text:BOOK_CATEGORIES[i]})),
-    ...BOOKSHOP.tables.map(b=>({x:b.x+b.w/2,z:b.z+b.d/2,radius:1.5,text:'STAFF PICKS: STRANGE CITIES, LATE NIGHTS AND SECOND CHANCES.'}))];
+    ...BOOKSHOP.tables.map(b=>({x:b.x+b.w/2,z:b.z+b.d/2,radius:1.5,text:'STAFF PICKS: STRANGE CITIES, LATE NIGHTS AND SECOND CHANCES.'})),
+    ...BOOKSHOP.windowShelves.map(b=>({x:Math.max(b.x,Math.min(player.x,b.x+b.w)),z:b.z+b.d,radius:.3,reach:1.7,text:"I SHOULDN'T TAKE THESE."}))];
   // Long shelves can be browsed anywhere along their accessible edge.
   BOOKSHOP.shelves.forEach((b,i)=>{targets[i].x=Math.max(b.x,Math.min(player.x,b.x+b.w));targets[i].z=Math.max(b.z,Math.min(player.z,b.z+b.d));});
   const target=facingNearest(player,targets);
   return target?target.text:null;
 }
 export function moveInBookshop(player,dx,dz){
-  const r=.3,obstacles=[...BOOKSHOP.shelves,...BOOKSHOP.tables,BOOKSHOP.counter];
+  const r=.3,obstacles=[...BOOKSHOP.shelves,...BOOKSHOP.windowShelves,...BOOKSHOP.tables,BOOKSHOP.counter];
   const clear=(x,z)=>x>=r&&z>=r&&x<=BOOKSHOP.width-r&&z<=BOOKSHOP.depth-r&&
     !obstacles.some(b=>x>b.x-r&&x<b.x+b.w+r&&z>b.z-r&&z<b.z+b.d+r)&&
     [...BOOKSHOP.chairs,...BOOKSHOP.readingTables,BOOKSHOP.bookseller].every(b=>Math.hypot(x-b.x,z-b.z)>=r+b.radius);
@@ -79,8 +81,20 @@ export function drawBookshopInterior({face,quad,box}){
   box(door.x+.55,1.1,.05,.1,.3,.1,'#ddc38a');
   panel(door.x-.6,3.25,.03,1.2,.4,'#d5c494');label('EXIT',door.x+.45,3.3,.04,.055,true);
   // Street-facing display windows, with gold frames and a dark night beyond.
-  for(const x of [1,11]){panel(x,.8,.02,6,2.1,'#a68b5e');panel(x+.12,.95,.04,5.76,1.8,'#152d2c');box(x,.7,.1,6,.15,.6,'#9b754e');}
+  for(const b of BOOKSHOP.windowShelves){panel(b.x,.8,.02,b.w,2.1,'#a68b5e');panel(b.x+.12,.95,.04,b.w-.24,1.8,'#152d2c');box(b.x,.7,b.z,b.w,.15,b.d,'#9b754e');}
   const colors=['#93634e','#ae925c','#526e60','#71617d','#a06b75','#557985'];
+  // Stock both window ledges with groups of upright books and low stacks.
+  for(const {x} of BOOKSHOP.windowShelves){
+    for(let j=0;j<16;j++){
+      const bx=x+.3+j*.24,h=.42+(j*7%5)*.055,c=colors[j%colors.length];
+      box(bx,.85,.22,.19,h,.38,c);
+      box(bx+.025,.94,.605,.14,.025,.012,'#d9c99e');
+    }
+    for(let j=0;j<3;j++){
+      box(x+4.55,.85+j*.095,.2,.85,.09,.42,colors[(j+3)%colors.length]);
+      box(x+4.59,.87+j*.095,.625,.77,.045,.012,'#dccca5');
+    }
+  }
   for(const [i,b] of BOOKSHOP.shelves.entries()){
     const long=b.d>b.w,len=long?b.d:b.w;
     // Open shelves expose the spines from both sides of each browsing aisle.
