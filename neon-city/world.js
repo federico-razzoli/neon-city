@@ -18,6 +18,7 @@ If not, see <https://www.gnu.org/licenses/>.
 */
 
 import {orientEntrances} from './entrances.js';
+import {pedestrianCollisionKernel} from './pedestrian-collisions-wasm.js';
 export const PEDESTRIAN_TYPES=16;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
@@ -626,26 +627,28 @@ export class City {
       }
       // Resolve from one shared snapshot. Repeat so a stop propagates backwards
       // through a queue in this frame, regardless of array order.
-      const collisionPairs=pedestrianPairs(moves,PERSON_CLEARANCE,scratch.pairs);
-      let changed=true;
-      while(changed){
-        changed=false;
-        for(const [i,j] of collisionPairs){
-          const a=moves[i],b=moves[j];
-          const endA=a.blocked?a.before:a.after,endB=b.blocked?b.before:b.after;
-          if(!crossesPerson(
-            {x:a.before.x-b.before.x,z:a.before.z-b.before.z},
-            {x:endA.x-endB.x,z:endA.z-endB.z},{x:0,z:0}))continue;
-          const va={x:a.after.x-a.before.x,z:a.after.z-a.before.z};
-          const vb={x:b.after.x-b.before.x,z:b.after.z-b.before.z};
-          let stop=[a,b];
-          if(va.x*vb.x+va.z*vb.z>0){
-            // Same direction: only the follower yields, so a faster follower
-            // cannot permanently pin the pedestrian in front of them.
-            const aBehind=(b.before.x-a.before.x)*(va.x+vb.x)+(b.before.z-a.before.z)*(va.z+vb.z)>0;
-            stop=[aBehind?a:b];
+      if(!pedestrianCollisionKernel(moves,PERSON_CLEARANCE)){
+        const collisionPairs=pedestrianPairs(moves,PERSON_CLEARANCE,scratch.pairs);
+        let changed=true;
+        while(changed){
+          changed=false;
+          for(const [i,j] of collisionPairs){
+            const a=moves[i],b=moves[j];
+            const endA=a.blocked?a.before:a.after,endB=b.blocked?b.before:b.after;
+            if(!crossesPerson(
+              {x:a.before.x-b.before.x,z:a.before.z-b.before.z},
+              {x:endA.x-endB.x,z:endA.z-endB.z},{x:0,z:0}))continue;
+            const va={x:a.after.x-a.before.x,z:a.after.z-a.before.z};
+            const vb={x:b.after.x-b.before.x,z:b.after.z-b.before.z};
+            let stop=[a,b];
+            if(va.x*vb.x+va.z*vb.z>0){
+              // Same direction: only the follower yields, so a faster follower
+              // cannot permanently pin the pedestrian in front of them.
+              const aBehind=(b.before.x-a.before.x)*(va.x+vb.x)+(b.before.z-a.before.z)*(va.z+vb.z)>0;
+              stop=[aBehind?a:b];
+            }
+            for(const move of stop)if(!move.blocked){move.blocked=true;changed=true;}
           }
-          for(const move of stop)if(!move.blocked){move.blocked=true;changed=true;}
         }
       }
       // Detect a sustained pedestrian deadlock, including a stalled sidestep.

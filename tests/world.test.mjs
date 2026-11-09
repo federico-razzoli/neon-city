@@ -6480,6 +6480,8 @@ test('pedestrian nearby-pair planning matches exhaustive checks for swept steps 
   }
   `+source.slice(end);
   source=source.replace("'./entrances.js'",JSON.stringify(new URL('../neon-city/entrances.js',import.meta.url).href));
+  source=source.replace("'./pedestrian-collisions-wasm.js'",JSON.stringify(new URL('../neon-city/pedestrian-collisions-wasm.js',import.meta.url).href));
+  source=source.replace('if(!pedestrianCollisionKernel(moves,PERSON_CLEARANCE)){','if(true){');
   const {City:Exhaustive}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
   for(const chunkX of [-1,0])for(const reverseOrder of [false,true]){
     const indexed=new City(1),exhaustive=new Exhaustive(1);

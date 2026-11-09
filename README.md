@@ -54,6 +54,23 @@ Open http://localhost:8000/neon-city/ in a modern browser. Serve over HTTP rathe
 On macOS, use the Python static-server alternative above; it requires Python 3
 but does not require Flask or elevated privileges for port 8000.
 
+## Rebuild pedestrian WebAssembly
+
+The compiled pedestrian collision module is checked in, so playing requires no
+build step. To regenerate it after changing `neon-city/pedestrian-collisions.c`,
+install Clang with its WebAssembly linker and run:
+
+```sh
+sh tools/build-pedestrian-collisions.sh
+```
+
+The kernel batches each chunk's spatial indexing, movement collision checks, and
+queue-stop propagation using reusable double-precision buffers. Route planning,
+conversations, crossings, and sidestep decisions remain in JavaScript. The
+JavaScript collision resolver handles unavailable WASM, chunks above 512 walkers,
+steps exceeding the fixed grid storage, and distances very close to a collision
+boundary. Run `npm test` to check behavior against the JavaScript rules.
+
 ## Embed on another website
 
 Host this repository on any static web host, then use the game's URL:
