@@ -6464,3 +6464,48 @@ test('indexed traffic spacing matches sequential all-car checks across strips an
     }
   }
 });
+
+test('pedestrian nearby-pair planning matches exhaustive checks for swept steps and negative cells',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const worldUrl=new URL('../neon-city/world.js',import.meta.url);
+  let source=await readFile(worldUrl,'utf8');
+  // An exhaustive candidate provider is an independent oracle for the grid:
+  // keep all collision, sidestep, and queue rules identical.
+  const start=source.indexOf('function pedestrianPairs('),end=source.indexOf('// Crossing walkers',start);
+  assert.ok(start>=0&&end>start);
+  source=source.slice(0,start)+`function pedestrianPairs(moves){
+    const pairs=[];
+    for(let i=0;i<moves.length;i++)for(let j=i+1;j<moves.length;j++)pairs.push([i,j]);
+    return pairs;
+  }
+  `+source.slice(end);
+  source=source.replace("'./entrances.js'",JSON.stringify(new URL('../neon-city/entrances.js',import.meta.url).href));
+  const {City:Exhaustive}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+  for(const chunkX of [-1,0])for(const reverseOrder of [false,true]){
+    const indexed=new City(1),exhaustive=new Exhaustive(1);
+    const specs=[0,3.9,4.1,8,9,10,40,42,80,84,125,167].map((phase,i)=>({phase,speed:.9+i%3*.4,type:0,variant:0,reverse:i%2===0,walkTime:0}));
+    if(reverseOrder)specs.reverse();
+    for(const city of [indexed,exhaustive])city.chunks.set(`${chunkX},-1`,{x:chunkX,z:-1,people:structuredClone(specs)});
+    for(let frame=1;frame<=60;frame++){
+      // Long steps cross several grid cells and can sweep around a corner.
+      const dt=frame%10===0?3:.04,player={x:chunkX*BLOCK+20,z:-53};
+      for(const city of [indexed,exhaustive])city.advancePedestrians(dt,player,frame*.04);
+      assert.deepEqual(indexed.chunks.get(`${chunkX},-1`).people,exhaustive.chunks.get(`${chunkX},-1`).people,`chunk ${chunkX}, reverse ${reverseOrder}, frame ${frame}`);
+    }
+  }
+});
+
+test('pedestrian scratch reuse stays correct when crowds shrink, empty, and repopulate',()=>{
+  const reused=new City(1);
+  const chunk={x:-1,z:-1,people:[]};reused.chunks.set('-1,-1',chunk);
+  for(const count of [18,2,0,12,1,0,24]){
+    chunk.people=Array.from({length:count},(_,i)=>({phase:3.9+i*.7,speed:.9+i%3*.4,type:0,variant:0,reverse:i%2===0,walkTime:0}));
+    for(let frame=1;frame<=5;frame++){
+      const fresh=new City(1);fresh.chunks=structuredClone(reused.chunks);
+      const player={x:-44,z:-53};
+      reused.advancePedestrians(.04,player,frame*.04);
+      fresh.advancePedestrians(.04,player,frame*.04);
+      assert.deepEqual(reused.chunks,fresh.chunks,`crowd ${count}, frame ${frame}`);
+    }
+  }
+});
