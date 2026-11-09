@@ -6429,3 +6429,38 @@ test('receptionist waits for a continuously lit lamp, switches it off and return
   assert.equal(hotel.lampSwitches,3,'automatic switching does not count as player mischief');
   assert.equal(hotel.receptionistTrip,null);
 });
+
+test('indexed traffic spacing matches sequential all-car checks across strips and directions',async()=>{
+  const {Traffic}=await import('../neon-city/traffic.js');
+  for(const axis of [0,1])for(const dir of [-1,1])for(const reverse of [false,true]){
+    const cars=[];
+    // Include adjacent strips, an exact spacing boundary, opposing cars,
+    // overlapping positions, and a distant leader beyond the next junction.
+    for(const across of [-6,-3.1,-3,-.4,0,3])for(const along of [-40,-9,0,9,80]){
+      cars.push({axis,dir,x:axis?-512+along:-512+across,z:axis?-512+across:-512+along,speed:7});
+    }
+    cars.push({...cars[0],dir:-dir});
+    if(reverse)cars.reverse();
+    const expected=structuredClone(cars),simulation=new Traffic();simulation.cars=cars;
+    // Isolate spacing from junction priority; the existing junction tests cover
+    // the indexed exit checks with the real priority rules.
+    simulation.junctionLimits=()=>new Map();
+    for(let frame=0;frame<10;frame++){
+      for(const car of expected){
+        let clearance=Infinity;
+        for(const other of expected){
+          const along=((axis?other.x:other.z)-(axis?car.x:car.z))*car.dir;
+          const across=Math.abs((axis?other.z:other.x)-(axis?car.z:car.x));
+          if(other!==car&&other.dir===car.dir&&along>0&&across<2.7)clearance=Math.min(clearance,Math.max(0,along-9));
+        }
+        car.speed=Math.min(10,car.speed+4*.04,Math.sqrt((4*.04)**2+8*clearance)-4*.04);
+        let travel=car.speed*.04;
+        if(clearance<.002){travel=clearance;car.speed=0;}
+        if(travel<1e-8){car.speed=0;continue;}
+        if(axis)car.x+=car.dir*travel;else car.z+=car.dir*travel;
+      }
+      simulation.advance(.04,null);
+      for(let i=0;i<cars.length;i++)for(const field of ['x','z','speed'])assert.ok(Math.abs(cars[i][field]-expected[i][field])<1e-10,`${axis}/${dir}/${reverse}/${frame}/${i}: ${field}`);
+    }
+  }
+});
