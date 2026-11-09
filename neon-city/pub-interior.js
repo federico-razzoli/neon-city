@@ -171,7 +171,8 @@ export class StaffTalk{
   get script(){
     if(this.giving)return [...this.inventory.items.map(item=>{
       const reply=this.gifts[item.id]??this.gifts.any??['NO, THANK YOU.'];
-      return {ask:item.name,answer:typeof reply==='function'?reply(this.record):reply};
+      const response=typeof reply==='function'?reply(this.record):reply;
+      return {ask:item.name,...(Array.isArray(response)?{answer:response}:response)};
     }),{ask:'BACK',action:'back'}];
     const options=this.blocks[this.block].filter(option=>option.needs==null||option.needs in this.record);
     return this.inventory?[...options,{ask:'GIVE',action:'give',separator:true}]:options;
