@@ -6511,3 +6511,44 @@ test('pedestrian scratch reuse stays correct when crowds shrink, empty, and repo
     }
   }
 });
+
+
+test('five receptionist shutoffs unlock a two-step lamp pickup unless a lamp is already carried',async()=>{
+  const {HOTEL,switchHotelLamp,advanceHotelReceptionist,facingHotelLamp,drawHotelInterior}=await import('../neon-city/hotel-interior.js');
+  const {Inventory,LAMP}=await import('../neon-city/inventory.js');
+  const hotel={},inventory=new Inventory();
+  // Player toggles alone cannot unlock the offer.
+  for(let i=0;i<12;i++)switchHotelLamp(hotel,inventory);
+  assert.equal(hotel.lampOffered,undefined);
+  for(let i=0;i<5;i++){
+    switchHotelLamp(hotel,inventory);advanceHotelReceptionist(hotel,30);
+    assert.equal(hotel.lampShutoffs,i+1);
+    assert.equal(hotel.lampOn,false);
+    assert.equal(hotel.lampOffered,undefined);
+  }
+  const offer='LOOK, I GIVE UP. YOU CAN TAKE THAT DAMN LAMP.';
+  assert.equal(switchHotelLamp(hotel,inventory),offer);
+  assert.equal(inventory.items.length,0);
+  assert.equal(switchHotelLamp(hotel,inventory),'TAKEN');
+  assert.equal(inventory.current.id,'lamp');assert.equal(hotel.lampTaken,true);
+  assert.equal(facingHotelLamp({x:HOTEL.lamp.x,z:11.5,angle:0},hotel),false);
+  assert.equal(switchHotelLamp(hotel,inventory),null);
+  const other={lampShutoffs:5};
+  assert.equal(switchHotelLamp(other,inventory),null,'carrying a lamp keeps normal switching');
+  assert.equal(other.lampOn,true);assert.equal(other.lampOffered,undefined);
+  inventory.items.length=0;
+  assert.equal(switchHotelLamp(other,inventory),offer);
+  inventory.take(LAMP);
+  assert.equal(switchHotelLamp(other,inventory),null,'ownership is checked again after the offer');
+  assert.equal(other.lampTaken,undefined);
+  inventory.items.length=0;
+  assert.equal(switchHotelLamp(other,inventory),'TAKEN');
+  const {HOTEL_LOOKS}=await import('../neon-city/hotel.js');
+  const colors=lampTaken=>{
+    const seen=[];
+    drawHotelInterior({look:HOTEL_LOOKS[0],lampTaken,face(){},quad(){},box:(...args)=>seen.push(...args.slice(6))});
+    return seen;
+  };
+  assert.ok(colors(false).includes('#2a5a40'));
+  assert.ok(!colors(true).includes('#2a5a40'),'the taken lamp disappears from the desk');
+});

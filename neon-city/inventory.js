@@ -23,6 +23,7 @@ export const ALREADY_HAVE_ONE='I ALREADY HAVE ONE.';
 export const PINE_CONE={id:'pine-cone',name:'PINE CONE',description:'A PINE CONE. MOST PROBABLY, FALLEN FROM A PINE.'};
 export const LADYBUG={id:'ladybug',name:'LADYBUG',description:'THIS BUG IS A LADY. I THINK.'};
 export const FLOWER={id:'flower',name:'FLOWER',description:'A FLOWER.'};
+export const LAMP={id:'lamp',name:'LAMP',description:'A BRASS DESK LAMP WITH A GREEN SHADE.'};
 export const HOTEL_NOTE={id:'hotel-note',name:'HOTEL NOTE',description:'IT READS: LISA HAS THE KEY.'};
 export function arcadeTokens(count){
   return {id:'arcade-token',count,get name(){return `${this.count} TOKEN${this.count===1?'':'S'}`;},description:'ARCADE TOKENS.'};

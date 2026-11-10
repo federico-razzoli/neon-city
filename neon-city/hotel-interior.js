@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {LAMP,TAKEN} from './inventory.js';
 import {register} from './register.js';
 import {HOTEL_CORRIDOR,corridorWindowState} from './hotel-corridor.js';
 import {businessmanRoute,robotRoute} from './hotel-guest-route.js';
@@ -100,7 +101,7 @@ export const facingHotelVase=player=>facingNearest(player,[HOTEL.vase])!=null;
 export const sofaSeats=()=>[0,1,2].map(i=>({x:HOTEL.sofa.x+.62,z:HOTEL.sofa.z+.75+i*.95,radius:.3,angle:Math.PI/2}));
 export const facingHotelSeat=player=>facingNearest(player,sofaSeats());
 // The lamp on the reception desk, reached across the counter.
-export const facingHotelLamp=player=>facingNearest(player,[HOTEL.lamp])!=null;
+export const facingHotelLamp=(player,hotel={})=>!hotel.lampTaken&&facingNearest(player,[HOTEL.lamp])!=null;
 // The service bell on the reception desk; ringing it brings an answer.
 export const facingHotelBell=player=>facingNearest(player,[HOTEL.bell])!=null;
 export const BELL_ANSWER="I'M HERE...";
@@ -297,7 +298,17 @@ export const facingKeys=player=>{
 // Switches a hotel's reception lamp. After a couple of goes, the
 // receptionist asks the player to stop, every time from then on.
 export const LAMP_PATIENCE=2;
-export function switchHotelLamp(hotel){
+export function switchHotelLamp(hotel,inventory=null){
+  if(hotel.lampTaken)return null;
+  if(inventory&&!inventory.items.some(item=>item.id===LAMP.id)&&(hotel.lampShutoffs??0)>=5){
+    if(!hotel.lampOffered){
+      hotel.lampOffered=true;
+      return 'LOOK, I GIVE UP. YOU CAN TAKE THAT DAMN LAMP.';
+    }
+    const reply=inventory.take(LAMP);
+    if(reply===TAKEN){hotel.lampTaken=true;hotel.lampOn=false;hotel.lampOnTime=0;}
+    return reply;
+  }
   hotel.lampOn=!hotel.lampOn;
   hotel.lampOnTime=0;
   hotel.lampSwitches=(hotel.lampSwitches??0)+1;
@@ -328,6 +339,7 @@ export function advanceHotelReceptionist(hotel,dt){
     }
     at.x=target.x;at.z=target.z;remaining-=distance/speed;
     if(hotel.receptionistTrip==='lamp'){
+      hotel.lampShutoffs=(hotel.lampShutoffs??0)+1;
       hotel.lampOn=false;hotel.lampOnTime=0;hotel.receptionistTrip='home';
     }else hotel.receptionistTrip=null;
   }
@@ -360,7 +372,7 @@ export function drawHotelDoubleDoor(box,x,y,z,look,facing=-1){
 }
 
 // The lobby in the hotel's own colours (see hotelLook), empty but for the receptionist.
-export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false,receptionistPosition=HOTEL.receptionist}){
+export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false,lampTaken=false,receptionistPosition=HOTEL.receptionist}){
   const look=hotelInteriorLook(facade);
   const {width:W,depth:D,height:H}=HOTEL;
   const cylinder=(...args)=>drawCylinder(face,...args);
@@ -420,11 +432,10 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   // A banker's lamp and a vase of roses on the counter. The lamp starts off;
   // lit, its bulb glows under the shade and warms the marble beneath it.
   const {lamp}=HOTEL;
-  box(lamp.x-.13,1.3,lamp.z-.1,.26,.03,.2,look.metal);
-  box(lamp.x-.03,1.33,lamp.z-.03,.06,.29,.06,look.metal);
-  box(lamp.x-.27,1.6,lamp.z-.13,.55,.12,.26,'#2a5a40','#356b4e');
-  box(lamp.x-.2,1.56,lamp.z-.08,.4,.04,.16,lampOn?'#ffe7a0':'#5a5040');
-  if(lampOn){quad(lamp.x-.45,1.302,desk.z+.05,.9,.75,'#c4b494');quad(lamp.x-.25,1.303,desk.z+.2,.5,.42,'#dccb9f');}
+  if(!lampTaken){
+    drawHotelLamp(lamp.x,1.3,lamp.z,box,look.metal,lampOn);
+    if(lampOn){quad(lamp.x-.45,1.302,desk.z+.05,.9,.75,'#c4b494');quad(lamp.x-.25,1.303,desk.z+.2,.5,.42,'#dccb9f');}
+  }
   const {vase}=HOTEL;
   cylinder(vase.x,1.3,vase.z,.09,.3,'#7f95a0','#9fb3bd',.06);
   // Slender stems, folded pointed leaves and cupped petals around a tight bud.
@@ -540,4 +551,12 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
     cylinder(tip.x,tip.y+.18,tip.z,.04,.09,'#f4bb64','#ffe5aa',0);
     box(tip.x-.02,tip.y-.3,tip.z-.02,.04,.22,.04,'#c9d4dc');
   }
+}
+
+// Shared desk and dropped lamp geometry, with its base at y.
+export function drawHotelLamp(x,y,z,box,metal='#b99953',on=false){
+  box(x-.13,y,z-.1,.26,.03,.2,metal);
+  box(x-.03,y+.03,z-.03,.06,.29,.06,metal);
+  box(x-.27,y+.3,z-.13,.55,.12,.26,'#2a5a40','#356b4e');
+  box(x-.2,y+.26,z-.08,.4,.04,.16,on?'#ffe7a0':'#5a5040');
 }
