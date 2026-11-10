@@ -284,3 +284,174 @@ test('taking a book requires consecutive interactions with that same book',()=>{
   assert.equal(life.interact(atBook(first),inventory),'TAKEN');
   assert.equal(inventory.current,first);
 });
+
+
+import {BOOKSHOP_VISITORS} from '../neon-city/midnite-life.js';
+const finishBookshopEvent=life=>{
+  for(let frame=0;frame<3000&&life.eventActive;frame++)life.update(.05,null);
+  assert.equal(life.eventActive,false,'the visitor and any shelf return finish');
+};
+test('bookshop events start 5–10 seconds after entry and after the previous event ends',()=>{
+  for(const random of [()=>0,()=>.999999]){
+    const life=new BookshopLife(random);life.enter();
+    const wait=life.eventWait;assert.ok(wait>=5&&wait<=10);
+    life.update(wait-.01,null);assert.equal(life.people.length,0);
+    life.update(.02,null);assert.equal(life.eventActive,true);
+    const person=life.people[0],blocker={x:person.x,z:person.z+.3};
+    const position={x:person.x,z:person.z};life.update(20,blocker);
+    assert.deepEqual({x:person.x,z:person.z},position,'a player in the doorway blocks entry');
+    assert.equal(life.eventActive,true,'the timer waits for movement to finish');
+    finishBookshopEvent(life);
+    assert.ok(life.eventWait>=5&&life.eventWait<=10);
+    const current=life.people.map(p=>p.state);
+    life.update(life.eventWait-.01,null);assert.deepEqual(life.people.map(p=>p.state),current);
+    life.enter();assert.ok(life.eventWait>=5&&life.eventWait<=10,'re-entry restarts the delay');
+  }
+});
+test('both girls browse their category, read a random book, and leave it for a shelf return',()=>{
+  for(const definition of BOOKSHOP_VISITORS.filter(d=>d.titles))for(const choice of [0,.4,.999999]){
+    const life=new BookshopLife(()=>choice);
+    assert.ok(life.startVisitorEvent(definition));finishBookshopEvent(life);
+    const visitor=life.people[0];assert.equal(visitor.state,'browsing');assert.equal(visitor.shelf,definition.shelf);
+    assert.ok(life.startVisitorEvent(definition));
+    const book=visitor.book;assert.equal(book.name,definition.titles[Math.floor(choice*3)]);
+    const seat=visitor.seat;assert.equal(life.occupied(seat),true,'reserve the table before walking to it');
+    finishBookshopEvent(life);assert.equal(visitor.state,'reading');
+    assert.ok(life.startVisitorEvent(definition));
+    assert.equal(life.visitorBooks[0],book);assert.equal(life.occupied(seat),true,'a left book still occupies its table');
+    let collected=false;
+    for(let frame=0;frame<3000&&life.eventActive;frame++){
+      life.update(.05,null);collected||=book.state==='returning';
+    }
+    assert.equal(life.eventActive,false);assert.ok(collected);
+    assert.equal(book.state,'shelved');assert.equal(book.shelf,definition.shelf);
+    assert.equal(life.people.length,0);assert.equal(life.visitorBooks.length,0);assert.equal(life.atDesk,true);
+  }
+});
+test('visitors leave a reading table free and account for the player and abandoned books',()=>{
+  const life=new BookshopLife(()=>.2),[girl,punk]=BOOKSHOP_VISITORS;
+  for(const def of [girl,punk]){assert.ok(life.startVisitorEvent(def));finishBookshopEvent(life);}
+  life.update(0,null,BOOKSHOP.chairs[0]);
+  assert.equal(life.startVisitorEvent(girl),false,'do not use the last table while the player sits');
+  life.update(0,null);
+  assert.ok(life.startVisitorEvent(girl));
+  assert.equal(life.startVisitorEvent(punk),false,'a visitor heading to a table already reserves it');
+  finishBookshopEvent(life);
+  assert.equal(life.startVisitorEvent(punk),false,'a second visitor cannot use the last table');
+  assert.ok(life.startVisitorEvent(girl));
+  assert.equal(life.startVisitorEvent(punk),false,'a left book keeps its table reserved');
+  finishBookshopEvent(life);
+  assert.ok(life.startVisitorEvent(punk));finishBookshopEvent(life);
+});
+test('the smart-dressed woman changes shelves or leaves and the seller avoids occupied shelf spots',()=>{
+  let value=.7;const life=new BookshopLife(()=>value),woman=BOOKSHOP_VISITORS[2];
+  assert.ok(life.startVisitorEvent(woman));finishBookshopEvent(life);
+  const visitor=life.people[0],shelf=visitor.shelf;
+  assert.ok(life.startVisitorEvent(woman));finishBookshopEvent(life);
+  assert.notEqual(visitor.shelf,shelf);
+  value=.1;assert.ok(life.startVisitorEvent(woman));finishBookshopEvent(life);assert.equal(life.people.length,0);
+  // A browsing visitor must not prevent the seller reaching the same shelf.
+  const girl=BOOKSHOP_VISITORS[0];
+  assert.ok(life.startVisitorEvent(girl));finishBookshopEvent(life);
+  assert.ok(life.startVisitorEvent(girl));finishBookshopEvent(life);
+  const reader=life.people[0];
+  life.people.push({...woman,x:2,z:8,shelf:0,state:'browsing',radius:.3,route:[]});
+  assert.ok(life.startVisitorEvent(girl));finishBookshopEvent(life);
+  assert.equal(life.visitorBooks.length,0);assert.equal(reader.book,null);
+});
+
+
+test('the bookseller finishes queued player and visitor books before returning to the desk',()=>{
+  const life=new BookshopLife(),first=life.books[0];
+  Object.assign(first,{state:'reading',seat:0,wait:0});
+  const second={name:'HISTORY OF NUMBERS',state:'reading',seat:1,wait:0,shelf:0};
+  life.visitorBooks.push(second);
+  let collectedSecond=false;
+  for(let frame=0;frame<3000;frame++){
+    assert.ok(frame<3000,'all queued work finishes');
+    life.update(.05,null);
+    collectedSecond||=second.state==='returning';
+    if(first.state==='reading'||second.state==='reading')assert.notEqual(life.state,'home','no desk trip between jobs');
+    if(life.atDesk)break;
+  }
+  assert.equal(first.state,'display');assert.equal(second.state,'shelved');assert.ok(collectedSecond);
+  assert.equal(life.atDesk,true);assert.deepEqual(life.seller,BOOKSHOP.bookseller);
+});
+test('new work interrupts the return to the desk, including a book still in its reading delay',()=>{
+  const life=new BookshopLife(),[first,second]=life.books;
+  Object.assign(first,{state:'reading',seat:0,wait:0});
+  for(let frame=0;frame<2000&&life.state!=='home';frame++)life.update(.05,null);
+  assert.equal(life.state,'home');
+  Object.assign(second,{state:'reading',seat:1,wait:1});
+  const position={...life.seller};life.update(.05,null);
+  assert.equal(life.state,'waiting');assert.deepEqual(life.seller,position,'wait for the next job instead of returning to the desk');
+  life.update(1,null);assert.equal(life.state,'collect');assert.equal(life.returning,second);
+  for(let frame=0;frame<3000&&!life.atDesk;frame++)life.update(.05,null);
+  assert.equal(second.state,'display');assert.equal(life.atDesk,true);
+});
+
+
+test('bookshop visitors show their backs when viewed behind their walking, browsing or reading direction',async()=>{
+  const {bookshopVisitorShowsBack}=await import('../neon-city/midnite-life.js');
+  const check=person=>{
+    const dx=Math.sin(person.angle),dz=Math.cos(person.angle);
+    assert.equal(bookshopVisitorShowsBack(person,{x:person.x+dx*3,z:person.z+dz*3}),false);
+    assert.equal(bookshopVisitorShowsBack(person,{x:person.x-dx*3,z:person.z-dz*3}),true);
+  };
+  for(const definition of BOOKSHOP_VISITORS){
+    const life=new BookshopLife(()=>.2);
+    life.startVisitorEvent(definition);
+    life.update(.1,null);check(life.people[0]);
+    finishBookshopEvent(life);check(life.people[0]);
+    if(definition.titles){
+      life.startVisitorEvent(definition);finishBookshopEvent(life);check(life.people[0]);
+      life.startVisitorEvent(definition);life.update(.1,null);check(life.people[0]);
+    }
+  }
+  for(const chair of BOOKSHOP.chairs)check(chair);
+});
+
+
+test('the bookseller faces his walking direction and faces the counter again at the desk',()=>{
+  const life=new BookshopLife(),book=life.books[0];
+  Object.assign(book,{state:'reading',seat:0,wait:0});
+  let moved=false;
+  for(let frame=0;frame<3000;frame++){
+    const before={...life.seller};life.update(.02,null);
+    const dx=life.seller.x-before.x,dz=life.seller.z-before.z;
+    if(Math.hypot(dx,dz)>1e-8&&!life.atDesk){
+      assert.ok(dx*Math.sin(life.sellerAngle)+dz*Math.cos(life.sellerAngle)>0);moved=true;
+    }
+    if(life.atDesk)break;
+  }
+  assert.ok(moved);assert.equal(life.atDesk,true);assert.equal(life.sellerAngle,Math.PI);
+});
+test('bookseller model turns his face toward each walking direction',async()=>{
+  const {drawBookseller}=await import('../neon-city/midnite-interior.js');
+  const seller={x:8,z:9};
+  for(const angle of [0,Math.PI/2,-Math.PI/2,Math.PI/4]){
+    const nose=[];
+    drawBookseller({box(){},face(points,color){
+      if(color==='#94624e'&&points.every(p=>p.y>=1.57*4/3-1e-8&&p.y<=1.66*4/3+1e-8))nose.push(...points);
+    }},seller,angle);
+    assert.ok(nose.length>0);
+    const x=nose.reduce((sum,p)=>sum+p.x,0)/nose.length-seller.x;
+    const z=nose.reduce((sum,p)=>sum+p.z,0)/nose.length-seller.z;
+    assert.ok(x*Math.sin(angle)+z*Math.cos(angle)>.2,'face points in the travel direction');
+  }
+});
+
+
+test('the gay visitor browses SCI-FI then leaves on his next event',()=>{
+  const definition=BOOKSHOP_VISITORS.find(visitor=>visitor.id==='gay-man');
+  for(const value of [.1,.9]){
+    const life=new BookshopLife(()=>value);
+    assert.ok(life.startVisitorEvent(definition));finishBookshopEvent(life);
+    const visitor=life.people[0];
+    assert.equal(visitor.type,6);assert.equal(visitor.state,'browsing');
+    assert.equal(visitor.shelf,4);assert.equal(visitor.book,undefined);
+    assert.ok(life.startVisitorEvent(definition));assert.equal(visitor.state,'leaving');
+    finishBookshopEvent(life);assert.equal(life.people.length,0);
+    assert.equal(life.freeReadingSeats().length,2);
+  }
+});

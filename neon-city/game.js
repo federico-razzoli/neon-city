@@ -45,7 +45,7 @@ import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
 import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,BOOKSELLER_TALK,BOOKSELLER_GIFTS,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop,drawBookshopInterior} from './midnite-interior.js';
-import {BookshopLife} from './midnite-life.js';
+import {BookshopLife,bookshopVisitorShowsBack} from './midnite-life.js';
 import {drawBackpack} from './backpack.js';
 import {drawMidniteBooks} from './midnite-books.js?v=unique-labels-4';
 import {drawBlueNote} from './blue-note.js?v=unique-labels-4';
@@ -161,7 +161,7 @@ function useDoor(){
     streetPosition={...player,angle:player.angle+Math.PI};
     if(pub){pubBarBeer(pub);pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);Object.assign(player,PUB.spawn);insidePub=true;}
     // Each hotel keeps the receptionist first seen on duty there.
-    else if(bookshop){bookshopLife=bookshop.bookshopLife??=new BookshopLife();Object.assign(player,BOOKSHOP.spawn);insideBookshop=true;}
+    else if(bookshop){bookshopLife=bookshop.bookshopLife??=new BookshopLife();bookshopLife.enter();Object.assign(player,BOOKSHOP.spawn);insideBookshop=true;}
     else if(arcade){Object.assign(player,ARCADE.spawn);insideArcade=true;arcadeLife=new ArcadeLife();currentArcadeName=arcadeName(arcade);}
     else{currentHotel=hotel;hotel.receptionist??=RECEPTIONISTS[Math.floor(Math.random()*RECEPTIONISTS.length)];Object.assign(player,HOTEL.spawn);insideHotel=true;hotelLife=new HotelLife(Math.random,hotel);lobbyMusic.choose(LOBBY_PIECES[Math.floor(Math.random()*LOBBY_PIECES.length)]);}
   }
@@ -193,6 +193,7 @@ function useSeat(){
     // Park benches outside; the sofa in a hotel lobby; the arcade's bridge chairs.
     const seat=insideBookshop?facingBookshopSeat(player):insideHotel?facingHotelSeat(player):insideArcade?facingArcadeSeat(player):facingBench(player,city.chunks.values());
     if(!seat)return false;
+    if(insideBookshop&&bookshopLife.occupied(BOOKSHOP.chairs.indexOf(seat))){notice=2.5;noticeText='THIS TABLE IS OCCUPIED.';return true;}
     playerSeat={bench:seat.bench,standing:{x:player.x,z:player.z},angle:seat.angle,pitch:0};
     if(insideBookshop){playerSeat.bookshopChair=seat;seatReply=bookshopLife.sit(seat,inventory);}
     player.x=seat.x;player.z=seat.z;player.angle=seat.angle;eye=SEATED_EYE;
@@ -748,8 +749,8 @@ function manhole(m){
   }
 }
 const seatedPixels=new Map();
-function seatedPatron(p,walking=false,height=48*.05){
-  const back=walking?pedestrianShowsBack(p,player):(player.z-p.z)*p.side>0;
+function seatedPatron(p,walking=false,height=48*.05,backView=null){
+  const back=backView??(walking?pedestrianShowsBack(p,player):(player.z-p.z)*p.side>0);
   const frame=walking?Math.floor(p.walkTime*6)%4:1,rows=walking?48:32,key=`${p.type}:${outfit(p.type,p.variant)}:${back}:${frame}:${rows}`;
   if(!seatedPixels.has(key)){
     // Reuse the pedestrians' actual heads, hair, clothing and accessories.
@@ -803,7 +804,9 @@ function render(){
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
   if(insideBookshop){
-    queue=[];drawBookshopInterior({face,quad,box},bookshopLife);drawDroppedItems(city.chunks.values());
+    queue=[];drawBookshopInterior({face,quad,box},bookshopLife);
+    for(const p of bookshopLife.people)seatedPatron(p,p.state!=='reading',characterHeight(p.type),bookshopVisitorShowsBack(p,player));
+    drawDroppedItems(city.chunks.values());
     interiorRenderer??=new DepthRenderer(ctx,W,H);interiorRenderer.render(queue,'#302c26');return;
   }
   if(insideArcade){
@@ -1164,8 +1167,8 @@ function tick(now){
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=`${currentPubName} / ${insideCubicle.icon.toUpperCase()}`;
     }else if(insideBookshop){
-      bookshopLife.update(dt,player);
-      if(!playerSeat)moveInBookshop(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,bookshopLife.seller);
+      bookshopLife.update(dt,player,playerSeat?.bookshopChair);
+      if(!playerSeat)moveInBookshop(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,bookshopLife.seller,bookshopLife.people);
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent='MIDNITE BOOKS';
     }else if(insideArcade){

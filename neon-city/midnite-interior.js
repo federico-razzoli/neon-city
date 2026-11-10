@@ -77,7 +77,6 @@ export function bookshopReply(player,life=null){
   if(deskTarget===BOOKSHOP.till)return "DON'T PLAY WITH THE TILL, PLEASE.";
   if((!life||life.atDesk)&&player.z>BOOKSHOP.counter.z+BOOKSHOP.counter.d&&facingNearest(player,[BOOKSHOP.bookseller]))return BARTENDER_REPLY;
   const targets=[...BOOKSHOP.shelves.map((b,i)=>({x:b.x+b.w/2,z:b.z+b.d/2,radius:.7,reach:1.7,text:BOOK_CATEGORIES[i]})),
-    ...BOOKSHOP.tables.map(b=>({x:b.x+b.w/2,z:b.z+b.d/2,radius:1.5,text:'STAFF PICKS: STRANGE CITIES, LATE NIGHTS AND SECOND CHANCES.'})),
     ...BOOKSHOP.windowShelves.map(b=>({x:Math.max(b.x,Math.min(player.x,b.x+b.w)),z:b.z+b.d,radius:.3,reach:1.7,text:"I SHOULDN'T TAKE THESE."}))];
   // Long shelves can be browsed anywhere along their accessible edge.
   BOOKSHOP.shelves.forEach((b,i)=>{targets[i].x=Math.max(b.x,Math.min(player.x,b.x+b.w));targets[i].z=Math.max(b.z,Math.min(player.z,b.z+b.d));});
@@ -89,13 +88,26 @@ export function bookshopWalkable(x,z,r=.3,staff=BOOKSHOP.bookseller){
     ![...BOOKSHOP.shelves,...BOOKSHOP.windowShelves,...BOOKSHOP.tables,BOOKSHOP.counter].some(b=>x>b.x-r&&x<b.x+b.w+r&&z>b.z-r&&z<b.z+b.d+r)&&
     [...BOOKSHOP.chairs,...BOOKSHOP.readingTables,...(staff?[staff]:[])].every(b=>Math.hypot(x-b.x,z-b.z)>=r+b.radius);
 }
-export function moveInBookshop(player,dx,dz,staff=BOOKSHOP.bookseller){
+export function moveInBookshop(player,dx,dz,staff=BOOKSHOP.bookseller,people=[]){
   const n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
-  for(let i=0;i<n;i++){if(bookshopWalkable(player.x+dx/n,player.z,.3,staff))player.x+=dx/n;if(bookshopWalkable(player.x,player.z+dz/n,.3,staff))player.z+=dz/n;}
+  for(let i=0;i<n;i++){if(bookshopWalkable(player.x+dx/n,player.z,.3,staff)&&people.every(p=>Math.hypot(player.x+dx/n-p.x,player.z-p.z)>=.6))player.x+=dx/n;if(bookshopWalkable(player.x,player.z+dz/n,.3,staff)&&people.every(p=>Math.hypot(player.x-p.x,player.z+dz/n-p.z)>=.6))player.z+=dz/n;}
 }
 export function drawBookshopBook(box,book,x=book.x,z=book.z,y=1){
   box(x-.3,y,z-.275,.6,.08,.55,book.color);
   box(x-.26,y+.08,z-.235,.52,.015,.47,'#dccca5');
+}
+export function drawBookseller({face,box},seller,angle=Math.PI){
+  const turn=angle-Math.PI,c=Math.cos(turn),s=Math.sin(turn);
+  if(Math.abs(turn)<1e-10){drawStaff({face,box},seller,0,BOOKSHOP.counter);return;}
+  const rotate=p=>({...p,x:seller.x+(p.x-seller.x)*c+(p.z-seller.z)*s,z:seller.z-(p.x-seller.x)*s+(p.z-seller.z)*c});
+  const turnedFace=(points,...args)=>face(points.map(rotate),...args);
+  const turnedBox=(x,y,z,w,h,d,color,roof=color)=>{
+    const a={x,y,z},b={x:x+w,y,z},c={x:x+w,y,z:z+d},e={x,y,z:z+d};
+    const top=p=>({...p,y:y+h});
+    for(const points of [[a,b,top(b),top(a)],[b,c,top(c),top(b)],[c,e,top(e),top(c)],[e,a,top(a),top(e)]])turnedFace(points,color);
+    turnedFace([top(a),top(b),top(c),top(e)],roof);
+  };
+  drawStaff({face:turnedFace,box:turnedBox},seller,0,BOOKSHOP.counter);
 }
 export function drawBookshopInterior({face,quad,box},life=null){
   const panel=(x,y,z,w,h,c,smooth=false)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],c,null,smooth);
@@ -154,8 +166,12 @@ export function drawBookshopInterior({face,quad,box},life=null){
     box(b.x,.85,b.z,b.w,.15,b.d,'#a57b51');
   }
   for(const book of BOOKSHOP_BOOKS)if(!life||life.onDisplay(book))drawBookshopBook(box,book);
-  for(const book of life?.books??[])if(book.state==='reading'){
+  for(const book of [...(life?.books??[]),...(life?.visitorBooks??[])])if(book.state==='reading'){
     const table=BOOKSHOP.readingTables[book.seat];drawBookshopBook(box,book,table.x,table.z,.68);
+  }
+  for(const visitor of life?.people??[])if(visitor.book){
+    if(visitor.state==='reading'){const table=BOOKSHOP.readingTables[visitor.seat];drawBookshopBook(box,visitor.book,table.x,table.z,.68);}
+    else drawBookshopBook(box,visitor.book,visitor.x,visitor.z,1.1);
   }
   box(counter.x,0,counter.z,counter.w,1.15,counter.d,'#614733');box(counter.x-.08,1.15,counter.z-.08,counter.w+.16,.13,counter.d+.16,'#ad8756');
   const till=BOOKSHOP.till,tx=till.x-.45,tz=till.z-.35;
@@ -186,8 +202,9 @@ export function drawBookshopInterior({face,quad,box},life=null){
   box(BOOKSHOP.deskBook.x-.325,1.28,BOOKSHOP.deskBook.z-.225,.65,.15,.45,'#8e6178');
   if(!life?.backpackTaken)drawBackpack(BOOKSHOP.backpack,box,face);
   const seller=life?.seller??BOOKSHOP.bookseller;
-  drawStaff({face,box},seller,0,counter);
-  if(life?.returning?.state==='returning')drawBookshopBook(box,life.returning,seller.x,seller.z-.35,1.1);
+  const sellerAngle=life?.sellerAngle??Math.PI;
+  drawBookseller({face,box},seller,sellerAngle);
+  if(life?.returning?.state==='returning')drawBookshopBook(box,life.returning,seller.x+Math.sin(sellerAngle)*.35,seller.z+Math.cos(sellerAngle)*.35,1.1);
   for(const chair of chairs){
     const transform=(x,y,z)=>({x:chair.x+x*Math.cos(chair.angle)+z*Math.sin(chair.angle),y,z:chair.z-x*Math.sin(chair.angle)+z*Math.cos(chair.angle)});
     const upholsteredBox=(x,y,z,w,h,d,color)=>{
