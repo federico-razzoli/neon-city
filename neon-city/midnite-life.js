@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import {BOOKSHOP,BOOKSHOP_BOOKS,BOOK_READING_REPLY,BACKPACK_WARNING,bookshopWalkable} from './midnite-interior.js';
+import {BOOKSHOP,BOOKSHOP_BOOKS,BOOKSELLER_GIFTS,BOOK_READING_REPLY,BACKPACK_WARNING,bookshopWalkable} from './midnite-interior.js';
 import {BACKPACK} from './backpack.js';
+import {TICKET} from './inventory.js';
 import {facingNearest,pubPersonBlocks} from './pub-interior.js';
 
 // Staff use the same furniture footprint as the player, with a little extra
@@ -59,11 +60,11 @@ const readingApproach=seat=>{
   return {x:table.x+Math.sin(chair.angle)*.9,z:table.z+Math.cos(chair.angle)*.9};
 };
 export class BookshopLife{
-  constructor(random=Math.random){
+  constructor(random=Math.random,backpack={seen:false,taken:false,returned:false}){
     this.random=random;this.people=[];this.visitorBooks=[];this.eventWait=null;this.eventActive=false;this.playerSeat=null;
     this.books=BOOKSHOP_BOOKS.filter(book=>book.id).map(book=>({...book,state:'display'}));
     this.pendingBook=null;
-    this.backpackTaken=false;
+    this.backpack=backpack;
     this.sellerAngle=Math.PI;this.seller={...BOOKSHOP.bookseller};this.state='desk';this.route=[];this.returning=null;
   }
   enter(){this.eventWait=5+this.random()*5;}
@@ -148,6 +149,30 @@ export class BookshopLife{
     }
     this.eventWait=5+this.random()*5;
   }
+  booksellerGifts(inventory){
+    return {
+      ...BOOKSELLER_GIFTS,
+      backpack:record=>({ends:true,answer:()=>{
+        const index=inventory.items.findIndex(item=>item.id===BACKPACK.id);
+        if(index<0)return [];
+        inventory.items.splice(index,1);
+        this.backpack.taken=false;
+        this.backpack.returned=true;
+        const reward=record.BOOKSELLER_TICKET_NEEDED&&!record.BOOKSELLER_TICKET_REWARDED;
+        if(reward){
+          inventory.take(TICKET);
+          record.BOOKSELLER_TICKET_REWARDED=true;
+        }
+        inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
+        if(reward){
+          return ['THIS IS MY BACKPACK! THANK YOU, SIR!','PLEASE ACCEPT A GIFT AS A REWARD FOR YOUR HONESTY...'];
+        }
+        return ['THIS IS MY BACKPACK! THANK YOU, SIR'];
+      }}),
+      ticket:["KEEP IT, SIR. IT'S YOURS AND WELL-DESERVED!"]
+    };
+  }
+  get backpackTaken(){return this.backpack.taken;}
   get atDesk(){return this.state==='desk';}
   get guardingBackpack(){return this.atDesk||Math.hypot(this.seller.x-BOOKSHOP.bookseller.x,this.seller.z-BOOKSHOP.bookseller.z)<=2;}
   onDisplay(book){return !book.id||this.books.find(b=>b.id===book.id)?.state==='display';}
@@ -157,9 +182,10 @@ export class BookshopLife{
     const previous=this.pendingBook;
     this.resetBookInteraction();
     if(!this.backpackTaken&&facingNearest(player,[BOOKSHOP.backpack])){
+      this.backpack.seen=true;
       if(this.guardingBackpack)return BACKPACK_WARNING;
       const reply=inventory.take(BACKPACK);
-      if(reply==='TAKEN')this.backpackTaken=true;
+      if(reply==='TAKEN')this.backpack.taken=true;
       return reply;
     }
     const visitor=facingNearest(player,this.people.filter(p=>p.book));

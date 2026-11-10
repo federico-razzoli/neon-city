@@ -67,9 +67,9 @@ test('the till responds from both sides of the desk',()=>{
   assert.notEqual(bookshopReply({x:till.x,z:10,angle:0}),reply);
 });
 
-import {BOOKSHOP_BOOKS,BOOK_TITLES,BOOKSELLER_TALK,BOOKSELLER_GIFTS,BOOK_READING_INVITATION,BOOK_READING_REPLY,BOOK_EXIT_REPLY,bookshopWalkable} from '../neon-city/midnite-interior.js';
+import {BOOKSHOP_BOOKS,BOOK_TITLES,booksellerTalk,BOOKSELLER_GIFTS,BOOK_READING_INVITATION,BOOK_READING_REPLY,BOOK_EXIT_REPLY,bookshopWalkable} from '../neon-city/midnite-interior.js';
 import {BookshopLife,bookshopRoute} from '../neon-city/midnite-life.js';
-import {Inventory} from '../neon-city/inventory.js';
+import {Inventory,TICKET} from '../neon-city/inventory.js';
 import {StaffTalk} from '../neon-city/pub-interior.js';
 
 const atBook=book=>{
@@ -97,7 +97,7 @@ test('all twelve titled display books can be examined and taken',()=>{
 test('giving any of the twelve books to the bookseller invites reading and retains the loan',()=>{
   for(const book of new BookshopLife().books){
     const inventory=new Inventory();inventory.take(book);
-    const talk=new StaffTalk(BOOKSELLER_TALK,{},inventory,BOOKSELLER_GIFTS);
+    const talk=new StaffTalk(booksellerTalk({}),{},inventory,BOOKSELLER_GIFTS);
     talk.confirm(talk.script.findIndex(option=>option.action==='give'));
     talk.confirm(0);
     assert.equal(talk.line,BOOK_READING_INVITATION);
@@ -227,11 +227,11 @@ test('book collection creates an opportunity to take the backpack and it stays t
   assert.equal(life.interact(atBackpack(),inventory),null);
 });
 
-test('the floor backpack disappears only after a successful pickup',()=>{
+test('the floor backpack disappears from every shop after a successful pickup',()=>{
   const life=new BookshopLife(),inventory=new Inventory();
-  const body=()=>{
+  const body=(shop=life)=>{
     const parts=[];
-    drawBookshopInterior({face:(points,color)=>{if(color==='#44605c')parts.push(...points);},quad(){},box(){}},life);
+    drawBookshopInterior({face:(points,color)=>{if(color==='#44605c')parts.push(...points);},quad(){},box(){}},shop);
     if(!parts.length)return [];
     const x=Math.min(...parts.map(p=>p.x)),y=Math.min(...parts.map(p=>p.y)),z=Math.min(...parts.map(p=>p.z));
     return [{x,y,z,w:Math.max(...parts.map(p=>p.x))-x,d:Math.max(...parts.map(p=>p.z))-z}];
@@ -244,11 +244,14 @@ test('the floor backpack disappears only after a successful pickup',()=>{
   assert.equal(life.interact(atBackpack(),inventory),'I ALREADY HAVE ONE.');assert.equal(body().length,1);
   inventory.items.length=0;
   assert.equal(life.interact(atBackpack(),inventory),'TAKEN');assert.equal(body().length,0);
+  const otherShop=new BookshopLife(Math.random,life.backpack);
+  assert.equal(body(otherShop).length,0);
+  assert.equal(otherShop.interact(atBackpack(),new Inventory()),null);
 });
 
 
 test('bookseller ticket follow-up remembers refusal and returns to the main menu',()=>{
-  const record={},talk=new StaffTalk(BOOKSELLER_TALK,record);
+  const record={},talk=new StaffTalk(booksellerTalk({}),record);
   const enter=t=>t.confirm(t.script.findIndex(option=>option.ask==='DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?'));
   assert.ok(!talk.script.some(option=>option.ask==='DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?'));
   record.RADIOACTIVE_COWS_TICKET_MENTIONED=true;
@@ -259,9 +262,10 @@ test('bookseller ticket follow-up remembers refusal and returns to the main menu
   assert.deepEqual(talk.script.map(option=>option.ask),['WOULD YOU SELL IT TO ME?','NEVER MIND.']);
   talk.confirm(0);assert.equal(talk.line,"I WOULDN'T SELL IT FOR A MILLION COWS. SORRY PAL.");
   talk.confirm();assert.deepEqual(talk.script.map(option=>option.ask),['I REALLY NEED THAT TICKET...','NEVER MIND.']);
-  talk.confirm(0);assert.equal(talk.line,'I NEED IT, TOO. SORRY PAL.');talk.confirm();
+  talk.confirm(0);assert.equal(talk.line,'I NEED IT, TOO. SORRY PAL.');
+  assert.equal(record.BOOKSELLER_TICKET_NEEDED,true);talk.confirm();
   talk.confirm(1);assert.equal(talk.block,0);assert.equal(talk.line,null);assert.equal(talk.over,false);
-  const reopened=new StaffTalk(BOOKSELLER_TALK,record);
+  const reopened=new StaffTalk(booksellerTalk({}),record);
   enter(reopened);reopened.confirm();reopened.confirm();
   assert.equal(reopened.script[0].ask,'I REALLY NEED THAT TICKET...');
 });
@@ -468,5 +472,67 @@ test('visitors carry compact books beside their hands rather than through their 
     assert.ok(cover.y+cover.h<.8,'book stays below the chest');
     assert.ok(Math.hypot(cover.x+cover.w/2-visitor.x,cover.z+cover.d/2-visitor.z)>.4,'book is beside the body');
     assert.ok(cover.w<.45&&cover.d<.4,'carried book fits the hand');
+  }
+});
+
+
+test('returning the backpack only earns the ticket after asking for it',()=>{
+  for(const needsTicket of [false,true]){
+    const life=new BookshopLife(),inventory=new Inventory();
+    const record={RADIOACTIVE_COWS_TICKET_MENTIONED:true,BOOKSELLER_TICKET_REFUSED:true};
+    if(needsTicket)record.BOOKSELLER_TICKET_NEEDED=true;
+    const otherShop=new BookshopLife(Math.random,life.backpack);
+    const startTalk=()=>new StaffTalk(booksellerTalk(otherShop.backpack),record,inventory,otherShop.booksellerGifts(inventory));
+    const offersSpareTicket=()=>startTalk().script.some(option=>option.ask==='DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?');
+    assert.equal(offersSpareTicket(),true);
+    const askAboutBackpack=()=>{
+      const talk=startTalk();
+      talk.confirm(talk.script.findIndex(option=>option.ask==='ABOUT YOUR BACKPACK...'));
+      return talk.line;
+    };
+    assert.equal(askAboutBackpack(),null);
+    assert.equal(life.interact({...atBackpack(),angle:Math.PI},inventory),null);
+    assert.equal(askAboutBackpack(),null);
+    if(!needsTicket){
+      assert.equal(life.interact(atBackpack(),inventory),BACKPACK_WARNING);
+      assert.equal(askAboutBackpack(),'MY BACKPACK IS NOT FOR SALE, SIR.');
+    }
+    life.state='collect';life.seller.x-=3;
+    assert.equal(life.interact(atBackpack(),inventory),'TAKEN');
+    assert.equal(askAboutBackpack(),"I THINK I'VE LOST IT. IF YOU FIND IT, PLEASE, TAKE IT TO ME.");
+    const talk=startTalk();
+    talk.confirm(talk.script.findIndex(option=>option.ask==='GIVE'));
+    assert.equal(talk.script[0].ask,'BACKPACK');
+    assert.deepEqual(inventory.items,[BACKPACK],'viewing the menu does not give the item');
+    talk.confirm(0);
+    assert.equal(talk.line,needsTicket?'THIS IS MY BACKPACK! THANK YOU, SIR!':'THIS IS MY BACKPACK! THANK YOU, SIR');
+    talk.confirm();
+    if(needsTicket){
+      assert.equal(talk.line,'PLEASE ACCEPT A GIFT AS A REWARD FOR YOUR HONESTY...');
+      talk.confirm();
+    }
+    assert.equal(talk.over,true);
+    assert.deepEqual(inventory.items,needsTicket?[TICKET]:[]);
+    assert.equal(offersSpareTicket(),!needsTicket);
+    assert.equal(life.backpackTaken,false);
+    assert.equal(askAboutBackpack(),"I'M SO HAPPY YOU'VE FOUND IT. THANK YOU, SIR!");
+    if(needsTicket){
+      const offer=new StaffTalk(booksellerTalk(life.backpack),record,inventory,life.booksellerGifts(inventory));
+      offer.confirm(offer.script.findIndex(option=>option.ask==='GIVE'));
+      offer.confirm(0);
+      assert.equal(offer.line,"KEEP IT, SIR. IT'S YOURS AND WELL-DESERVED!");
+      assert.deepEqual(inventory.items,[TICKET]);
+    }
+    assert.equal(life.interact(atBackpack(),inventory),'TAKEN');
+    inventory.selected=inventory.items.findIndex(item=>item.id===BACKPACK.id);
+    assert.equal(inventory.act('OPEN'),'THE BACKPACK CONTAINED SOME STUFF.');
+    const returnAgain=startTalk();
+    returnAgain.confirm(returnAgain.script.findIndex(option=>option.ask==='GIVE'));
+    returnAgain.confirm(returnAgain.script.findIndex(option=>option.ask==='BACKPACK'));
+    assert.equal(returnAgain.line,'THIS IS MY BACKPACK! THANK YOU, SIR');
+    assert.equal(life.interact(atBackpack(),inventory),'TAKEN');
+    inventory.selected=inventory.items.findIndex(item=>item.id===BACKPACK.id);
+    assert.equal(inventory.act('OPEN'),'THE BACKPACK IS EMPTY.');
+    assert.equal(askAboutBackpack(),"I THINK I'VE LOST IT. IF YOU FIND IT, PLEASE, TAKE IT TO ME.");
   }
 });

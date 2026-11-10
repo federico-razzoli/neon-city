@@ -24,6 +24,9 @@ export const PINE_CONE={id:'pine-cone',name:'PINE CONE',description:'A PINE CONE
 export const LADYBUG={id:'ladybug',name:'LADYBUG',description:'THIS BUG IS A LADY. I THINK.'};
 export const FLOWER={id:'flower',name:'FLOWER',description:'A FLOWER.'};
 export const LAMP={id:'lamp',name:'LAMP',description:'A BRASS DESK LAMP WITH A GREEN SHADE.'};
+export const PASTIS_BOTTLE={id:'pastis-bottle',name:'PASTIS BOTTLE',description:'A BOTTLE OF PASTIS.'};
+export const MARIJUANA_PLANT={id:'marijuana-plant',name:'MARIJUANA PLANT',description:'A MARIJUANA PLANT.'};
+export const TICKET={id:'ticket',name:'TICKET',description:"IT'S A TICKET FOR THE RADIOACTIVE COWS SHOW!"};
 export const HOTEL_NOTE={id:'hotel-note',name:'HOTEL NOTE',description:'IT READS: LISA HAS THE KEY.'};
 export function arcadeTokens(count){
   return {id:'arcade-token',count,get name(){return `${this.count} TOKEN${this.count===1?'':'S'}`;},description:'ARCADE TOKENS.'};
@@ -32,6 +35,7 @@ export class Inventory{
   items=[];
   selected=0;
   description=false;
+  backpackOpened=false;
   take(item){
     if(item.id==='arcade-token'){
       const stack=this.items.find(entry=>entry.id===item.id);
@@ -47,10 +51,17 @@ export class Inventory{
   }
   get actions(){
     if(!this.current)return [];
-    return ['DROP',...(['pine-cone','flower'].includes(this.current.id)?['EAT']:this.current.id==='lamp'?['TURN ON']:[])];
+    return ['DROP',...(['pine-cone','flower'].includes(this.current.id)?['EAT']:this.current.id==='lamp'?['TURN ON']:this.current.id==='backpack'?['OPEN']:[])];
   }
-  act(action){
+  act(action,{inBookshop=false}={}){
     if(!this.actions.includes(action))return null;
+    if(action==='OPEN'){
+      if(inBookshop)return 'NOT HERE!';
+      if(this.backpackOpened)return 'THE BACKPACK IS EMPTY.';
+      for(const item of [PASTIS_BOTTLE,MARIJUANA_PLANT])this.take(item);
+      this.backpackOpened=true;
+      return 'THE BACKPACK CONTAINED SOME STUFF.';
+    }
     if(action==='TURN ON')return "I CAN'T. IT'S NOT PLUGGED.";
     if(action==='EAT'){
       this.items.splice(this.selected,1);

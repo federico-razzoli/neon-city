@@ -55,14 +55,17 @@ export const facingBookshopDoor=(player,buildings)=>buildings.find(b=>b.sign==='
 export const facingBookshopExit=player=>player.z>0&&facingDoorway(player,BOOKSHOP.door,.85);
 export const facingBookshopSeat=player=>facingNearest(player,BOOKSHOP.chairs);
 export const facingBookseller=player=>facingAcrossCounter(player,BOOKSHOP.counter,BOOKSHOP.bookseller);
-export const BOOKSELLER_TALK=[[
+export const booksellerTalk=({seen,taken,returned})=>[[
   {ask:'HI!',answer:['HELLO THERE!']},
   {ask:'OPEN ALL NIGHT?',answer:['STORIES DO NOT KEEP OFFICE HOURS. NEITHER DO WE.']},
-  {ask:'DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?',answer:['DO YOU MEAN THE RADIOACTIVE COWS?','I WAS LUVKY ENOUGH TO BUY THE LAST TICKET!'],needs:'RADIOACTIVE_COWS_TICKET_MENTIONED',next:1},
+  {ask:'DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?',answer:['DO YOU MEAN THE RADIOACTIVE COWS?','I WAS LUVKY ENOUGH TO BUY THE LAST TICKET!'],needs:'RADIOACTIVE_COWS_TICKET_MENTIONED',unless:'BOOKSELLER_TICKET_REWARDED',next:1},
+  ...(seen?[{ask:'ABOUT YOUR BACKPACK...',answer:[taken
+    ?"I THINK I'VE LOST IT. IF YOU FIND IT, PLEASE, TAKE IT TO ME."
+    :returned?"I'M SO HAPPY YOU'VE FOUND IT. THANK YOU, SIR!":"MY BACKPACK IS NOT FOR SALE, SIR."]}]:[]),
   {ask:'BYE!',answer:['SEE YOU LATER, SIR!'],ends:true}
 ],[
   {ask:'WOULD YOU SELL IT TO ME?',answer:[{say: "I WOULDN'T SELL IT FOR A MILLION COWS. SORRY PAL.",sets:'BOOKSELLER_TICKET_REFUSED'}],unless:'BOOKSELLER_TICKET_REFUSED'},
-  {ask:'I REALLY NEED THAT TICKET...',answer:['I NEED IT, TOO. SORRY PAL.'],needs:'BOOKSELLER_TICKET_REFUSED'},
+  {ask:'I REALLY NEED THAT TICKET...',answer:[{say:'I NEED IT, TOO. SORRY PAL.',sets:'BOOKSELLER_TICKET_NEEDED'}],needs:'BOOKSELLER_TICKET_REFUSED'},
   {ask:'NEVER MIND.',answer:[],next:0}
 ]];
 export function bookshopReply(player,life=null){
