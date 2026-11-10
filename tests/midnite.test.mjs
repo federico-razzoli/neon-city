@@ -455,3 +455,18 @@ test('the gay visitor browses SCI-FI then leaves on his next event',()=>{
     assert.equal(life.freeReadingSeats().length,2);
   }
 });
+
+test('visitors carry compact books beside their hands rather than through their necks',()=>{
+  for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+    const book={color:'#123456'},visitor={x:9,z:9,angle,state:'walking',book};
+    const covers=[];
+    drawBookshopInterior({face(){},quad(){},box:(x,y,z,w,h,d,color)=>{
+      if(color===book.color)covers.push({x,y,z,w,h,d});
+    }},{people:[visitor],onDisplay:()=>true});
+    assert.equal(covers.length,1);
+    const cover=covers[0];
+    assert.ok(cover.y+cover.h<.8,'book stays below the chest');
+    assert.ok(Math.hypot(cover.x+cover.w/2-visitor.x,cover.z+cover.d/2-visitor.z)>.4,'book is beside the body');
+    assert.ok(cover.w<.45&&cover.d<.4,'carried book fits the hand');
+  }
+});

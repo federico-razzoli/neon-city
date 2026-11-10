@@ -171,7 +171,15 @@ export function drawBookshopInterior({face,quad,box},life=null){
   }
   for(const visitor of life?.people??[])if(visitor.book){
     if(visitor.state==='reading'){const table=BOOKSHOP.readingTables[visitor.seat];drawBookshopBook(box,visitor.book,table.x,table.z,.68);}
-    else drawBookshopBook(box,visitor.book,visitor.x,visitor.z,1.1);
+    else{
+      // Carry a compact book beside the right hand, below the chest.
+      // Centering a full table-sized book on the visitor cuts through the body.
+      const angle=visitor.angle??0;
+      const x=visitor.x+Math.cos(angle)*.43+Math.sin(angle)*.08;
+      const z=visitor.z-Math.sin(angle)*.43+Math.cos(angle)*.08;
+      const carriedBox=(bx,by,bz,w,h,d,color)=>box(x+bx*.7,.65+by*.7,z+bz*.7,w*.7,h*.7,d*.7,color);
+      drawBookshopBook(carriedBox,visitor.book,0,0,0);
+    }
   }
   box(counter.x,0,counter.z,counter.w,1.15,counter.d,'#614733');box(counter.x-.08,1.15,counter.z-.08,counter.w+.16,.13,counter.d+.16,'#ad8756');
   const till=BOOKSHOP.till,tx=till.x-.45,tz=till.z-.35;
