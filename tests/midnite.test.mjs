@@ -243,3 +243,23 @@ test('the floor backpack disappears only after a successful pickup',()=>{
   inventory.items.length=0;
   assert.equal(life.interact(atBackpack(),inventory),'TAKEN');assert.equal(body().length,0);
 });
+
+
+test('bookseller ticket follow-up remembers refusal and returns to the main menu',()=>{
+  const record={},talk=new StaffTalk(BOOKSELLER_TALK,record);
+  const enter=t=>t.confirm(t.script.findIndex(option=>option.ask==='DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?'));
+  assert.ok(!talk.script.some(option=>option.ask==='DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?'));
+  record.RADIOACTIVE_COWS_TICKET_MENTIONED=true;
+  enter(talk);
+  assert.equal(talk.line,'DO YOU MEAN THE RADIOACTIVE COWS?');
+  talk.confirm();assert.equal(talk.line,'I WAS LUVKY ENOUGH TO BUY THE LAST TICKET!');
+  talk.confirm();assert.equal(talk.block,1);
+  assert.deepEqual(talk.script.map(option=>option.ask),['WOULD YOU SELL IT TO ME?','NEVER MIND.']);
+  talk.confirm(0);assert.equal(talk.line,"I WOULDN'T SELL IT FOR A MILLION COWS. SORRY PAL.");
+  talk.confirm();assert.deepEqual(talk.script.map(option=>option.ask),['I REALLY NEED THAT TICKET...','NEVER MIND.']);
+  talk.confirm(0);assert.equal(talk.line,'I NEED IT, TOO. SORRY PAL.');talk.confirm();
+  talk.confirm(1);assert.equal(talk.block,0);assert.equal(talk.line,null);assert.equal(talk.over,false);
+  const reopened=new StaffTalk(BOOKSELLER_TALK,record);
+  enter(reopened);reopened.confirm();reopened.confirm();
+  assert.equal(reopened.script[0].ask,'I REALLY NEED THAT TICKET...');
+});

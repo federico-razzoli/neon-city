@@ -56,9 +56,14 @@ export const facingBookshopExit=player=>player.z>0&&facingDoorway(player,BOOKSHO
 export const facingBookshopSeat=player=>facingNearest(player,BOOKSHOP.chairs);
 export const facingBookseller=player=>facingAcrossCounter(player,BOOKSHOP.counter,BOOKSHOP.bookseller);
 export const BOOKSELLER_TALK=[[
-  {ask:'WHAT DO YOU RECOMMEND?',answer:['TRY THE CYBERPUNK SHELF. THE FUTURE LOOKS FAMILIAR.','OR TAKE A CHANCE ON SOMETHING YOU HAVE NEVER HEARD OF.']},
+  {ask:'HI!',answer:['HELLO THERE!']},
   {ask:'OPEN ALL NIGHT?',answer:['STORIES DO NOT KEEP OFFICE HOURS. NEITHER DO WE.']},
-  {ask:'JUST BROWSING.',answer:['TAKE YOUR TIME. THAT IS WHAT BOOKSHOPS ARE FOR.'],ends:true}
+  {ask:'DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?',answer:['DO YOU MEAN THE RADIOACTIVE COWS?','I WAS LUVKY ENOUGH TO BUY THE LAST TICKET!'],needs:'RADIOACTIVE_COWS_TICKET_MENTIONED',next:1},
+  {ask:'BYE!',answer:['SEE YOU LATER, SIR!'],ends:true}
+],[
+  {ask:'WOULD YOU SELL IT TO ME?',answer:[{say: "I WOULDN'T SELL IT FOR A MILLION COWS. SORRY PAL.",sets:'BOOKSELLER_TICKET_REFUSED'}],unless:'BOOKSELLER_TICKET_REFUSED'},
+  {ask:'I REALLY NEED THAT TICKET...',answer:['I NEED IT, TOO. SORRY PAL.'],needs:'BOOKSELLER_TICKET_REFUSED'},
+  {ask:'NEVER MIND.',answer:[],next:0}
 ]];
 export function bookshopReply(player,life=null){
   // A clear aim at the bookseller opens his conversation, even though the
