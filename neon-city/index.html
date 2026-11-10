@@ -23,7 +23,7 @@ If not, see <https://www.gnu.org/licenses/>.
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b0818">
   <title>Neon City — an endless night</title>
-  <link rel="stylesheet" href="style.css?v=pinball-9">
+  <link rel="stylesheet" href="style.css?v=inventory-message-1">
 </head>
 <body>
   <main id="game">
@@ -52,13 +52,21 @@ If not, see <https://www.gnu.org/licenses/>.
       <p id="inventory-empty">YOU HAVE NOTHING YET.</p>
       <ol id="inventory-items" aria-label="Items"></ol>
       <p id="inventory-description" role="status"></p>
-      <p class="inventory-controls">↑ ↓ SELECT · SPACE / ENTER EXAMINE · D DROP<br>I / ESC CLOSE</p>
+      <p class="inventory-controls">↑ ↓ SELECT · SPACE / ENTER EXAMINE<br>I / ESC CLOSE</p>
     </dialog>
+    <dialog id="inventory-detail" aria-labelledby="inventory-detail-title">
+      <h2 id="inventory-detail-title"></h2>
+      <img id="inventory-image" width="96" height="96" alt="">
+      <p id="inventory-item-description"></p>
+      <div id="inventory-actions" role="group" aria-label="Item actions"></div>
+      <p class="inventory-controls">↑ ↓ SELECT · SPACE / ENTER ACT · ESC BACK</p>
+    </dialog>
+    <dialog id="inventory-message" aria-label="Action result" tabindex="0"></dialog>
     <section id="overlay">
       <div class="intro"><p class="eyebrow">NO DESTINATION. JUST THE NIGHT.</p><h1>NEON<br><span>CITY</span></h1><p id="description">A city that never ends.<br>Follow the lights. Get lost in 1987.</p><button id="start">STEP INTO THE NIGHT <span>→</span></button><p class="controls">Press SPACE to start / resume<br>↑ ↓ walk &nbsp; ← → turn &nbsp; A D sidestep &nbsp; SHIFT run &nbsp; SPACE interact &nbsp; I inventory<br>Use the stripes. Cars will wait for you to cross.</p><p class="fine">No missions. No dying. Just the night.</p></div>
     </section>
     <nav id="touch" aria-label="Movement controls"><button data-key="ArrowLeft" aria-label="Turn left">↶</button><div><button data-key="ArrowUp" aria-label="Walk forward">↑</button><button data-key="ArrowDown" aria-label="Walk backward">↓</button></div><button data-key="ArrowRight" aria-label="Turn right">↷</button></nav>
   </main>
-  <script type="module" src="game.js?v=pinball-9"></script>
+  <script type="module" src="game.js?v=inventory-message-1"></script>
 </body>
 </html>

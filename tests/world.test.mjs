@@ -1791,11 +1791,12 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const {PubLife,PubConversation}=await import('../neon-city/pub-life.js');
   const {pubLines}=await import('../neon-city/world.js');
   const {RiverLook}=await import('../neon-city/river-look.js');
-  const {facingBench,treeReply,bushReply,signReply}=await import('../neon-city/parks.js');
+  const {facingBench,treeReply,bushReply,signReply,pineCone}=await import('../neon-city/parks.js');
+  const {drawFlower}=await import('../neon-city/flowers.js');
   const {WalkerTalk,talksHere}=await import('../neon-city/walker-talk.js');
   const hotelInterior=await import('../neon-city/hotel-interior.js');
   const {hotelLook}=await import('../neon-city/hotel.js');
-  const sandbox={...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),...await import('../neon-city/midnite-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,treeReply,bushReply,signReply,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
+  const sandbox={...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),...await import('../neon-city/midnite-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...hotelInterior,hotelLook,PubLife,PubConversation,pubLines,pubName,CoverAttempt,RiverLook,WalkerTalk,talksHere,facingPubMenu,facingBench,treeReply,bushReply,signReply,pineCone,drawFlower,playCoverGrunt(){sounds++;},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){moves++;return false;}advancePedestrians(){}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(){}mute(){}},...await import('../neon-city/pub-music.js'),PubMusic:class{prepare(){}choose(){}update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
@@ -1811,22 +1812,91 @@ test('game input replays manhole feedback on separate presses and held Space wit
   events.keydown(enter);tick(0);
   assert.equal(element('#overlay').hidden,true,'Enter starts the game like Space');
   const inventoryKey={...key,key:'i',code:'KeyI'};
+  const browserShortcutsPass=()=>{
+    const snapshot=()=>JSON.stringify({selected:sandbox.game.inventory.selected,items:sandbox.game.inventory.items,
+      inventory:element('#inventory').open,detail:element('#inventory-detail').open,message:element('#inventory-message').open});
+    for(const shortcut of [
+      {key:'r',ctrlKey:true},{key:'r',ctrlKey:true,shiftKey:true},
+      {key:'r',metaKey:true},{key:'r',metaKey:true,shiftKey:true},
+      {key:'F5'},{key:'F5',ctrlKey:true},{key:'F5',shiftKey:true},
+      {key:'F12'},{key:'Tab'},{key:'Tab',shiftKey:true},
+      {key:'i',ctrlKey:true,shiftKey:true},{key:'i',metaKey:true,altKey:true},
+      {key:'ArrowLeft',altKey:true},{key:'ArrowDown',ctrlKey:true},{key:' ',metaKey:true}
+    ]){
+      let prevented=false;const before=snapshot();
+      events.keydown({...key,code:'',...shortcut,preventDefault(){prevented=true;}});
+      assert.equal(prevented,false,`browser shortcut passes: ${JSON.stringify(shortcut)}`);
+      assert.equal(snapshot(),before,'browser shortcuts do not change inventory state');
+    }
+  };
+
   events.keydown(inventoryKey);
   assert.equal(element('#inventory').open,true);
   assert.equal(element('#inventory-empty').hidden,false);
+  browserShortcutsPass();
   sandbox.game.inventory.take((await import('../neon-city/inventory.js')).PINE_CONE);
   events.keydown({...key,key:'d',code:'KeyD'});
+  assert.equal(sandbox.game.inventory.items.length,1,'D no longer drops from the main inventory');
+  events.keydown(key);
+  assert.equal(element('#inventory-detail').open,true);
+  browserShortcutsPass();
+  assert.equal(element('#inventory-item-description').textContent,sandbox.game.inventory.current.description);
+  assert.ok(element('#inventory-image').src.startsWith('data:image/svg+xml,'));
+  events.keydown(enter);
+  assert.equal(element('#inventory-detail').open,false,'BACK is the first action');
+  assert.equal(element('#inventory').open,true);
+  events.keydown(key);
+  assert.ok(element('#inventory-actions').innerHTML.indexOf('BACK')<element('#inventory-actions').innerHTML.indexOf('DROP'));
+  events.keydown({...key,key:'ArrowRight',code:'ArrowRight'});
+  events.keydown(enter);
   assert.equal(sandbox.game.inventory.items.length,0);
   assert.equal(city.chunks.get('0,0').droppedItems.length,1);
-  assert.equal(element('#inventory-description').textContent,'DROPPED');
+  assert.equal(element('#inventory-detail').open,false,'successful DROP closes the object box');
+  assert.equal(element('#inventory').open,true,'DROP keeps the inventory underneath');
+  assert.equal(element('#inventory-message').open,true);
+  assert.equal(element('#inventory-message').textContent,'DROPPED');
+  browserShortcutsPass();
+  events.keydown({...key,key:'Escape',code:'Escape'});
+  assert.equal(element('#inventory-message').open,false);
   events.keydown({...key,key:'d',code:'KeyD',repeat:true});
   assert.equal(city.chunks.get('0,0').droppedItems.length,1);
   city.chunks.get('0,0').droppedItems=[];
+  assert.equal(element('#inventory-detail').open,false);
 
   events.keydown({...key,key:'ArrowDown',code:'ArrowDown'});tick(0);
   events.keydown(enter);
   assert.equal(element('#inventory-description').textContent,'');
   assert.equal(sounds,0,'inventory controls do not interact with the world');
+  // The detail dialog is in front of the inventory and owns item actions.
+  for(const item of [(await import('../neon-city/inventory.js')).PINE_CONE,(await import('../neon-city/inventory.js')).FLOWER]){
+    sandbox.game.inventory.take(item);
+    events.keydown(key);
+    assert.equal(element('#inventory-detail').open,true);
+    assert.ok(element('#inventory-actions').innerHTML.includes('EAT'));
+    events.keydown({...key,key:'ArrowDown',code:'ArrowDown'});
+    events.keydown({...key,key:'ArrowDown',code:'ArrowDown'});
+    events.keydown(key);
+    assert.equal(element('#inventory-message').textContent,'IT WAS DISGUSTING!');
+    assert.equal(sandbox.game.inventory.items.length,0);
+    assert.equal(element('#inventory-detail').open,false,'EAT closes the object box');
+    assert.equal(element('#inventory-message').open,true,'keep the reply in its own text box');
+    events.keydown({...key,repeat:true});
+    assert.equal(element('#inventory-message').open,true,'held Space does not dismiss the message');
+    events.keydown({...key,key:'Escape',code:'Escape'});
+    assert.equal(element('#inventory').open,true,'Escape returns to inventory');
+  }
+  sandbox.game.inventory.take((await import('../neon-city/inventory.js')).LAMP);
+  events.keydown(key);
+  events.keydown({...key,key:'ArrowDown',code:'ArrowDown'});
+  events.keydown({...key,key:'ArrowDown',code:'ArrowDown'});
+  events.keydown(key);
+  assert.equal(element('#inventory-message').textContent,"I CAN'T. IT'S NOT PLUGGED.");
+  assert.equal(sandbox.game.inventory.current.id,'lamp');
+  assert.equal(element('#inventory-detail').open,false,'TURN ON closes the object box');
+  assert.equal(element('#inventory-message').open,true);
+  events.keydown({...key,key:'Escape',code:'Escape'});
+  sandbox.game.inventory.items=[];
+
   events.keydown(inventoryKey);
   assert.equal(element('#inventory').open,false);
 
@@ -1891,10 +1961,14 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(element('#message').textContent,'HI THERE!');
   sandbox.game.inventory.take((await import('../neon-city/inventory.js')).PINE_CONE);
   events.keydown(inventoryKey);
-  events.keydown({...key,key:'d',code:'KeyD'});
+  events.keydown(key);
+  events.keydown({...key,key:'ArrowRight',code:'ArrowRight'});
+  events.keydown(enter);
   assert.equal(sandbox.game.inventory.items.length,1,'seated dropping keeps the item');
   assert.equal(city.chunks.get('0,0').droppedItems.length,0,'seated dropping creates no ground object');
-  assert.equal(element('#inventory-description').textContent,'I NEED TO STAND UP FIRST.');
+  assert.equal(element('#inventory-message').textContent,'I NEED TO STAND UP FIRST.');
+  assert.equal(element('#inventory-detail').open,false,'blocked DROP also closes the object box');
+  assert.equal(element('#inventory-message').open,true,'blocked DROP explains why in a text box');
   events.keydown(inventoryKey);
   events.keyup(key);
   for(const closeKey of [inventoryKey,{...key,key:'Escape',code:'Escape'}]){
@@ -3264,9 +3338,9 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
   const pubInterior=await import('../neon-city/pub-interior.js');
   const lavatory=await import('../neon-city/lavatory.js');
   const pubMusic=await import('../neon-city/pub-music.js'),{PUB_MUSIC,PUB_PIECES}=pubMusic;
-  const events={},elements=new Map(),volumes=[],lowpasses=[],choices=[],lobbyVolumes=[];
+  const events={},elements=new Map(),volumes=[],lowpasses=[],choices=[],lobbyVolumes=[];let musicMutes=0;
   const element=id=>{
-    if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
+    if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,querySelector:()=>null,showModal(){this.open=true;},close(){this.open=false;},classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
   const sandbox={...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),...await import('../neon-city/midnite-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,rollBanshee:()=>false,playFlush(){},rollOccupancy:()=>[false,true,true],
@@ -3275,13 +3349,13 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},
     HornWarning:class{update(){return false;}},ArcadeAmbience:class{update(){}mute(){}},arcadeVolume:()=>0,ParkBirds:class{update(){}mute(){}},TapWater:class{update(){}mute(){}},parkVolume:()=>0,Traffic:class{cars=[];update(){return this.cars;}},
     ...await import('../neon-city/lobby-music.js'),LobbyMusic:class{prepare(){}choose(){}update(context,volume){lobbyVolumes.push(volume);}mute(){}},
-    ...pubMusic,PubMusic:class{prepare(){}choose(piece){choices.push(piece);}update(context,volume,lowpass){volumes.push(volume);lowpasses.push(lowpass);}mute(){}},
-    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){}},
+    ...pubMusic,PubMusic:class{prepare(){}choose(piece){choices.push(piece);}update(context,volume,lowpass){volumes.push(volume);lowpasses.push(lowpass);}mute(){musicMutes++;}},
+    document:{querySelector:element,querySelectorAll:()=>[],addEventListener(name,fn){events['document:'+name]=fn;}},
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'NEON PUB'}],manholes:[],newspaperMachines:[]});
   const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -3296,6 +3370,39 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
   assert.equal(volumes.at(-1),PUB_MUSIC.volume);
   assert.equal(lowpasses.at(-1),undefined,'heard through the speakers alone');
   assert.equal(lobbyVolumes.at(-1),0,'no lobby music in the pub');
+  const inventoryKey={...space,key:'i',code:'KeyI'};
+  sandbox.game.inventory.take(sandbox.HOTEL_NOTE);
+  events.keydown(inventoryKey);tick(ms+=20);
+  const musicContinues=()=>{
+    const before=volumes.length;tick(ms+=20);
+    assert.equal(volumes.length,before+1,'music keeps updating while inventory is open');
+    assert.equal(volumes.at(-1),PUB_MUSIC.volume);
+
+    assert.equal(choices.length,1,'the current piece is not restarted');
+  };
+  assert.equal(musicMutes,0,'opening the inventory does not mute the music');
+  const backgroundMusicStops=()=>{
+    const before=volumes.length,mutes=musicMutes;
+    events.blur();tick(ms+=20);tick(ms+=20);
+    assert.ok(musicMutes>mutes,'leaving the browser mutes music immediately');
+    assert.equal(volumes.length,before,'background ticks cannot restart the music');
+    assert.equal(element('#inventory').open,true,'the inventory stays open');
+    events.focus();musicContinues();
+    const visibleCount=volumes.length,visibleMutes=musicMutes;
+    sandbox.document.hidden=true;events['document:visibilitychange']();tick(ms+=20);
+    assert.ok(musicMutes>visibleMutes,'hiding the tab mutes music immediately');
+    assert.equal(volumes.length,visibleCount,'hidden tabs cannot restart the music');
+    sandbox.document.hidden=false;events['document:visibilitychange']();musicContinues();
+  };
+  musicContinues();backgroundMusicStops();
+  events.keydown(space);
+  assert.equal(element('#inventory-detail').open,true);musicContinues();backgroundMusicStops();
+  events.keydown({...space,key:'ArrowRight',code:'ArrowRight'});
+  events.keydown(space);
+  assert.equal(element('#inventory-message').open,true);musicContinues();backgroundMusicStops();
+  events.keydown(inventoryKey);tick(ms+=20);
+  assert.equal(element('#inventory').open,false);
+
   // Through the lavatory wall it is barely audible and muffled.
   const faint=()=>{
     assert.equal(location(),'THE PUB / LAVATORY');

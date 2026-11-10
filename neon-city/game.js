@@ -24,7 +24,7 @@ import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWi
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
-import {Inventory,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=arcade-tokens-2';
+import {Inventory,inventoryImage,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=item-previews-2';
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=pinball-9';
@@ -44,7 +44,7 @@ import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gau
 import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
-import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,BOOKSELLER_TALK,BOOKSELLER_GIFTS,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop,drawBookshopInterior} from './midnite-interior.js';
+import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,BOOKSELLER_TALK,BOOKSELLER_GIFTS,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop,drawBookshopInterior,drawBookshopBook} from './midnite-interior.js';
 import {BookshopLife,bookshopVisitorShowsBack} from './midnite-life.js';
 import {drawBackpack} from './backpack.js';
 import {drawMidniteBooks} from './midnite-books.js?v=unique-labels-4';
@@ -69,6 +69,9 @@ import {HornWarning,playHorn} from './horn.js?v=junction-priority-1';
 const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const inventory=new Inventory(),inventoryBox=document.querySelector('#inventory');
+const inventoryDetail=document.querySelector('#inventory-detail');
+const inventoryMessage=document.querySelector('#inventory-message');
+let examinedItem=null,itemAction=0,browserFocused=true;
 const wallet=new Wallet(),moneyDisplay=document.querySelector('#money');
 moneyDisplay.textContent=wallet.balance;
 const pubMenu=document.querySelector('#pub-menu'),talkBox=document.querySelector('#staff-talk');
@@ -248,14 +251,13 @@ function dropSpot(){
 }
 const itemGround=()=>dropSpot().ground;
 function dropSelectedItem(){
-  if(playerSeat){document.querySelector('#inventory-description').textContent="I NEED TO STAND UP FIRST.";return;}
-  if(inventory.current?.bookshopLoan){document.querySelector('#inventory-description').textContent='I SHOULD LEAVE THIS BOOK ON A READING TABLE.';return;}
+  if(playerSeat)return "I NEED TO STAND UP FIRST.";
+  if(inventory.current?.bookshopLoan)return 'I SHOULD LEAVE THIS BOOK ON A READING TABLE.';
   const position=indoors()?currentVenue:player;
   const chunk=city.chunks.get(`${Math.floor(position.x/64)},${Math.floor(position.z/64)}`);
   const {x,z,ground}=dropSpot();
   const dropped=dropItem(inventory,{...player,x,z},chunk,itemRoom(),ground);
-  showInventory();
-  if(dropped)document.querySelector('#inventory-description').textContent=dropped.lost?'LOST':'DROPPED';
+  return dropped?(dropped.lost?'LOST':'DROPPED'):null;
 }
 function drawDroppedItems(chunks){
   const room=itemRoom();
@@ -278,12 +280,64 @@ function showInventory(){
   document.querySelector('#inventory-description').textContent=inventory.description?(inventory.current?.description??''):'';
   list.querySelector('[aria-current]')?.scrollIntoView({block:'nearest'});
 }
+function inventoryItemActions(){return ['BACK',...(inventory.current===examinedItem?inventory.actions:[])];}
+function drawInventoryObject(item,{face,quad,box}){
+  const position={x:0,z:0,ground:0,angle:0};
+  if(item.id==='flower')drawFlower({...item,...position},quad);
+  else if(item.id==='hotel-note')drawDroppedNote(position,face);
+  else if(item.id==='arcade-token')drawDroppedToken(position,face);
+  else if(item.id==='lamp')drawHotelLamp(0,0,0,box);
+  else if(item.id==='backpack')drawBackpack(position,box,face);
+  else if(item.bookshopLoan)drawBookshopBook(box,item,0,0,0);
+  else if(item.id==='pine-cone')pineCone({...position,length:.22,radius:.07},face,{x:2,y:3,z:-4});
+}
+function showItemActions(){
+  const actions=inventoryItemActions();
+  if(examinedItem)document.querySelector('#inventory-detail-title').textContent=examinedItem.name;
+  itemAction=Math.min(itemAction,Math.max(0,actions.length-1));
+  document.querySelector('#inventory-actions').innerHTML=actions.map((action,i)=>`<button type="button" data-action="${action}"${i===itemAction?' aria-current="true"':''}>${action}</button>`).join('');
+}
+function openInventoryItem(){
+  if(!inventory.current)return;
+  examinedItem=inventory.current;itemAction=0;
+  document.querySelector('#inventory-detail-title').textContent=examinedItem.name;
+  document.querySelector('#inventory-item-description').textContent=examinedItem.description??'';
+  const image=document.querySelector('#inventory-image');
+  const preview=inventoryImage(examinedItem,drawInventoryObject);
+  image.hidden=!preview;image.alt=examinedItem.name;
+  if(preview)image.src=preview;
+  showItemActions();inventoryDetail.showModal();
+  document.querySelector('#inventory-actions').querySelector('button')?.focus();
+}
+function closeInventoryItem(){
+  inventoryDetail.close();examinedItem=null;showInventory();inventoryBox.focus();
+}
+function closeInventoryMessage(){
+  inventoryMessage.close();inventoryBox.focus();
+}
+function useInventoryAction(action){
+  if(action==='BACK'){closeInventoryItem();return;}
+  if(inventory.current!==examinedItem)return;
+  const reply=action==='DROP'?dropSelectedItem():inventory.act(action);
+  closeInventoryItem();
+  if(reply){
+    inventoryMessage.textContent=reply;
+    inventoryMessage.showModal();inventoryMessage.focus();
+  }
+}
+inventoryMessage.addEventListener('cancel',e=>{e.preventDefault();closeInventoryMessage();});
+inventoryMessage.addEventListener('click',closeInventoryMessage);
+inventoryDetail.addEventListener('cancel',e=>{e.preventDefault();closeInventoryItem();});
+document.querySelector('#inventory-actions').addEventListener('click',e=>{
+  const action=e.target.closest('button[data-action]')?.dataset.action;
+  if(action)useInventoryAction(action);
+});
 function toggleInventory(){
   keys.clear();shiftKeys.clear();coverPressed=false;
-  if(inventoryBox.open){inventoryBox.close();canvas.focus();}
+  if(inventoryBox.open){if(inventoryMessage.open)closeInventoryMessage();if(inventoryDetail.open)closeInventoryItem();inventoryBox.close();canvas.focus();}
   else{
     inventory.description=false;showInventory();inventoryBox.showModal();
-    arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();
+    arcadeAmbience.mute();parkBirds.mute();tapWater.mute();
     document.querySelector('#pace').hidden=true;
   }
 }
@@ -983,10 +1037,30 @@ if(ping){
   return;
 }
 if(inventoryBox.open){
+  // Only consume inventory controls; leave browser shortcuts and focus keys alone.
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','i','Escape',' '].includes(k))return;
   e.preventDefault();
-  if(k==='i'||k==='Escape'){if(!e.repeat)toggleInventory();}
-  else if(k==='d'){if(!e.repeat)dropSelectedItem();}
-  else if(k===' '){if(!e.repeat){inventory.description=true;showInventory();}}
+  if(inventoryMessage.open){
+    if(k==='i'){if(!e.repeat)toggleInventory();}
+    else if([' ','Escape'].includes(k)&&!e.repeat)closeInventoryMessage();
+  }else if(inventoryDetail.open){
+    if(k==='Escape'){if(!e.repeat)closeInventoryItem();}
+    else if(k==='i'){if(!e.repeat)toggleInventory();}
+    else if(k===' '&&!e.repeat){
+      const focused=document.activeElement;
+      useInventoryAction(focused?.dataset?.action??inventoryItemActions()[itemAction]);
+    }else{
+      const step={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1}[k];
+      if(step){
+        const actions=inventoryItemActions();
+        itemAction=(itemAction+step+actions.length)%actions.length;
+        showItemActions();
+        document.querySelector('#inventory-actions').querySelector(`[data-action="${inventoryItemActions()[itemAction]}"]`)?.focus();
+      }
+    }
+  }else if(k==='i'||k==='Escape'){if(!e.repeat)toggleInventory();}
+  else if(k===' '){if(!e.repeat)openInventoryItem();}
   else{const step={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1}[k];if(step){inventory.move(step);showInventory();}}
   return;
 }
@@ -1069,7 +1143,10 @@ function syncShift(e){
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
 window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk)syncShift(e);});
-window.addEventListener('blur',()=>{if(running)pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause();});
+function muteBackgroundMusic(){lobbyMusic.mute();pubMusic.mute();}
+window.addEventListener('blur',()=>{browserFocused=false;muteBackgroundMusic();if(running)pause();});
+window.addEventListener('focus',()=>{browserFocused=true;});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){muteBackgroundMusic();if(running)pause();}});
 // Capture taps across the whole screen before movement buttons handle them.
 window.addEventListener('pointerdown',e=>{
   if(running&&ping?.kind==='byker'&&ping.intro){e.preventDefault();e.stopImmediatePropagation();ping.skipIntro();keys.clear();return;}
@@ -1238,7 +1315,7 @@ function tick(now){
   if(running&&!pubMenu.open&&!inventoryBox.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
   // Ambient music plays throughout the hotel lobby, and boogie-woogie in the
   // pub, heard faintly from the lavatory but not from inside a cubicle.
-  if(running&&!inventoryBox.open){
+  if(running&&browserFocused&&!document.hidden){
     lobbyMusic.update(audioContext,insideHotel?LOBBY_MUSIC.volume:0);
     const pubHeard=pubMusicHeard(insidePub?'pub':insideLavatory?'lavatory':insideCubicle?'cubicle':'street');
     pubMusic.update(audioContext,pubHeard.volume,pubHeard.lowpass);

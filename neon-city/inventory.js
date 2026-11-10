@@ -45,6 +45,21 @@ export class Inventory{
     if(this.items.length)this.selected=(this.selected+step+this.items.length)%this.items.length;
     this.description=false;
   }
+  get actions(){
+    if(!this.current)return [];
+    return ['DROP',...(['pine-cone','flower'].includes(this.current.id)?['EAT']:this.current.id==='lamp'?['TURN ON']:[])];
+  }
+  act(action){
+    if(!this.actions.includes(action))return null;
+    if(action==='TURN ON')return "I CAN'T. IT'S NOT PLUGGED.";
+    if(action==='EAT'){
+      this.items.splice(this.selected,1);
+      this.selected=Math.max(0,Math.min(this.selected,this.items.length-1));
+      this.description=false;
+      return 'IT WAS DISGUSTING!';
+    }
+    return null;
+  }
   get current(){return this.items[this.selected];}
 }
 export function takePineCone(player,chunks,inventory){
@@ -110,4 +125,32 @@ export function takeDroppedItem(player,chunks,inventory,room='street',ground=0){
   const reply=inventory.take(nearest.item);
   if(reply===TAKEN)owner.droppedItems.splice(owner.droppedItems.indexOf(nearest),1);
   return reply;
+}
+
+// Project the existing world object geometry into a small inventory preview.
+// The caller supplies the same drawing routines used for dropped objects.
+export function inventoryImage(item,draw){
+  const polygons=[];
+  const face=(points,color)=>polygons.push({points,color});
+  const quad=(x,y,z,w,d,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);
+  const box=(x,y,z,w,h,d,color,top=color)=>{
+    quad(x,y+h,z,w,d,top);
+    face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
+    face([{x:x+w,y,z},{x:x+w,y,z:z+d},{x:x+w,y:y+h,z:z+d},{x:x+w,y:y+h,z}],color);
+    face([{x:x+w,y,z:z+d},{x,y,z:z+d},{x,y:y+h,z:z+d},{x:x+w,y:y+h,z:z+d}],color);
+    face([{x,y,z:z+d},{x,y,z},{x,y:y+h,z},{x,y:y+h,z:z+d}],color);
+  };
+  draw(item,{face,quad,box});
+  if(!polygons.length)return '';
+  // Look down from the front-right, matching the models' visible front faces.
+  const project=p=>({x:(p.x+p.z)*.866,y:(p.x-p.z)*.35-p.y,depth:p.x-p.z+p.y*.4});
+  const projected=polygons.map(({points,color})=>({points:points.map(project),color}));
+  const points=projected.flatMap(p=>p.points);
+  const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x));
+  const minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
+  const size=Math.max(maxX-minX,maxY-minY)*1.15;
+  const viewBox=[(minX+maxX-size)/2,(minY+maxY-size)/2,size,size].join(' ');
+  projected.sort((a,b)=>a.points.reduce((n,p)=>n+p.depth/a.points.length,0)-b.points.reduce((n,p)=>n+p.depth/b.points.length,0));
+  const art=projected.map(p=>`<polygon points="${p.points.map(v=>`${v.x},${v.y}`).join(' ')}" fill="${p.color}"/>`).join('');
+  return 'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${art}</svg>`);
 }
