@@ -73,14 +73,16 @@ import {Inventory} from '../neon-city/inventory.js';
 import {StaffTalk} from '../neon-city/pub-interior.js';
 
 const atBook=book=>{
-  const table=BOOKSHOP.tables[0],back=book.z>table.z+table.d/2;
+  const table=BOOKSHOP.tables[book.tableIndex],back=book.z>table.z+table.d/2;
   return {x:book.x,z:back?table.z+table.d+.8:table.z-.8,angle:back?Math.PI:0};
 };
-test('all six books on the entrance table can be examined and taken',()=>{
+test('all twelve titled display books can be examined and taken',()=>{
   assert.equal(BOOKSHOP_BOOKS.length,12);
-  assert.equal(new BookshopLife().books.length,6);
-  assert.deepEqual(BOOK_TITLES.slice(3),['REGULAR EXPRESSIONS','AUTOBIOGRAPHY OF A MAN WHO DIED ALL OF A SUDD','THE ULTIMATE GUIDE TO TIME PARADOXES']);
-  for(let i=0;i<6;i++){
+  assert.deepEqual(BOOK_TITLES.slice(9),["NO, I'M NOT A HUMAN",'NEWSPEAK DICTIONARY','V FOR VINTAGE']);
+  assert.equal(new BookshopLife().books.length,12);
+  assert.deepEqual(BOOK_TITLES.slice(6,9),['MAKE IT SO, NUMBER ONE!','LOOK OUTSIDE','HOW TO EXIT VIM']);
+  assert.deepEqual(BOOK_TITLES.slice(3,6),['REGULAR EXPRESSIONS','AUTOBIOGRAPHY OF A MAN WHO DIED ALL OF A SUDD','THE ULTIMATE GUIDE TO TIME PARADOXES']);
+  for(let i=0;i<12;i++){
     const life=new BookshopLife(),inventory=new Inventory(),book=life.books[i],player=atBook(book);
     assert.equal(life.interact(player,inventory),`${BOOK_TITLES[i]}... should I read this?`);
     assert.equal(inventory.items.length,0);
@@ -90,14 +92,9 @@ test('all six books on the entrance table can be examined and taken',()=>{
     assert.equal(life.carried(inventory),book);
     assert.equal(life.interact({...player,angle:player.angle+Math.PI}),null);
   }
-  const life=new BookshopLife(),inventory=new Inventory();
-  for(const book of BOOKSHOP_BOOKS.filter(b=>!b.id)){
-    const player={x:book.x,z:book.z+1.4,angle:Math.PI};
-    assert.equal(life.interact(player,inventory),null);
-  }
 });
 
-test('giving any of the six books to the bookseller invites reading and retains the loan',()=>{
+test('giving any of the twelve books to the bookseller invites reading and retains the loan',()=>{
   for(const book of new BookshopLife().books){
     const inventory=new Inventory();inventory.take(book);
     const talk=new StaffTalk(BOOKSELLER_TALK,{},inventory,BOOKSELLER_GIFTS);
@@ -113,7 +110,7 @@ test('giving any of the six books to the bookseller invites reading and retains 
 });
 
 test('reading either chair leaves the book there and the seller returns it after five seconds',()=>{
-  for(const seat of BOOKSHOP.chairs)for(let i=0;i<6;i++){
+  for(const seat of BOOKSHOP.chairs)for(let i=0;i<12;i++){
     const life=new BookshopLife(),inventory=new Inventory(),book=life.books[i];
     life.interact(atBook(book),inventory);life.interact(atBook(book),inventory);
     assert.equal(life.sit(seat,inventory),BOOK_READING_REPLY);

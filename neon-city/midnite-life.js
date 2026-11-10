@@ -103,7 +103,7 @@ export class BookshopLife{
     if(this.route.length)return;
     const book=this.returning;
     if(this.state==='collect'){
-      if(this.travel('replace',{x:book.x,z:BOOKSHOP.tables[0].z-.7}))book.state='returning';
+      if(this.travel('replace',{x:book.x,z:BOOKSHOP.tables[book.tableIndex].z-.7}))book.state='returning';
     }else if(this.state==='replace'){
       book.state='display';delete book.seat;
       this.travel('home',BOOKSHOP.bookseller);

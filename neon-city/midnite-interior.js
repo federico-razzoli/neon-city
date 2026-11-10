@@ -39,11 +39,11 @@ export const BOOKSHOP={width:18,depth:18,height:4.5,door:{x:9,z:0},spawn:{x:9,z:
 BOOKSHOP.readingTables=BOOKSHOP.chairs.map(chair=>({
   x:chair.x+Math.sin(chair.angle)*1.85,z:chair.z+Math.cos(chair.angle)*1.85,radius:.45
 }));
-export const BOOK_TITLES=['HOW TO BUILD A ROBOT','LORD OF THE EARRINGS','NEON CITY SECRETS','REGULAR EXPRESSIONS','AUTOBIOGRAPHY OF A MAN WHO DIED ALL OF A SUDD','THE ULTIMATE GUIDE TO TIME PARADOXES'];
+export const BOOK_TITLES=['HOW TO BUILD A ROBOT','LORD OF THE EARRINGS','NEON CITY SECRETS','REGULAR EXPRESSIONS','AUTOBIOGRAPHY OF A MAN WHO DIED ALL OF A SUDD','THE ULTIMATE GUIDE TO TIME PARADOXES','MAKE IT SO, NUMBER ONE!','LOOK OUTSIDE','HOW TO EXIT VIM',"NO, I'M NOT A HUMAN",'NEWSPEAK DICTIONARY','V FOR VINTAGE'];
 export const BOOKSHOP_BOOKS=BOOKSHOP.tables.flatMap((table,i)=>Array.from({length:6},(_,j)=>({
   x:table.x+.5+(j%3)*.9,z:table.z+.425+Math.floor(j/3)*.8,
   radius:.3,reach:1.4,color:['#93634e','#ae925c','#526e60','#71617d','#a06b75','#557985'][(j+i)%6],
-  ...(i===0?{id:`bookshop-book-${j}`,name:BOOK_TITLES[j],description:BOOK_TITLES[j],bookshopLoan:true}:{})
+  ...(i*6+j<BOOK_TITLES.length?{id:`bookshop-book-${i*6+j}`,name:BOOK_TITLES[i*6+j],description:BOOK_TITLES[i*6+j],tableIndex:i,bookshopLoan:true}:{})
 })));
 export const BOOK_READING_INVITATION='FEEL FREE TO SIT AT ONE OF THE TABLES AND TAKE A LOOK AT THIS BOOK, BEFORE BUYING IT.';
 export const BOOKSELLER_GIFTS=Object.fromEntries(BOOKSHOP_BOOKS.filter(book=>book.id).map(book=>[book.id,{answer:[BOOK_READING_INVITATION],ends:true}]));
