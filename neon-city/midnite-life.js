@@ -44,7 +44,8 @@ export function bookshopRoute(start,end){
 }
 export class BookshopLife{
   constructor(){
-    this.books=BOOKSHOP_BOOKS.filter(book=>book.id).map(book=>({...book,state:'display',examined:false}));
+    this.books=BOOKSHOP_BOOKS.filter(book=>book.id).map(book=>({...book,state:'display'}));
+    this.pendingBook=null;
     this.backpackTaken=false;
     this.seller={...BOOKSHOP.bookseller};this.state='desk';this.route=[];this.returning=null;
   }
@@ -52,7 +53,10 @@ export class BookshopLife{
   get guardingBackpack(){return this.atDesk||Math.hypot(this.seller.x-BOOKSHOP.bookseller.x,this.seller.z-BOOKSHOP.bookseller.z)<=2;}
   onDisplay(book){return !book.id||this.books.find(b=>b.id===book.id)?.state==='display';}
   carried(inventory){return this.books.find(book=>book.state==='carried'&&inventory.items.some(item=>item.id===book.id));}
+  resetBookInteraction(){this.pendingBook=null;}
   interact(player,inventory){
+    const previous=this.pendingBook;
+    this.resetBookInteraction();
     if(!this.backpackTaken&&facingNearest(player,[BOOKSHOP.backpack])){
       if(this.guardingBackpack)return BACKPACK_WARNING;
       const reply=inventory.take(BACKPACK);
@@ -62,7 +66,7 @@ export class BookshopLife{
     const target=facingNearest(player,BOOKSHOP_BOOKS.filter(book=>this.onDisplay(book)));
     const book=this.books.find(book=>book.id===target?.id);
     if(!book)return null;
-    if(!book.examined){book.examined=true;return `${book.name}... should I read this?`;}
+    if(previous!==book){this.pendingBook=book;return `${book.name}... should I read this?`;}
     if(this.carried(inventory))return 'I ALREADY HAVE ONE.';
     const reply=inventory.take(book);
     if(reply==='TAKEN')book.state='carried';
@@ -101,7 +105,7 @@ export class BookshopLife{
     if(this.state==='collect'){
       if(this.travel('replace',{x:book.x,z:BOOKSHOP.tables[0].z-.7}))book.state='returning';
     }else if(this.state==='replace'){
-      book.state='display';book.examined=false;delete book.seat;
+      book.state='display';delete book.seat;
       this.travel('home',BOOKSHOP.bookseller);
     }else if(this.state==='home'){
       this.state='desk';this.returning=null;

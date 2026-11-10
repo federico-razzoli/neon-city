@@ -72,10 +72,15 @@ import {BookshopLife,bookshopRoute} from '../neon-city/midnite-life.js';
 import {Inventory} from '../neon-city/inventory.js';
 import {StaffTalk} from '../neon-city/pub-interior.js';
 
-const atBook=book=>({x:book.x,z:BOOKSHOP.tables[0].z-.8,angle:0});
-test('only the three display books nearest the door can be examined and taken',()=>{
+const atBook=book=>{
+  const table=BOOKSHOP.tables[0],back=book.z>table.z+table.d/2;
+  return {x:book.x,z:back?table.z+table.d+.8:table.z-.8,angle:back?Math.PI:0};
+};
+test('all six books on the entrance table can be examined and taken',()=>{
   assert.equal(BOOKSHOP_BOOKS.length,12);
-  for(let i=0;i<3;i++){
+  assert.equal(new BookshopLife().books.length,6);
+  assert.deepEqual(BOOK_TITLES.slice(3),['REGULAR EXPRESSIONS','AUTOBIOGRAPHY OF A MAN WHO DIED ALL OF A SUDD','THE ULTIMATE GUIDE TO TIME PARADOXES']);
+  for(let i=0;i<6;i++){
     const life=new BookshopLife(),inventory=new Inventory(),book=life.books[i],player=atBook(book);
     assert.equal(life.interact(player,inventory),`${BOOK_TITLES[i]}... should I read this?`);
     assert.equal(inventory.items.length,0);
@@ -83,7 +88,7 @@ test('only the three display books nearest the door can be examined and taken',(
     assert.equal(inventory.current,book);
     assert.equal(life.onDisplay(book),false);
     assert.equal(life.carried(inventory),book);
-    assert.equal(life.interact({...player,angle:Math.PI}),null);
+    assert.equal(life.interact({...player,angle:player.angle+Math.PI}),null);
   }
   const life=new BookshopLife(),inventory=new Inventory();
   for(const book of BOOKSHOP_BOOKS.filter(b=>!b.id)){
@@ -92,7 +97,7 @@ test('only the three display books nearest the door can be examined and taken',(
   }
 });
 
-test('giving any of the three books to the bookseller invites reading and retains the loan',()=>{
+test('giving any of the six books to the bookseller invites reading and retains the loan',()=>{
   for(const book of new BookshopLife().books){
     const inventory=new Inventory();inventory.take(book);
     const talk=new StaffTalk(BOOKSELLER_TALK,{},inventory,BOOKSELLER_GIFTS);
@@ -108,7 +113,7 @@ test('giving any of the three books to the bookseller invites reading and retain
 });
 
 test('reading either chair leaves the book there and the seller returns it after five seconds',()=>{
-  for(const seat of BOOKSHOP.chairs)for(let i=0;i<3;i++){
+  for(const seat of BOOKSHOP.chairs)for(let i=0;i<6;i++){
     const life=new BookshopLife(),inventory=new Inventory(),book=life.books[i];
     life.interact(atBook(book),inventory);life.interact(atBook(book),inventory);
     assert.equal(life.sit(seat,inventory),BOOK_READING_REPLY);
@@ -262,4 +267,23 @@ test('bookseller ticket follow-up remembers refusal and returns to the main menu
   const reopened=new StaffTalk(BOOKSELLER_TALK,record);
   enter(reopened);reopened.confirm();reopened.confirm();
   assert.equal(reopened.script[0].ask,'I REALLY NEED THAT TICKET...');
+});
+
+
+test('taking a book requires consecutive interactions with that same book',()=>{
+  const life=new BookshopLife(),inventory=new Inventory(),[first,second]=life.books;
+  const examine=book=>`${book.name}... should I read this?`;
+  assert.equal(life.interact(atBook(first),inventory),examine(first));
+  assert.equal(life.interact(atBook(second),inventory),examine(second));
+  assert.equal(life.interact(atBook(first),inventory),examine(first));
+  assert.equal(life.interact({...BOOKSHOP.spawn,angle:Math.PI},inventory),null);
+  assert.equal(life.interact(atBook(first),inventory),examine(first));
+  const backpack=BOOKSHOP.backpack;
+  assert.equal(life.interact({x:backpack.x,z:backpack.z-1,angle:0},inventory),BACKPACK_WARNING);
+  assert.equal(life.interact(atBook(first),inventory),examine(first));
+  life.resetBookInteraction(); // Seats, doors and dropped-item pickups interrupt the sequence.
+  assert.equal(life.interact(atBook(first),inventory),examine(first));
+  assert.equal(inventory.items.length,0);
+  assert.equal(life.interact(atBook(first),inventory),'TAKEN');
+  assert.equal(inventory.current,first);
 });
