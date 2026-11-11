@@ -532,6 +532,17 @@ function wallTexture(b,side,dim=hotelHIsDim(b,time)){
 }
 function building(b){
   const x=b.x,z=b.z,w=b.w,d=b.d,h=b.h;
+  if(!boundsVisible(x,0,z,x+w,h,z+d)){
+    // Seated players can turn toward these walls: keep their textures warm
+    // without constructing, transforming or clipping offscreen wall panels.
+    if(playerSeat&&!indoors()&&running){
+      if(player.z<z)seatedTexturePrewarmer.add(wallTexture(b,0));
+      if(player.z>z+d)seatedTexturePrewarmer.add(wallTexture(b,1));
+      if(player.x<x)seatedTexturePrewarmer.add(wallTexture(b,2));
+      if(player.x>x+w)seatedTexturePrewarmer.add(wallTexture(b,3));
+    }
+    return;
+  }
   function wall(points,side){
     const tex=wallTexture(b,side);
     // Panels retain fine-grained depth ordering against cars and pedestrians.
