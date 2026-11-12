@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {drawTreeGeometry} from './tree-geometry.js';
 import {signBoardGeometry,signPoleGeometry,drawSignGeometry} from './sign-geometry.js';
 import {LADYBUG} from './inventory.js?v=ladybug-release-1';
 import {flowersFor,drawFlower} from './flowers.js';
@@ -81,15 +82,6 @@ export function band(face,viewer,t,y0,r0,y1,r1,colors,{sides=8,bottom=true,top=t
 }
 
 const BARK=['#2a1f27','#35272c','#423133','#4d3a39'];
-const PINE=['#122a24','#163228','#1b3a2d','#214432','#284e38'];
-// Stacked, non-intersecting tiers, each narrower than the one below.
-const TIERS=[[3,3.6,6.6,1.5],[6.6,3,10,1.2],[10,2.4,13.2,.9],[13.2,1.8,16,.6],[16,1.15,18,0]];
-
-function tree(t,face,viewer){
-  const s=t.scale;
-  band(face,viewer,t,0,t.radius,TIERS[0][0]*s,.3*s,BARK,{sides:6,top:false});
-  for(const [y0,r0,y1,r1] of TIERS)band(face,viewer,t,y0*s,r0*s,y1*s,r1*s,PINE);
-}
 
 // A box aligned with the bench: u runs along the seat, v towards its back.
 function benchBox(face,viewer,b,u0,u1,v0,v1,y0,y1,color,top=color){
@@ -202,7 +194,7 @@ export function drawParkStructures(chunk,{face,signTexture},viewer){
   for(const b of chunk.park.benches)bench(b,face,viewer);
   const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
   if(sign)drawFingerpost(sign,[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}],{face,signTexture},viewer);
-  for(const t of chunk.park.trees)tree(t,face,viewer);
+  for(const t of chunk.park.trees)drawTreeGeometry(t,face,viewer);
   for(const b of chunk.park.bushes??[])drawBush(b,face,viewer);
 }
 
