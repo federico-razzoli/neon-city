@@ -21,6 +21,7 @@ import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
 import {createTexturePrewarmer} from './texture-pixels.js';
 import {buildingGeometry} from './building-geometry.js';
 import {manholeGeometry} from './manhole-geometry.js';
+import {drawRoadMarkings} from './road-marking-geometry.js';
 import {newspaperGeometry,drawNewspaperGeometry} from './newspaper-geometry.js';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
@@ -800,10 +801,7 @@ function street(chunk){
   // The screen background alone cannot hide water projected over the road.
   quad(x,0,z,64,64,'#252233');
   quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
-  // Keep each entire dash between the intersections, which begin at offset 56.
-  for(let t=12;t+4<=56;t+=12){quad(x-.09,.025,z+t,.18,4,'#b09485');quad(x+t,.025,z-.09,4,.18,'#b09485');}
-  // Centre the stripes across the road, leaving equal gaps to both sidewalks.
-  for(let i=-5;i<=5;i++){quad(x+i*1.4-.325,.03,z+9.5,.65,2.7,'#81798a');quad(x+9.5,.03,z+i*1.4-.325,2.7,.65,'#81798a');}
+  drawRoadMarkings(x,z,face);
   // Pavement seams and a pool of neon light outside each storefront.
   for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
   if(chunk.park){drawParkGround(chunk,{quad,face});return;}
