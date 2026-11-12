@@ -21,6 +21,7 @@ import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
 import {createTexturePrewarmer} from './texture-pixels.js';
 import {buildingGeometry} from './building-geometry.js';
 import {manholeGeometry} from './manhole-geometry.js';
+import {newspaperGeometry,drawNewspaperGeometry} from './newspaper-geometry.js';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
@@ -770,15 +771,7 @@ function newspaperMachine(m){
     g.fillStyle=look.price;g.font='bold 12px monospace';g.fillText('25¢',113,210);
     newspaperTextures[paper]=c;
   }
-  const scale=.85,top=.08+1.45*.9*scale,front=.45*scale+.001;
-  box(m.x-m.w/2,.08,m.z-m.d/2,m.w,1.45*.9*scale,m.d,...look.body);
-  // The cap overhangs the front and sides, with its back flush to the wall.
-  const dx=[0,0,-1,1][m.side],dz=[-1,1,0,0][m.side];
-  const capW=m.w+(m.side<2?.06:.054)*scale,capD=m.d+(m.side<2?.054:.06)*scale;
-  box(m.x+dx*.027*scale-capW/2,top,m.z+dz*.027*scale-capD/2,capW,.08*.9*scale,capD,...look.cap);
-  // Front faces the street; texture follows the same perspective as buildings.
-  const point=(u,y)=>m.side<2?{x:m.x+(m.side===0?u:-u),y,z:m.z+dz*front}:{x:m.x+dx*front,y,z:m.z+(m.side===2?-u:u)};
-  face([point(-.5*scale,.08),point(.5*scale,.08),point(.5*scale,top),point(-.5*scale,top)].map((p,i)=>({...p,u:[0,160,160,0][i],v:[224,224,0,0][i]})),look.paint,newspaperTextures[paper]);
+  drawNewspaperGeometry(m,newspaperGeometry(m),player,eye,look,newspaperTextures[paper],face);
   for(let i=firstFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;}
 }
 // One texture per board text and direction the arrow can point on screen.
