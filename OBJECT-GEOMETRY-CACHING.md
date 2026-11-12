@@ -1,0 +1,118 @@
+# Object geometry caching
+
+Neon City generates static object geometry once and reuses it while drawing.
+Several templates remain cached for the entire game session and are shared by
+every matching object, including objects in newly generated city chunks.
+Camera movement does not rebuild these templates.
+
+## Shared WASM generators
+
+The geometry generators are written in C and compiled together into
+[`neon-city/geometry.wasm`](neon-city/geometry.wasm).
+[`geometry-wasm.js`](neon-city/geometry-wasm.js) loads and instantiates that module
+once. All geometry wrappers import its exports, sharing one WASM instance, linear
+memory, stack and scratch output buffer. Each object type still has its own
+generator function; there is no additional dispatch generator.
+
+On a cache miss, JavaScript calls the relevant WASM export. C computes the static
+coordinates and, where applicable, normals, texture coordinates, material indices,
+visibility rules and lighting information. For pine cones, JavaScript supplies the
+orientation's sine and cosine when generating the cached mesh.
+
+The generator writes numeric data into `geometry_output`, declared in
+[`geometry.h`](neon-city/geometry.h). The exported `output()` function returns its
+byte address. Every generator uses this same scratch space synchronously.
+
+## Typed arrays and cache ownership
+
+JavaScript reads the output through a `Float64Array` view over WASM memory:
+
+```js
+const scratch = new Float64Array(memory.buffer, output(), valueCount);
+build(/* shape parameters */);
+const geometry = scratch.slice();
+```
+
+`scratch` is a view, but `.slice()` creates an independent typed array. That copy
+is essential: the next generator call overwrites the shared WASM output. Cached
+meshes must never retain only a view of the scratch buffer.
+
+Each generator has a documented numeric record layout. These packed arrays avoid
+keeping large nested collections of vertex objects in the geometry cache. Draw
+functions read the records and construct the vertices needed by the renderer;
+rendering is not allocation-free. Cached arrays are treated as immutable.
+
+## Templates retained for the game session
+
+Templates are created lazily, on first use. Module-level variables and `Map`
+caches retain them until the page/module instance is discarded; reloading the
+game starts fresh caches. They are not saved to disk or local storage.
+
+| Object | Sharing and cache key |
+| --- | --- |
+| Road markings | One complete template for lane dashes and crossing stripes, translated to each street chunk. |
+| Trees | One complete unit-scale pine, including trunk, foliage tiers, normals and shading. Every tree applies its own scale and position. Generated trunk radius is proportional to scale. |
+| Flowers | One three-quad template shared across sizes and colours. Drawing applies size, position and ground height, and optionally omits the centre. |
+| Cars | Complete models keyed by vehicle type, road axis and direction: at most 16 templates for the current four types. Position, paint colour, turns and bridge slopes do not create new templates. |
+| Manholes | Geometry keyed by radius. Current covers share the same radius and template. |
+| Newspaper machines | Geometry keyed by orientation, width and depth, shared across positions and newspaper designs. |
+| Fingerpost signs | Board geometry keyed by direction, dimensions and texture dimensions; pole geometry keyed by height and radius. Position and lettering do not create new geometry. |
+
+The geometry caches for parameterised templates use `Map` without eviction. Their
+current parameter sets are limited; introducing continuously varying dimensions
+requires reviewing cache growth rather than assuming every new key is cheap.
+
+## Geometry retained with individual objects
+
+Some meshes vary enough that their cache belongs to the object instead of a
+global template collection:
+
+- **Buildings:** a `WeakMap` caches the wall panels and texture coordinates per
+  building. The generator uses the building's position and dimensions. Building
+  geometry is assumed to stay unchanged while that object is loaded.
+- **Pine cones:** a `WeakMap` caches the complete mesh, face normals and shading
+  per cone. Changes to length, radius or angle regenerate it. Changes to position
+  or ground height reuse it. The inventory preview retains a stable cone object
+  so it also reuses its mesh.
+
+Weak keys allow these arrays to be garbage-collected after their objects become
+unreachable, for example after a chunk unloads. They are not guaranteed to survive
+for the entire game. Regenerating a discarded building or cone generates a new
+mesh.
+
+## Work that remains dynamic
+
+Each frame still selects visible faces, applies the relevant position, scale,
+turn and ground transforms, projects into the camera, clips geometry, handles
+depth and draws it. Static geometry caches do not store the final screen image.
+Collectible state, such as whether a flower or cone has been taken, remains on
+the game objects.
+
+Building artwork is a separate cache: wall colours, windows, storefronts and
+lettering are painted into canvas textures in JavaScript when a building side is
+first needed. Those textures are retained on the building, rather than shared
+globally between buildings. WASM generates the wall geometry, not this artwork.
+
+## Building and checking changes
+
+Rebuild the shared module after changing a C generator or its headers:
+
+```sh
+sh tools/build-geometry.sh
+```
+
+The build uses Clang targeting `wasm32`, optimisation level `-O3`, and disables
+fast-math and floating-point contraction to preserve arithmetic behaviour.
+Commit the regenerated `geometry.wasm` with its source changes. The older
+per-object build scripts delegate to this shared build.
+
+Run `npm test` to check geometry against the original formulas, rendering
+behaviour and cache reuse. In particular,
+[`tests/geometry-wasm.test.mjs`](tests/geometry-wasm.test.mjs) checks that every
+generator can overwrite shared scratch memory without corrupting cached arrays.
+
+When adding a generator, register its C source in the shared build, ensure the
+scratch buffer is large enough, document its array layout, choose the appropriate
+cache lifetime, and copy its output before another generator runs. If future code
+allows WASM memory to grow, existing typed-array views must be recreated after
+growth.
