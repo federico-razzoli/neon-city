@@ -6398,8 +6398,11 @@ test('lettering coverage clears between overlapping colors and subsequent frames
   const background='#000000';
   renderer.render([],background);
   assert.equal(renderer.coverage,null,'allocate coverage only when lettering is rendered');
+  assert.equal(renderer.coverageTouched,null,'allocate pixel indices only when lettering is rendered');
   renderer.render([red,green],background);
   const coverage=renderer.coverage,touched=renderer.coverageTouched;
+  assert.ok(touched instanceof Uint32Array);
+  assert.equal(touched.length,16);
   // Render each color separately and composite its coverage over the first.
   const first=new DepthRenderer(context(),4,4),second=new DepthRenderer(context(),4,4);
   first.render([red],background);second.render([green],background);
@@ -6408,12 +6411,13 @@ test('lettering coverage clears between overlapping colors and subsequent frames
     assert.ok(Math.abs(renderer.frame.data[i]-Math.round(first.frame.data[i]*(1-alpha)))<=1);
     assert.equal(renderer.frame.data[i+1],second.frame.data[i+1]);
   }
-  for(const faces of [[green],[red],[],[red,green]]){
+  const full={smooth:true,color:'#ffffff',ps:[{x:0,y:0},{x:4,y:0},{x:4,y:4},{x:0,y:4}],vs:Array.from({length:4},()=>({z:1}))};
+  for(const faces of [[green],[red],[],[full,full],[green],[red,green]]){
     renderer.render(faces,background);
     const fresh=new DepthRenderer(context(),4,4);fresh.render(faces,background);
     assert.deepEqual(renderer.frame.data,fresh.frame.data,'no stale coverage from previous colors or frames');
     assert.equal(renderer.coverage,coverage);assert.equal(renderer.coverageTouched,touched);
-    assert.ok(coverage.every(value=>value===0));assert.equal(touched.length,0);
+    assert.ok(coverage.every(value=>value===0));
   }
 });
 
