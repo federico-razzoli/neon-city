@@ -36,9 +36,4 @@ export function flowersFor(chunk){
   }
   return chunk.flowers=flowers;
 }
-export function drawFlower(f,quad){
-  const {x,z,size=.3,color='#d38aa9',ground=0,centre=true}=f;
-  quad(x-size/2,ground,z-size/6,size,size/3,color);
-  quad(x-size/6,ground,z-size/2,size/3,size,color);
-  if(centre)quad(x-size/6,ground+.001,z-size/6,size/3,size/3,'#e5bb60');
-}
+export {drawFlowerGeometry as drawFlower} from './flower-geometry.js';

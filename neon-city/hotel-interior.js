@@ -37,7 +37,7 @@ export const HOTEL={width:20,depth:16,height:7,
   lift:{x:12,z:16,halfWidth:1.05},liftButton:{x:13.53,z:16,halfWidth:.08},
   palms:[{x:.9,z:3.5,radius:.45},{x:.9,z:9,radius:.45}],
   lamp:{x:1.42,z:12.38,radius:.3},bell:{x:6,z:12.5,radius:.25},
-  pokeBall:{x:4.4,z:12.55,radius:.18},vase:{x:2.6,z:12.5,radius:.2},
+  vase:{x:2.6,z:12.5,radius:.2},
   chandelier:{x:10,z:7}};
 export const HOTEL_STAIR_DOOR={x:18.2,z:16,halfWidth:1.2};
 export const facingHotelStairDoor=player=>hotelFloorHeight(player.x,player.z)===HOTEL.landing.y&&facingDoorway(player,HOTEL_STAIR_DOOR,HOTEL_STAIR_DOOR.halfWidth);
@@ -483,7 +483,7 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
       face([point(r,a,.085),point(next,b,.087),point(next*.65,b,.11),point(r*.65,a,.108)],i%3?'#b12b48':'#e3637a');
     }
   }
-  drawStaff({face,box},at,receptionist,{...HOTEL.pokeBall,y:1.48});
+  drawStaff({face,box},at,receptionist);
 
   // A velvet sofa against the west wall, facing the hall.
   const sofa=HOTEL.sofa;

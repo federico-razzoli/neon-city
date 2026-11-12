@@ -101,7 +101,7 @@ export function drawBookshopBook(box,book,x=book.x,z=book.z,y=1){
 }
 export function drawBookseller({face,box},seller,angle=Math.PI){
   const turn=angle-Math.PI,c=Math.cos(turn),s=Math.sin(turn);
-  if(Math.abs(turn)<1e-10){drawStaff({face,box},seller,0,BOOKSHOP.counter);return;}
+  if(Math.abs(turn)<1e-10){drawStaff({face,box},seller,0);return;}
   const rotate=p=>({...p,x:seller.x+(p.x-seller.x)*c+(p.z-seller.z)*s,z:seller.z-(p.x-seller.x)*s+(p.z-seller.z)*c});
   const turnedFace=(points,...args)=>face(points.map(rotate),...args);
   const turnedBox=(x,y,z,w,h,d,color,roof=color)=>{
@@ -110,7 +110,7 @@ export function drawBookseller({face,box},seller,angle=Math.PI){
     for(const points of [[a,b,top(b),top(a)],[b,c,top(c),top(b)],[c,e,top(e),top(c)],[e,a,top(a),top(e)]])turnedFace(points,color);
     turnedFace([top(a),top(b),top(c),top(e)],roof);
   };
-  drawStaff({face:turnedFace,box:turnedBox},seller,0,BOOKSHOP.counter);
+  drawStaff({face:turnedFace,box:turnedBox},seller,0);
 }
 export function drawBookshopInterior({face,quad,box},life=null){
   const panel=(x,y,z,w,h,c,smooth=false)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],c,null,smooth);

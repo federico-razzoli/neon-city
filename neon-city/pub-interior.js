@@ -32,8 +32,6 @@ export const PUB={width:30,depth:18,height:5,door:{x:9,z:0},spawn:{x:9,z:1.8,ang
   shelves:{x:2,z:17.25,w:13,d:.65},
   chandeliers:[{x:9,z:6},{x:9,z:11},{x:24,z:5},{x:24,z:13}],
   bartender:{x:9,z:15.5,radius:.53},
-  // Where Nurse Joy keeps her Poké Ball on the bar, beside her.
-  pokeBall:{x:9.8,z:13.55,radius:.18},
   // A customer's pint left on the counter, between the taps.
   barBeer:{x:7.1,z:13.35,radius:.13},
   barBeerPositions:[{x:7.1,z:13.35,radius:.13},{x:10.3,z:13.35,radius:.13}],
@@ -131,26 +129,24 @@ export function facingAcrossCounter(player,counter,staff){
   return facingNearest(player,[{...staff,reach:1.2+staff.z-counter.z}])!=null;
 }
 export const facingBartenderAcrossBar=player=>facingAcrossCounter(player,PUB.bar,PUB.bartender);
-// Staff who keep a Poké Ball on the counter in front of them, and won't part with it.
-export const POKE_BALL_REPLY="I SHOULDN'T TAKE IT.";
-// The pint on the bar is someone else's; it is aimed at just like the ball.
+// The pint on the bar belongs to someone else.
 export const BAR_BEER_REPLY="IT SMELLS GOOD, BUT IT'S NOT MINE.";
 // Each pub keeps the pint first seen on its counter.
 export function pubBarBeer(pub,rng=Math.random){
   return pub.barBeer??=({...PUB.barBeerPositions[Math.floor(rng()*PUB.barBeerPositions.length)],dark:rng()<.5});
 }
-// The crosshair has to sit on the ball itself, so the staff beside it can
-// still be addressed. It is in reach across the counter from either side.
-export function facingPokeBall(player,ball){
-  const dx=ball.x-player.x,dz=ball.z-player.z;
+// Target a counter object precisely, so nearby staff can still be addressed.
+// Objects are in reach across the counter from either side.
+export function facingCounterObject(player,object){
+  const dx=object.x-player.x,dz=object.z-player.z;
   const ahead=dx*Math.sin(player.angle)+dz*Math.cos(player.angle);
-  if(ahead<=0||Math.hypot(dx,dz)>ball.radius+2)return false;
-  return Math.abs(dx*Math.cos(player.angle)-dz*Math.sin(player.angle))<=ball.radius+.12;
+  if(ahead<=0||Math.hypot(dx,dz)>object.radius+2)return false;
+  return Math.abs(dx*Math.cos(player.angle)-dz*Math.sin(player.angle))<=object.radius+.12;
 }
 export function pubTapReply(player){
   const front=player.z<PUB.bar.z,rear=player.z>PUB.bar.z+PUB.bar.d;
   if(!front&&!rear)return null;
-  if(!PUB.taps.some(tap=>facingPokeBall(player,tap)))return null;
+  if(!PUB.taps.some(tap=>facingCounterObject(player,tap)))return null;
   return front?"I CAN'T REACH IT.":"HEY! YOU CAN'T SERVE YOURSELF!";
 }
 // Pick a line, hear the answer (Space for each further line), then pick again.
@@ -257,13 +253,9 @@ export function drawRod(face,a,b,r,color){
   for(let i=0;i<8;i++)face([point(a,i),point(a,i+1),point(b,i+1),point(b,i)],color);
 }
 // Staff standing behind a counter, facing -z. Types 0-3 tend the pub bar;
-// type 3 is Nurse Joy. Type 4 is the blonde hotel receptionist. Staff with
-// a Poké Ball have it drawn at counter (x, y, z).
+// type 3 is Nurse Joy. Type 4 is the blonde hotel receptionist.
 export const NURSE_JOY=3,BLONDE_RECEPTIONIST=4;
-// Optional per-staff traits; anyone missing here has the defaults.
-const STAFF_TRAITS={};
-export const hasPokeBall=type=>STAFF_TRAITS[type]?.pokeBall??false;
-export function drawStaff({face,box},at,type,counter){
+export function drawStaff({face,box},at,type){
   const {x,z}=at;
   const staffScale=4/3;
   const staffBox=(px,py,pz,w,h,d,...colors)=>box(x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,w*staffScale,h*staffScale,d*staffScale,...colors);
@@ -318,19 +310,6 @@ export function drawStaff({face,box},at,type,counter){
   if(large){
     staffCylinder(x,1.76,z+.15,.22,.22,hair);
     for(const side of [-1,1])staffCylinder(x+side*.22,1.49,z,.055,.07,'#d8ba6e');
-  }
-  if(hasPokeBall(type)){
-    // A red-and-white Poké Ball rests on the countertop.
-    const ball={...counter,r:.18};
-    const latitudes=[-Math.PI/2,-1.2,-.9,-.6,-.3,-.09,.09,.3,.6,.9,1.2,Math.PI/2];
-    const spherePoint=(latitude,angle)=>({x:ball.x+ball.r*Math.cos(latitude)*Math.cos(angle),y:ball.y+ball.r*Math.sin(latitude),z:ball.z+ball.r*Math.cos(latitude)*Math.sin(angle)});
-    for(let j=0;j<latitudes.length-1;j++)for(let i=0;i<24;i++){
-      const low=latitudes[j],high=latitudes[j+1],a=i*Math.PI/12,b=(i+1)*Math.PI/12;
-      const color=low===-.09?'#25232b':low>=.09?'#d94650':'#eee9df';
-      face([spherePoint(low,a),spherePoint(low,b),spherePoint(high,b),spherePoint(high,a)],color);
-    }
-    const button=(r,offset,color)=>face(Array.from({length:20},(_,i)=>({x:ball.x+Math.cos(i*Math.PI/10)*r,y:ball.y+Math.sin(i*Math.PI/10)*r,z:ball.z-ball.r-offset})),color);
-    button(.06,.004,'#25232b');button(.04,.008,'#f8f2df');button(.023,.012,'#d3d4ce');
   }
   if(nurse){
     // Pink hair wraps the rear half of the head down to the nape.
@@ -509,7 +488,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
   }
   pint(barBeer.x,1.3,barBeer.z,barBeer.dark);
   // Four regulars behind the bar: chosen once when this pub is first entered.
-  drawStaff({face,box},PUB.bartender,bartenderType,{...PUB.pokeBall,y:1.48});
+  drawStaff({face,box},PUB.bartender,bartenderType);
   // Suspended antique brass chandeliers, each with six curved candle arms.
   const rod=(...args)=>drawRod(face,...args);
   for(const {x,z} of PUB.chandeliers){

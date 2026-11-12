@@ -203,7 +203,6 @@ test('each lobby has Nurse Joy or a blonde receptionist and the hotel colours, w
     drawHotelInterior({look,receptionist,face:(v,color)=>colors.add(color),quad:(x,y,z,w,d,color)=>colors.add(color),box:(x,y,z,w,h,d,...c)=>c.forEach(color=>colors.add(color))});
     const nurse=receptionist===NURSE_JOY;
     assert.equal(colors.has('#ee7c9e'),nurse,'pink hair');
-    assert.equal(colors.has('#d94650'),false,'no Poké Ball on the hotel desk');
     assert.equal(colors.has('#d9b45a'),!nurse,'blonde hair');
     for(const color of [look.floor[0],look.floor[1],look.velvet[0],look.metal])assert.ok(colors.has(color),`uses the hotel colour ${color}`);
     // Walls are lit-up versions of the facade's dark colours.
@@ -298,7 +297,6 @@ test('switching the reception lamp more than twice makes the receptionist compla
 
 test('behind the desk the receptionist sends the player back, and the key cabinet gets a reply',async()=>{
   const {HOTEL,KEYS_REPLY,hotelReply,facingReceptionist,facingKeys,facingHotelLamp,facingHotelBell}=await import('../neon-city/hotel-interior.js');
-  const {facingPokeBall}=await import('../neon-city/pub-interior.js');
   const {receptionist:r,keys}=HOTEL;
   const aim=(p,t)=>({...p,angle:Math.atan2(t.x-p.x,t.z-p.z)});
   assert.equal(KEYS_REPLY,"I CAN'T TAKE A KEY FOR FREE...");
@@ -307,7 +305,6 @@ test('behind the desk the receptionist sends the player back, and the key cabine
     const facing=aim(p,r);
     assert.equal(hotelReply(facing),'CLIENTS ON THE OTHER SIDE, PLEASE.',`from ${p.x},${p.z}`);
     for(const other of [facingHotelLamp,facingHotelBell])assert.equal(other(facing),false);
-    assert.equal(facingPokeBall(facing,HOTEL.pokeBall),false);
     assert.equal(facingReceptionist({...facing,angle:facing.angle+Math.PI}),false,'turned away');
   }
   // Across the desk from the lobby, the receptionist has nothing to say.
@@ -326,7 +323,6 @@ test('behind the desk the receptionist sends the player back, and the key cabine
 
 test('the vase of roses on the desk is reached across the counter and gets a reply',async()=>{
   const {HOTEL,VASE_REPLY,hotelReply,facingHotelBell,facingHotelLamp,moveInHotel}=await import('../neon-city/hotel-interior.js');
-  const {facingPokeBall}=await import('../neon-city/pub-interior.js');
   const {vase}=HOTEL;
   assert.equal(VASE_REPLY,'A ROSE, IS A ROSE, IS A ROSE');
   for(const dx of [-.4,0,.4]){
@@ -336,7 +332,6 @@ test('the vase of roses on the desk is reached across the counter and gets a rep
     assert.equal(hotelReply(facing),VASE_REPLY);
     assert.equal(facingHotelLamp(facing),false,'not the lamp');
     assert.equal(facingHotelBell(facing),false,'not the bell');
-    assert.equal(facingPokeBall(facing,HOTEL.pokeBall),false,'not the Poké Ball');
     assert.equal(hotelReply({...p,angle:Math.PI}),null,'turned away');
   }
   assert.equal(hotelReply({x:vase.x,z:9,angle:0}),null,'out of reach');
@@ -2455,7 +2450,7 @@ test('bar taps answer from the front and rear only when aimed at and nearby',asy
 });
 
 test('each pub keeps a randomly positioned blonde or dark pint, rendered at its selected position',async()=>{
-  const {PUB,pubBarBeer,drawPubInterior,facingPokeBall}=await import('../neon-city/pub-interior.js');
+  const {PUB,pubBarBeer,drawPubInterior,facingCounterObject}=await import('../neon-city/pub-interior.js');
   for(const position of [0,1])for(const dark of [false,true]){
     const draws=[position===0?0:.999,dark?0:.999],pub={};
     const beer=pubBarBeer(pub,()=>draws.shift());
@@ -2467,68 +2462,31 @@ test('each pub keeps a randomly positioned blonde or dark pint, rendered at its 
     }});
     assert.ok(glass.length>0);
     assert.ok(glass.every(v=>Math.abs(v.x-beer.x)<=.131&&Math.abs(v.z-beer.z)<=.131));
-    assert.equal(facingPokeBall({x:beer.x,z:12.5,angle:0},beer),true);
+    assert.equal(facingCounterObject({x:beer.x,z:12.5,angle:0},beer),true);
     const other=PUB.barBeerPositions[1-position];
-    assert.equal(facingPokeBall({x:other.x,z:12.5,angle:0},beer),false);
+    assert.equal(facingCounterObject({x:other.x,z:12.5,angle:0},beer),false);
   }
 });
 
 test('the pint on the bar belongs to someone else, from either side of the bar',async()=>{
-  const {PUB,BAR_BEER_REPLY,facingPokeBall,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
+  const {PUB,BAR_BEER_REPLY,facingCounterObject,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
   assert.equal(BAR_BEER_REPLY,"IT SMELLS GOOD, BUT IT'S NOT MINE.");
   const beer=PUB.barBeer,aim=p=>({...p,angle:Math.atan2(beer.x-p.x,beer.z-p.z)});
   for(const dx of [0,-1.5,1.5]){
     const p={x:beer.x+dx,z:11,angle:0};moveInPub(p,0,3);
-    assert.equal(facingPokeBall(aim(p),beer),true);
-    assert.equal(facingPokeBall({...aim(p),angle:aim(p).angle+Math.PI/2},beer),false,'looking aside');
+    assert.equal(facingCounterObject(aim(p),beer),true);
+    assert.equal(facingCounterObject({...aim(p),angle:aim(p).angle+Math.PI/2},beer),false,'looking aside');
   }
   // Against the back of the counter, in the staff aisle.
   const behind={x:beer.x,z:PUB.bartender.z,angle:Math.PI};moveInPub(behind,0,-1);
   assert.ok(behind.z>PUB.bar.z+PUB.bar.d);
-  assert.equal(facingPokeBall(aim(behind),beer),true);
-  assert.equal(facingPokeBall(aim({x:beer.x,z:9}),beer),false,'too far back in the room');
+  assert.equal(facingCounterObject(aim(behind),beer),true);
+  assert.equal(facingCounterObject(aim({x:beer.x,z:9}),beer),false,'too far back in the room');
   const front={x:PUB.bartender.x,z:12.6,angle:0};
-  assert.equal(facingPokeBall(front,beer),false,'aiming at the bartender talks to them');
+  assert.equal(facingCounterObject(front,beer),false,'aiming at the bartender talks to them');
   assert.equal(facingBartenderAcrossBar(front),true);
 });
 
-test('counter objects can be targeted from either side of the bar or desk, and staff have no Poké Ball',async()=>{
-  const {PUB,NURSE_JOY,BLONDE_RECEPTIONIST,POKE_BALL_REPLY,hasPokeBall,facingPokeBall,facingBartenderAcrossBar,moveInPub}=await import('../neon-city/pub-interior.js');
-  const {HOTEL,moveInHotel}=await import('../neon-city/hotel-interior.js');
-  assert.equal(POKE_BALL_REPLY,"I SHOULDN'T TAKE IT.");
-  assert.equal(hasPokeBall(NURSE_JOY),false);
-  const {drawPubInterior}=await import('../neon-city/pub-interior.js');
-  const colors=new Set();
-  drawPubInterior({bartenderType:NURSE_JOY,face:(v,color)=>colors.add(color),quad(){},box(){}});
-  assert.equal(colors.has('#d94650'),false,'no Poké Ball on the pub bar');
-  for(const type of [0,1,2,BLONDE_RECEPTIONIST])assert.equal(hasPokeBall(type),false);
-  const aim=(p,ball)=>({...p,angle:Math.atan2(ball.x-p.x,ball.z-p.z)});
-  // Pressed against the bar from the customers' side, straight on or from along it.
-  const ball=PUB.pokeBall;
-  for(const dx of [0,-1.5,1.5]){
-    const p={x:ball.x+dx,z:11,angle:0};moveInPub(p,0,3);
-    assert.equal(facingPokeBall(aim(p,ball),ball),true);
-    assert.equal(facingPokeBall({...aim(p,ball),angle:aim(p,ball).angle+Math.PI/2},ball),false,'looking aside');
-  }
-  // From behind the bar, along the staff aisle.
-  const behind={x:ball.x+3,z:PUB.bartender.z,angle:-Math.PI/2};moveInPub(behind,-3,0);
-  assert.ok(behind.z>PUB.bar.z+PUB.bar.d);
-  assert.equal(facingPokeBall(aim(behind,ball),ball),true);
-  assert.equal(facingPokeBall({...aim(behind,ball),angle:aim(behind,ball).angle+Math.PI},ball),false,'turned away');
-  assert.equal(facingPokeBall(aim({x:ball.x,z:9},ball),ball),false,'too far back in the room');
-  // Aiming at Nurse Joy beside the ball still talks to her.
-  const front={x:PUB.bartender.x,z:12.6,angle:0};
-  assert.equal(facingPokeBall(front,ball),false);
-  assert.equal(facingBartenderAcrossBar(front),true);
-  // In the hotel the desk is reached from the lobby side.
-  const desk=HOTEL.pokeBall;
-  for(const dx of [0,-1.5,1.5]){
-    const p={x:desk.x+dx,z:10,angle:0};moveInHotel(p,0,3);
-    assert.ok(p.z<HOTEL.desk.z);
-    assert.equal(facingPokeBall(aim(p,desk),desk),true);
-  }
-  assert.equal(facingPokeBall(aim({x:HOTEL.bell.x,z:11.6},HOTEL.bell),desk),false,'ringing the bell instead');
-});
 
 test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
   const {BARTENDER_TALK,StaffTalk}=await import('../neon-city/pub-interior.js');
@@ -2608,14 +2566,12 @@ test('a chat with the receptionist moves to recommendations and back, and ends w
 
 test('the receptionist is talked to across the desk from the lobby, not round its end',async()=>{
   const {HOTEL,facingReceptionistAcrossDesk,facingReceptionist,hotelReply}=await import('../neon-city/hotel-interior.js');
-  const {facingPokeBall}=await import('../neon-city/pub-interior.js');
   const {receptionist:r,desk}=HOTEL;
   const aim=(p,t)=>({...p,angle:Math.atan2(t.x-p.x,t.z-p.z)});
   for(const p of [{x:r.x,z:11.7},{x:r.x-.4,z:11.7},{x:r.x+.3,z:11.7},{x:r.x+2,z:11.7}]){
     const facing=aim(p,r);
     assert.equal(facingReceptionistAcrossDesk(facing),true,`from ${p.x},${p.z}`);
     assert.equal(hotelReply(facing),null,'nothing else answers first');
-    assert.equal(facingPokeBall(facing,HOTEL.pokeBall),false);
     assert.equal(facingReceptionistAcrossDesk({...facing,angle:facing.angle+Math.PI}),false,'turned away');
   }
   assert.equal(facingReceptionistAcrossDesk(aim({x:r.x,z:8},r)),false,'too far back in the lobby');

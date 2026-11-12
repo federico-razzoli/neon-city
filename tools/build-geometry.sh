@@ -7,4 +7,4 @@ clang --target=wasm32 -O3 -ffp-contract=off -fno-fast-math -nostdlib \
   neon-city/building-geometry.c neon-city/manhole-geometry.c \
   neon-city/newspaper-geometry.c neon-city/sign-geometry.c \
   neon-city/road-marking-geometry.c neon-city/car-geometry.c \
-  neon-city/tree-geometry.c
+  neon-city/tree-geometry.c neon-city/pine-cone-geometry.c neon-city/flower-geometry.c
