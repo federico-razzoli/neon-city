@@ -66,6 +66,9 @@ requires reviewing cache growth rather than assuming every new key is cheap.
 
 ## Geometry retained with individual objects
 
+For the complete building lifecycle, including generation, wall sides, artwork,
+pixel readbacks and unloading, see [Building caching](BUILDING-CACHING.md).
+
 Some meshes vary enough that their cache belongs to the object instead of a
 global template collection:
 
