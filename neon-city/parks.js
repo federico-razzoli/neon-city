@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {signBoardGeometry,signPoleGeometry,drawSignGeometry} from './sign-geometry.js';
 import {LADYBUG} from './inventory.js?v=ladybug-release-1';
 import {flowersFor,drawFlower} from './flowers.js';
 import {BLOCK,PARK_PATH_WIDTH,RIVER_SIGN,START_SIGN,RIVE_GAUCHE_SIGNS,mod,pathDistance} from './world.js?v=rive-gauche-6';
@@ -146,6 +147,7 @@ const SIGN_POST=['#1d2230','#272d3d','#323a4c','#3e475b'];
 const SIGN_BLUE={board:'#1f5bb5',edge:'#123a78',light:'#3d7fd6',dark:'#184a99'};
 const SIGN_GREEN={board:'#278344',edge:'#14502a',light:'#4aaa68',dark:'#1b6033'};
 const signPalette=text=>text==='PARK'?SIGN_GREEN:SIGN_BLUE;
+const SIGN_BOARD_COLORS=new Map([SIGN_BLUE,SIGN_GREEN].map(p=>[p,[p.board,p.board,...Array(5).fill(p.edge)]]));
 const SIGN_TEXT='#ffffff';
 export const SIGN_TEXTURE={width:300,height:72};
 // One face of a board: white on glossy enamel. The tip is on the right or the
@@ -172,26 +174,26 @@ export function paintSign(g,text,tipRight){
 // An arrow-shaped board hanging off a pole at s, pointing along the street
 // direction (dx,dz) between heights bottom and top.
 function signBoard(s,{text,dx,dz,bottom,top},face,viewer,texture){
-  const {start,reach,tip}=RIVER_SIGN,half=.035,{width,height:rows}=SIGN_TEXTURE,palette=signPalette(text);
-  // The board outline as (along, y), anticlockwise; along runs towards the tip.
-  const outline=[[start,bottom],[reach-tip,bottom],[reach,(bottom+top)/2],[reach-tip,top],[start,top]];
-  const at=(a,y,side)=>({x:s.x+side*half*dz+dx*a,y,z:s.z-side*half*dx+dz*a});
-  for(const side of [-1,1]){
-    if(!visible(viewer,at(start,bottom,side),{x:side*dz,y:0,z:-side*dx}))continue;
-    // Seen from side 1, the tip is on the viewer's right. Texture u grows rightwards.
-    const tipRight=side>0;
-    face(outline.map(([a,y])=>({...at(a,y,side),u:(tipRight?a-start:reach-a)/(reach-start)*width,v:(top-y)/(top-bottom)*rows})),palette.board,texture?.(text,tipRight)??null);
-  }
-  for(let i=0;i<outline.length;i++){
-    const [a0,y0]=outline[i],[a1,y1]=outline[(i+1)%outline.length],n={x:(y1-y0)*dx,y:a0-a1,z:(y1-y0)*dz};
-    if(!visible(viewer,at(a0,y0,1),n))continue;
-    face([at(a0,y0,-1),at(a1,y1,-1),at(a1,y1,1),at(a0,y0,1)],palette.edge);
-  }
+  const palette=signPalette(text);
+  const geometry=signBoardGeometry({dx,dz,bottom,top},RIVER_SIGN,SIGN_TEXTURE.width,SIGN_TEXTURE.height);
+  drawSignGeometry(geometry,s,viewer,face,{board:true,colors:SIGN_BOARD_COLORS.get(palette),texture:tipRight=>texture?.(text,tipRight)??null});
 }
+
+const poleColors=new WeakMap();
 
 // A pole, as tall as s.height or a park's, with one board per entry in boards.
 export function drawFingerpost(s,boards,{face,signTexture},viewer){
-  band(face,viewer,s,0,RIVER_SIGN.pole,s.height??RIVER_SIGN.height,RIVER_SIGN.pole,SIGN_POST,{sides:6,bottom:false});
+  const geometry=signPoleGeometry(s.height??RIVER_SIGN.height,RIVER_SIGN.pole);
+  if(!poleColors.has(geometry)){
+    const colors=[];
+    for(let f=0;f<6;f++){
+      const k=f*34,x=geometry[k+1],y=geometry[k+2],z=geometry[k+3],length=Math.hypot(x,y,z);
+      colors.push(shade({x:x/length,y:y/length,z:z/length},SIGN_POST));
+    }
+    colors.push(SIGN_POST.at(-1));
+    poleColors.set(geometry,colors);
+  }
+  drawSignGeometry(geometry,s,viewer,face,{colors:poleColors.get(geometry)});
   for(const b of boards)signBoard(s,b,face,viewer,signTexture);
 }
 
