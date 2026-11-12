@@ -19,6 +19,7 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
 import {createTexturePrewarmer} from './texture-pixels.js';
+import {buildingGeometry} from './building-geometry.js';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
@@ -487,12 +488,15 @@ function face(vertices,color,texture=null,smooth=false,buildingWall=false){
     const {x,z,angle}=vehicleTurn,c=Math.cos(angle),s=Math.sin(angle);
     vertices=vertices.map(v=>({...v,x:x+(v.x-x)*c+(v.z-z)*s,z:z-(v.x-x)*s+(v.z-z)*c}));
   }
-  const vs=vertices.map(camera),depth=vs.reduce((s,p)=>s+p.z,0)/vs.length;
+  queueFace(vertices.map(camera),vertices[0].y,color,texture,smooth,buildingWall);
+}
+function queueFace(vs,elevation,color,texture,smooth,buildingWall){
+  const depth=vs.reduce((s,p)=>s+p.z,0)/vs.length;
   if(depth>RIVER_VIEW_DISTANCE||vs.every(p=>p.z<.15))return;
   const clipped=clip(vs);if(clipped.length<3)return;
   const ps=clipped.map(project);
   if(ps.every(p=>p.x<0)||ps.every(p=>p.x>W)||ps.every(p=>p.y<0)||ps.every(p=>p.y>H))return;
-  queue.push({ps,vs:clipped,depth,elevation:vertices[0].y,color,texture,smooth,buildingWall});
+  queue.push({ps,vs:clipped,depth,elevation,color,texture,smooth,buildingWall});
 }
 function quad(x,y,z,w,d,color){face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);}
 function box(x,y,z,w,h,d,color,roof=color){
@@ -543,20 +547,25 @@ function building(b){
     }
     return;
   }
-  function wall(points,side){
+  const panels=buildingGeometry(b);
+  function wall(side){
     const tex=wallTexture(b,side);
+    if(playerSeat&&!indoors()&&running)seatedTexturePrewarmer.add(tex);
     // Panels retain fine-grained depth ordering against cars and pedestrians.
-    const lerp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
     for(let s=0;s<8;s++){
-      const l=s/8,r=(s+1)/8;
-      const panel=[lerp(points[0],points[1],l),lerp(points[0],points[1],r),lerp(points[3],points[2],r),lerp(points[3],points[2],l)];
-      face(panel.map((p,i)=>({...p,u:[l*160,r*160,r*160,l*160][i],v:[tex.height,tex.height,0,0][i]})),b.color,tex,false,true);
+      const vs=[];
+      for(let i=0;i<4;i++){
+        const k=((side*8+s)*4+i)*5;
+        const dx=panels[k]-player.x,dz=panels[k+2]-player.z,y=panels[k+1]-eye,z=dx*cameraSin+dz*cameraCos;
+        vs.push({x:dx*cameraCos-dz*cameraSin,y:y*pitchCos-z*pitchSin,z:z*pitchCos+y*pitchSin,u:panels[k+3],v:panels[k+4]*tex.height});
+      }
+      queueFace(vs,0,b.color,tex,false,true);
     }
   }
-  if(player.z<z)wall([{x,y:0,z},{x:x+w,y:0,z},{x:x+w,y:h,z},{x,y:h,z}],0);
-  if(player.z>z+d)wall([{x:x+w,y:0,z:z+d},{x,y:0,z:z+d},{x,y:h,z:z+d},{x:x+w,y:h,z:z+d}],1);
-  if(player.x<x)wall([{x,y:0,z:z+d},{x,y:0,z},{x,y:h,z},{x,y:h,z:z+d}],2);
-  if(player.x>x+w)wall([{x:x+w,y:0,z},{x:x+w,y:0,z:z+d},{x:x+w,y:h,z:z+d},{x:x+w,y:h,z}],3);
+  if(player.z<z)wall(0);
+  if(player.z>z+d)wall(1);
+  if(player.x<x)wall(2);
+  if(player.x>x+w)wall(3);
 }
 function drawFace(f){
   // Opaque building textures own complete pixels at panel edges and carry
