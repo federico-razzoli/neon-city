@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {drawRiverbankTerrain,drawCachedRiverbankFaces} from './riverbank-geometry.js';
 import {drawRiverRailings} from './railing-geometry.js';
 import {flowersFor,drawFlower} from './flowers.js';
 import {BLOCK,WATER_LEVEL,bridgeHeight,hasBridge,mod} from './world.js?v=parks-4';
@@ -31,9 +32,7 @@ const rippleWidths=Float64Array.from({length:7},(_,i)=>Math.sin(i/6*Math.PI)*.09
 export function drawRiverTerrain(chunk,{quad,face,boundsVisible},time){
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const first=chunk.z===chunk.riverStart;
-  const bank=first?start+8:start+110;
-  quad(x,.04,bank,64,10,'#345841');
-  quad(x,.06,first?bank:bank+4,64,6,'#757380');
+  drawRiverbankTerrain(chunk,quad);
   for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
@@ -59,8 +58,7 @@ export function drawRiverTerrain(chunk,{quad,face,boundsVisible},time){
   quad(x,.015,road,64,8,'#252233');
   for(let t=16;t<52;t+=12)quad(x+t,.025,first?road+.1:road+7.8,4,.18,'#b09485');
   // Flat bridge approaches cut through the grass without a step.
-  for(const [offset,width,color] of [[0,8,'#252233'],[8,6,'#757380'],[50,6,'#757380'],[56,8,'#252233']])
-    if(hasBridge(chunk.x+(offset>=50?1:0)))quad(x+offset,.075,bank,width,10,color);
+  drawRiverbankTerrain(chunk,quad,true);
 }
 
 // Split the fascia at ground level so its buried ends draw before the banks.
@@ -95,15 +93,11 @@ export function drawBridgeFascias(chunk,{face,boundsVisible},viewer,belowGround=
 // Below-ground faces must be painted before the grass, promenade, and roads.
 export function drawRiverbankFaces(chunk,{face,boundsVisible},viewer){
   if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,0,chunk.z*BLOCK+64))return;
-  const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
+  const start=chunk.riverStart*BLOCK;
   const bank=chunk.z===chunk.riverStart?start+18:start+110;
   // Stone retaining walls expose the full drop from the grass to the water.
   const waterSide=!viewer||(chunk.z===chunk.riverStart?viewer.z>bank:viewer.z<bank);
-  for(let a=0;waterSide&&a<64;a+=8){
-    for(let y=WATER_LEVEL;y<0;y+=1.4){
-      face([{x:x+a,y,z:bank},{x:x+a+8,y,z:bank},{x:x+a+8,y:Math.min(0,y+1.4),z:bank},{x:x+a,y:Math.min(0,y+1.4),z:bank}],Math.round((y-WATER_LEVEL)/1.4)%2?'#52566a':'#454c60');
-    }
-  }
+  if(waterSide)drawCachedRiverbankFaces(chunk,face);
 }
 
 export function drawRiverStructures(chunk,{face,boundsVisible},viewer){

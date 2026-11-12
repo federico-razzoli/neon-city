@@ -50,6 +50,7 @@ game starts fresh caches. They are not saved to disk or local storage.
 
 | Object | Sharing and cache key |
 | --- | --- |
+| Riverbanks | Grass, promenade, bridge approaches and separate retaining-wall panels, keyed by river-block half and bridge presence. Water-side culling and the original draw passes remain dynamic. |
 | River railings | Complete bank and bridge railing templates keyed by river-block half and bridge presence on either edge. Individual faces and segment submission order are retained; blocks share templates regardless of position. |
 | Road markings | One complete template for lane dashes and crossing stripes, translated to each street chunk. |
 | Trees | One complete unit-scale pine, including trunk, foliage tiers, normals and shading. Every tree applies its own scale and position. Generated trunk radius is proportional to scale. |
