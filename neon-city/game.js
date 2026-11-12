@@ -898,7 +898,7 @@ function render(){
   for(const f of queue)drawFace(f);
   queue=[];
   for(const chunk of visible){
-    if(chunk.river)drawRiverStructures(chunk,{face,box,boundsVisible},player);
+    if(chunk.river)drawRiverStructures(chunk,{face,boundsVisible},{x:player.x,y:eye,z:player.z});
     for(const b of chunk.buildings)building(b);
     for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
     if(chunk.park){
