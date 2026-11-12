@@ -1,16 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-const url=new URL('./newspaper-geometry.wasm',import.meta.url);
-let bytes;
-if(url.protocol==='file:'){
-  const {readFile}=await import('node:fs/promises');
-  bytes=await readFile(url);
-}else{
-  const response=await fetch(url);
-  if(!response.ok)throw new Error(`WASM newspaper geometry unavailable: ${response.status}`);
-  bytes=await response.arrayBuffer();
-}
-const {instance}=await WebAssembly.instantiate(bytes);
-const {memory,output,build}=instance.exports;
+import {geometryWasm} from './geometry-wasm.js';
+const {memory,output,newspaper_build:build}=geometryWasm;
 const scratch=new Float64Array(memory.buffer,output(),11*4*5);
 // Shared by dimensions and orientation, independent of position and newspaper.
 const templates=new Map();

@@ -2,10 +2,10 @@
 /* Static wall panels, with the same interpolation order as the JS renderer.
  * Each vertex contains x, y, z, u, v; v is normalized to texture height.
  */
-static double panels[4 * 8 * 4 * 5];
-__attribute__((export_name("output"))) double *output_buffer(void) { return panels; }
-__attribute__((export_name("build")))
-void build(double x, double z, double w, double d, double h) {
+#include "geometry.h"
+#define panels geometry_output
+__attribute__((export_name("building_build")))
+void building_build(double x, double z, double w, double d, double h) {
   double ends[4][4] = {
     {x, z, x+w, z}, {x+w, z+d, x, z+d},
     {x, z+d, x, z}, {x+w, z, x+w, z+d}

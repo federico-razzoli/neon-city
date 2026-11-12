@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /* Each face: count, normal x/y/z, then up to six x/y/z/u/v vertices. */
-static double output[7*34];
-__attribute__((export_name("output"))) double *output_buffer(void){return output;}
+#include "geometry.h"
+#define output geometry_output
 static void face(int f,int count,double nx,double ny,double nz){
  double *p=output+f*34;p[0]=count;p[1]=nx;p[2]=ny;p[3]=nz;
 }
 static void vertex(int f,int i,double x,double y,double z,double u,double v){
  double *p=output+f*34+4+i*5;p[0]=x;p[1]=y;p[2]=z;p[3]=u;p[4]=v;
 }
-__attribute__((export_name("board")))
-void board(double dx,double dz,double bottom,double top,double start,double reach,double tip,double width,double rows){
+__attribute__((export_name("sign_board")))
+void sign_board(double dx,double dz,double bottom,double top,double start,double reach,double tip,double width,double rows){
  double a[5]={start,reach-tip,reach,reach-tip,start};
  double y[5]={bottom,bottom,(bottom+top)/2,top,top};
  for(int f=0;f<2;f++){
@@ -35,8 +35,8 @@ static const double directions[6][6]={
  {-0.5000000000000004,-0.8660254037844385,0.49999999999999933,-0.866025403784439,-1.8369701987210297e-16,-1},
  {0.5000000000000001,-0.8660254037844386,1,-2.4492935982947064e-16,0.8660254037844388,-0.49999999999999967}
 };
-__attribute__((export_name("pole")))
-void pole(double height,double radius){
+__attribute__((export_name("sign_pole")))
+void sign_pole(double height,double radius){
  for(int f=0;f<6;f++){
   const double *d=directions[f];
   face(f,4,d[4]*height,0,d[5]*height);

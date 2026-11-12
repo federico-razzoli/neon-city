@@ -21,10 +21,10 @@ static const double directions[16][2] = {
   {0.9238795325112865, -0.3826834323650904}
 };
 /* Three disks of 16 x/z pairs, followed by three groove lengths. */
-static double geometry[99];
-__attribute__((export_name("output"))) double *output_buffer(void) { return geometry; }
-__attribute__((export_name("build")))
-void build(double radius) {
+#include "geometry.h"
+#define geometry geometry_output
+__attribute__((export_name("manhole_build")))
+void manhole_build(double radius) {
   double radii[3] = {radius, radius-.08, radius-.14};
   for (int disk = 0; disk < 3; disk++) for (int i = 0; i < 16; i++) {
     int k = disk*32+i*2;

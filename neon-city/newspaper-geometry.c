@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /* Two boxes (five quads each), then the textured front. x/y/z/u/v per vertex. */
-static double geometry[11*4*5];
-__attribute__((export_name("output"))) double *output_buffer(void) { return geometry; }
+#include "geometry.h"
+#define geometry geometry_output
 static void vertex(int face,int i,double x,double y,double z,double u,double v){
   double *p=geometry+(face*4+i)*5;
   p[0]=x;p[1]=y;p[2]=z;p[3]=u;p[4]=v;
@@ -14,8 +14,8 @@ static void box(int first,double x,double y,double z,double w,double h,double d)
     vertex(first+f,i,xs[c],(f==4||i>=2)?y+h:y,zs[c],0,0);
   }
 }
-__attribute__((export_name("build")))
-void build(int side,double w,double d){
+__attribute__((export_name("newspaper_build")))
+void newspaper_build(int side,double w,double d){
   double scale=.85,top=.08+1.45*.9*scale,front=.45*scale+.001;
   int dx=side==2?-1:side==3?1:0,dz=side==0?-1:side==1?1:0;
   box(0,-w/2,.08,-d/2,w,1.45*.9*scale,d);
