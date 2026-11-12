@@ -20,6 +20,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
 import {createTexturePrewarmer} from './texture-pixels.js';
 import {buildingGeometry} from './building-geometry.js';
+import {manholeGeometry} from './manhole-geometry.js';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
@@ -817,15 +818,16 @@ function street(chunk){
 }
 function manhole(m){
   // Flat circular iron covers, projected with the same camera as the pavement.
-  const disk=(radius,y,color)=>face(Array.from({length:16},(_,i)=>{
-    const angle=i*Math.PI/8;
-    return {x:m.x+Math.cos(angle)*radius,y,z:m.z+Math.sin(angle)*radius};
+  const geometry=manholeGeometry(m.radius);
+  const disk=(layer,y,color)=>face(Array.from({length:16},(_,i)=>{
+    const k=layer*32+i*2;
+    return {x:m.x+geometry[k],y,z:m.z+geometry[k+1]};
   }),color);
-  disk(m.radius,.09,'#171923');
-  disk(m.radius-.08,.091,'#777482');
-  disk(m.radius-.14,.092,'#343541');
-  for(const offset of [-.25,0,.25]){
-    const length=2*Math.sqrt((m.radius-.2)**2-offset**2);
+  disk(0,.09,'#171923');
+  disk(1,.091,'#777482');
+  disk(2,.092,'#343541');
+  for(let i=0;i<3;i++){
+    const offset=(i-1)*.25,length=geometry[96+i];
     quad(m.x-length/2,.093,m.z+offset-.025,length,.05,'#161923');
   }
 }
