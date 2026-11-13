@@ -143,6 +143,28 @@ occlusion strategy rather than relying on canvas stacking order.
   Firefox, including Playwright Firefox builds, and never use a browser install
   command that downloads all browsers.
 
+### Flame graphs for both renderers
+
+Capture CPU flame graphs for the existing Canvas/WASM renderer and the Three.js
+renderer using Chromium's performance profiler. Use the renderer selection
+switch to compare both backends from the same revision wherever possible.
+
+- Use the same scene, world seed, game state, camera route, viewport, hardware
+  and browser settings, with matching recording durations.
+- Warm up textures and geometry before recording steady gameplay. Record initial
+  loading and venue transitions separately so their costs remain visible.
+- Add profiling markers around simulation, geometry preparation and rendering
+  to help distinguish shared gameplay costs from backend-specific work.
+- Save the performance traces with the revision, renderer choice and reproduction
+  steps so results can be inspected and repeated.
+
+Three.js moves much of the rendering work onto the GPU. A smaller JavaScript
+flame graph alone does not demonstrate an overall improvement: compare CPU
+profiles alongside complete frame times, dropped frames and GPU timings where
+available. Inspect WASM work in the existing backend too; record any limitations
+in function names or attribution rather than treating missing detail as free
+execution time.
+
 ## First milestone
 
 Deliver a renderer extraction plus an optional Three.js hotel storage room.
