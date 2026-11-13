@@ -652,3 +652,34 @@ shutoff/settling, pause behavior, retained geometry and resource disposal. Chrom
 checks cover running, settling and calm close-up views, animated frame differences,
 mirrors, renderer switches, toilet seating, banshee phases, door transitions and
 GPU cleanup without page or shader errors. No performance improvement is claimed.
+
+### Native pub objects and glass/drinks
+
+`three-pub-objects.js` builds the bar and lounge structure, doors and signs, tables,
+chairs, bar panels, backbar shelves, bottles, taps and chandeliers directly with
+Three.js BoxGeometry, PlaneGeometry, CylinderGeometry, LatheGeometry and TorusGeometry.
+The pub no longer uses `drawPubInterior` to construct its Three.js room. Repeated
+opaque parts use InstancedMesh batches with shared geometry and palette materials.
+The existing people, their artwork and gameplay interactions remain unchanged.
+Shared dropped-item models remain depth-tested Three.js meshes.
+
+All 84 bottles have tinted translucent glass, visible liquid, opaque paper labels
+and caps. Pints have separate tapered glass shells, bases, rims, lager/stout liquid,
+exposed liquid surfaces, foam heads and small foam bubbles. View-dependent glass
+highlights preserve the unlit painted palette without adding room lighting or
+refraction render passes. Glass uses depth testing without depth writes; individual
+shells retain Three.js transparency sorting.
+
+Each seat retains its pint and updates visibility, position and liquid material
+from existing occupancy and drink state. Empty seats hide their pints. The counter
+pint follows the venue's persistent location and beer type without rebuilding
+geometry. Scene-owned shared materials, geometry and instance resources are
+released on exit. Canvas/WASM retains its original objects and drinks.
+
+Validation: all 508 automated tests pass. Focused tests cover native primitive
+coverage, bottle count and transparency, shared retained pints, drink changes,
+occupancy, unchanged people/camera behavior and resource disposal. Chromium checks
+compare six room views and additional lager, stout and bottle close-ups, all four
+bartenders, seating, arch traversal, walking patrons, tap replies, conversation,
+renderer switches, toilet and street doors and GPU cleanup. No page or shader
+errors were reported. No performance improvement is claimed.

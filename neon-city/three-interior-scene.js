@@ -61,9 +61,9 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
   const builder=createInteriorGeometryBuilder();
   const material=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
   const artworkMeshes=createThreeArtwork();
-  const room=new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material);
+  const room=drawRoom?new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material):new THREE.Group();
   room.name=`${name}-room`;scene.add(room);
-  const extras=createExtras?.({scene,builder,material,artwork:artworkMeshes});
+  const extras=createExtras?.({scene,room,builder,material,artwork:artworkMeshes});
   const dropped=new Map(),actors=new Map(),artwork=new Map();
   const actorGeometry=new THREE.PlaneGeometry(1,1),seatedGeometry=new THREE.PlaneGeometry(1,1);
   const seatedUV=seatedGeometry.attributes.uv;
@@ -114,7 +114,7 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
   }
   function dispose(){
     if(disposed)return;disposed=true;
-    room.geometry.dispose();extras?.dispose();
+    room.geometry?.dispose();extras?.dispose();
     for(const mesh of dropped.values())mesh.geometry.dispose();
     dropped.clear();actors.clear();actorGeometry.dispose();seatedGeometry.dispose();
     for(const {texture,material} of artwork.values()){texture.dispose();material.dispose();}
