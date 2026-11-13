@@ -219,3 +219,37 @@ Include the following controls in the debug menu, all governed by `DEBUG_MODE`:
 The event editor must display current values and require an explicit **Apply**
 action so partially typed changes do not affect gameplay. Text entry in these
 controls must not trigger movement, gameplay shortcuts or the `QWERTY` sequence.
+
+## Resource reuse and Three.js caching
+
+Build on Three.js resource management rather than duplicating it with a general
+custom rendering cache. Three.js manages GPU resources associated with the
+geometry, materials and textures supplied to it. The game still decides which
+objects to create, share, retain and release; independently creating equivalent
+geometries does not automatically make them share one geometry.
+
+The explicit [Three.js Cache](https://threejs.org/docs/pages/Cache.html) caches
+loaded files for loaders that use it and is disabled by default. It does not
+memoize the game's procedural object generation or manage city chunk lifetimes.
+
+Use these initial rules for the new backend:
+
+- Create scene objects when their scene or chunk loads, and retain them across
+  frames. Update transforms, animation and changed appearance instead of
+  rebuilding the scene every frame.
+- Share geometry, materials and textures among compatible repeated objects.
+  Consider instancing where it helps reduce draw calls.
+- Generate unique building geometry once per loaded building. Reuse existing
+  geometry-generation code and caches where useful, without retaining duplicate
+  CPU representations unnecessarily.
+- Reuse generated artwork as textures and update it only when its contents
+  change.
+- Give chunk-specific and shared resources clear owners. When a chunk unloads,
+  dispose of resources no longer needed, while preserving resources still used
+  elsewhere. Removing scene objects alone does not release their GPU allocations;
+  use the appropriate disposal methods, such as
+  [BufferGeometry.dispose()](https://threejs.org/docs/pages/BufferGeometry.html#dispose).
+
+Start with straightforward asset sharing and chunk lifetimes. Add more elaborate
+caches or object pools only when profiling demonstrates a benefit, checking both
+frame time and memory use.
