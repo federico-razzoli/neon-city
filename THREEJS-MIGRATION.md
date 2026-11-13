@@ -4,8 +4,8 @@
 
 Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
-software rendering pipeline scene by scene. The renderer migration remains a plan; the debug menu described below is
-implemented independently of the renderer changes.
+software rendering pipeline scene by scene. Step 1 and the debug menu are
+implemented. The optional Three.js backend remains the next stage.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -13,16 +13,18 @@ renderer.
 
 ## Existing boundaries
 
-- [game.js](neon-city/game.js) combines simulation orchestration, camera projection,
-  geometry submission and drawing. These rendering responsibilities need a clearer
-  boundary before introducing a second backend.
-- Interior drawing functions already accept geometry helpers such as
-  `{face, quad, box}`. For example,
-  [hotel-interior.js](neon-city/hotel-interior.js) describes the hotel through these
-  helpers. This is a useful starting point for a renderer interface.
-- Interiors use [DepthRenderer](neon-city/depth-renderer.js); streets also use
-  surface ordering and the wall rendering routines in
-  [perspective.js](neon-city/perspective.js).
+- [game.js](neon-city/game.js) owns gameplay and supplies an explicit frame of
+  state to [world-scene.js](neon-city/world-scene.js). Scene construction no longer
+  reads gameplay variables through a shared module scope.
+- [world-scene.js](neon-city/world-scene.js) constructs interiors and streets
+  through world-space `face`, `quad`, `box` and `billboard` operations. Canvas
+  artwork generation remains here as a source of reusable textures.
+- [render-camera.js](neon-city/render-camera.js) owns the native viewport and
+  camera transform, clipping, projection and conservative visibility tests.
+- [canvas-renderer.js](neon-city/canvas-renderer.js) is the initial backend. It
+  owns projected queues, surface ordering, Canvas/WASM drawing, the interior
+  [DepthRenderer](neon-city/depth-renderer.js), sky and screen effects, and arcade
+  display scaling. DOM overlays and game state remain in `game.js`.
 - Geometry modules, including
   [building-geometry.js](neon-city/building-geometry.js), already cache generated
   geometry. Some of that data may be reusable by a Three.js backend.
@@ -47,6 +49,48 @@ projected face queue is not automatically a backend-neutral scene description.
 
 Completion criterion: the existing game still renders and behaves as before,
 with scene construction separated sufficiently to support a second backend.
+
+**Implemented.** The renderer boundary uses these conventions:
+
+- `beginFrame({position, eye, pitch, indoors})` supplies the camera explicitly;
+  `NATIVE_VIEW` supplies the 640 × 360 viewport, focal length 355, horizon 164,
+  near distance 0.15 and far distance 260.
+- `face(vertices, color, texture, smooth, buildingWall)` receives world-space
+  positions and source-pixel UVs before any projection or clipping. `quad` and
+  `box` receive world dimensions; the Canvas backend retains the existing
+  camera-facing box culling. Geometry scratch arrays can be reused after the
+  synchronous submission returns. A retaining backend must copy or own its data.
+- `withStyle(options, submit)` scopes the existing detail, texture filtering and
+  texture overlay options without exposing or editing projected faces in scene
+  construction. Vehicle transforms also happen in world space before submission.
+- `billboard` receives a world position, dimensions and either an image or a lazy
+  artwork resolver. Canvas sprite placement and drawing stay inside the backend;
+  offscreen sprites do not generate artwork. Interior pixel characters remain
+  world-space geometry, retaining their depth-tested edges.
+- `beginPass`, `endPass` and `drawPass` describe the existing terrain/bank/detail
+  order. Returned passes are opaque backend handles. `drawInterior` returns an
+  opaque visibility handle that `drawSky` can use for corridor window occlusion.
+  Scene construction never reads the projected queue or depth buffer.
+- `drawSky`, `overlay`, `finishStreet` and `cabinet` make the remaining drawing
+  operations explicit. Cabinet loading screens and display scaling belong to
+  Canvas; existing cabinet games keep their own renderers.
+
+The scene builder still runs per frame, preserving the current software path.
+A Three.js backend must establish retained room objects and resource ownership
+in step 2; this extraction does not introduce a second renderer or a GPU cache.
+
+Validation: Chromium comparisons against the pre-extraction revision used fixed
+randomness, world state, time and a 1280 × 900 browser viewport. All 36 native
+canvas comparisons matched pixel for pixel: three views (spawn, turned, pitched)
+for the initial street, riverside, park, pub, lavatory, cubicle, hotel lobby,
+stairwell, storage, corridor, arcade and bookshop. These checks establish visual
+parity for the sampled views, not a performance improvement. Focused renderer
+contract tests cover world coordinates and UV interpolation, scoped styles,
+sprite submission, cabinet scaling, and storage scene construction through a
+non-Canvas recording backend, including current note state and dropped objects.
+All 457 automated tests pass. Live Chromium checks also passed for movement,
+menu travel, collecting the storage note, leaving through the storage door,
+and loading, drawing and closing pinball with native viewport restoration.
 
 ### 2. Add an optional Three.js hotel storage room
 

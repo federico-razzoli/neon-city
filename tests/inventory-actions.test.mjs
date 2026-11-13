@@ -95,7 +95,7 @@ test('backpack OPEN and DROP in the bookshop close the object box and show NOT H
   const {readFile}=await import('node:fs/promises'),{runInNewContext}=await import('node:vm');
   const {BACKPACK}=await import('../neon-city/backpack.js');
   const source=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
-  const drop=source.slice(source.indexOf('function dropSelectedItem(){'),source.indexOf('function drawDroppedItems('));
+  const drop=source.slice(source.indexOf('function dropSelectedItem(){'),source.indexOf('function showInventory('));
   const action=source.slice(source.indexOf('function useInventoryAction(action){'),source.indexOf("inventoryMessage.addEventListener('cancel'"));
   for(const command of ['DROP','OPEN']){
     const inventory=new Inventory();inventory.take(BACKPACK);

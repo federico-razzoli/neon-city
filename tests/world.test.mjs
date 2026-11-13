@@ -386,6 +386,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  Object.assign(sandbox,await import('../neon-city/render-camera.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,shootingStars,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},canSeeHotelGuest,inventory};",sandbox);
@@ -1319,6 +1320,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  Object.assign(sandbox,await import('../neon-city/render-camera.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={tick};",sandbox);
@@ -1800,9 +1802,10 @@ test('game input replays manhole feedback on separate presses and held Space wit
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  Object.assign(sandbox,await import('../neon-city/render-camera.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
-  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera:v=>{prepareCamera();return camera(v);},inventory,get seat(){return playerSeat;}};",sandbox);
+  runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera:v=>{const camera=createRenderCamera(NATIVE_VIEW);camera.set({position:player,eye,pitch:windowView?.pitch??playerSeat?.pitch??0});return camera.transform(v);},inventory,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
   const key={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -3313,6 +3316,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  Object.assign(sandbox,await import('../neon-city/render-camera.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,inventory};",sandbox);
@@ -3423,6 +3427,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  Object.assign(sandbox,await import('../neon-city/render-camera.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,tick,goToPub(){currentVenue={x:14,z:14};insidePub=true;currentPubName='THE PUB';},get seat(){return playerSeat;}};",sandbox);
@@ -4930,6 +4935,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  Object.assign(sandbox,await import('../neon-city/render-camera.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get arcadeLife(){return arcadeLife;},get staffTalk(){return staffTalk;},get ping(){return ping;}};",sandbox);
@@ -6428,11 +6434,11 @@ test('lettering coverage clears between overlapping colors and subsequent frames
 });
 
 test('cached camera constants preserve transforms and conservatively reject river bounds',async()=>{
-  const {readFile}=await import('node:fs/promises'),{runInNewContext}=await import('node:vm');
-  const source=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
-  const sandbox={player:{x:8,z:267,angle:0},eye:1.65,windowView:null,playerSeat:null,W:640,H:360,F:355,horizon:164};
-  runInNewContext(source.slice(source.indexOf('let cameraCos='),source.indexOf('function project('))+'\nglobalThis.view={prepareCamera,camera,boundsVisible};',sandbox);
-  const {prepareCamera,camera,boundsVisible}=sandbox.view;
+  const {createRenderCamera,NATIVE_VIEW}=await import('../neon-city/render-camera.js');
+  const sandbox={player:{x:8,z:267,angle:0},eye:1.65,playerSeat:null};
+  const view=createRenderCamera(NATIVE_VIEW);
+  const prepareCamera=()=>view.set({position:sandbox.player,eye:sandbox.eye,pitch:sandbox.playerSeat?.pitch??0});
+  const {transform:camera,boundsVisible}=view;
   for(const angle of [0,.3,Math.PI/2,Math.PI,4.7])for(const pitch of [0,.6,1.4,-.5]){
     sandbox.player.angle=angle;sandbox.playerSeat={pitch};prepareCamera();
     for(let i=0;i<40;i++){

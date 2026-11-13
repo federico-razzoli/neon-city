@@ -17,64 +17,52 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {NATIVE_VIEW} from './render-camera.js';
+import {createCanvasRenderer} from './canvas-renderer.js';
+import {createWorldScene} from './world-scene.js';
 import {createDebugMenu,DEBUG_MODE,DEBUG_RIVERSIDE_SPAWN} from './debug-menu.js';
 import {entranceWall} from './entrances.js';
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
 import {createTexturePrewarmer} from './texture-pixels.js';
-import {buildingGeometry} from './building-geometry.js';
-import {manholeGeometry} from './manhole-geometry.js';
-import {drawRoadMarkings} from './road-marking-geometry.js';
-import {drawCarGeometry} from './car-geometry.js';
-import {newspaperGeometry,drawNewspaperGeometry} from './newspaper-geometry.js';
-import {hotelStreetLife} from './hotel-street.js?v=1';
-import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
-import {Wallet,drawMoneyNote} from './money.js?v=hotel-cash-1';
+import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
+import {Wallet} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
 import {Inventory,inventoryImage,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=backpack-reward-1';
-import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
-import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
-import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade,drawArcadeInterior} from './arcade-interior.js?v=pinball-9';
+import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
+import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
+import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade} from './arcade-interior.js?v=pinball-9';
 import {ArcadeLife} from './arcade-life.js?v=arcade-visitors-4';
-import {rollBanshee,bansheeFrame,playBansheeScream,drawBanshee} from './banshee.js?v=6';
+import {rollBanshee,bansheeFrame,playBansheeScream} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
-import {DepthRenderer} from './depth-renderer.js?v=coverage-reuse-1';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {sprite,outfit} from './sprites.js?v=bumps-1';
-import {City, pedestrian, pedestrianShowsBack, mod, RIVER_VIEW_DISTANCE, groundHeight, characterHeight, characterGirth, pubLines, START, START_SIGN, RIVE_GAUCHE_SIGNS} from './world.js?v=start-pub-1';
+import {City,groundHeight,pubLines,START} from './world.js?v=start-pub-1';
 import {Traffic} from './traffic.js?v=junction-priority-2';
 import {RiverLook} from './river-look.js?v=parks-4';
-import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=visibility-reuse-1';
-import {drawParkGround,drawParkStructures,drawFingerpost,facingBench,pineCone,treeReply,bushReply,signReply,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
-import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gauche.js?v=5';
+import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=rive-gauche-6';
 import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
-import {drawArcade,arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
-import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,booksellerTalk,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop,drawBookshopInterior,drawBookshopBook} from './midnite-interior.js';
-import {BookshopLife,bookshopVisitorShowsBack} from './midnite-life.js';
+import {arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
+import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,booksellerTalk,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop,drawBookshopBook} from './midnite-interior.js';
+import {BookshopLife} from './midnite-life.js';
 import {drawBackpack} from './backpack.js';
 import {drawPastisBottle,drawMarijuanaPlant} from './backpack-contents.js';
-import {drawMidniteBooks} from './midnite-books.js?v=unique-labels-4';
-import {drawBlueNote} from './blue-note.js?v=unique-labels-4';
-import {drawPub,pubName} from './pub.js?v=park-entrances-1';
-import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub,drawPubInterior} from './pub-interior.js?v=bar-taps-1';
-import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle,drawLavatory,drawCubicle} from './lavatory.js?v=staff-room-1';
+import {pubName} from './pub.js?v=park-entrances-1';
+import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
+import {LAVATORY,CUBICLE,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=visit-buffer-1';
 import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=visit-buffer-1';
-import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BUSINESSWOMAN_TALK,COMPANION_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,advanceHotelReceptionist,hotelReceptionistPosition,drawHotelInterior,drawHotelLamp} from './hotel-interior.js?v=receptionist-lamp-2';
+import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BUSINESSWOMAN_TALK,COMPANION_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,advanceHotelReceptionist,drawHotelLamp} from './hotel-interior.js?v=receptionist-lamp-2';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
 import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=window-2';
-import {projectSky,skyHorizon,URSA_MAJOR,skyDirection,starProjector} from './sky.js?v=stars-2';
-import {orderSurfaces,orderGroundSurfaces} from './surface-order.js';
-import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=wasm-columns-1';
-import {hotelHIsDim,dimHotelH,drawHotel,hotelLook} from './hotel.js?v=park-entrances-1';
+import {URSA_MAJOR,skyDirection} from './sky.js?v=stars-2';
 import {HornWarning,playHorn} from './horn.js?v=junction-priority-1';
 
-const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d',{alpha:false});
+const canvas=document.querySelector('#view');
 const overlay=document.querySelector('#overlay'),start=document.querySelector('#start');
 const inventory=new Inventory(),inventoryBox=document.querySelector('#inventory');
 const inventoryDetail=document.querySelector('#inventory-detail');
@@ -107,7 +95,7 @@ async function playCabinet(name,machine){
   enableSound();
   keys.clear();shiftKeys.clear();coverPressed=false;notice=0;
   document.querySelector('#message').textContent='';document.querySelector('#pace').hidden=true;
-  ping={loading:true,update(){},draw(ctx){ctx.fillStyle='#000';ctx.fillRect(0,0,640,360);ctx.fillStyle='#fff';ctx.font='18px monospace';ctx.textAlign='center';ctx.fillText('LOADING...',320,180);ctx.textAlign='start';}};
+  ping={loading:true,update(){}};
   const session=loadCabinetGame(name);cabinetSession=session;
   try{
     const game=await session.ready;
@@ -273,22 +261,6 @@ function dropSelectedItem(){
   const dropped=dropItem(inventory,{...player,x,z},chunk,itemRoom(),ground);
   return dropped?(dropped.lost?'LOST':'DROPPED'):null;
 }
-function drawDroppedItems(chunks){
-  const room=itemRoom();
-  for(const chunk of chunks)for(const item of chunk.droppedItems??[]){
-    if(item.room!==room)continue;
-    const first=queue.length;
-    if(item.item.id==='flower')drawFlower({...item.item,...item},quad);
-    else if(['hotel-note','ticket'].includes(item.item.id))drawDroppedNote(item,face);
-    else if(item.item.id==='arcade-token')drawDroppedToken(item,face);
-    else if(item.item.id==='lamp')drawHotelLamp(item.x,(item.ground??0)+.006,item.z,box);
-    else if(item.item.id==='backpack')drawBackpack(item,box,face);
-    else if(item.item.id==='pastis-bottle')drawPastisBottle(item,box,face);
-    else if(item.item.id==='marijuana-plant')drawMarijuanaPlant(item,box,face);
-    else pineCone(item,face,{x:player.x,y:eye,z:player.z});
-    for(let i=first;i<queue.length;i++)queue[i].detail=true;
-  }
-}
 function showInventory(){
   const list=document.querySelector('#inventory-items');
   list.innerHTML=inventory.items.map((item,i)=>`<li${i===inventory.selected?' aria-current="true"':''}>${item.name}</li>`).join('');
@@ -409,7 +381,7 @@ talkBox.addEventListener('click',e=>{
 });
 const city=new City(),player={...START},keys=new Set(),shiftKeys=new Set();
 const roadTraffic=new Traffic();
-const W=640,H=360,F=355,horizon=164;
+const {width:W,focal:F,horizon}=NATIVE_VIEW;
 let eye=1.65;
 // Generate a fixed sky around the entire world, rather than wrapping the screen.
 const starColors=['#211e33','#27233a','#2d2840','#332d46'];
@@ -421,10 +393,9 @@ const starfield=[...stars,...URSA_MAJOR].map(skyDirection);
 const moon={bearing:.33,elevation:.31};
 const shootingStars=new ShootingStars();
 const skyView=()=>({angle:player.angle,width:W,focal:F,horizon,pitch:windowView?.pitch??playerSeat?.pitch??0});
-let running=false,time=0,last=0,queue=[],shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
+let running=false,time=0,last=0,shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
 let noticeText='',coverPressed=false,startSpaceHeld=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-ctx.imageSmoothingEnabled=false;
 
 let audioContext,ouchBuffer,ouchLoading;
 const hornWarning=new HornWarning();
@@ -457,479 +428,24 @@ function playOuch(){
 }
 
 
-let cameraCos=1,cameraSin=0,pitchCos=1,pitchSin=0;
-const viewPlanes=new Float64Array(20);
-function prepareCamera(){
-  cameraCos=Math.cos(player.angle);cameraSin=Math.sin(player.angle);
-  const pitch=windowView?.pitch??playerSeat?.pitch??0;
-  pitchCos=Math.cos(pitch);pitchSin=Math.sin(pitch);
-  // Inward-facing near, left, right, top and bottom planes. Coordinates are
-  // relative to the eye, so each AABB test needs no projected vertex objects.
-  const plane=(i,x,y,z,d=0)=>{viewPlanes[i]=x;viewPlanes[i+1]=y;viewPlanes[i+2]=z;viewPlanes[i+3]=d;};
-  const zx=cameraSin*pitchCos,zy=pitchSin,zz=cameraCos*pitchCos;
-  const yx=-cameraSin*pitchSin,yy=pitchCos,yz=-cameraCos*pitchSin;
-  plane(0,zx,zy,zz,-.15);
-  plane(4,W/2*zx+F*cameraCos,W/2*zy,W/2*zz-F*cameraSin);
-  plane(8,W/2*zx-F*cameraCos,W/2*zy,W/2*zz+F*cameraSin);
-  plane(12,horizon*zx-F*yx,horizon*zy-F*yy,horizon*zz-F*yz);
-  plane(16,(H-horizon)*zx+F*yx,(H-horizon)*zy+F*yy,(H-horizon)*zz+F*yz);
-}
-function boundsVisible(minX,minY,minZ,maxX,maxY,maxZ){
-  const x=(minX+maxX)/2-player.x,y=(minY+maxY)/2-eye,z=(minZ+maxZ)/2-player.z;
-  const rx=(maxX-minX)/2,ry=(maxY-minY)/2,rz=(maxZ-minZ)/2;
-  for(let i=0;i<viewPlanes.length;i+=4){
-    const a=viewPlanes[i],b=viewPlanes[i+1],c=viewPlanes[i+2];
-    if(a*x+b*y+c*z+viewPlanes[i+3]+Math.abs(a)*rx+Math.abs(b)*ry+Math.abs(c)*rz< -1e-8)return false;
-  }
-  return true;
-}
-function camera(v){
-  const dx=v.x-player.x,dz=v.z-player.z,y=v.y-eye,z=dx*cameraSin+dz*cameraCos;
-  return {x:dx*cameraCos-dz*cameraSin,y:y*pitchCos-z*pitchSin,z:z*pitchCos+y*pitchSin,u:v.u||0,v:v.v||0};
-}
-function project(v){return {x:W/2+v.x*F/v.z,y:horizon-v.y*F/v.z};}
-function clip(vertices){const out=[];for(let i=0;i<vertices.length;i++){const a=vertices[i],b=vertices[(i+1)%vertices.length],ai=a.z>=.15,bi=b.z>=.15;if(ai)out.push(a);if(ai!==bi){const t=(.15-a.z)/(b.z-a.z),v={};for(const k of ['x','y','z','u','v'])v[k]=a[k]+(b[k]-a[k])*t;out.push(v);}}return out;}
-let vehicleSurface=null,vehicleTurn=null;
-function face(vertices,color,texture=null,smooth=false,buildingWall=false){
-  // Include textures above and beside the current view: they can become visible
-  // when a seated player looks up or turns. Reuse the normal scene traversal.
-  if(texture&&playerSeat&&!indoors()&&running)seatedTexturePrewarmer.add(texture);
-  if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
-  if(vehicleTurn){
-    const {x,z,angle}=vehicleTurn,c=Math.cos(angle),s=Math.sin(angle);
-    vertices=vertices.map(v=>({...v,x:x+(v.x-x)*c+(v.z-z)*s,z:z-(v.x-x)*s+(v.z-z)*c}));
-  }
-  queueFace(vertices.map(camera),vertices[0].y,color,texture,smooth,buildingWall);
-}
-function queueFace(vs,elevation,color,texture,smooth,buildingWall){
-  const depth=vs.reduce((s,p)=>s+p.z,0)/vs.length;
-  if(depth>RIVER_VIEW_DISTANCE||vs.every(p=>p.z<.15))return;
-  const clipped=clip(vs);if(clipped.length<3)return;
-  const ps=clipped.map(project);
-  if(ps.every(p=>p.x<0)||ps.every(p=>p.x>W)||ps.every(p=>p.y<0)||ps.every(p=>p.y>H))return;
-  queue.push({ps,vs:clipped,depth,elevation,color,texture,smooth,buildingWall});
-}
-function quad(x,y,z,w,d,color){face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);}
-function box(x,y,z,w,h,d,color,roof=color){
-  const a={x,y,z},b={x:x+w,y,z},c={x:x+w,y,z:z+d},e={x,y,z:z+d};
-  const up=p=>({...p,y:y+h});
-  if(player.z<z)face([a,b,up(b),up(a)],color);
-  if(player.z>z+d)face([c,e,up(e),up(c)],color);
-  if(player.x<x)face([e,a,up(a),up(e)],color);
-  if(player.x>x+w)face([b,c,up(c),up(b)],color);
-  if(eye>y+h+(vehicleSurface?vehicleSurface(z+d/2):0))face([up(a),up(b),up(c),up(e)],roof);
-  if(indoors()&&eye<y)face([e,c,b,a],color);
-}
-function wallTexture(b,side,dim=hotelHIsDim(b,time)){
-  // Separate immutable textures keep the pitched renderer's pixel cache valid.
-  const textures=dim?(b.dimTextures??=[]):(b.textures??=[]);
-  if(textures[side])return textures[side];
-  if(dim){
-    const lit=wallTexture(b,side,false),c=document.createElement('canvas');
-    c.width=lit.width;c.height=lit.height;const g=c.getContext('2d');
-    g.drawImage(lit,0,0);dimHotelH(g,c.height);
-    textures[side]=c;return c;
-  }
-  const c=document.createElement('canvas');c.width=160;c.height=b.h*9;const g=c.getContext('2d');
-  g.fillStyle=b.color;g.fillRect(0,0,c.width,c.height);
-  for(let y=8;y<c.height-42;y+=26)for(let x=9;x<155;x+=25){const lit=mod(x*17+y*13+b.seed,11)>4;g.fillStyle=lit?(mod(x+y+b.seed,3)?'#777086':'#b2968b'):'#14172a';g.fillRect(x,y,12,15);g.fillStyle='#252238';g.fillRect(x+5,y,2,15);g.fillRect(x,y+7,12,2);}
-  g.fillStyle='#0e101e';g.fillRect(0,c.height-39,160,39);g.fillStyle='#54415d';g.fillRect(0,c.height-40,160,2);
-  for(let x=8;x<160;x+=50){g.fillStyle='#253046';g.fillRect(x,c.height-28,37,26);g.fillStyle='#121525';g.fillRect(x+2,c.height-26,33,22);g.fillStyle=b.neon;g.globalAlpha=.3;g.fillRect(x+3,c.height-25,31,2);g.globalAlpha=1;}
-  if(b.sign==='ARCADE')drawArcade(g,c.height,b,side);
-  if(b.sign==='NEON PUB')drawPub(g,c.height,b,side);
-  if(b.sign==='BLUE NOTE')drawBlueNote(g,c.height,b,side);
-  if(b.sign==='MIDNITE BOOKS')drawMidniteBooks(g,c.height,b,side);
-  if(b.sign==='HOTEL')drawHotel(g,c.height,b,side);
-  g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign==='NEON PUB'?pubName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
-  // The vertical hotel sign must fit entirely below the roofline.
-  if(b.sign==='HOTEL'&&c.height>=137){g.fillStyle='#160c24';g.fillRect(132,c.height-137,24,72);g.fillStyle=b.neon;g.font='bold 12px monospace';for(let i=0;i<5;i++)g.fillText('HOTEL'[i],144,c.height-124+i*13);}
-  textures[side]=c;return c;
-}
-function building(b){
-  const x=b.x,z=b.z,w=b.w,d=b.d,h=b.h;
-  if(!boundsVisible(x,0,z,x+w,h,z+d)){
-    // Seated players can turn toward these walls: keep their textures warm
-    // without constructing, transforming or clipping offscreen wall panels.
-    if(playerSeat&&!indoors()&&running){
-      if(player.z<z)seatedTexturePrewarmer.add(wallTexture(b,0));
-      if(player.z>z+d)seatedTexturePrewarmer.add(wallTexture(b,1));
-      if(player.x<x)seatedTexturePrewarmer.add(wallTexture(b,2));
-      if(player.x>x+w)seatedTexturePrewarmer.add(wallTexture(b,3));
-    }
-    return;
-  }
-  const panels=buildingGeometry(b);
-  function wall(side){
-    const tex=wallTexture(b,side);
-    if(playerSeat&&!indoors()&&running)seatedTexturePrewarmer.add(tex);
-    // Panels retain fine-grained depth ordering against cars and pedestrians.
-    for(let s=0;s<8;s++){
-      const vs=[];
-      for(let i=0;i<4;i++){
-        const k=((side*8+s)*4+i)*5;
-        const dx=panels[k]-player.x,dz=panels[k+2]-player.z,y=panels[k+1]-eye,z=dx*cameraSin+dz*cameraCos;
-        vs.push({x:dx*cameraCos-dz*cameraSin,y:y*pitchCos-z*pitchSin,z:z*pitchCos+y*pitchSin,u:panels[k+3],v:panels[k+4]*tex.height});
-      }
-      queueFace(vs,0,b.color,tex,false,true);
-    }
-  }
-  if(player.z<z)wall(0);
-  if(player.z>z+d)wall(1);
-  if(player.x<x)wall(2);
-  if(player.x>x+w)wall(3);
-}
-function drawFace(f){
-  // Opaque building textures own complete pixels at panel edges and carry
-  // their own continuous fog. A polygon underlay/overlay would add seams.
-  if(!f.buildingWall){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.color;ctx.fill();}
-  if(f.texture&&(f.groundTexture||windowView?.pitch||playerSeat?.pitch))drawPitchedWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
-  else if(f.texture)drawWallTexture(ctx,f.ps,f.vs,f.texture,W,f.textureSmooth,f.buildingWall);
-  if(f.buildingWall)return;
-  const fog=Math.min(.94,Math.max(0,(f.depth-22)/135));
-  if(fog>0){ctx.beginPath();f.ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=`rgba(15,10,30,${fog})`;ctx.fill();}
-}
-function person(p){
-  // Anchor feet on the pavement and sort overlapping deck panels by local depth.
-  // Project the head too, so a seated player's pitched view keeps true heights.
-  const foot={x:p.x,y:groundHeight(p.x,p.z)+.075,z:p.z},v=camera(foot);if(v.z<.3||v.z>105)return;
-  const head=camera({...foot,y:foot.y+characterHeight(p.type)});if(head.z<.3)return;
-  const pos=project(v),height=pos.y-project(head).y,width=characterHeight(p.type)*characterGirth(p.type)*F/v.z/2;if(height<=0)return;
-  if(pos.x+width<0||pos.x-width>W)return;
-  queue.push({detail:true,depth:v.z,ps:[{x:pos.x-width/2,y:pos.y},{x:pos.x+width/2,y:pos.y},{x:pos.x+width/2,y:pos.y-height},{x:pos.x-width/2,y:pos.y-height}],vs:Array.from({length:4},()=>({z:v.z})),draw(){ctx.globalAlpha=Math.max(.15,1-Math.max(0,v.z-30)/120);ctx.drawImage(sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant),Math.round(pos.x-width/2),Math.round(pos.y-height),Math.ceil(width),Math.ceil(height));ctx.globalAlpha=1;}});
-}
-let taxiSignTexture=null;
-function taxiSign(){
-  if(!taxiSignTexture){
-    taxiSignTexture=document.createElement('canvas');
-    taxiSignTexture.width=160;taxiSignTexture.height=56;
-    const g=taxiSignTexture.getContext('2d');
-    g.fillStyle='#ffcb57';g.fillRect(0,0,160,56);
-    g.fillStyle='#171820';g.font='bold 44px sans-serif';
-    g.textAlign='center';g.textBaseline='middle';g.fillText('TAXI',80,30);
-  }
-  return taxiSignTexture;
-}
-const vanTextures={};
-function vanTexture(side){
-  if(vanTextures[side])return vanTextures[side];
-  const canvas=document.createElement('canvas');canvas.width=side==='side'?384:192;canvas.height=192;
-  const g=canvas.getContext('2d'),w=canvas.width;
-  g.fillStyle='#29a99c';g.fillRect(0,0,w,192);
-  g.fillStyle='#f3e5bc';g.fillRect(0,0,w,86);
-  g.fillStyle='#344d65';
-  if(side==='front'){
-    // Classic split windshield and cream V-shaped nose.
-    g.fillRect(12,12,78,60);g.fillRect(102,12,78,60);
-    g.fillStyle='#f3e5bc';g.beginPath();g.moveTo(0,82);g.lineTo(96,142);g.lineTo(192,82);g.fill();
-    g.strokeStyle='#f3e5bc';g.lineWidth=4;g.beginPath();g.arc(96,137,20,0,Math.PI*2);g.stroke();
-    g.font='bold 23px sans-serif';g.textAlign='center';g.fillText('VW',96,145);
-    for(const x of [28,164]){g.fillStyle='#d6d8cc';g.beginPath();g.arc(x,155,15,0,Math.PI*2);g.fill();g.fillStyle='#fff0b8';g.beginPath();g.arc(x,155,11,0,Math.PI*2);g.fill();}
-  }else if(side==='side'){
-    for(let i=0;i<4;i++)g.fillRect(12+i*94,12,78,60);
-    // Painted rainbow, flowers, and a peace symbol.
-    for(const [i,color] of ['#f56392','#ffab54','#ffe475'].entries()){
-      g.strokeStyle=color;g.lineWidth=8;g.beginPath();g.arc(182,180,69-i*10,Math.PI,Math.PI*2);g.stroke();
-    }
-    for(const [x,y,color] of [[40,126,'#ff77be'],[329,131,'#ffce59'],[286,166,'#ed8bea']]){
-      g.fillStyle=color;
-      for(let i=0;i<6;i++){const a=i*Math.PI/3;g.beginPath();g.arc(x+Math.cos(a)*13,y+Math.sin(a)*13,9,0,Math.PI*2);g.fill();}
-      g.fillStyle='#fff0b8';g.beginPath();g.arc(x,y,7,0,Math.PI*2);g.fill();
-    }
-    g.strokeStyle='#fff0b8';g.lineWidth=4;g.beginPath();g.arc(94,132,23,0,Math.PI*2);g.moveTo(94,109);g.lineTo(94,155);g.moveTo(94,132);g.lineTo(78,148);g.moveTo(94,132);g.lineTo(110,148);g.stroke();
-  }else{
-    g.fillRect(28,12,136,60);
-    g.fillStyle='#e65a57';g.fillRect(14,145,14,25);g.fillRect(164,145,14,25);
-    g.fillStyle='#e9dbb8';g.fillRect(67,152,58,18);
-  }
-  return vanTextures[side]=canvas;
-}
-let mercedesGrilleTexture=null;
-function mercedesGrille(){
-  if(mercedesGrilleTexture)return mercedesGrilleTexture;
-  const canvas=document.createElement('canvas');canvas.width=192;canvas.height=96;
-  const g=canvas.getContext('2d');
-  g.fillStyle='#c9d0d6';g.fillRect(0,0,192,96);
-  g.fillStyle='#252c36';g.fillRect(6,6,180,84);
-  g.strokeStyle='#aebbc7';g.lineWidth=4;
-  for(const y of [22,39,56,73]){g.beginPath();g.moveTo(10,y);g.lineTo(182,y);g.stroke();}
-  g.beginPath();g.moveTo(96,6);g.lineTo(96,90);g.stroke();
-  return mercedesGrilleTexture=canvas;
-}
-function carTexture(id){
-  if(id===1)return vanTexture('front');
-  if(id===2)return vanTexture('rear');
-  if(id===3)return vanTexture('side');
-  if(id===4)return mercedesGrille();
-  return taxiSign();
-}
-function car(c,groundOverride){
-  vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
-  const base=groundOverride??groundHeight(c.x,c.z),slope=groundOverride!=null||c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
-  vehicleSurface=z=>base+(z-c.z)*slope;
-  drawCarGeometry(c,{player,eye,base,slope,indoors:indoors(),face,texture:carTexture});
-  vehicleSurface=null;vehicleTurn=null;
-}
-// Cabinet colours per paper; any paper without an entry uses the Bugle's.
-// Papers without a subtitle print CITY NEWS.
-const NEWSPAPER_LOOKS={
-  'DAILY BUGLE':{paint:'#a93242',masthead:'#311d29',frame:'#501e30',price:'#f1d6b5',body:['#862c3d','#c44c55'],cap:['#ba4351','#d25b60']},
-  'NEON NEWS':{subtitle:'NIGHT EDITION',paint:'#2f8a4a',masthead:'#14301d',frame:'#1b4a2b',price:'#d8f2c6',body:['#246b3a','#43a35d'],cap:['#36994f','#58bd70']},
-  'THE RECORD':{subtitle:'2 + 2 = 5',paint:'#2f5aa3',masthead:'#15223f',frame:'#1b3262',price:'#d3e1f6',body:['#25488a','#4a74c0'],cap:['#3962ad','#5a86cc']}
-};
-const newspaperTextures={};
-function newspaperMachine(m){
-  const firstFace=queue.length,paper=m.paper??'DAILY BUGLE',look=NEWSPAPER_LOOKS[paper]??NEWSPAPER_LOOKS['DAILY BUGLE'];
-  if(!newspaperTextures[paper]){
-    const c=document.createElement('canvas');c.width=160;c.height=224;
-    const g=c.getContext('2d');
-    g.fillStyle=look.paint;g.fillRect(0,0,160,224);
-    g.fillStyle='#eee1bd';g.fillRect(7,9,146,38);
-    g.fillStyle=look.masthead;g.textAlign='center';g.font='bold 20px serif';g.fillText(paper,80,35,140);
-    g.fillStyle=look.frame;g.fillRect(9,56,142,130);
-    g.fillStyle='#829395';g.fillRect(13,60,134,122);
-    g.fillStyle='#e2d8b9';g.fillRect(22,69,106,103);
-    g.fillStyle='#292636';g.font='bold 13px serif';g.fillText(paper,75,85,100);
-    g.font='bold 10px monospace';g.fillText(look.subtitle??'CITY NEWS',75,101);
-    g.fillStyle='#626272';g.fillRect(29,109,43,31);
-    for(let y=110;y<161;y+=6){g.fillRect(79,y,40,2);if(y>143)g.fillRect(29,y,43,2);}
-    g.fillStyle='#e2d8b9';g.fillRect(133,98,8,36);
-    g.fillStyle='#beb9ac';g.fillRect(15,195,33,19);
-    g.fillStyle='#232231';g.fillRect(20,202,23,4);
-    g.fillStyle=look.price;g.font='bold 12px monospace';g.fillText('25¢',113,210);
-    newspaperTextures[paper]=c;
-  }
-  drawNewspaperGeometry(m,newspaperGeometry(m),player,eye,look,newspaperTextures[paper],face);
-  for(let i=firstFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;}
-}
-// One texture per board text and direction the arrow can point on screen.
-const signTextures=new Map();
-function signTexture(text,tipRight){
-  const key=`${text}|${tipRight}`;
-  if(!signTextures.has(key)){
-    const c=document.createElement('canvas');c.width=SIGN_TEXTURE.width;c.height=SIGN_TEXTURE.height;
-    paintSign(c.getContext('2d'),text,tipRight);signTextures.set(key,c);
-  }
-  return signTextures.get(key);
-}
-let riveGaucheCanvas=null;
-function riveGaucheTexture(){
-  if(!riveGaucheCanvas){
-    riveGaucheCanvas=document.createElement('canvas');
-    riveGaucheCanvas.width=RIVE_GAUCHE_TEXTURE.width;riveGaucheCanvas.height=RIVE_GAUCHE_TEXTURE.height;
-    paintRiveGauche(riveGaucheCanvas.getContext('2d'));
-  }
-  return riveGaucheCanvas;
-}
-function street(chunk){
-  const x=chunk.x*64,z=chunk.z*64;
-  if(chunk.river){drawRiverTerrain(chunk,{quad,face,boundsVisible},time);return;}
-  // Asphalt needs geometry to occlude the recessed river at street approaches.
-  // The screen background alone cannot hide water projected over the road.
-  quad(x,0,z,64,64,'#252233');
-  quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
-  drawRoadMarkings(x,z,face);
-  // Pavement seams and a pool of neon light outside each storefront.
-  for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
-  if(chunk.park){drawParkGround(chunk,{quad,face});return;}
-  quad(x+16,.08,z+9,12,3,'#57354f');quad(x+9,.08,z+35,3,10,'#294755');
-}
-function manhole(m){
-  // Flat circular iron covers, projected with the same camera as the pavement.
-  const geometry=manholeGeometry(m.radius);
-  const disk=(layer,y,color)=>face(Array.from({length:16},(_,i)=>{
-    const k=layer*32+i*2;
-    return {x:m.x+geometry[k],y,z:m.z+geometry[k+1]};
-  }),color);
-  disk(0,.09,'#171923');
-  disk(1,.091,'#777482');
-  disk(2,.092,'#343541');
-  for(let i=0;i<3;i++){
-    const offset=(i-1)*.25,length=geometry[96+i];
-    quad(m.x-length/2,.093,m.z+offset-.025,length,.05,'#161923');
-  }
-}
-const seatedPixels=new Map();
-function seatedPatron(p,walking=false,height=48*.05,backView=null){
-  const back=backView??(walking?pedestrianShowsBack(p,player):(player.z-p.z)*p.side>0);
-  const frame=walking?Math.floor(p.walkTime*6)%4:1,rows=walking?48:32,key=`${p.type}:${outfit(p.type,p.variant)}:${back}:${frame}:${rows}`;
-  if(!seatedPixels.has(key)){
-    // Reuse the pedestrians' actual heads, hair, clothing and accessories.
-    const data=sprite(p.type,frame,back,p.variant).getContext('2d').getImageData(0,0,24,rows).data,runs=[];
-    for(let y=0;y<rows;y++)for(let x=0;x<24;){
-      const offset=(y*24+x)*4;
-      if(!data[offset+3]){x++;continue;}
-      const color='#'+Array.from(data.slice(offset,offset+3),v=>v.toString(16).padStart(2,'0')).join('');
-      let end=x+1;
-      while(end<24&&[0,1,2,3].every(c=>data[(y*24+end)*4+c]===data[offset+c]))end++;
-      runs.push({x,y,end,color});x=end;
-    }
-    seatedPixels.set(key,runs);
-  }
-  // Standing patrons use the pub's larger scale, with their feet on the floor
-  // (y above it, for a walker on the hotel stairs).
-  const scale=walking?height/48:.0375,headHeight=walking?height+(p.y??0):1.87;
-  for(const run of seatedPixels.get(key)){
-    const girth=characterGirth(p.type),left=(run.x-12)*scale*girth,right=(run.end-12)*scale*girth,top=headHeight-run.y*scale,bottom=top-scale;
-    const point=(offset,y)=>({x:p.x+Math.cos(player.angle)*offset,y,z:p.z-Math.sin(player.angle)*offset});
-    face([point(left,bottom),point(right,bottom),point(right,top),point(left,top)],run.color);
-  }
-}
-// The corridor shares the outdoor sky; only pixels without room geometry show stars.
-function drawStarfield(depth=null){
-  const pitch=windowView?.pitch??playerSeat?.pitch??0;
-  const project=starProjector(player.angle,W,F,horizon,pitch);
-  for(const star of starfield){
-    const p=project(star);
-    if(!p)continue;
-    const x=Math.floor(p.x),y=Math.floor(p.y);
-    if(y>=H||(depth&&depth[y*W+x]>0))continue;
-    ctx.fillStyle=star.color??'#3b344e';ctx.fillRect(x,y,1,1);
-  }
-}
-let interiorRenderer;
+let worldScene,canvasRenderer;
 function render(){
-  // Byker uses smooth geometry and text; render at the display resolution.
-  // Return to the city's native pixel grid as soon as the cabinet closes.
-  const renderScale=(ping?.kind==='byker'||ping?.kind==='pinball')?Math.min(3,Math.max(1,Math.ceil(canvas.clientWidth*(window.devicePixelRatio||1)/W))):1;
-  if(canvas.width!==W*renderScale||canvas.height!==H*renderScale){
-    canvas.width=W*renderScale;canvas.height=H*renderScale;
-    ctx.imageSmoothingEnabled=renderScale>1;
-  }
-  ctx.setTransform(renderScale,0,0,renderScale,0,0);
+  canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);
+  worldScene??=createWorldScene(canvasRenderer,{seatedTexturePrewarmer,reduced});
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
-  if(ping){ping.syncInput?.(canvas,running);ping.draw(ctx);return;}
+  if(ping){canvasRenderer.cabinet(ping,running);return;}
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
-  prepareCamera();
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
-  if(insideBookshop){
-    queue=[];drawBookshopInterior({face,quad,box},bookshopLife);
-    for(const p of bookshopLife.people)seatedPatron(p,p.state!=='reading',characterHeight(p.type),bookshopVisitorShowsBack(p,player));
-    drawDroppedItems(city.chunks.values());
-    interiorRenderer??=new DepthRenderer(ctx,W,H);interiorRenderer.render(queue,'#302c26');return;
-  }
-  if(insideArcade){
-    queue=[];drawArcadeInterior({face,quad,box});
-    for(const p of arcadeLife?.people??[])seatedPatron(p,true,characterHeight(p.type));
-    drawDroppedItems(city.chunks.values());
-    interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue,'#17172b');return;
-  }
-  if(insideHotel){
-    queue=[];
-    if(hotelCorridor){
-      drawHotelCorridor({face,quad,box,look:hotelLook(currentHotel),floor:hotelStairs.floor,windowState:corridorWindowState(currentHotel,hotelStairs.floor)});
-      const street=hotelStreetLife(currentHotel.seed,time,hotelStairs.floor);
-      for(const c of street.cars)car(c,c.y);
-      for(const p of street.people)seatedPatron(p,true,characterHeight(p.type));
-    }
-    else if(hotelStorage)drawHotelStorage({face,quad,box,noteTaken:currentHotel.storageNoteTaken});
-    else if(hotelStairs){
-      drawHotelStairwell({face,quad,box,look:hotelLook(currentHotel)});
-      const firstMoneyFace=queue.length;
-      drawMoneyNote(stairwellNote(currentHotel),face);
-      for(let i=firstMoneyFace;i<queue.length;i++){
-        queue[i].textureSmooth=true;
-        queue[i].textureOverlay={color:[9,7,21],alpha:.2};
-      }
-    }
-    else drawHotelInterior({face,quad,box,look:hotelLook(currentHotel),receptionist:currentHotel.receptionist,lampOn:currentHotel.lampOn,lampTaken:currentHotel.lampTaken,receptionistPosition:hotelReceptionistPosition(currentHotel)});
-    // Guests share the player's interior and keep their feet at the route's height.
-    for(const guest of hotelGuests())seatedPatron(guest,true,characterHeight(guest.type));
-    drawDroppedItems(city.chunks.values());
-    interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue,hotelCorridor?'#000000':'#3a2d36');
-    if(hotelCorridor){
-      drawStarfield(interiorRenderer.depth);
-      shootingStars.draw(ctx,skyView(),interiorRenderer.depth);
-    }
-    return;
-  }
-  if(insideCubicle){
-    queue=[];drawCubicle({face,quad,box});
-    drawDroppedItems(city.chunks.values());
-    interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue);
-    if(banshee){
-      const seconds=(performance.now()-banshee.started)/1000,frame=bansheeFrame(seconds);
-      if(frame.dark){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
-      if(frame.opacity)drawBanshee(ctx,W,H,seconds,frame.opacity);
-    }
-    return;
-  }
-  if(insideLavatory){
-    queue=[];drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle},taps:lavatoryTaps,time:performance.now()/1000});
-    // The lavatory is built to true size, unlike the pub, so the robot is too.
-    if(lavatoryLife?.walker)seatedPatron(lavatoryLife.walker,true,characterHeight(lavatoryLife.walker.type));
-    drawDroppedItems(city.chunks.values());
-    interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue);return;
-  }
-  if(insidePub){
-    queue=[];drawPubInterior({face,quad,box,patrons:pubPatrons,seatedPatron,bartenderType,barBeer:currentVenue.barBeer});
-    if(pubLife?.walker)seatedPatron(pubLife.walker,true);
-    drawDroppedItems(city.chunks.values());
-    interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue);return;
-  }
-  ctx.fillStyle='#0f0a1e';ctx.fillRect(0,0,W,H);
-  const pitch=windowView?.pitch??playerSeat?.pitch??0;
-  drawStarfield();
-  const moonPosition=projectSky(moon,player.angle,W,F,horizon,pitch);
-  if(moonPosition){
-    ctx.fillStyle='#c4aacb';
-    const widths=[5,9,11,11,13,13,13,13,13,11,11,9,5];
-    widths.forEach((width,row)=>ctx.fillRect(moonPosition.x-(width-1)/2,moonPosition.y-6+row,width,1));
-  }
-  shootingStars.draw(ctx,skyView());
-  const ground=skyHorizon(horizon,F,pitch);
-  ctx.fillStyle='#252233';if(ground<H)ctx.fillRect(0,ground,W,H-ground);queue=[];
-  const visible=[...city.chunks.values()].filter(chunk=>Math.hypot(chunk.x*64+32-player.x,chunk.z*64+32-player.z)<=(chunk.river?RIVER_VIEW_DISTANCE:170));
-  for(const chunk of visible)street(chunk);
-  orderGroundSurfaces(queue);
-  const terrain=queue;
-  for(const f of terrain)if(f.elevation<0)drawFace(f);
-  queue=[];
-  for(const chunk of visible)if(chunk.river){
-    drawRiverbankFaces(chunk,{face,boundsVisible},player);
-    drawBridgeFascias(chunk,{face,boundsVisible},player,true);
-  }
-  queue.sort((a,b)=>b.depth-a.depth);
-  for(const f of queue)drawFace(f);
-  for(const f of terrain)if(f.elevation>=0)drawFace(f);
-  // Ground details go over the pavement, before people and buildings.
-  queue=[];
-  for(const chunk of visible)for(const m of chunk.manholes)manhole(m);
-  for(const f of queue)drawFace(f);
-  queue=[];
-  for(const chunk of visible){
-    if(chunk.river)drawRiverStructures(chunk,{face,boundsVisible},{x:player.x,y:eye,z:player.z});
-    for(const b of chunk.buildings)building(b);
-    for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
-    if(chunk.park){
-      // Benches and trees are small, layered objects; order them at real overlaps.
-      const first=queue.length;
-      drawParkStructures(chunk,{face,signTexture},{x:player.x,y:eye,z:player.z});
-      for(let i=first;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
-    }
-    for(const p of chunk.people)person(pedestrian(chunk,p,time));
-  }
-  drawDroppedItems(visible);
-  const firstMoneyFace=queue.length;
-  drawMoneyNote(wallet.note,face);
-  for(let i=firstMoneyFace;i<queue.length;i++){queue[i].detail=true;queue[i].textureSmooth=true;queue[i].groundTexture=true;}
-  const firstSignFace=queue.length;
-  drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z});
-  for(let i=firstSignFace;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
-  const firstPlaceFace=queue.length;
-  for(const s of RIVE_GAUCHE_SIGNS)drawRiveGaucheSign(s,{face},{x:player.x,y:eye,z:player.z},riveGaucheTexture());
-  for(let i=firstPlaceFace;i<queue.length;i++){queue[i].detail=true;if(queue[i].texture)queue[i].textureSmooth=true;}
-  for(const c of roadTraffic.cars)if(Math.hypot(c.x-player.x,c.z-player.z)<RIVER_VIEW_DISTANCE)car(c);
-  queue=orderSurfaces(queue);
-  ctx.save();if(!reduced)ctx.translate(shake?Math.sin(time*85)*shake:0,running?Math.sin(steps)*.65:0);
-  for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
-  const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
+  worldScene.render({
+    player,eye,windowView,playerSeat,running,time,
+    insideBookshop,bookshopLife,insideArcade,arcadeLife,
+    insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
+    insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
+    pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
+    banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors()
+  });
 }
 // Debug travel shares venue initialization with ordinary door entry.
 function debugScene(){return insideBookshop?'bookshop':insideArcade?'arcade':insideHotel?(hotelStorage?'storage':hotelCorridor?'corridor':hotelStairs?'stairs':'hotel'):insideCubicle?'cubicle':insideLavatory?'lavatory':insidePub?'pub':'street';}
