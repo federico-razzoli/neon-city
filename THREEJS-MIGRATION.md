@@ -145,8 +145,11 @@ support that decision. Remove obsolete projection, surface ordering and software
 rasterization code once no remaining scenes depend on it. Decide explicitly
 whether a maintained Canvas fallback is still useful before removing it.
 
-Keep simulation and collision WASM code. Assess geometry-generation WASM for
-reuse; replace rendering-specific WASM only as its responsibilities disappear.
+Prefer Three.js geometry facilities and spatial queries as their corresponding
+systems migrate. Keep existing WASM paths temporarily where needed for the
+incremental transition; retaining them is not a goal. Replace rendering-specific
+WASM as its responsibilities disappear, and consider custom WASM optimisations
+only when profiling demonstrates a meaningful remaining CPU bottleneck.
 
 ## Occlusion and mixed rendering
 
@@ -271,9 +274,9 @@ Use these initial rules for the new backend:
   rebuilding the scene every frame.
 - Share geometry, materials and textures among compatible repeated objects.
   Consider instancing where it helps reduce draw calls.
-- Generate unique building geometry once per loaded building. Reuse existing
-  geometry-generation code and caches where useful, without retaining duplicate
-  CPU representations unnecessarily.
+- Generate unique building geometry once per loaded building, preferring Three.js
+  geometry facilities. Existing generators can support the transition where
+  useful; avoid retaining duplicate CPU representations unnecessarily.
 - Reuse generated artwork as textures and update it only when its contents
   change.
 - Give chunk-specific and shared resources clear owners. When a chunk unloads,
@@ -285,3 +288,38 @@ Use these initial rules for the new backend:
 Start with straightforward asset sharing and chunk lifetimes. Add more elaborate
 caches or object pools only when profiling demonstrates a benefit, checking both
 frame time and memory use.
+
+## Collision and interaction queries
+
+Use Three.js spatial tools for collision detection and interaction checks where
+appropriate, preserving the game's rules and behaviour during migration.
+Three.js provides bounding volumes, raycasting and an
+[Octree addon](https://threejs.org/docs/pages/Octree.html) for world collision
+queries. The game still specifies responses such as sliding along walls,
+pedestrian stopping, bump dialogue and traffic knockback.
+
+Build interaction checks from three separate questions:
+
+- **Distance:** measure distance to an explicit interaction point or area.
+  Three.js vector distance methods suit point targets;
+  [Box3.distanceToPoint()](https://threejs.org/docs/pages/Box3.html) can measure
+  distance to a bounding box rather than its centre.
+- **Facing:** compare the player's viewing direction with the direction towards
+  the interaction target, using vector operations and a configured tolerance.
+- **Reachability:** use a
+  [Raycaster](https://threejs.org/docs/pages/Raycaster.html) where needed to check
+  for walls or other blocking objects between the player and the target.
+
+Give interactable objects explicit points or areas, such as a door handle, a
+seat or the front of a cabinet, instead of relying solely on the visible mesh's
+bounds. Define suitable interaction regions for people and counters as well.
+The game controls reach distance, facing tolerance, target priority and which
+surfaces block interaction. Preserve intentional interactions across counters;
+visual geometry is not automatically an interaction blocker.
+
+Keep interaction targets linked to shared game state so switching rendering
+backends does not change which actions are available. Migrate spatial checks in
+manageable steps and verify boundary distances, facing, intervening walls,
+different floor heights and counter interactions. Prefer nearby candidate lists
+and simple distance checks before detailed raycasts rather than testing every
+mesh in the city for each interaction.
