@@ -6,7 +6,7 @@ Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
 software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
 implemented. The optional Three.js backend currently covers the hotel storage
-room, stairwell, corridors and main hall. Broader visual parity and lettering work remain pending.
+room, stairwell, corridors, main hall and arcade. Broader visual parity and lettering work remain pending.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -404,7 +404,7 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-all hotel interiors also support Three.js. Other Three.js buttons stay disabled.
+all hotel interiors and the arcade also support Three.js. Other Three.js buttons stay disabled.
 Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.
@@ -521,3 +521,21 @@ manageable steps and verify boundary distances, facing, intervening walls,
 different floor heights and counter interactions. Prefer nearby candidate lists
 and simple distance checks before detailed raycasts rather than testing every
 mesh in the city for each interaction.
+
+### Arcade interior
+
+The arcade now defaults to Three.js on normal entry and supports state-preserving
+Canvas/WASM comparison in the debug menu. `three-arcade-scene.js` retains the
+existing room, cabinet fronts, labels, pinball, attendant, desk and bridge furniture
+as shared unlit geometry. Visitors use the shared nearest-filtered sprite meshes,
+reading the existing arcade life state; dropped items share the room depth buffer.
+Room resources are released on venue changes and cabinet sessions. Cabinet games
+continue using their existing renderers, and returning restores the arcade backend.
+WebGL startup failure includes the arcade in the Canvas fallback preferences.
+
+Validation: automated coverage checks default selection, room bounds, retained
+geometry, visitor updates/removal, seated camera pitch, dropped token removal and
+resource disposal. Chromium checks compare four fixed Canvas/Three.js views and
+exercise visitors, renderer switches, cabinet return, hotel/arcade/street travel
+and GPU cleanup. Polygon edges and a few overlapping cabinet decorations differ
+between backends; no performance improvement is claimed.

@@ -55,7 +55,7 @@ export function createInteriorGeometryBuilder(){
   return {build,dispose(){cube.dispose();colors.clear();}};
 }
 
-export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,background='#3a2d36'}){
+export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,background='#3a2d36'}){
   const scene=new THREE.Scene(),camera=createInteriorCamera();
   scene.background=new THREE.Color(background);
   const builder=createInteriorGeometryBuilder();
@@ -94,7 +94,7 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
     for(const [item,mesh] of dropped)if(!present.has(item)){
       scene.remove(mesh);mesh.geometry.dispose();dropped.delete(item);
     }
-    const guests=[...frame.hotelGuests,...(extras?.actors?.()??[])],presentActors=new Set();
+    const guests=[...(actorsFor(frame)??[]),...(extras?.actors?.()??[])],presentActors=new Set();
     for(const guest of guests){
       const key=guest.id??guest;presentActors.add(key);
       let mesh=actors.get(key);
