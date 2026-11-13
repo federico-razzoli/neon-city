@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createThreeSinkWater} from './three-sink-water.js';
 import {Reflector} from './vendor/three/Reflector.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
-import {LAVATORY,drawLavatory,drawLavatoryWater,drawCubicle,mirrorOf,playerSilhouetteContours} from './lavatory.js?v=staff-room-1';
+import {LAVATORY,drawLavatory,drawCubicle,mirrorOf,playerSilhouetteContours} from './lavatory.js?v=staff-room-1';
 import {bansheeFrame,drawBanshee} from './banshee.js?v=6';
 import {NATIVE_VIEW} from './render-camera.js';
 
-export function createThreeLavatoryScene({imageFor}={}){
+export function createThreeLavatoryScene({imageFor,now=()=>performance.now()/1000}={}){
   return createThreeInteriorScene({name:'lavatory',imageFor,
     drawRoom:helpers=>drawLavatory({...helpers,drawIndicators:false,drawMirrorGlass:false}),
     actorsFor:frame=>frame.lavatoryLife?.walker?[frame.lavatoryLife.walker]:[],
@@ -15,11 +16,7 @@ export function createThreeLavatoryScene({imageFor}={}){
         const mesh=new THREE.Mesh(builder.build(({box})=>box(c.x-c.halfWidth+.15,1.22,LAVATORY.depth-.1,.14,.06,.04,occupied?'#d23a32':'#3f9a4c')),material);
         mesh.name=`lavatory-flag-${i}-${occupied?'engaged':'vacant'}`;scene.add(mesh);return mesh;
       }));
-      // Water repeats every six ticks (two band colors and three splash sizes).
-      const water=LAVATORY.sinks.map((sink,i)=>Array.from({length:6},(_,tick)=>{
-        const mesh=new THREE.Mesh(builder.build(helpers=>drawLavatoryWater(helpers,sink,(tick+.1)/14)),material);
-        mesh.name=`lavatory-water-${i}-${tick}`;scene.add(mesh);return mesh;
-      }));
+      const water=createThreeSinkWater(LAVATORY.sinks);scene.add(water.group);
       const mirrors=LAVATORY.sinks.map((sink,i)=>{
         const m=mirrorOf(sink),geometry=new THREE.PlaneGeometry(m.z1-m.z0,m.y1-m.y0);
         const mirror=new Reflector(geometry,{textureWidth:640,textureHeight:360,multisample:0,clipBias:0,color:0x7f7f7f});
@@ -52,13 +49,12 @@ export function createThreeLavatoryScene({imageFor}={}){
       return {
         update(frame){
           flags.forEach((pair,i)=>pair.forEach((mesh,j)=>{mesh.visible=(frame.lavatoryOccupied[i]!==false)===!!j;}));
-          const tick=Math.floor(performance.now()/1000*14)%6;
-          water.forEach((frames,i)=>frames.forEach((mesh,j)=>{mesh.visible=!!frame.lavatoryTaps[i]&&j===tick;}));
+          water.update(frame.lavatoryTaps,now(),frame.running??true);
           silhouette.position.set(frame.player.x,frame.eye-1.65,-frame.player.z);
           silhouette.rotation.y=-frame.player.angle;
         },
         dispose(){
-          for(const mesh of [...flags.flat(),...water.flat()])mesh.geometry.dispose();
+          for(const mesh of flags.flat())mesh.geometry.dispose();water.dispose();
           for(const mirror of mirrors){mirror.geometry.dispose();mirror.dispose();}
           for(const mesh of silhouette.children)mesh.geometry.dispose();silhouetteMaterial.dispose();
         }

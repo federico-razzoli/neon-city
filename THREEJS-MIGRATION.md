@@ -593,9 +593,9 @@ and artwork; polygon-edge differences remain. No performance gain is claimed.
 The lavatory and cubicles now default to Three.js, with both destinations in the
 debug renderer menu. `three-lavatory-scene.js` retains the tiled rooms, doors,
 pictograms, basins, mirrors, toilet and paper roll. Door flags switch between
-retained red and green meshes using current occupancy. Running taps use six
-retained animation phases matching the original bands and splashes. Visitors
-and dropped objects use the shared interior depth buffer.
+retained red and green meshes using current occupancy. Three.js sink water uses
+retained translucent streams, small splash droplets and animated basin ripples;
+visitors and dropped objects use the shared interior depth buffer.
 
 Mirrors use the official Three.js 0.187.0 Reflector addon, bundled locally with
 an import-path adjustment. Each mirror renders the room, fixtures, visitors and
@@ -632,3 +632,23 @@ views. The old glass panels are omitted in Three.js and the clipping plane uses
 zero bias so they cannot cover the reflection at distant or oblique angles.
 The normal lavatory/cubicle gameplay and cleanup checks pass without page or
 shader errors.
+
+### Sink water appearance
+
+`three-sink-water.js` adds tapered translucent streams with descending highlights,
+five small low-poly splash droplets per sink, and spreading rings on a translucent
+basin surface. Unlit colors and the native viewport keep the pixel style. Closing
+a tap hides its stream immediately, lets the splashes fade, and settles the rings
+over 1.6 seconds. The calm basin retains a subtle water tint. The two sinks operate
+independently; pausing freezes their animation and settling.
+
+Geometry stays retained and shared where compatible. Frames update uniforms and
+droplet transforms, with no texture uploads or geometry rebuilding. Water uses the
+room depth buffer and appears in the existing Reflector mirrors. Scene exit disposes
+its geometry and materials. Canvas/WASM keeps the original water appearance.
+
+Validation: all 507 automated tests pass, including tap alignment, independent
+shutoff/settling, pause behavior, retained geometry and resource disposal. Chromium
+checks cover running, settling and calm close-up views, animated frame differences,
+mirrors, renderer switches, toilet seating, banshee phases, door transitions and
+GPU cleanup without page or shader errors. No performance improvement is claimed.

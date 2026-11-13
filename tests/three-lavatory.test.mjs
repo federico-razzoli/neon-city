@@ -15,11 +15,11 @@ test('lavatory retains its room, water and reflection geometry as flags, taps an
   const staticMesh=room.scene.getObjectByName('lavatory-room'),geometry=staticMesh.geometry;
   assert.equal(room.scene.getObjectByName('lavatory-flag-0-vacant').visible,true);
   assert.equal(room.scene.getObjectByName('lavatory-flag-1-engaged').visible,true);
-  assert.equal(room.scene.children.filter(o=>o.name.startsWith('lavatory-water')&&o.visible).length,0);
+  assert.equal([0,1].filter(i=>room.scene.getObjectByName(`lavatory-water-stream-${i}`).visible).length,0);
   const mirror=room.scene.getObjectByName('lavatory-mirror-0'),mirrorGeometry=mirror.geometry;
   state.player={x:6,z:2.35,angle:Math.PI/2};state.lavatoryTaps=[true,true];state.lavatoryOccupied[0]=true;room.update(state);
   assert.equal(room.scene.getObjectByName('lavatory-flag-0-engaged').visible,true);
-  assert.equal(room.scene.children.filter(o=>o.name.startsWith('lavatory-water')&&o.visible).length,2);
+  assert.equal([0,1].filter(i=>room.scene.getObjectByName(`lavatory-water-stream-${i}`).visible).length,2);
   assert.equal(mirror.isReflector,true);assert.equal(mirror.geometry,mirrorGeometry);assert.equal(staticMesh.geometry,geometry);
   state.player.z=5;room.update(state);assert.equal(mirror.geometry,mirrorGeometry);room.dispose();
 });
@@ -71,4 +71,24 @@ test('Reflector mirrors the camera through the glass and shows the player only i
   assert.ok(Math.abs(reflected.position.x-(2*mirror.position.x-5))<1e-6);assert.ok(Math.abs(reflected.position.z+2.7)<1e-6);assert.equal(body.position.x,5);assert.equal(body.rotation.y,-1);assert.equal(body.children[0].geometry,geometry);
   let released=0;for(const current of [mirror,other])current.getRenderTarget().addEventListener('dispose',()=>released++);
   room.dispose();room.dispose();assert.equal(released,2);
+});
+
+test('sink water aligns with the taps, animates retained meshes and settles independently after shutoff',async()=>{
+  const {createThreeSinkWater}=await import('../neon-city/three-sink-water.js');
+  const {tapStream}=await import('../neon-city/lavatory.js');
+  const water=createThreeSinkWater(LAVATORY.sinks),stream=water.group.getObjectByName('lavatory-water-stream-0'),basin=water.group.getObjectByName('lavatory-water-basin-0');
+  const streamGeometry=stream.geometry,basinGeometry=basin.geometry,flow=tapStream(LAVATORY.sinks[0]);
+  water.update([true,false],0);assert.equal(stream.visible,true);assert.equal(stream.position.x,flow.x);assert.equal(stream.position.z,-flow.z);
+  assert.ok(Math.abs(stream.position.y+stream.scale.y/2-flow.top)<1e-9);
+  assert.equal(stream.material.transparent,true);assert.equal(stream.material.depthWrite,false);assert.equal(basin.material.uniforms.activity.value,1);
+  const second=water.group.getObjectByName('lavatory-water-basin-1');assert.equal(second.material.uniforms.activity.value,0);
+  water.update([true,false],.4);assert.ok(stream.material.uniforms.time.value>0);assert.equal(stream.geometry,streamGeometry);assert.equal(basin.geometry,basinGeometry);
+  const drop=water.group.getObjectByName('lavatory-water-drop-0-0');assert.equal(drop.visible,true);
+  assert.ok(drop.position.y>.942&&drop.position.y<1.08);
+  water.update([false,true],.5);assert.equal(stream.visible,false);assert.ok(basin.material.uniforms.activity.value>0&&basin.material.uniforms.activity.value<1);
+  water.update([false,true],1.1);assert.equal(drop.visible,false);assert.ok(basin.material.uniforms.activity.value>0);
+  const activity=basin.material.uniforms.activity.value,time=basin.material.uniforms.time.value;
+  water.update([false,true],20,false);assert.equal(basin.material.uniforms.activity.value,activity);assert.equal(basin.material.uniforms.time.value,time);
+  water.update([false,true],22);assert.equal(basin.material.uniforms.activity.value,0);assert.equal(second.material.uniforms.activity.value,1);
+  assert.equal(basin.visible,true);assert.equal(stream.geometry,streamGeometry);water.dispose();
 });
