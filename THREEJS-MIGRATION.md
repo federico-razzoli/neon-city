@@ -174,3 +174,48 @@ before deciding how to expand the migration.
 
 Three.js reference: [official documentation](https://threejs.org/docs/), including
 `CanvasTexture` for reusing canvas artwork.
+
+## Debug destination and renderer menu
+
+Add a debug mode controlled by a code constant, `DEBUG_MODE`. Keep it enabled in
+the repository. Setting the constant to false must disable the debug shortcut
+and menu.
+
+While debug mode is enabled, typing `QWERTY` during gameplay opens a destination
+menu. Ignore the sequence in text input fields and during arcade cabinet
+sessions, where those letters may serve another purpose. Opening the menu pauses
+gameplay and clears held movement keys.
+
+List every game interior, the initial street, the riverside and the nearest park
+as destination rows. Provide two renderer selection columns:
+
+- **Canvas/WASM:** enter the destination using the existing renderer.
+- **Three.js:** enter using the new renderer where that destination is supported.
+  Keep unsupported entries visibly disabled until their implementation is
+  available.
+
+Selecting a destination must use normal scene setup so NPCs, objects and
+interactions are initialized correctly. Entering a different destination uses a
+fixed starting viewpoint suitable for repeatable testing. For the nearest park,
+resolve the destination relative to the player's location when opening the menu.
+
+When switching renderers for the same destination, preserve the camera and scene
+state wherever possible so visual comparisons use equivalent conditions. The
+menu should make both scene testing and old/new renderer comparisons available
+without editing code or checking out another revision.
+
+### Debug state controls
+
+Include the following controls in the debug menu, all governed by `DEBUG_MODE`:
+
+- **Money:** enter and apply a wallet balance, updating the normal money display.
+- **Inventory:** open an object picker and select objects to add magically to
+  the inventory through the normal inventory logic, without requiring collection
+  in the world.
+- **Game event register:** inspect the current global event register and add,
+  edit or delete its keys and values. Preserve supported value types and validate
+  edits before applying them.
+
+The event editor must display current values and require an explicit **Apply**
+action so partially typed changes do not affect gameplay. Text entry in these
+controls must not trigger movement, gameplay shortcuts or the `QWERTY` sequence.
