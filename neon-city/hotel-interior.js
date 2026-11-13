@@ -372,7 +372,7 @@ export function drawHotelDoubleDoor(box,x,y,z,look,facing=-1){
 }
 
 // The lobby in the hotel's own colours (see hotelLook), empty but for the receptionist.
-export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false,lampTaken=false,receptionistPosition=HOTEL.receptionist}){
+export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_JOY,lampOn=false,lampTaken=false,receptionistPosition=HOTEL.receptionist,drawReceptionist=true}){
   const look=hotelInteriorLook(facade);
   const {width:W,depth:D,height:H}=HOTEL;
   const cylinder=(...args)=>drawCylinder(face,...args);
@@ -483,7 +483,7 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
       face([point(r,a,.085),point(next,b,.087),point(next*.65,b,.11),point(r*.65,a,.108)],i%3?'#b12b48':'#e3637a');
     }
   }
-  drawStaff({face,box},at,receptionist);
+  if(drawReceptionist)drawStaff({face,box},at,receptionist);
 
   // A velvet sofa against the west wall, facing the hall.
   const sofa=HOTEL.sofa;

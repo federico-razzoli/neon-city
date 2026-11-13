@@ -6,7 +6,7 @@ Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
 software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
 implemented. The optional Three.js backend currently covers the hotel storage
-room, stairwell and corridors. Broader visual parity and lettering work remain pending.
+room, stairwell, corridors and main hall. Broader visual parity and lettering work remain pending.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -218,8 +218,8 @@ Completion criterion for each interior: visual comparison, working entry and
 exit, correct occlusion, and unchanged interactions with objects and characters.
 
 **Hotel stairwell implemented.** Three.js is the default for both the storage
-room, stairwell and corridors; Canvas/WASM remains available in the debug menu
-with independent choices per location. The lobby retains Canvas.
+room, stairwell, corridors and main hall; Canvas/WASM remains available in the
+debug menu with independent choices per location.
 
 - [three-interior-scene.js](neon-city/three-interior-scene.js) shares the retained
   camera, geometry adapter, dropped-object meshes, guest artwork and resource
@@ -234,7 +234,7 @@ with independent choices per location. The lobby retains Canvas.
   overlay. Its mesh follows the same per-hotel `taken` state and wallet logic.
   Dropped items retain their tread/landing heights and room identity.
 - One WebGL renderer/context serves both rooms. Stairwell/storage transitions
-  release the previous scene's resources before building the next. Lobby
+  release the previous scene's resources before building the next. Street
   transitions return to Canvas and release scene-owned GPU resources. Movement,
   collisions, doors, guest routines, cash pickup and the light-switch event use
   the existing gameplay code.
@@ -270,7 +270,7 @@ room replies, window opening/reversal, leaning, viewing pitch and guest routines
   drawn behind the WebGL world, so no separate world-overlay canvas or depth
   readback is required.
 - Returning to the stairwell changes the retained scene within the same renderer;
-  leaving converted interiors releases GPU resources and uses Canvas. Floor,
+  leaving the hotel releases GPU resources and uses Canvas. Floor,
   window state, viewpoint and gameplay survive explicit renderer comparisons.
 
 Validation: seven fixed Canvas/Three.js views cover corridor entry, room numbering,
@@ -281,6 +281,37 @@ normal stairwell exit, without page or shader errors. Automated checks cover
 window hinge transforms, retained pedestrian/vehicle meshes, floor-dependent
 scenery and drops, source UVs, bounded sky updates and resource disposal. No new
 performance benchmark is claimed for this interior.
+
+**Hotel hall (lobby) implemented.** All hotel interiors now use Three.js by
+default, including ordinary street entry. The hall is still labeled **Hotel lobby**
+in the debug menu; Canvas/WASM remains available for comparison.
+
+- [three-hall-scene.js](neon-city/three-hall-scene.js) retains the existing hall
+  geometry and per-hotel finishes: floor and carpet, reception desk and keys,
+  bell, roses, sofa, palms, lift, chandelier, staircase and upper landing.
+- Both existing receptionist models use the shared `drawStaff` geometry, built
+  once and translated with the persistent receptionist position. Her lamp trip
+  reads the existing gameplay routine; changing the receptionist type rebuilds
+  only her own geometry.
+- The desk lamp has retained on/off meshes and a marble glow, updated from the
+  existing `lampOn` and `lampTaken` flags. Taking the lamp hides these meshes;
+  returning to the hall retains its collected state. The static-room helper can
+  omit the lamp and receptionist while preserving the Canvas defaults.
+- Guests and dropped objects use the shared interior machinery, including their
+  heights on the staircase and landing. Dialogue, bell sounds, sofa seating,
+  collisions, lamp interaction and doors continue to use the existing game state.
+  Hall/stairwell transitions reuse one WebGL renderer, and street exit releases
+  scene-owned GPU resources and returns to Canvas.
+
+Validation: eight fixed Canvas/Three.js views cover entry, reception, lamp off/on,
+the blonde receptionist, sofa, landing and chandelier. Chromium checks passed for
+normal default selection, guests, sitting/standing, the bell, receptionist
+conversation, five lamp shutoff routines and lamp collection, renderer switching,
+climbing the hall stairs, both door transitions and resource cleanup, without
+page or shader errors. Automated tests cover retained hall geometry and camera
+height, receptionist movement/type changes, lamp persistence and geometry reuse,
+elevated guests/drops, resource disposal and unchanged Canvas drawing defaults.
+No new performance benchmark is claimed for this interior.
 
 ### 5. Migrate the street renderer
 
@@ -373,7 +404,7 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-the storage room, stairwell and corridors also support Three.js. Other Three.js buttons stay disabled.
+all hotel interiors also support Three.js. Other Three.js buttons stay disabled.
 Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.
