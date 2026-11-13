@@ -134,6 +134,9 @@ const TORSO=[
   [-.265,.9],[-.27,1.08],[-.255,1.27],[-.241,1.325],
   [-.218,1.36],[-.177,1.382],[-.105,1.405]
 ];
+// Shared outline for the Canvas mirror and the Three.js reflection-only body.
+export function playerSilhouetteContours(){return [HEAD,NECK,TORSO];}
+
 // Keeps the part of a polygon, given as [z, y] points, inside a mirror.
 function clipToMirror(points,m){
   for(const [axis,limit,keepAbove] of [[0,m.z0,true],[0,m.z1,false],[1,m.y0,true],[1,m.y1,false]]){
@@ -199,7 +202,7 @@ function drawDoor({face,box},x,z,halfWidth,south){
   box(x+s*(halfWidth-.22)-.06,1.,south?z+.06:z-.12,.12,.16,.06,'#d9b671');
 }
 
-export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time=0}){
+export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time=0,drawIndicators=true,drawMirrorGlass=true}){
   const {width:W,depth:D,height:H}=LAVATORY;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const door=(...args)=>drawDoor({face,box},...args);
@@ -209,7 +212,7 @@ export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time
   for(const c of LAVATORY.cubicles){
     door(c.x,D,c.halfWidth,false);
     // A red ENGAGED or green VACANT flag just above the handle.
-    box(c.x-c.halfWidth+.15,1.22,D-.1,.14,.06,.04,isOccupied(c,occupied)?'#d23a32':'#3f9a4c');
+    if(drawIndicators)box(c.x-c.halfWidth+.15,1.22,D-.1,.14,.06,.04,isOccupied(c,occupied)?'#d23a32':'#3f9a4c');
     // The cubicle's pictogram, white on a coloured plate.
     const rows=ICONS[c.icon],size=.032,z=D-.09,width=rows[0].length*size,top=1.98,bottom=top-rows.length*size;
     box(c.x-width/2-.06,bottom-.07,z+.01,width+.12,top-bottom+.14,.02,SIGN_COLORS[c.icon]);
@@ -230,7 +233,7 @@ export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time
     for(const dz of [-.12,.12])cylinder(s.x+s.w-.09,.94,cz+dz,.03,.05,'#c6ccd0',dz<0?'#4f7fc0':'#c8484a');
     box(W-.03,1.25,s.z-.05,.03,.85,s.d+.1,'#7c6a52');
     const m=mirrorOf(s);
-    box(m.x,m.y0,m.z0,.02,m.y1-m.y0,m.z1-m.z0,'#8ea2ac');
+    if(drawMirrorGlass)box(m.x,m.y0,m.z0,.02,m.y1-m.y0,m.z1-m.z0,'#8ea2ac');
     if(viewer)for(const points of mirrorSilhouette(viewer,m))face(points,'#0b0b10');
     if(taps[LAVATORY.sinks.indexOf(s)])drawRunningWater({quad,cylinder},s,time);
   }
@@ -241,6 +244,10 @@ export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time
 // An open tap: a column of water, thinning as it falls, with bright and dark
 // bands sliding down it, splashing into a shallow pool in the basin.
 const WATER=['#eaf7fc','#5fa9c9'];
+export function drawLavatoryWater({face,quad},sink,time){
+  drawRunningWater({quad,cylinder:(...args)=>drawCylinder(face,...args)},sink,time);
+}
+
 function drawRunningWater({quad,cylinder},sink,time){
   const {x,z,top,bottom}=tapStream(sink),bands=5,band=(top-bottom)/bands,shift=Math.floor(time*14);
   for(let i=0;i<bands;i++){

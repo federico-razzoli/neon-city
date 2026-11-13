@@ -474,7 +474,7 @@ function render(){
   const destination=debugScene(),rendererChoice=rendererPreferences.get(destination);
   if(supportsRenderer(destination,'three')&&rendererChoice==='three'&&!threeRenderer&&!threeRendererLoading){
     prepareThreeRenderer().then(()=>{painted=false;}).catch(error=>{
-      for(const id of ['hotel','storage','stairs','corridor','arcade','bookshop','pub'])rendererPreferences.set(id,'canvas');painted=false;
+      for(const id of ['hotel','storage','stairs','corridor','arcade','bookshop','pub','lavatory','cubicle'])rendererPreferences.set(id,'canvas');painted=false;
       if(supportsRenderer(debugScene(),'three')){notice=5;noticeText=error.message;}
     });
   }

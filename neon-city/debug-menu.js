@@ -7,7 +7,7 @@ import {BLOCK,RIVER_ROWS} from './world.js?v=start-pub-1';
 export const DEBUG_MODE=true;
 // Clear promenade between the road and river, away from the signposts.
 export const DEBUG_RIVERSIDE_SPAWN={x:32,z:RIVER_ROWS[0]*BLOCK+16,angle:0};
-export const DEBUG_DESTINATIONS=[['initial','Initial street'],['river','Riverside'],['park','Nearest park'],['pub','Pub'],['lavatory','Pub lavatory'],['hotel','Hotel lobby'],['stairs','Hotel stairwell'],['storage','Hotel storage room'],['corridor','Hotel corridor'],['arcade','Arcade'],['bookshop','Midnite Books']];
+export const DEBUG_DESTINATIONS=[['initial','Initial street'],['river','Riverside'],['park','Nearest park'],['pub','Pub'],['lavatory','Pub lavatory'],['cubicle','Pub cubicle'],['hotel','Hotel lobby'],['stairs','Hotel stairwell'],['storage','Hotel storage room'],['corridor','Hotel corridor'],['arcade','Arcade'],['bookshop','Midnite Books']];
 export function parseEvents(text){
   const value=JSON.parse(text);
   if(value===null||Array.isArray(value)||typeof value!=='object')throw new Error('The event register must be a JSON object.');
@@ -38,7 +38,7 @@ export function createDebugMenu(api){
     </div>
     <section role="tabpanel" id="debug-panel-locations" aria-labelledby="debug-tab-locations">
     <table><caption>Destination and renderer</caption><thead><tr><th>Destination</th><th>Canvas/WASM</th><th>Three.js</th></tr></thead><tbody></tbody></table>
-    <p>Three.js is available for the pub bar and lounge, Midnite Books, the arcade, hotel hall, corridors, stairwell and storage room. Switching renderers preserves the current viewpoint and scene state.</p>
+    <p>Three.js is available for the pub bar, lounge, lavatory and cubicles, Midnite Books, the arcade, hotel hall, corridors, stairwell and storage room. Switching renderers preserves the current viewpoint and scene state.</p>
     </section>
     <section role="tabpanel" id="debug-panel-inventory" aria-labelledby="debug-tab-inventory" hidden>
     <fieldset><legend>Money</legend><label>Balance (£) <input id="debug-money" inputmode="decimal"></label> <button type="button" id="debug-money-apply">Apply money</button></fieldset>

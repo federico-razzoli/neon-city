@@ -8,9 +8,12 @@ import {createThreeCorridorScene} from './three-corridor-scene.js';
 import {createThreeArcadeScene} from './three-arcade-scene.js';
 import {createThreeBookshopScene} from './three-bookshop-scene.js';
 import {createThreePubScene} from './three-pub-scene.js';
+import {createThreeLavatoryScene,createThreeCubicleScene} from './three-lavatory-scene.js';
 import {createThreeHallScene} from './three-hall-scene.js';
 
 function createScene(destination,hotel,floor){
+  if(destination==='lavatory')return createThreeLavatoryScene();
+  if(destination==='cubicle')return createThreeCubicleScene();
   if(destination==='pub')return createThreePubScene();
   if(destination==='bookshop')return createThreeBookshopScene();
   if(destination==='arcade')return createThreeArcadeScene();
@@ -28,8 +31,8 @@ export function createThreeHotelRenderer(canvas){
   function leave(){if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
   return {
     render(frame){
-      const nextDestination=frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
-      const nextHotel=['arcade','bookshop','pub'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
+      const nextDestination=frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
+      const nextHotel=['arcade','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
       const nextFloor=nextDestination==='corridor'?frame.hotelStairs.floor:null;
       if(!room||hotel!==nextHotel||destination!==nextDestination||floor!==nextFloor){
         leave();
@@ -37,7 +40,9 @@ export function createThreeHotelRenderer(canvas){
         hotel=nextHotel;destination=nextDestination;floor=nextFloor;
       }
       profilePhase('neon:three:update',()=>room.update(frame));
-      profilePhase('neon:three:render',()=>renderer.render(room.scene,room.camera));
+      profilePhase('neon:three:render',()=>{
+        renderer.render(room.scene,room.camera);room.renderOverlay?.(renderer,frame);
+      });
     },
     leave,
     dispose(){leave();renderer.dispose();},

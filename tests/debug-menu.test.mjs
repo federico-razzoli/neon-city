@@ -4,7 +4,7 @@ import {DEBUG_MODE,DEBUG_DESTINATIONS,DEBUG_RIVERSIDE_SPAWN,parseEvents,walletPe
 
 test('debug destinations cover implemented scenes and debug mode defaults on',()=>{
   assert.equal(DEBUG_MODE,true);
-  assert.equal(new Set(DEBUG_DESTINATIONS.map(([id])=>id)).size,11);
+  assert.equal(new Set(DEBUG_DESTINATIONS.map(([id])=>id)).size,12);
 });
 test('wallet edits preserve exact pence and reject invalid balances',()=>{
   assert.equal(walletPence('123.45'),12345);

@@ -6,7 +6,7 @@ Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
 software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
 implemented. The optional Three.js backend currently covers the hotel storage
-room, stairwell, corridors, main hall, arcade, Midnite Books and the pub bar/lounge. Broader visual parity and lettering work remain pending.
+room, stairwell, corridors, main hall, arcade, Midnite Books and the pub bar, lounge, lavatory and cubicles. Broader visual parity and lettering work remain pending.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -404,7 +404,7 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-all hotel interiors, the arcade, Midnite Books and the pub bar/lounge also support Three.js. Other Three.js buttons stay disabled.
+all hotel interiors, the arcade, Midnite Books and all pub interiors also support Three.js. Other Three.js buttons stay disabled.
 Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.
@@ -587,3 +587,48 @@ connecting-arch traversal, a walking patron, tap replies, bartender conversation
 state-preserving renderer switches, toilet and street doors, re-entry and GPU
 cleanup, with no page or shader errors. Sampled views retain the painted palette
 and artwork; polygon-edge differences remain. No performance gain is claimed.
+
+### Pub lavatory and cubicles
+
+The lavatory and cubicles now default to Three.js, with both destinations in the
+debug renderer menu. `three-lavatory-scene.js` retains the tiled rooms, doors,
+pictograms, basins, mirrors, toilet and paper roll. Door flags switch between
+retained red and green meshes using current occupancy. Running taps use six
+retained animation phases matching the original bands and splashes. Visitors
+and dropped objects use the shared interior depth buffer.
+
+Mirrors use the official Three.js 0.187.0 Reflector addon, bundled locally with
+an import-path adjustment. Each mirror renders the room, fixtures, visitors and
+dropped items from a reflected camera, preserving perspective during approach,
+sideways movement and turning. A simple dark player body reuses the original head,
+neck and torso outlines, with shallow extrusion and legs. It follows the player's
+position and heading on a separate camera layer, visible only in reflections.
+The Canvas mirror keeps its original clipped silhouette.
+
+Each mirror owns a 640 × 360 nearest-filtered render target without multisampling.
+Other mirror surfaces are hidden during the reflection pass to prevent recursive
+renders. Body geometry is retained, and mirror render targets, materials and
+geometry are disposed on exit. Reflector adds scene rendering work; no frame-time
+improvement is claimed.
+
+Cubicle seating keeps the existing camera height, pitch and flush interaction.
+The banshee event uses the original timing and portrait artwork, drawn into a
+scene-owned screen texture and composited after the room. The overlay restores
+the renderer's clear state and releases its GPU resources on exit. Normal doors
+switch between pub, lavatory, cubicle and street with the existing gameplay state.
+WebGL startup failure includes both new destinations in the Canvas fallback.
+
+Automated checks cover default renderer selection, debug destinations, retained
+room and animated geometry, occupancy, taps, silhouettes, visitors, drops, seated
+camera, banshee composition and resource disposal. Chromium checks compare four
+fixed Canvas/Three.js views and exercise renderer switching, taps, visitors,
+toilet seating, the banshee phases, normal door transitions and GPU cleanup.
+
+Reflector validation: all 501 automated tests pass. Mirror camera tests verify
+reflection across the glass plane, movement, reflection-only player visibility,
+bounded mirror passes, retained body geometry and render-target disposal.
+Chromium comparisons additionally cover near/far, sideways, turned and second-mirror
+views. The old glass panels are omitted in Three.js and the clipping plane uses
+zero bias so they cannot cover the reflection at distant or oblique angles.
+The normal lavatory/cubicle gameplay and cleanup checks pass without page or
+shader errors.
