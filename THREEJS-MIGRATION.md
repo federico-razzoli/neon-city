@@ -64,7 +64,7 @@ Completion criterion: the player can enter, use and leave the storage room with
 either renderer, with matching interactions and no changes to the rest of the
 game's rendering.
 
-### 3. Establish visual parity
+### 3. Establish visual parity and improve lettering
 
 Preserve the native pixel grid, palette, fog and existing artwork. Use unlit
 materials where appropriate to retain the existing painted colours. Existing
@@ -76,8 +76,40 @@ surfaces and camera conventions. Built-in fog may need adaptation to match the
 existing depth-based effect. Exact pixel identity is not assumed, but visible
 differences should be understood and reviewed.
 
+Treat lettering readability as an explicit improvement in this stage, then apply
+the approach to signs and labels as each interior and street scene is migrated.
+Preserve the game's pixel aesthetic without requiring reproduction of existing
+lettering defects.
+
+Three.js provides texture filtering, mipmaps and anisotropic filtering that can
+reduce shimmering and improve textured lettering viewed at oblique angles.
+These tools do not automatically repair poor source typography: letter shapes,
+spacing, contrast, margins and source texture resolution still need attention.
+The low world-rendering resolution also limits readable detail; increasing a
+texture's resolution alone cannot make tiny on-screen letters legible.
+
+- **World signs and labels:** improve source typography and generate textures at
+  a suitable resolution. Tune magnification, minification and anisotropic
+  filtering per asset, checking frontal and oblique views at several distances.
+  Balance smooth sampling against preserving the intended pixel appearance.
+- **Raised lettering:** consider Three.js `TextGeometry` where actual geometric
+  letters suit the sign. It generates letter geometry from a loaded font, but
+  is unnecessary for most flat signs and does not remove the screen-resolution
+  limit.
+- **Menus and dialogue:** use browser text where practical so interface
+  readability can be independent of the world's pixel resolution. Existing DOM
+  text can remain in place; Canvas cabinet interfaces can be assessed separately.
+
+Use representative signs and labels to establish reusable typography and
+sampling choices before applying them widely. Keep text assets reusable under
+the resource-sharing rules below. Reference the official documentation for
+[texture filtering](https://threejs.org/docs/pages/Texture.html) and
+[TextGeometry](https://threejs.org/docs/pages/TextGeometry.html).
+
 Completion criterion: fixed camera comparisons establish an acceptable visual
-baseline and identify any deliberate differences.
+baseline and identify any deliberate differences. Representative lettering is
+reviewed for readability, spacing and stability during movement, including
+oblique views, without an unintended change to the game's overall appearance.
 
 ### 4. Migrate interiors individually
 
