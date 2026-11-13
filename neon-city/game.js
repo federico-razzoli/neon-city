@@ -35,6 +35,7 @@ import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stair
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade} from './arcade-interior.js?v=pinball-9';
 import {ArcadeLife} from './arcade-life.js?v=arcade-visitors-4';
+import {CubicleKnockEvent,rollCubicleKnock,loadCubicleKnock,KNOCK_EXIT_TEXT} from './cubicle-knock.js';
 import {rollBanshee,bansheeFrame,playBansheeScream} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
@@ -111,12 +112,13 @@ async function playCabinet(name,machine){
     closeCabinet();notice=3.5;noticeText='THIS GAME COULD NOT BE LOADED. PLEASE TRY AGAIN.';
   }
 }
-let banshee=null,bansheeMisses=0,staffTalk=null;
+let banshee=null,bansheeMisses=0,staffTalk=null,cubicleKnock=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insideBookshop||insideArcade||insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
 // The pub's TOILET door leads to its lavatory, where a free cubicle opens.
 function useDoor(){
+  let exitReaction='';
   if(insideHotel&&hotelCorridor){
     if(!facingCorridorExit(player))return false;
     Object.assign(player,{x:4,z:HOTEL_STAIRWELL.depth-1.2,angle:Math.PI});hotelCorridor=false;
@@ -135,11 +137,27 @@ function useDoor(){
   }else if(insidePub&&facingToiletDoor(player)){Object.assign(player,LAVATORY.spawn);insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();lavatoryLife=new LavatoryLife();lavatoryTaps=LAVATORY.sinks.map(()=>false);}
   else if(insideLavatory){
     const cubicle=facingVacantCubicle(player,lavatoryOccupied);
-    if(cubicle){Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;if(rollBanshee(Math.random,bansheeMisses)){bansheeMisses=0;banshee={started:performance.now()};register.PUB_PARANORMAL_ACTIVITIES=true;playBansheeScream(audioContext,2);}else bansheeMisses++;}
+    if(cubicle){
+      Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;
+      if(rollBanshee(Math.random,bansheeMisses)){
+        bansheeMisses=0;banshee={started:performance.now()};register.PUB_PARANORMAL_ACTIVITIES=true;playBansheeScream(audioContext,2);
+      }else{
+        bansheeMisses++;
+        if(rollCubicleKnock()){
+          cubicleKnock=new CubicleKnockEvent();register.PUB_PARANORMAL_ACTIVITIES=true;
+          // No visible source for the voice, including a waiting lavatory robot.
+          lavatoryLife.walker=null;lavatoryLife.held=false;
+        }
+      }
+    }
     else if(facingLavatoryExit(player)){Object.assign(player,{x:PUB.toiletDoor.x,z:PUB.toiletDoor.z-.9,angle:Math.PI});insideLavatory=false;insidePub=true;}
     else return false;
   }else if(insideCubicle){
     if(!facingCubicleExit(player))return false;
+    if(cubicleKnock){
+      cubicleKnock.dispose();cubicleKnock=null;exitReaction=KNOCK_EXIT_TEXT;
+      lavatoryLife.wait=Math.max(lavatoryLife.wait,8);
+    }
     Object.assign(player,outsideCubicle(insideCubicle));insideCubicle=null;insideLavatory=true;
   }else if(indoors()){
     if(!(insideBookshop?facingBookshopExit(player):insideArcade?facingArcadeExit(player):insidePub?facingPubExit(player):facingHotelExit(player)))return false;
@@ -161,7 +179,9 @@ function useDoor(){
     if(!pub&&!hotel&&!arcade&&!bookshop)return false;
     enterVenue(pub||hotel||arcade||bookshop);
   }
-  keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=0;shake=0;steps=0;arcadeAmbience.mute();parkBirds.mute();
+  keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=exitReaction?5:0;shake=0;steps=0;
+  if(exitReaction){noticeText=exitReaction;document.querySelector('#message').textContent=exitReaction;}
+  arcadeAmbience.mute();parkBirds.mute();
   return true;
 }
 function enterVenue(venue){
@@ -415,6 +435,7 @@ function enableSound(){
     audioContext??=new AudioContext();
     audioContext.resume().catch(()=>{});
     loadCoverGrunt(audioContext);
+    loadCubicleKnock(audioContext);
     ouchLoading??=fetch(new URL('./assets/ouch-short.wav',import.meta.url))
       .then(response=>{if(!response.ok)throw new Error('Sound unavailable');return response.arrayBuffer();})
       .then(data=>audioContext.decodeAudioData(data))
@@ -487,6 +508,7 @@ function render(){
 function debugScene(){return insideBookshop?'bookshop':insideArcade?'arcade':insideHotel?(hotelStorage?'storage':hotelCorridor?'corridor':hotelStairs?'stairs':'hotel'):insideCubicle?'cubicle':insideLavatory?'lavatory':insidePub?'pub':'street';}
 function debugTravel(id,park){
   if(id===debugScene()||id==='initial'&&!indoors()&&player.x===START.x&&player.z===START.z)return;
+  cubicleKnock?.dispose();cubicleKnock=null;
   const origin=indoors()?streetPosition:player;
   const signs={pub:'NEON PUB',lavatory:'NEON PUB',cubicle:'NEON PUB',hotel:'HOTEL',stairs:'HOTEL',storage:'HOTEL',corridor:'HOTEL',arcade:'ARCADE',bookshop:'MIDNITE BOOKS'};
   let venue;
@@ -531,7 +553,7 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
     return path?{...path[0],angle:Math.atan2(path[1].x-path[0].x,path[1].z-path[0].z)}:{x:x*64+12,z:z*64+32,angle:Math.PI/2};
   },travel:selectDebugDestination,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
 }):null;
-function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;seatedTexturePrewarmer.cancel();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();seatedTexturePrewarmer.cancel();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 let hotelEventPresses=0,hotelEventKey=null;
@@ -742,6 +764,7 @@ function tick(now){
     document.querySelector('#message').textContent='';
     if(!bansheeFrame((now-banshee.started)/1000).active){banshee=null;notice=3.5;noticeText='WTF WAS THAT??...';}
   }
+  cubicleKnock?.update(elapsed,audioContext,Boolean(running&&insideCubicle&&!pubMenu.open&&!inventoryBox.open&&!staffTalk&&!debugMenu?.open&&browserFocused));
   if(running&&insideArcade)arcadeLife?.update(cameraDt,player,arcadePlayerMachine,Boolean(staffTalk));
   if(running&&ping)ping.update(ping.kind==='amigos'?elapsed:cameraDt,(ping.kind==='pinball'?(keys.has('ArrowDown')?1:0):(keys.has('ArrowDown')||keys.has('s')?1:0)-(keys.has('ArrowUp')||keys.has('w')?1:0)),(ping.kind==='punch'||ping.kind==='frog'||ping.kind==='kong'||ping.kind==='meteors'||ping.kind==='byker')?(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0):0,ping.kind==='punch'?false:keys.has(' '),keys.has('ArrowLeft')||keys.has('a'),keys.has('ArrowRight')||keys.has('d'));
   if(ping?.crossed||ping?.won)keys.clear();
@@ -788,7 +811,7 @@ function tick(now){
       document.querySelector('#location').textContent=`${currentPubName} / LAVATORY`;
     }else if(insideCubicle){
       if(!playerSeat)moveInCubicle(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
-      document.querySelector('#message').textContent=notice?noticeText:'';
+      document.querySelector('#message').textContent=cubicleKnock?.text||(notice?noticeText:'');
       document.querySelector('#location').textContent=`${currentPubName} / ${insideCubicle.icon.toUpperCase()}`;
     }else if(insideBookshop){
       bookshopLife.update(dt,player,playerSeat?.bookshopChair);
