@@ -21,7 +21,7 @@ export function drawPineConeGeometry(cone,face,viewer){
   for(let k=0;k<geometry.length;k+=23){
     if(geometry[k+4]<0)continue;
     const x=cone.x+geometry[k+5],y=ground+geometry[k+6],z=cone.z+geometry[k+7];
-    if((viewer.x-x)*geometry[k+1]+(viewer.y-y)*geometry[k+2]+(viewer.z-z)*geometry[k+3]<=0)continue;
+    if(viewer&&((viewer.x-x)*geometry[k+1]+(viewer.y-y)*geometry[k+2]+(viewer.z-z)*geometry[k+3]<=0))continue;
     const vertices=[];
     for(let i=0;i<geometry[k];i++){
       const v=k+5+i*3;

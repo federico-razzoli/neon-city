@@ -1,0 +1,22 @@
+{
+  "spawn": {
+    "changedPixels": 509,
+    "totalPixels": 230400,
+    "meanAbsoluteChannelError": 0.17473234953703703
+  },
+  "note": {
+    "changedPixels": 12,
+    "totalPixels": 230400,
+    "meanAbsoluteChannelError": 0.001673900462962963
+  },
+  "crate": {
+    "changedPixels": 40,
+    "totalPixels": 230400,
+    "meanAbsoluteChannelError": 0.007054398148148148
+  },
+  "exit": {
+    "changedPixels": 360,
+    "totalPixels": 230400,
+    "meanAbsoluteChannelError": 0.058333333333333334
+  }
+}

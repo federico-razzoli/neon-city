@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {PINE_CONE,LADYBUG,FLOWER,LAMP,PASTIS_BOTTLE,MARIJUANA_PLANT,TICKET,HOTEL_NOTE,arcadeTokens} from './inventory.js';
+import {supportsRenderer} from './renderer-support.js';
 import {BACKPACK} from './backpack.js';
 import {BLOCK,RIVER_ROWS} from './world.js?v=start-pub-1';
 
@@ -37,7 +38,7 @@ export function createDebugMenu(api){
     </div>
     <section role="tabpanel" id="debug-panel-locations" aria-labelledby="debug-tab-locations">
     <table><caption>Destination and renderer</caption><thead><tr><th>Destination</th><th>Canvas/WASM</th><th>Three.js</th></tr></thead><tbody></tbody></table>
-    <p>Three.js destinations will become available as their renderers are implemented.</p>
+    <p>Three.js is available for the hotel storage room. Selecting its other renderer preserves the current viewpoint and scene state.</p>
     </section>
     <section role="tabpanel" id="debug-panel-inventory" aria-labelledby="debug-tab-inventory" hidden>
     <fieldset><legend>Money</legend><label>Balance (£) <input id="debug-money" inputmode="decimal"></label> <button type="button" id="debug-money-apply">Apply money</button></fieldset>
@@ -67,13 +68,27 @@ export function createDebugMenu(api){
       event.preventDefault();selectTab(tabs[next]);tabs[next].focus();
     });
   }
-  let park,sequence='';
+  let park,sequence='',pending=false;
+  const destinationButtons=[];
   for(const [id,label] of DEBUG_DESTINATIONS){
     const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=label;row.append(name);
-    for(const renderer of ['Canvas/WASM','Three.js']){
-      const cell=document.createElement('td'),button=document.createElement('button');button.type='button';button.textContent=renderer;button.setAttribute('aria-label',`${label}: ${renderer}`);
-      button.disabled=renderer==='Three.js';if(button.disabled)button.title='Renderer not implemented for this destination';
-      button.addEventListener('click',()=>attempt(()=>{api.travel(id,park);dialog.close();}));cell.append(button);row.append(cell);
+    for(const [renderer,labelRenderer] of [['canvas','Canvas/WASM'],['three','Three.js']]){
+      const cell=document.createElement('td'),button=document.createElement('button');button.type='button';button.textContent=labelRenderer;button.setAttribute('aria-label',`${label}: ${labelRenderer}`);
+      const supported=supportsRenderer(id,renderer);
+      button.disabled=!supported;if(!supported)button.title='Renderer not implemented for this destination';
+      destinationButtons.push({button,supported});
+      button.addEventListener('click',async()=>{
+        if(pending)return;pending=true;
+        for(const {button} of destinationButtons)button.disabled=true;
+        find('close').disabled=true;dialog.setAttribute('aria-busy','true');
+        status(renderer==='three'?'Loading Three.js…':'Entering destination…');
+        try{await api.travel(id,park,renderer);dialog.close();}
+        catch(error){status(error.message);}
+        finally{
+          pending=false;find('close').disabled=false;dialog.removeAttribute('aria-busy');
+          for(const {button,supported} of destinationButtons)button.disabled=!supported;
+        }
+      });cell.append(button);row.append(cell);
     }
     dialog.querySelector('tbody').append(row);
   }
@@ -88,7 +103,8 @@ export function createDebugMenu(api){
     for(const key of Object.keys(api.register))delete api.register[key];
     Object.assign(api.register,events);status('Events applied.');
   });
-  find('close').onclick=()=>dialog.close();
+  find('close').onclick=()=>{if(!pending)dialog.close();};
+  dialog.addEventListener('cancel',event=>{if(pending)event.preventDefault();});
   dialog.addEventListener('close',()=>{sequence='';api.resume();});
   return {
     get open(){return dialog.open;},

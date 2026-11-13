@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {profilePhase} from './render-profile.js';
 import {buildingGeometry} from './building-geometry.js';
 import {manholeGeometry} from './manhole-geometry.js';
 import {drawRoadMarkings} from './road-marking-geometry.js';
@@ -25,28 +26,25 @@ import {newspaperGeometry,drawNewspaperGeometry} from './newspaper-geometry.js';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {corridorWindowState,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {drawMoneyNote} from './money.js?v=hotel-cash-1';
-import {drawFlower} from './flowers.js';
-import {drawDroppedToken} from './inventory.js?v=backpack-reward-1';
+import {drawDroppedObject} from './dropped-object.js';
 import {stairwellNote,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
-import {drawHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
+import {drawHotelStorage} from './hotel-storage.js?v=hotel-note-3';
 import {drawArcadeInterior} from './arcade-interior.js?v=pinball-9';
 import {bansheeFrame} from './banshee.js?v=6';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {pedestrian,pedestrianShowsBack,mod,RIVER_VIEW_DISTANCE,groundHeight,characterHeight,characterGirth,START_SIGN,RIVE_GAUCHE_SIGNS} from './world.js?v=start-pub-1';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=visibility-reuse-1';
-import {drawParkGround,drawParkStructures,drawFingerpost,pineCone,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
+import {drawParkGround,drawParkStructures,drawFingerpost,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
 import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gauche.js?v=5';
 import {drawArcade,arcadeName} from './arcade.js?v=park-entrances-1';
 import {drawBookshopInterior} from './midnite-interior.js';
 import {bookshopVisitorShowsBack} from './midnite-life.js';
-import {drawBackpack} from './backpack.js';
-import {drawPastisBottle,drawMarijuanaPlant} from './backpack-contents.js';
 import {drawMidniteBooks} from './midnite-books.js?v=unique-labels-4';
 import {drawBlueNote} from './blue-note.js?v=unique-labels-4';
 import {drawPub,pubName} from './pub.js?v=park-entrances-1';
 import {drawPubInterior} from './pub-interior.js?v=bar-taps-1';
 import {drawLavatory,drawCubicle} from './lavatory.js?v=staff-room-1';
-import {hotelReceptionistPosition,drawHotelInterior,drawHotelLamp} from './hotel-interior.js?v=receptionist-lamp-2';
+import {hotelReceptionistPosition,drawHotelInterior} from './hotel-interior.js?v=receptionist-lamp-2';
 import {hotelHIsDim,dimHotelH,drawHotel,hotelLook} from './hotel.js?v=park-entrances-1';
 
 // Build world geometry and named drawing operations from a frame of game state.
@@ -317,14 +315,7 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
     for(const chunk of chunks)for(const item of chunk.droppedItems??[]){
       if(item.room!==room)continue;
       renderer.withStyle({detail:true},()=>{
-        if(item.item.id==='flower')drawFlower({...item.item,...item},quad);
-        else if(['hotel-note','ticket'].includes(item.item.id))drawDroppedNote(item,face);
-        else if(item.item.id==='arcade-token')drawDroppedToken(item,face);
-        else if(item.item.id==='lamp')drawHotelLamp(item.x,(item.ground??0)+.006,item.z,box);
-        else if(item.item.id==='backpack')drawBackpack(item,box,face);
-        else if(item.item.id==='pastis-bottle')drawPastisBottle(item,box,face);
-        else if(item.item.id==='marijuana-plant')drawMarijuanaPlant(item,box,face);
-        else pineCone(item,face,{x:player.x,y:eye,z:player.z});
+        drawDroppedObject(item,{face,quad,box},{x:player.x,y:eye,z:player.z});
       });
     }
   }
@@ -350,7 +341,7 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
         for(const c of street.cars)car(c,c.y);
         for(const p of street.people)seatedPatron(p,true,characterHeight(p.type));
       }
-      else if(hotelStorage)drawHotelStorage({face,quad,box,noteTaken:currentHotel.storageNoteTaken});
+      else if(hotelStorage)profilePhase('neon:canvas:geometry',()=>drawHotelStorage({face,quad,box,noteTaken:currentHotel.storageNoteTaken}));
       else if(hotelStairs){
         drawHotelStairwell({face,quad,box,look:hotelLook(currentHotel)});
         renderer.withStyle({textureSmooth:true,textureOverlay:{color:[9,7,21],alpha:.2}},()=>drawMoneyNote(stairwellNote(currentHotel),face));

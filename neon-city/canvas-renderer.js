@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {profilePhase} from './render-profile.js';
 import {createRenderCamera,NATIVE_VIEW} from './render-camera.js';
 import {DepthRenderer} from './depth-renderer.js?v=coverage-reuse-1';
 import {drawWallTexture,drawPitchedWallTexture} from './perspective.js?v=wasm-columns-1';
@@ -126,7 +127,7 @@ export function createCanvasRenderer(canvas,options=NATIVE_VIEW){
   }
   function drawInterior(background){
     interiorRenderer??=new DepthRenderer(ctx,W,H);
-    interiorRenderer.render(queue,background);queue=[];
+    profilePhase('neon:canvas:rasterize',()=>interiorRenderer.render(queue,background));queue=[];
     return interiorRenderer.depth;
   }
   function finishStreet({reduced,shake,time,steps,running}){

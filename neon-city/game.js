@@ -20,6 +20,8 @@ If not, see <https://www.gnu.org/licenses/>.
 import {NATIVE_VIEW} from './render-camera.js';
 import {createCanvasRenderer} from './canvas-renderer.js';
 import {createWorldScene} from './world-scene.js';
+import {supportsRenderer,createRendererPreferences} from './renderer-support.js';
+import {startPhase,endPhase,profilePhase} from './render-profile.js';
 import {createDebugMenu,DEBUG_MODE,DEBUG_RIVERSIDE_SPAWN} from './debug-menu.js';
 import {entranceWall} from './entrances.js';
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
@@ -428,24 +430,58 @@ function playOuch(){
 }
 
 
-let worldScene,canvasRenderer;
+let worldScene,canvasRenderer,storageRenderer,threeCanvas,storageRendererLoading;
+const rendererPreferences=createRendererPreferences();
+async function prepareStorageRenderer(){
+  if(storageRenderer)return;
+  storageRendererLoading??=(async()=>{
+    const {createThreeStorageRenderer}=await import('./three-storage-renderer.js');
+    const surface=document.createElement('canvas');surface.id='three-view';surface.hidden=true;
+    surface.setAttribute('aria-hidden','true');
+    try{storageRenderer=createThreeStorageRenderer(surface);}
+    catch(error){surface.remove();throw new Error(`Three.js could not start: ${error.message}. Canvas/WASM is still available.`);}
+    canvas.after(surface);threeCanvas=surface;
+  })();
+  try{await storageRendererLoading;}finally{storageRendererLoading=null;}
+}
+async function selectDebugDestination(id,park,renderer=rendererPreferences.get(id)){
+  if(!supportsRenderer(id,renderer))throw new Error('This renderer is not available for that destination.');
+  if(renderer==='three')await prepareStorageRenderer();
+  debugTravel(id,park);rendererPreferences.set(id,renderer);painted=false;
+}
+function selectRenderSurface(useThree){
+  if(threeCanvas)threeCanvas.hidden=!useThree;
+  canvas.classList.toggle('webgl-active',useThree);
+  if(!useThree)storageRenderer?.leave();
+}
 function render(){
   canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);
   worldScene??=createWorldScene(canvasRenderer,{seatedTexturePrewarmer,reduced});
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
-  if(ping){canvasRenderer.cabinet(ping,running);return;}
+  if(ping){selectRenderSurface(false);canvasRenderer.cabinet(ping,running);return;}
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
-  worldScene.render({
+  const frame={
     player,eye,windowView,playerSeat,running,time,
     insideBookshop,bookshopLife,insideArcade,arcadeLife,
     insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
     pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors()
-  });
+  };
+  const destination=debugScene(),rendererChoice=rendererPreferences.get(destination);
+  if(destination==='storage'&&rendererChoice==='three'&&!storageRenderer&&!storageRendererLoading){
+    prepareStorageRenderer().then(()=>{painted=false;}).catch(error=>{
+      rendererPreferences.set('storage','canvas');painted=false;
+      if(debugScene()==='storage'){notice=5;noticeText=error.message;}
+    });
+  }
+  const useThree=Boolean(destination==='storage'&&rendererChoice==='three'&&storageRenderer);
+  selectRenderSurface(useThree);
+  if(useThree)profilePhase('neon:three:frame',()=>storageRenderer.render(frame));
+  else profilePhase('neon:canvas:frame',()=>worldScene.render(frame));
 }
 // Debug travel shares venue initialization with ordinary door entry.
 function debugScene(){return insideBookshop?'bookshop':insideArcade?'arcade':insideHotel?(hotelStorage?'storage':hotelCorridor?'corridor':hotelStairs?'stairs':'hotel'):insideCubicle?'cubicle':insideLavatory?'lavatory':insidePub?'pub':'street';}
@@ -493,7 +529,7 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
     const [x,z]=parks[0];const chunk=city.chunks.get(`${x},${z}`);
     const path=chunk?.park?.path;
     return path?{...path[0],angle:Math.atan2(path[1].x-path[0].x,path[1].z-path[0].z)}:{x:x*64+12,z:z*64+32,angle:Math.PI/2};
-  },travel:debugTravel,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
+  },travel:selectDebugDestination,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
 }):null;
 function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;seatedTexturePrewarmer.cancel();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
@@ -696,6 +732,7 @@ canvas.addEventListener('contextmenu',e=>{if(ping?.kind==='amigos'){e.preventDef
 canvas.addEventListener('pointerdown',e=>{if(amigosPointer(e,'down'))return;if(!running)return;if(ping?.crossed){ping.continueCrossing();keys.clear();}else if(ping?.kind==='kong')keys.add(' ');});
 for(const event of ['pointerup','pointercancel','pointerleave'])canvas.addEventListener(event,()=>keys.delete(' '));
 function tick(now){
+  startPhase('neon:simulation');
   // Camera input follows elapsed time through ordinary slow frames. Bound long
   // stalls, while retaining the smaller simulation step for safe movement.
   const elapsed=Math.max(0,(now-last)/1000),cameraDt=Math.min(elapsed,.25),dt=Math.min(elapsed,.04);last=now;
@@ -830,6 +867,7 @@ function tick(now){
     const pubHeard=pubMusicHeard(insidePub?'pub':insideLavatory?'lavatory':insideCubicle?'cubicle':'street');
     pubMusic.update(audioContext,pubHeard.volume,pubHeard.lowpass);
   }
+  endPhase('neon:simulation');
   if(running||!painted){render();painted=true;}
   requestAnimationFrame(tick);
 }

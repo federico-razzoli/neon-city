@@ -67,3 +67,6 @@ If not, see <https://www.gnu.org/licenses/>.
 #debug-menu::backdrop{background:#080710c9}#debug-menu h2{margin-top:0}#debug-menu table{width:100%;border-collapse:collapse}#debug-menu caption{text-align:left;font-weight:bold}#debug-menu th,#debug-menu td{text-align:left;padding:5px;border-bottom:1px solid #564565}#debug-menu button{font:inherit;color:#f3e7f5;background:#443053;border:1px solid #ad81b5;padding:6px 10px;cursor:pointer}#debug-menu button:disabled{opacity:.4;cursor:not-allowed}#debug-menu fieldset{margin:16px 0;padding:12px;border:1px solid #756180}#debug-menu input,#debug-menu select,#debug-menu textarea{font:inherit;color:#fff;background:#211a31;border:1px solid #ad81b5;padding:5px;max-width:100%}#debug-menu textarea{display:block;width:100%;margin:8px 0;font-family:monospace}#debug-status{min-height:1.5em;color:#80efe1}
 
 #debug-menu [role="tablist"]{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid #756180;padding-bottom:8px}#debug-menu [role="tab"]{flex:1;padding:8px 4px}#debug-menu [role="tab"][aria-selected="true"]{background:#793b6a;border-color:#ff83cc;color:#fff}
+
+/* Keep the existing canvas as the input surface while WebGL owns the image. */
+#three-view{position:absolute;inset:0;pointer-events:none}#view.webgl-active{opacity:0}

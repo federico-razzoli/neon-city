@@ -138,14 +138,7 @@ export function drawHotelStorage({face,quad,box,noteTaken=false}){
     drawCylinder(face,x,0,z,.11,.28,color,inside,.13);
     drawCylinder(face,x,.27,z,.135,.02,color,inside);
   }
-  // The note: a pinned sheet with a few lines of handwriting.
-  if(!noteTaken){
-    const wall=(x,z,y,w,h,color)=>face([{x,y,z},{x,y,z:z+w},{x,y:y+h,z:z+w},{x,y:y+h,z}],color);
-    const left=note.z-note.w/2;
-    wall(W-.004,left,note.y,note.w,note.h,'#efe8d2');
-    for(let i=0;i<5;i++)wall(W-.007,left+.025,note.y+.04+i*.032,note.w-.05-(i%2)*.03,.006,'#3e4a6a');
-    box(W-.015,note.y+note.h-.03,note.z-.008,.012,.016,.016,'#c2302f');
-  }
+  if(!noteTaken)drawStorageNote({face,box});
   // The closed wooden box against the far wall: planked sides, a lid and a hasp.
   const {x,z,w,h,d}=crate;
   box(x,0,z,w,h-.05,d,'#7d5631','#8c6238');
@@ -153,6 +146,16 @@ export function drawHotelStorage({face,quad,box,noteTaken=false}){
   for(const cx of [x-.015,x+w-.035])box(cx,0,z-.015,.05,h-.05,.05,'#5c3d21');
   box(x-.02,h-.05,z-.02,w+.04,.06,d+.04,'#5c3d21','#946a3e');
   box(x+w/2-.04,h-.17,z-.035,.08,.14,.02,'#8a8a82');
+}
+
+// Shared pinned-note geometry; the retained renderer toggles it without rebuilding the room.
+export function drawStorageNote({face,box}){
+  const {width:W,note}=HOTEL_STORAGE;
+  const wall=(x,z,y,w,h,color)=>face([{x,y,z},{x,y,z:z+w},{x,y:y+h,z:z+w},{x,y:y+h,z}],color);
+  const left=note.z-note.w/2;
+  wall(W-.004,left,note.y,note.w,note.h,'#efe8d2');
+  for(let i=0;i<5;i++)wall(W-.007,left+.025,note.y+.04+i*.032,note.w-.05-(i%2)*.03,.006,'#3e4a6a');
+  box(W-.015,note.y+note.h-.03,note.z-.008,.012,.016,.016,'#c2302f');
 }
 
 // Through the window, across a narrow gap, the top of a lower building: lit

@@ -4,8 +4,9 @@
 
 Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
-software rendering pipeline scene by scene. Step 1 and the debug menu are
-implemented. The optional Three.js backend remains the next stage.
+software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
+implemented. The optional Three.js backend currently covers the hotel storage
+room; visual parity and lettering work remain the next stage.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -76,8 +77,8 @@ with scene construction separated sufficiently to support a second backend.
   Canvas; existing cabinet games keep their own renderers.
 
 The scene builder still runs per frame, preserving the current software path.
-A Three.js backend must establish retained room objects and resource ownership
-in step 2; this extraction does not introduce a second renderer or a GPU cache.
+The optional storage backend introduced in step 2 retains room objects and owns
+its GPU resources separately. The shared Canvas scene builder remains immediate.
 
 Validation: Chromium comparisons against the pre-extraction revision used fixed
 randomness, world state, time and a 1280 × 900 browser viewport. All 36 native
@@ -107,6 +108,54 @@ interactive and dropped items, using existing gameplay state.
 Completion criterion: the player can enter, use and leave the storage room with
 either renderer, with matching interactions and no changes to the rest of the
 game's rendering.
+
+**Implemented.** In the debug menu's LOCATIONS tab, choose **Hotel storage room /
+Three.js** or **Canvas/WASM**. Selecting the current room changes its backend
+without resetting the camera, hotel, pinned note, inventory, dropped objects or
+NPC state. Other Three.js destinations remain disabled. Three.js is the default
+where implemented, including ordinary storage-room entry; unsupported locations
+use Canvas. Explicit comparison choices are remembered per destination for the
+session. Choosing Canvas elsewhere does not change the storage preference.
+The first ordinary visit loads Three.js in the background while Canvas draws the
+room. If WebGL 2 cannot start, ordinary entry falls back to Canvas; an explicit
+menu selection reports the failure and keeps Canvas available.
+
+- [three-storage-renderer.js](neon-city/three-storage-renderer.js) lazily creates
+  a separate WebGL canvas. The original canvas remains the keyboard/pointer/touch
+  input surface, and DOM overlays remain above the selected image. No Three.js
+  modules load during ordinary Canvas play.
+- [three-storage-scene.js](neon-city/three-storage-scene.js) builds and retains the
+  complete room and window scenery from the existing helpers. Reflecting world Z
+  reconciles camera handedness; the lens, shifted horizon, pitch, clipping planes
+  and native pixel grid match the Canvas camera. Materials preserve the painted
+  palette without lighting or tone mapping. Native Three.js `BoxGeometry`
+  supplies complete boxes.
+- The note has a separate mesh, toggled by the existing hotel state.
+  [dropped-object.js](neon-city/dropped-object.js) shares the existing collectible
+  models between both backends. Drops create meshes on addition and release them
+  on collection. Guest meshes update position, yaw and animation through shared
+  nearest-filtered artwork textures. Everything uses the room's WebGL depth buffer.
+- Compatible static meshes share one vertex-color material; guests share a plane
+  and artwork materials. Room-owned geometry, materials and textures are disposed
+  on exit or hotel changes; the renderer/context is reused. The pinned,
+  MIT-licensed [Three.js 0.187.0 modules](neon-city/vendor/three/README.md) include
+  integrity hashes and require neither a runtime CDN nor package installation.
+- Bounded User Timing markers distinguish simulation, Canvas geometry/rasterization
+  and Three.js geometry/update/render work without accumulating performance entries.
+
+All **463 automated tests pass**. Chromium checks cover state-preserving switches,
+ordinary exit/re-entry, collection, dropping and recollection, guests, repeated
+visits, GPU resource release, other Canvas scenes/cabinets and unavailable-WebGL
+fallback. The 36 pre-extraction Canvas comparisons remain pixel identical. Four
+fixed storage comparisons are close but differ at polygon edges.
+
+See [the step 2 validation report](benchmarks/three-storage-step2/README.md) for
+screenshots, CPU profiles, performance traces, measured frame costs and a
+reproduction script. The recorded SwiftShader software-WebGL environment shows much less JavaScript
+work but slower frame delivery. These measurements describe that environment,
+not the experience on the user's hardware, where Three.js feels smoother and more
+regular. At the user's request, implemented Three.js scenes now use it by default.
+Hardware GPU measurements and broader visual/lettering review remain for step 3.
 
 ### 3. Establish visual parity and improve lettering
 
@@ -259,8 +308,8 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-Three.js buttons are disabled until the corresponding backends exist. Selecting
-the current interior keeps its viewpoint and state. Venue travel uses the same
+the storage room also supports Three.js. Other Three.js buttons stay disabled.
+Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.
 
