@@ -6,7 +6,7 @@ Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
 software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
 implemented. The optional Three.js backend currently covers the hotel storage
-room, stairwell, corridors, main hall, arcade and Midnite Books. Broader visual parity and lettering work remain pending.
+room, stairwell, corridors, main hall, arcade, Midnite Books and the pub bar/lounge. Broader visual parity and lettering work remain pending.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -404,7 +404,7 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-all hotel interiors, the arcade and Midnite Books also support Three.js. Other Three.js buttons stay disabled.
+all hotel interiors, the arcade, Midnite Books and the pub bar/lounge also support Three.js. Other Three.js buttons stay disabled.
 Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.
@@ -563,3 +563,27 @@ shader errors. Automated coverage checks retained room and seller geometry,
 loans, backpack visibility, seated sprite cropping, resource disposal and Canvas
 defaults. Small polygon-edge and overlapping-surface differences remain; no
 performance improvement is claimed.
+
+### Pub bar and lounge
+
+Both connected pub rooms now default to Three.js, with Canvas/WASM comparison
+available under Pub in the debug menu. `three-pub-scene.js` retains their complete
+room geometry, connecting arch, bar, shelves, bottles, taps, tables, chairs, door
+signs and chandeliers. The toilet and cubicles remain Canvas scenes; normal door
+transitions restore the selected pub backend on return.
+
+The four existing bartender models and the venue's counter pint use separate
+retained meshes. Occupied seats retain their original leg/shoe geometry and drinks,
+with cropped, nearest-filtered upper-body sprites using the original seated facing
+rule. A seat changes only when occupancy, outfit or drink appearance changes;
+emptying it removes its occupant and pint. The existing walking patron reads shared
+pub life state and keeps the Canvas pub walking scale. Dropped objects participate
+in the same depth buffer. Scene-owned geometry, materials and textures are released
+on exit; unsupported-WebGL startup includes the pub in the Canvas fallback.
+
+Validation: all 494 automated tests pass. Chromium checks cover six paired
+Canvas/Three.js views across both rooms, all four bartender models, seating,
+connecting-arch traversal, a walking patron, tap replies, bartender conversation,
+state-preserving renderer switches, toilet and street doors, re-entry and GPU
+cleanup, with no page or shader errors. Sampled views retain the painted palette
+and artwork; polygon-edge differences remain. No performance gain is claimed.

@@ -342,7 +342,42 @@ export function drawStaff({face,box},at,type){
     for(const side of [-1,1])staffBox(x+side*.175-.035,1.38,z-.17,.07,.4,.1,hair);
   }
 }
-export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1,barBeer=PUB.barBeer}){
+export function drawPubPint({face,box},x,y,z,dark=false){
+  const cylinder=(...args)=>drawCylinder(face,...args);
+  cylinder(x,y,z,.1,.27,dark?'#492c22':'#bd873d','#f2e0ae',.13);
+  cylinder(x,y+.27,z,.13,.045,'#eee0b0');
+  box(x-.08,y+.03,z-.1,.025,.19,.02,dark?'#a68b68':'#e7cca0');
+}
+
+export function drawPubPatron({box,seatedPatron=()=>{}},chair,type,variant=0){
+  const {x,z,w,d,side}=chair;
+  const shoes=type===4?TEEN_OUTFITS[outfit(type,variant)].shoes:SHOE_COLORS[type];
+  const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80','#5a3d5c','#2f3e5e','#9aa0a8','#d8ccb0','#c7b07a','#6a5040','#3d5f9e'][type];
+  // Shorts leave the shins bare.
+  const shins={13:'#e9b08f'}[type]??trousers;
+  // Her pencil skirt wraps both thighs and stops just short of the knees.
+  if(type===8)box(x+.13,.51,z+(side<0?.2:.33),.54,.2,.42,'#2a2638');
+  for(const dx of [.15,.48]){
+    if(type===8)box(x+dx,.52,z+(side<0?.62:.2),.17,.17,.13,trousers);
+    else box(x+dx,.52,z+.2,.17,.17,.55,trousers);
+    box(x+dx,.12,z+(side<0?.57:.06),.17,.46,.17,shins);
+    if(type===3){
+      // The punk's street outfit has tall black shafts and chunky soles.
+      const bootZ=z+(side<0?.57:.06);
+      box(x+dx-.01,.12,bootZ-.01,.19,.27,.19,SHOE_COLORS[type]);
+      box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,SHOE_COLORS[type]);
+      box(x+dx+.035,.17,bootZ-.016,.035,.16,.012,'#363340');
+    }else if(type===1||type===8){
+      // Match the street outfit's raised sole and narrow heel at the rear.
+      const shoeZ=z+(side<0?.55:-.06);
+      box(x+dx-.025,.10,shoeZ,.22,.06,.3,shoes);
+      box(x+dx+.015,.04,shoeZ+(side<0?0:.25),.04,.06,.05,shoes);
+    }else box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,shoes);
+  }
+  seatedPatron({x:x+w/2,z:z+d/2,type,variant,side});
+}
+
+export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},bartenderType=1,barBeer=PUB.barBeer,drawBartender=true,drawBarBeer=true}){
   for(let x=0;x<PUB.width;x+=2)for(let z=0;z<PUB.depth;z+=2){
     quad(x,0,z,2,2,'#70513c');
     quad(x,PUB.height,z,2,2,'#31262a');
@@ -403,11 +438,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     box(x-.015,y+.1,z-r-.008,.03,.07,.009,'#8a4b38');
     box(x-r*.55,y+.025,z-r*.83,.018,.2,.008,'#80907c');
   };
-  const pint=(x,y,z,dark=false)=>{
-    cylinder(x,y,z,.1,.27,dark?'#492c22':'#bd873d','#f2e0ae',.13);
-    cylinder(x,y+.27,z,.13,.045,'#eee0b0');
-    box(x-.08,y+.03,z-.1,.025,.19,.02,dark?'#a68b68':'#e7cca0');
-  };
+  const pint=(...args)=>drawPubPint({face,box},...args);
   for(const [tableIndex,b] of PUB.tables.entries()){
     cylinder(b.x,0,b.z,.65,.12,'#3c2a21');
     cylinder(b.x,.12,b.z,.18,.8,'#674531','#876443');
@@ -431,30 +462,7 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     box(x+.04,1.05,backZ,w-.08,.22,.08,'#805b3b');
     const type=patrons[tableIndex]?.[seat],variant=patrons[tableIndex]?.variants?.[seat]??0;
     if(type!=null){
-      const shoes=type===4?TEEN_OUTFITS[outfit(type,variant)].shoes:SHOE_COLORS[type];
-      const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80','#5a3d5c','#2f3e5e','#9aa0a8','#d8ccb0','#c7b07a','#6a5040','#3d5f9e'][type];
-      // Shorts leave the shins bare.
-      const shins={13:'#e9b08f'}[type]??trousers;
-      // Her pencil skirt wraps both thighs and stops just short of the knees.
-      if(type===8)box(x+.13,.51,z+(side<0?.2:.33),.54,.2,.42,'#2a2638');
-      for(const dx of [.15,.48]){
-        if(type===8)box(x+dx,.52,z+(side<0?.62:.2),.17,.17,.13,trousers);
-        else box(x+dx,.52,z+.2,.17,.17,.55,trousers);
-        box(x+dx,.12,z+(side<0?.57:.06),.17,.46,.17,shins);
-        if(type===3){
-          // The punk's street outfit has tall black shafts and chunky soles.
-          const bootZ=z+(side<0?.57:.06);
-          box(x+dx-.01,.12,bootZ-.01,.19,.27,.19,SHOE_COLORS[type]);
-          box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,SHOE_COLORS[type]);
-          box(x+dx+.035,.17,bootZ-.016,.035,.16,.012,'#363340');
-        }else if(type===1||type===8){
-          // Match the street outfit's raised sole and narrow heel at the rear.
-          const shoeZ=z+(side<0?.55:-.06);
-          box(x+dx-.025,.10,shoeZ,.22,.06,.3,shoes);
-          box(x+dx+.015,.04,shoeZ+(side<0?0:.25),.04,.06,.05,shoes);
-        }else box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,shoes);
-      }
-      seatedPatron({x:x+w/2,z:z+d/2,type,variant,side});
+      drawPubPatron({box,seatedPatron},chair,type,variant);
     }
   }
   const b=PUB.bar;
@@ -486,9 +494,9 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
     cylinder(x,1.88,13.9,.035,.14,'#c7a973');
     cylinder(x,2.02,13.9,.065,.2,'#312a2a','#6a513a');
   }
-  pint(barBeer.x,1.3,barBeer.z,barBeer.dark);
+  if(drawBarBeer)pint(barBeer.x,1.3,barBeer.z,barBeer.dark);
   // Four regulars behind the bar: chosen once when this pub is first entered.
-  drawStaff({face,box},PUB.bartender,bartenderType);
+  if(drawBartender)drawStaff({face,box},PUB.bartender,bartenderType);
   // Suspended antique brass chandeliers, each with six curved candle arms.
   const rod=(...args)=>drawRod(face,...args);
   for(const {x,z} of PUB.chandeliers){

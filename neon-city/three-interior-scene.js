@@ -105,7 +105,7 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
       mesh.geometry=seated?seatedGeometry:actorGeometry;
       const image=imageFor(guest.type,seated?1:Math.floor(guest.walkTime*6)%4,view.back??pedestrianShowsBack(guest,frame.player),guest.variant);
       mesh.material=actorMaterial(image);
-      const height=characterHeight(guest.type);
+      const height=view.height??characterHeight(guest.type);
       const drawnHeight=seated?32*.0375:height;
       mesh.scale.set((seated?24*.0375:height/2)*characterGirth(guest.type),drawnHeight,1);
       mesh.position.set(guest.x,seated?1.87-drawnHeight/2:(guest.y??0)+height/2,-guest.z);mesh.rotation.y=-frame.player.angle;

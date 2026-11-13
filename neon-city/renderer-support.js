@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 export function supportsRenderer(destination,renderer){
-  return renderer==='canvas'||renderer==='three'&&['hotel','storage','stairs','corridor','arcade','bookshop'].includes(destination);
+  return renderer==='canvas'||renderer==='three'&&['hotel','storage','stairs','corridor','arcade','bookshop','pub'].includes(destination);
 }
 
 export function defaultRenderer(destination){
