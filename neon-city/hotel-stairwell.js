@@ -104,8 +104,9 @@ export function drawHotelStairwell({face,quad,box,look:facade}){
       if(z>=S&&z<E&&(level===1&&x>=5||level===2&&x<3))continue;
       box(x,y-.12,z,1,.12,1,look.column[1],look.floor[(x+z)%2]);
     }
-    quad(3.15,y+.008,.2,1.7,D-.4,look.carpet);
-    for(const x of [3.1,4.85])quad(x,y+.01,.2,.05,D-.4,look.metal);
+    // Run the carpet and edging beneath the door thresholds at both ends.
+    quad(3.15,y+.008,0,1.7,D,look.carpet);
+    for(const x of [3.1,4.85])quad(x,y+.01,0,.05,D,look.metal);
     for(const [x,z,w,d] of [[-.12,0,.12,D],[8,0,.12,D],[0,-.12,8,.12],[0,D,8,.12]]){
       box(x,y,z,w,1.05,d,look.panel);
       box(x,y+1.05,z,w,.06,d,look.metal);

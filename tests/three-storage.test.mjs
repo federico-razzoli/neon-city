@@ -76,7 +76,7 @@ test('all collectible dropped-object models are retained, room filtered, removed
 test('renderer support enables the converted hotel scenes in the debug menu',()=>{
   for(const [id] of DEBUG_DESTINATIONS){
     assert.equal(supportsRenderer(id,'canvas'),true);
-    assert.equal(supportsRenderer(id,'three'),['storage','stairs'].includes(id));
+    assert.equal(supportsRenderer(id,'three'),['storage','stairs','corridor'].includes(id));
     assert.equal(supportsRenderer(id,'unknown'),false);
   }
 });
@@ -92,7 +92,7 @@ test('profiling markers do not accumulate during play or after a failed renderin
 test('converted destinations default to Three.js and comparison overrides stay local to each destination',()=>{
   const preferences=createRendererPreferences();
   for(const [destination] of DEBUG_DESTINATIONS){
-    assert.equal(defaultRenderer(destination),['storage','stairs'].includes(destination)?'three':'canvas');
+    assert.equal(defaultRenderer(destination),['storage','stairs','corridor'].includes(destination)?'three':'canvas');
     assert.equal(preferences.get(destination),defaultRenderer(destination));
   }
   preferences.set('hotel','canvas');assert.equal(preferences.get('storage'),'three');

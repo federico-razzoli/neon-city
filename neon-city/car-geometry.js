@@ -23,14 +23,14 @@ export function carGeometry(car){
 }
 // Visibility intentionally matches box(): test axis-aligned faces before the
 // renderer applies the vehicle's bridge slope and turn to emitted vertices.
-export function drawCarGeometry(car,{player,eye,base,slope,indoors,face,texture}){
+export function drawCarGeometry(car,{player,eye,base,slope,indoors,face,texture,complete=false}){
   const geometry=carGeometry(car);
   for(let k=0;k<geometry.length;k+=24){
     const rule=geometry[k],x=car.x+geometry[k+4],y=geometry[k+5],z=car.z+geometry[k+6];
-    if(rule===1&&!(player.z<z)||rule===2&&!(player.z>z)||
+    if(!complete&&(rule===1&&!(player.z<z)||rule===2&&!(player.z>z)||
        rule===3&&!(player.x<x)||rule===4&&!(player.x>x)||
        rule===5&&!(eye>y+base+(geometry[k+6]+geometry[k+16])/2*slope)||
-       rule===6&&!(indoors&&eye<y))continue;
+       rule===6&&!(indoors&&eye<y)))continue;
     const tex=geometry[k+2],vertices=[];
     for(let i=0;i<4;i++){
       const v=k+4+i*5;

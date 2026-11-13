@@ -4,20 +4,22 @@ import {profilePhase} from './render-profile.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {createThreeStorageScene} from './three-storage-scene.js';
 import {createThreeStairwellScene} from './three-stairwell-scene.js';
+import {createThreeCorridorScene} from './three-corridor-scene.js';
 
 export function createThreeHotelRenderer(canvas){
   const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false});
   renderer.setPixelRatio(1);renderer.setSize(NATIVE_VIEW.width,NATIVE_VIEW.height,false);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NoToneMapping;
-  let room=null,hotel=null,destination=null;
-  function leave(){if(!room)return;room.dispose();room=null;hotel=null;destination=null;renderer.renderLists.dispose();}
+  let room=null,hotel=null,destination=null,floor=null;
+  function leave(){if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
   return {
     render(frame){
-      const nextDestination=frame.hotelStorage?'storage':'stairs';
-      if(!room||hotel!==frame.currentHotel||destination!==nextDestination){
+      const nextDestination=frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':'stairs';
+      const nextFloor=nextDestination==='corridor'?frame.hotelStairs.floor:null;
+      if(!room||hotel!==frame.currentHotel||destination!==nextDestination||floor!==nextFloor){
         leave();
-        room=profilePhase('neon:three:geometry',()=>nextDestination==='storage'?createThreeStorageScene():createThreeStairwellScene(frame.currentHotel));
-        hotel=frame.currentHotel;destination=nextDestination;
+        room=profilePhase('neon:three:geometry',()=>nextDestination==='corridor'?createThreeCorridorScene(frame.currentHotel,nextFloor):nextDestination==='storage'?createThreeStorageScene():createThreeStairwellScene(frame.currentHotel));
+        hotel=frame.currentHotel;destination=nextDestination;floor=nextFloor;
       }
       profilePhase('neon:three:update',()=>room.update(frame));
       profilePhase('neon:three:render',()=>renderer.render(room.scene,room.camera));

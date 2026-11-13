@@ -6,7 +6,7 @@ Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
 software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
 implemented. The optional Three.js backend currently covers the hotel storage
-room and stairwell. Broader visual parity and lettering work remain pending.
+room, stairwell and corridors. Broader visual parity and lettering work remain pending.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -218,8 +218,8 @@ Completion criterion for each interior: visual comparison, working entry and
 exit, correct occlusion, and unchanged interactions with objects and characters.
 
 **Hotel stairwell implemented.** Three.js is the default for both the storage
-room and stairwell; Canvas/WASM remains available in the debug menu with
-independent choices per location. The lobby and corridors retain Canvas.
+room, stairwell and corridors; Canvas/WASM remains available in the debug menu
+with independent choices per location. The lobby retains Canvas.
 
 - [three-interior-scene.js](neon-city/three-interior-scene.js) shares the retained
   camera, geometry adapter, dropped-object meshes, guest artwork and resource
@@ -234,7 +234,7 @@ independent choices per location. The lobby and corridors retain Canvas.
   overlay. Its mesh follows the same per-hotel `taken` state and wallet logic.
   Dropped items retain their tread/landing heights and room identity.
 - One WebGL renderer/context serves both rooms. Stairwell/storage transitions
-  release the previous scene's resources before building the next. Corridor/lobby
+  release the previous scene's resources before building the next. Lobby
   transitions return to Canvas and release scene-owned GPU resources. Movement,
   collisions, doors, guest routines, cash pickup and the light-switch event use
   the existing gameplay code.
@@ -246,6 +246,41 @@ rendering a guest on the stairs, storage/corridor/lobby transitions and GPU
 resource release. Focused automated tests cover camera elevation across floors,
 retained geometry, note persistence, dropped-item heights, banknote UVs and tint,
 and resource disposal. No new performance benchmark is claimed for this interior.
+
+**Hotel corridors implemented.** All three floors use Three.js by default,
+including numbered room doors, ceiling lights, framed pictures, animated window
+casements, guests and dropped objects. The shared gameplay still controls locked
+room replies, window opening/reversal, leaning, viewing pitch and guest routines.
+
+- [three-corridor-scene.js](neon-city/three-corridor-scene.js) retains each floor's
+  complete corridor and exterior geometry from `drawHotelCorridor`. A floor change
+  rebuilds the scene for the correct door numbers and street elevation. Window
+  leaves retain their meshes and rotate around their jambs using the existing
+  progress/easing function; geometry is not regenerated during opening or closing.
+- The buildings, shopfronts, pavements, crossings, cars and pedestrians visible
+  outside the window participate in the same WebGL depth buffer as the corridor.
+  Stable IDs from `hotelStreetLife` retain moving street meshes across frames;
+  complete car geometry and artwork are shared between compatible instances.
+  [vehicle-textures.js](neon-city/vehicle-textures.js) supplies the existing taxi,
+  van and Mercedes artwork to both renderers.
+- [three-artwork.js](neon-city/three-artwork.js) preserves source-pixel UVs for
+  shop signs and vehicle textures. [three-corridor-sky.js](neon-city/three-corridor-sky.js)
+  reuses the existing pixel starfield and shooting-star drawing as a scene
+  background texture, refreshing it only when the view or artwork changes. It is
+  drawn behind the WebGL world, so no separate world-overlay canvas or depth
+  readback is required.
+- Returning to the stairwell changes the retained scene within the same renderer;
+  leaving converted interiors releases GPU resources and uses Canvas. Floor,
+  window state, viewpoint and gameplay survive explicit renderer comparisons.
+
+Validation: seven fixed Canvas/Three.js views cover corridor entry, room numbering,
+closed and partially open casements, and leaning up, down and sideways on different
+floors. Chromium checks passed for opening and closing the window, leaning and
+returning inside, state-preserving renderer switches, guest/street rendering and
+normal stairwell exit, without page or shader errors. Automated checks cover
+window hinge transforms, retained pedestrian/vehicle meshes, floor-dependent
+scenery and drops, source UVs, bounded sky updates and resource disposal. No new
+performance benchmark is claimed for this interior.
 
 ### 5. Migrate the street renderer
 
@@ -338,7 +373,7 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-the storage room and stairwell also support Three.js. Other Three.js buttons stay disabled.
+the storage room, stairwell and corridors also support Three.js. Other Three.js buttons stay disabled.
 Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.

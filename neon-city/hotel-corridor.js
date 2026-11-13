@@ -66,7 +66,7 @@ export function advanceCorridorWindow(state,dt){
 
 const DIGITS={0:['111','101','101','101','111'],1:['010','110','010','010','111'],2:['111','001','111','100','111'],3:['111','001','111','001','111'],4:['101','101','111','001','001'],5:['111','100','111','001','111'],6:['111','100','111','101','111'],7:['111','001','010','010','010'],8:['111','101','111','101','111'],9:['111','101','111','001','111']};
 
-export function drawHotelCorridor({face,quad,box,look:facade,floor,windowState={progress:0}}){
+export function drawHotelCorridor({face,quad,box,look:facade,floor,windowState={progress:0},casements=true}){
   const look=hotelInteriorLook(facade),{width:W,depth:D,height:H,window:win}=HOTEL_CORRIDOR;
   for(let x=0;x<W;x+=.8)for(let z=0;z<D;z++)quad(x,0,z,.8,1,look.floor[(Math.round(x/.8)+z)%2]);
   quad(.8,.008,0,W-1.6,D,look.carpet);
@@ -78,7 +78,12 @@ export function drawHotelCorridor({face,quad,box,look:facade,floor,windowState={
     box(x,1.11,z,w,H-1.11,d,look.wall);
   }
   // The far wall surrounds a real opening; exterior geometry sits beyond it.
-  for(const [x,y,w,h] of [[0,0,W,win.y],[0,win.y+win.h,W,H-win.y-win.h],[0,win.y,win.x,win.h],[win.x+win.w,win.y,W-win.x-win.w,win.h]])box(x,y,D,w,h,.12,look.wall);
+  // The sill replaces the wall's top beneath it. Keeping both caps at win.y
+  // leaves coplanar faces that flicker when looking down through the window.
+  const sillLeft=win.x-.1,sillRight=win.x+win.w+.1;
+  for(const [x,y,w,h] of [[0,0,sillLeft,win.y],[sillLeft,0,sillRight-sillLeft,win.y-.07],
+    [sillRight,0,W-sillRight,win.y],[0,win.y+win.h,W,H-win.y-win.h],
+    [0,win.y,win.x,win.h],[win.x+win.w,win.y,W-win.x-win.w,win.h]])box(x,y,D,w,h,.12,look.wall);
   for(const x of [0,W-.1])box(x,H-.12,0,.1,.12,D,look.wood[0]);
   drawHotelDoubleDoor(box,W/2,0,.06,look,1);
   for(const room of corridorRooms(floor)){
@@ -109,10 +114,10 @@ export function drawHotelCorridor({face,quad,box,look:facade,floor,windowState={
     box(at(.13,.015),1.42,z-.55,.015,.19,1.1,'#64746b');
     box(at(.15,.015),1.76,z+.22,.015,.13,.13,'#d8bd8d');
   }
-  drawCorridorWindow(face,quad,box,look,floor,windowState.progress);
+  drawCorridorWindow(face,quad,box,look,floor,windowState.progress,casements);
 }
 
-function drawCorridorWindow(face,quad,box,look,floor,progress){
+function drawCorridorWindow(face,quad,box,look,floor,progress,casements){
   const {width:W,depth:D,window:{x,y,w,h}}=HOTEL_CORRIDOR;
   const wall=(x,y,z,w,h,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],color);
   // The same neighbouring skyline appears lower as the player climbs floors.
@@ -197,22 +202,27 @@ function drawCorridorWindow(face,quad,box,look,floor,progress){
   box(x-.1,y-.07,D-.22,w+.2,.07,.38,look.column[0]);
   // Two outward-opening casements. Their rails, handles and glass highlights
   // all rotate around the outer jambs; the view through the glass stays clear.
-  const eased=progress*progress*(3-2*progress),angle=eased*Math.PI*.45;
-  const leafWidth=(w-.16)/2,leafHeight=h-.16;
-  for(const side of [0,1]){
-    const hinge=side?x+w-.08:x+.08,sign=side?-1:1;
-    const point=(u,v,d)=>({x:hinge+sign*(u*Math.cos(angle)-d*Math.sin(angle)),y:y+.08+v,z:D+.01+u*Math.sin(angle)+d*Math.cos(angle)});
-    const rail=(u,v,d,rw,rh,rd,color)=>{
-      const a=point(u,v,d),b=point(u+rw,v,d),c=point(u+rw,v+rh,d),e=point(u,v+rh,d);
-      const A=point(u,v,d+rd),B=point(u+rw,v,d+rd),C=point(u+rw,v+rh,d+rd),E=point(u,v+rh,d+rd);
-      for(const vertices of [[a,b,c,e],[A,E,C,B],[a,A,B,b],[e,c,C,E],[a,e,E,A],[b,B,C,c]])face(vertices,color);
-    };
-    for(const [u,v,rw,rh] of [[0,0,leafWidth,.055],[0,leafHeight-.055,leafWidth,.055],[0,0,.055,leafHeight],[leafWidth-.055,0,.055,leafHeight],[0,leafHeight*.55,leafWidth,.045]])rail(u,v,-.035,rw,rh,.07,look.metal);
-    rail(leafWidth-.12,leafHeight*.42,-.1,.035,.22,.065,look.metal);
-    // Thin reflected streaks make the moving glass visible without hiding the skyline.
-    for(const v of [.25,leafHeight*.65]){
-      const u=leafWidth*.3;
-      face([point(u,v,0),point(u+.018,v,0),point(u+.22,v+.28,0),point(u+.202,v+.28,0)],'#6e7b88');
-    }
+  if(casements)for(const side of [0,1])drawCorridorCasement(face,look,side,progress);
+}
+
+export const corridorWindowAngle=progress=>progress*progress*(3-2*progress)*Math.PI*.45;
+// The same casement geometry is drawn directly by Canvas or retained at progress
+// zero and rotated around its jamb by Three.js.
+export function drawCorridorCasement(face,look,side,progress){
+  const {depth:D,window:{x,y,w,h}}=HOTEL_CORRIDOR;
+  const angle=corridorWindowAngle(progress),leafWidth=(w-.16)/2,leafHeight=h-.16;
+  const hinge=side?x+w-.08:x+.08,sign=side?-1:1;
+  const point=(u,v,d)=>({x:hinge+sign*(u*Math.cos(angle)-d*Math.sin(angle)),y:y+.08+v,z:D+.01+u*Math.sin(angle)+d*Math.cos(angle)});
+  const rail=(u,v,d,rw,rh,rd,color)=>{
+    const a=point(u,v,d),b=point(u+rw,v,d),c=point(u+rw,v+rh,d),e=point(u,v+rh,d);
+    const A=point(u,v,d+rd),B=point(u+rw,v,d+rd),C=point(u+rw,v+rh,d+rd),E=point(u,v+rh,d+rd);
+    for(const vertices of [[a,b,c,e],[A,E,C,B],[a,A,B,b],[e,c,C,E],[a,e,E,A],[b,B,C,c]])face(vertices,color);
+  };
+  for(const [u,v,rw,rh] of [[0,0,leafWidth,.055],[0,leafHeight-.055,leafWidth,.055],[0,0,.055,leafHeight],[leafWidth-.055,0,.055,leafHeight],[0,leafHeight*.55,leafWidth,.045]])rail(u,v,-.035,rw,rh,.07,look.metal);
+  rail(leafWidth-.12,leafHeight*.42,-.1,.035,.22,.065,look.metal);
+  // Thin reflected streaks make the moving glass visible without hiding the skyline.
+  for(const v of [.25,leafHeight*.65]){
+    const u=leafWidth*.3;
+    face([point(u,v,0),point(u+.018,v,0),point(u+.22,v+.28,0),point(u+.202,v+.28,0)],'#6e7b88');
   }
 }

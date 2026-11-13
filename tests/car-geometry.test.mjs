@@ -71,3 +71,12 @@ test('complete car templates are shared across positions, colours, turns and slo
     assert.strictEqual(carGeometry(car),geometry);
   }
 });
+
+test('retained renderers can request complete car geometry without a camera-dependent face subset',()=>{
+  for(const type of ['normal','taxi','hippie-van','mercedes'])for(const dir of [-1,1]){
+    const car={x:0,z:0,axis:1,dir,type,color:'#123456'},faces=[];
+    drawCarGeometry(car,{complete:true,face:(vertices,color,texture)=>faces.push({vertices,color,texture}),texture:id=>id});
+    assert.equal(faces.length,carGeometry(car).length/24);
+    assert.ok(faces.every(face=>face.vertices.length===4&&typeof face.color==='string'));
+  }
+});

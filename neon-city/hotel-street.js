@@ -29,7 +29,7 @@ export function hotelStreetLife(seed,time,floor){
     const dir=track%2?1:-1,speed=.85+rng()*.35;
     for(let i=0;i<4;i++){
       const phase=i*30+rng()*12,type=streetType(rng()),variant=rng();
-      people.push({x:mod(phase+time*speed*dir,120)-60,
+      people.push({id:`street-person:${track}:${i}`,x:mod(phase+time*speed*dir,120)-60,
         z:24.12+[.8,2.1,10.55,11.45][track],y:ground+.16,
         type,variant,walkTime:time*speed,facingX:dir,facingZ:0});
     }
@@ -37,7 +37,7 @@ export function hotelStreetLife(seed,time,floor){
   // Use the city's own vehicle selection, colours, spacing and travel speed.
   for(let x=-1;x<=0;x++)for(const c of traffic({x,z:lane},time)){
     if(c.axis!==1||Math.abs(c.x)>60)continue;
-    cars.push({...c,z:24.12+6.5-c.dir*1.75,y:ground});
+    cars.push({...c,id:`street-car:${c.dir}:${Math.round((c.x-time*10*c.dir)/67.5)}`,z:24.12+6.5-c.dir*1.75,y:ground});
   }
   return {people,cars};
 }

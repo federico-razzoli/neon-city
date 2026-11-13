@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createThreeArtwork} from './three-artwork.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {drawDroppedObject} from './dropped-object.js';
 import {sprite} from './sprites.js?v=bumps-1';
@@ -22,14 +23,15 @@ export function updateInteriorCamera(camera,{position,eye,pitch=0}){
 // This is a geometry adapter for existing world-space helpers, not a frame cache.
 export function createInteriorGeometryBuilder(){
   const cube=new THREE.BoxGeometry(1,1,1),colors=new Map();
-  function build(draw){
+  function build(draw,{onTexture}={}){
     const positions=[],rgb=[];
     const append=(point,color)=>{
       let value=colors.get(color);
       if(!value){value=new THREE.Color(color);colors.set(color,value);}
       positions.push(point.x,point.y,-point.z);rgb.push(value.r,value.g,value.b);
     };
-    const face=(vertices,color)=>{
+    const face=(vertices,color,texture)=>{
+      if(texture&&onTexture){onTexture(vertices,color,texture);return;}
       for(let i=1;i<vertices.length-1;i++)for(const point of [vertices[0],vertices[i],vertices[i+1]])append(point,color);
     };
     const quad=(x,y,z,w,d,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);
@@ -53,14 +55,15 @@ export function createInteriorGeometryBuilder(){
   return {build,dispose(){cube.dispose();colors.clear();}};
 }
 
-export function createThreeInteriorScene({name,drawRoom,createExtras}){
+export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,background='#3a2d36'}){
   const scene=new THREE.Scene(),camera=createInteriorCamera();
-  scene.background=new THREE.Color('#3a2d36');
+  scene.background=new THREE.Color(background);
   const builder=createInteriorGeometryBuilder();
   const material=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
-  const room=new THREE.Mesh(builder.build(drawRoom),material);
+  const artworkMeshes=createThreeArtwork();
+  const room=new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material);
   room.name=`${name}-room`;scene.add(room);
-  const extras=createExtras?.({scene,builder,material});
+  const extras=createExtras?.({scene,builder,material,artwork:artworkMeshes});
   const dropped=new Map(),actors=new Map(),artwork=new Map();
   const actorGeometry=new THREE.PlaneGeometry(1,1);
   let disposed=false;
@@ -91,17 +94,18 @@ export function createThreeInteriorScene({name,drawRoom,createExtras}){
     for(const [item,mesh] of dropped)if(!present.has(item)){
       scene.remove(mesh);mesh.geometry.dispose();dropped.delete(item);
     }
-    const guests=new Set(frame.hotelGuests);
+    const guests=[...frame.hotelGuests,...(extras?.actors?.()??[])],presentActors=new Set();
     for(const guest of guests){
-      let mesh=actors.get(guest);
-      if(!mesh){mesh=new THREE.Mesh(actorGeometry,material);mesh.name=`${name}-guest`;actors.set(guest,mesh);scene.add(mesh);}
-      const image=sprite(guest.type,Math.floor(guest.walkTime*6)%4,pedestrianShowsBack(guest,frame.player),guest.variant);
+      const key=guest.id??guest;presentActors.add(key);
+      let mesh=actors.get(key);
+      if(!mesh){mesh=new THREE.Mesh(actorGeometry,material);mesh.name=`${name}-guest`;mesh.userData.actorId=typeof key==='string'?key:null;actors.set(key,mesh);scene.add(mesh);}
+      const image=imageFor(guest.type,Math.floor(guest.walkTime*6)%4,pedestrianShowsBack(guest,frame.player),guest.variant);
       mesh.material=actorMaterial(image);
       const height=characterHeight(guest.type);
       mesh.scale.set(height*characterGirth(guest.type)/2,height,1);
       mesh.position.set(guest.x,(guest.y??0)+height/2,-guest.z);mesh.rotation.y=-frame.player.angle;
     }
-    for(const [guest,mesh] of actors)if(!guests.has(guest)){scene.remove(mesh);actors.delete(guest);}
+    for(const [guest,mesh] of actors)if(!presentActors.has(guest)){scene.remove(mesh);actors.delete(guest);}
   }
   function dispose(){
     if(disposed)return;disposed=true;
@@ -109,7 +113,7 @@ export function createThreeInteriorScene({name,drawRoom,createExtras}){
     for(const mesh of dropped.values())mesh.geometry.dispose();
     dropped.clear();actors.clear();actorGeometry.dispose();
     for(const {texture,material} of artwork.values()){texture.dispose();material.dispose();}
-    artwork.clear();material.dispose();builder.dispose();scene.clear();
+    artwork.clear();artworkMeshes.dispose();material.dispose();builder.dispose();scene.clear();
   }
   return {scene,camera,update,dispose};
 }
