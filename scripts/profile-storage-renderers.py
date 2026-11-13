@@ -43,7 +43,7 @@ globalThis.__storageProfile={
       running=false;
     }
     await new Promise(resolve=>setTimeout(resolve,0));observer.disconnect();
-    return {durationMs:performance.now()-started,cpu,intervals,phases,memory:storageRenderer?{...storageRenderer.info.memory}:null};
+    return {durationMs:performance.now()-started,cpu,intervals,phases,memory:threeRenderer?{...threeRenderer.info.memory}:null};
   },
   hardware(){
     const gl=threeCanvas?.getContext('webgl2');

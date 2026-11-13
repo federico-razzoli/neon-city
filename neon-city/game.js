@@ -430,29 +430,29 @@ function playOuch(){
 }
 
 
-let worldScene,canvasRenderer,storageRenderer,threeCanvas,storageRendererLoading;
+let worldScene,canvasRenderer,threeRenderer,threeCanvas,threeRendererLoading;
 const rendererPreferences=createRendererPreferences();
-async function prepareStorageRenderer(){
-  if(storageRenderer)return;
-  storageRendererLoading??=(async()=>{
-    const {createThreeStorageRenderer}=await import('./three-storage-renderer.js');
+async function prepareThreeRenderer(){
+  if(threeRenderer)return;
+  threeRendererLoading??=(async()=>{
+    const {createThreeHotelRenderer}=await import('./three-hotel-renderer.js');
     const surface=document.createElement('canvas');surface.id='three-view';surface.hidden=true;
     surface.setAttribute('aria-hidden','true');
-    try{storageRenderer=createThreeStorageRenderer(surface);}
+    try{threeRenderer=createThreeHotelRenderer(surface);}
     catch(error){surface.remove();throw new Error(`Three.js could not start: ${error.message}. Canvas/WASM is still available.`);}
     canvas.after(surface);threeCanvas=surface;
   })();
-  try{await storageRendererLoading;}finally{storageRendererLoading=null;}
+  try{await threeRendererLoading;}finally{threeRendererLoading=null;}
 }
 async function selectDebugDestination(id,park,renderer=rendererPreferences.get(id)){
   if(!supportsRenderer(id,renderer))throw new Error('This renderer is not available for that destination.');
-  if(renderer==='three')await prepareStorageRenderer();
+  if(renderer==='three')await prepareThreeRenderer();
   debugTravel(id,park);rendererPreferences.set(id,renderer);painted=false;
 }
 function selectRenderSurface(useThree){
   if(threeCanvas)threeCanvas.hidden=!useThree;
   canvas.classList.toggle('webgl-active',useThree);
-  if(!useThree)storageRenderer?.leave();
+  if(!useThree)threeRenderer?.leave();
 }
 function render(){
   canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);
@@ -472,15 +472,15 @@ function render(){
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors()
   };
   const destination=debugScene(),rendererChoice=rendererPreferences.get(destination);
-  if(destination==='storage'&&rendererChoice==='three'&&!storageRenderer&&!storageRendererLoading){
-    prepareStorageRenderer().then(()=>{painted=false;}).catch(error=>{
-      rendererPreferences.set('storage','canvas');painted=false;
-      if(debugScene()==='storage'){notice=5;noticeText=error.message;}
+  if(supportsRenderer(destination,'three')&&rendererChoice==='three'&&!threeRenderer&&!threeRendererLoading){
+    prepareThreeRenderer().then(()=>{painted=false;}).catch(error=>{
+      for(const id of ['storage','stairs'])rendererPreferences.set(id,'canvas');painted=false;
+      if(supportsRenderer(debugScene(),'three')){notice=5;noticeText=error.message;}
     });
   }
-  const useThree=Boolean(destination==='storage'&&rendererChoice==='three'&&storageRenderer);
+  const useThree=Boolean(supportsRenderer(destination,'three')&&rendererChoice==='three'&&threeRenderer);
   selectRenderSurface(useThree);
-  if(useThree)profilePhase('neon:three:frame',()=>storageRenderer.render(frame));
+  if(useThree)profilePhase('neon:three:frame',()=>threeRenderer.render(frame));
   else profilePhase('neon:canvas:frame',()=>worldScene.render(frame));
 }
 // Debug travel shares venue initialization with ordinary door entry.

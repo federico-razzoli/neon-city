@@ -6,7 +6,7 @@ Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
 software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
 implemented. The optional Three.js backend currently covers the hotel storage
-room; visual parity and lettering work remain the next stage.
+room and stairwell. Broader visual parity and lettering work remain pending.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -120,7 +120,7 @@ The first ordinary visit loads Three.js in the background while Canvas draws the
 room. If WebGL 2 cannot start, ordinary entry falls back to Canvas; an explicit
 menu selection reports the failure and keeps Canvas available.
 
-- [three-storage-renderer.js](neon-city/three-storage-renderer.js) lazily creates
+- [three-hotel-renderer.js](neon-city/three-hotel-renderer.js) lazily creates
   a separate WebGL canvas. The original canvas remains the keyboard/pointer/touch
   input surface, and DOM overlays remain above the selected image. No Three.js
   modules load during ordinary Canvas play.
@@ -217,6 +217,36 @@ switching into a cabinet does not require porting the game inside it.
 Completion criterion for each interior: visual comparison, working entry and
 exit, correct occlusion, and unchanged interactions with objects and characters.
 
+**Hotel stairwell implemented.** Three.js is the default for both the storage
+room and stairwell; Canvas/WASM remains available in the debug menu with
+independent choices per location. The lobby and corridors retain Canvas.
+
+- [three-interior-scene.js](neon-city/three-interior-scene.js) shares the retained
+  camera, geometry adapter, dropped-object meshes, guest artwork and resource
+  ownership between the two migrated interiors. The original storage exports
+  remain compatible.
+- [three-stairwell-scene.js](neon-city/three-stairwell-scene.js) uses the existing
+  stairwell geometry and the current hotel's palette. All three floors, both
+  flights, railings, doors, lights and STORAGE lettering are built once per visit.
+  Floor changes and climbing only update the camera and moving guest meshes.
+- [three-money-note.js](neon-city/three-money-note.js) reuses the existing banknote
+  artwork and UVs, including the Canvas renderer's compensation for the hotel
+  overlay. Its mesh follows the same per-hotel `taken` state and wallet logic.
+  Dropped items retain their tread/landing heights and room identity.
+- One WebGL renderer/context serves both rooms. Stairwell/storage transitions
+  release the previous scene's resources before building the next. Corridor/lobby
+  transitions return to Canvas and release scene-owned GPU resources. Movement,
+  collisions, doors, guest routines, cash pickup and the light-switch event use
+  the existing gameplay code.
+
+Validation: six fixed Canvas/Three.js views cover the entry, both flights, middle
+and upper landings, and banknote. Chromium checks passed for ascending both
+flights, collecting cash and updating the wallet, same-scene renderer comparison,
+rendering a guest on the stairs, storage/corridor/lobby transitions and GPU
+resource release. Focused automated tests cover camera elevation across floors,
+retained geometry, note persistence, dropped-item heights, banknote UVs and tint,
+and resource disposal. No new performance benchmark is claimed for this interior.
+
 ### 5. Migrate the street renderer
 
 Start with a complete, limited street scene before expanding coverage to the
@@ -308,7 +338,7 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-the storage room also supports Three.js. Other Three.js buttons stay disabled.
+the storage room and stairwell also support Three.js. Other Three.js buttons stay disabled.
 Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.
