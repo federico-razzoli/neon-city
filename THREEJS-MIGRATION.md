@@ -6,7 +6,7 @@ Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
 software rendering pipeline scene by scene. Steps 1–2 and the debug menu are
 implemented. The optional Three.js backend currently covers the hotel storage
-room, stairwell, corridors, main hall and arcade. Broader visual parity and lettering work remain pending.
+room, stairwell, corridors, main hall, arcade and Midnite Books. Broader visual parity and lettering work remain pending.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -404,7 +404,7 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
 ordinary gameplay to open it; Escape or **Close and resume** returns to play.
 `DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
-all hotel interiors and the arcade also support Three.js. Other Three.js buttons stay disabled.
+all hotel interiors, the arcade and Midnite Books also support Three.js. Other Three.js buttons stay disabled.
 Selecting the current interior keeps its viewpoint and state. Venue travel uses the same
 initialization as door entry. The event editor accepts a JSON object and applies
 the complete validated replacement only when **Apply events** is pressed.
@@ -539,3 +539,27 @@ resource disposal. Chromium checks compare four fixed Canvas/Three.js views and
 exercise visitors, renderer switches, cabinet return, hotel/arcade/street travel
 and GPU cleanup. Polygon edges and a few overlapping cabinet decorations differ
 between backends; no performance improvement is claimed.
+
+### Midnite Books interior
+
+Midnite Books now uses Three.js by default, with the Canvas/WASM comparison
+available in the debug menu. `three-bookshop-scene.js` retains the shelves,
+lettering, furniture and lights as one room mesh. The bookseller, backpack and
+individual books have retained meshes. Books share geometry by cover color and
+move between displays, reading tables, visitors and the bookseller using existing
+bookshop state. Completed loans release their mesh references. Backpack visibility
+reads the existing persistent collection state.
+
+Visitors use the existing facing rule and animation frames. Seated readers use
+the upper 32 sprite rows, the original seated scale and head height; standing
+restores the complete sprite. Books, people and furniture share WebGL depth.
+Room and shared resources are disposed on exit, and startup failure falls back
+to Canvas. Canvas drawing defaults and gameplay rules are preserved.
+
+Validation includes four fixed Canvas/Three.js views in Chromium, book pickup,
+reading and restocking, seated/walking visitors, backpack persistence, renderer
+switching, arcade/bookshop/street transitions and GPU cleanup, without page or
+shader errors. Automated coverage checks retained room and seller geometry,
+loans, backpack visibility, seated sprite cropping, resource disposal and Canvas
+defaults. Small polygon-edge and overlapping-surface differences remain; no
+performance improvement is claimed.

@@ -38,7 +38,7 @@ export function createDebugMenu(api){
     </div>
     <section role="tabpanel" id="debug-panel-locations" aria-labelledby="debug-tab-locations">
     <table><caption>Destination and renderer</caption><thead><tr><th>Destination</th><th>Canvas/WASM</th><th>Three.js</th></tr></thead><tbody></tbody></table>
-    <p>Three.js is available for the arcade, hotel hall, corridors, stairwell and storage room. Switching renderers preserves the current viewpoint and scene state.</p>
+    <p>Three.js is available for Midnite Books, the arcade, hotel hall, corridors, stairwell and storage room. Switching renderers preserves the current viewpoint and scene state.</p>
     </section>
     <section role="tabpanel" id="debug-panel-inventory" aria-labelledby="debug-tab-inventory" hidden>
     <fieldset><legend>Money</legend><label>Balance (£) <input id="debug-money" inputmode="decimal"></label> <button type="button" id="debug-money-apply">Apply money</button></fieldset>

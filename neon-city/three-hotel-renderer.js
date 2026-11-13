@@ -6,9 +6,11 @@ import {createThreeStorageScene} from './three-storage-scene.js';
 import {createThreeStairwellScene} from './three-stairwell-scene.js';
 import {createThreeCorridorScene} from './three-corridor-scene.js';
 import {createThreeArcadeScene} from './three-arcade-scene.js';
+import {createThreeBookshopScene} from './three-bookshop-scene.js';
 import {createThreeHallScene} from './three-hall-scene.js';
 
 function createScene(destination,hotel,floor){
+  if(destination==='bookshop')return createThreeBookshopScene();
   if(destination==='arcade')return createThreeArcadeScene();
   if(destination==='hotel')return createThreeHallScene(hotel);
   if(destination==='corridor')return createThreeCorridorScene(hotel,floor);
@@ -24,8 +26,8 @@ export function createThreeHotelRenderer(canvas){
   function leave(){if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
   return {
     render(frame){
-      const nextDestination=frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
-      const nextHotel=nextDestination==='arcade'?frame.currentVenue:frame.currentHotel;
+      const nextDestination=frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
+      const nextHotel=['arcade','bookshop'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
       const nextFloor=nextDestination==='corridor'?frame.hotelStairs.floor:null;
       if(!room||hotel!==nextHotel||destination!==nextDestination||floor!==nextFloor){
         leave();

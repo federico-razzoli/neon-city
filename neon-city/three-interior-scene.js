@@ -55,7 +55,7 @@ export function createInteriorGeometryBuilder(){
   return {build,dispose(){cube.dispose();colors.clear();}};
 }
 
-export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,background='#3a2d36'}){
+export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,actorView=()=>({}),background='#3a2d36'}){
   const scene=new THREE.Scene(),camera=createInteriorCamera();
   scene.background=new THREE.Color(background);
   const builder=createInteriorGeometryBuilder();
@@ -65,7 +65,9 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
   room.name=`${name}-room`;scene.add(room);
   const extras=createExtras?.({scene,builder,material,artwork:artworkMeshes});
   const dropped=new Map(),actors=new Map(),artwork=new Map();
-  const actorGeometry=new THREE.PlaneGeometry(1,1);
+  const actorGeometry=new THREE.PlaneGeometry(1,1),seatedGeometry=new THREE.PlaneGeometry(1,1);
+  const seatedUV=seatedGeometry.attributes.uv;
+  for(let i=0;i<seatedUV.count;i++)seatedUV.setY(i,1-(1-seatedUV.getY(i))*32/48);
   let disposed=false;
   function actorMaterial(image){
     let entry=artwork.get(image);
@@ -99,11 +101,14 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
       const key=guest.id??guest;presentActors.add(key);
       let mesh=actors.get(key);
       if(!mesh){mesh=new THREE.Mesh(actorGeometry,material);mesh.name=`${name}-guest`;mesh.userData.actorId=typeof key==='string'?key:null;actors.set(key,mesh);scene.add(mesh);}
-      const image=imageFor(guest.type,Math.floor(guest.walkTime*6)%4,pedestrianShowsBack(guest,frame.player),guest.variant);
+      const view=actorView(guest,frame),seated=!!view.seated;
+      mesh.geometry=seated?seatedGeometry:actorGeometry;
+      const image=imageFor(guest.type,seated?1:Math.floor(guest.walkTime*6)%4,view.back??pedestrianShowsBack(guest,frame.player),guest.variant);
       mesh.material=actorMaterial(image);
       const height=characterHeight(guest.type);
-      mesh.scale.set(height*characterGirth(guest.type)/2,height,1);
-      mesh.position.set(guest.x,(guest.y??0)+height/2,-guest.z);mesh.rotation.y=-frame.player.angle;
+      const drawnHeight=seated?32*.0375:height;
+      mesh.scale.set((seated?24*.0375:height/2)*characterGirth(guest.type),drawnHeight,1);
+      mesh.position.set(guest.x,seated?1.87-drawnHeight/2:(guest.y??0)+height/2,-guest.z);mesh.rotation.y=-frame.player.angle;
     }
     for(const [guest,mesh] of actors)if(!presentActors.has(guest)){scene.remove(mesh);actors.delete(guest);}
   }
@@ -111,7 +116,7 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
     if(disposed)return;disposed=true;
     room.geometry.dispose();extras?.dispose();
     for(const mesh of dropped.values())mesh.geometry.dispose();
-    dropped.clear();actors.clear();actorGeometry.dispose();
+    dropped.clear();actors.clear();actorGeometry.dispose();seatedGeometry.dispose();
     for(const {texture,material} of artwork.values()){texture.dispose();material.dispose();}
     artwork.clear();artworkMeshes.dispose();material.dispose();builder.dispose();scene.clear();
   }
