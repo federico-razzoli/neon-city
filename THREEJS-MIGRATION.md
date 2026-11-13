@@ -4,8 +4,8 @@
 
 Introduce Three.js as an alternative renderer for Neon City in small, playable
 steps. Preserve the game's appearance and behaviour while replacing the custom
-software rendering pipeline scene by scene. This document is a plan; no renderer
-changes have been implemented as part of writing it.
+software rendering pipeline scene by scene. The renderer migration remains a plan; the debug menu described below is
+implemented independently of the renderer changes.
 
 Performance improvements are a hypothesis to measure, not a guaranteed outcome.
 Each stage should leave the game usable and allow comparison with the existing
@@ -211,6 +211,15 @@ Three.js reference: [official documentation](https://threejs.org/docs/), includi
 `CanvasTexture` for reusing canvas artwork.
 
 ## Debug destination and renderer menu
+
+Implemented in [debug-menu.js](neon-city/debug-menu.js). Type `QWERTY` during
+ordinary gameplay to open it; Escape or **Close and resume** returns to play.
+`DEBUG_MODE` is enabled in that module. All current scenes support Canvas/WASM;
+Three.js buttons are disabled until the corresponding backends exist. Selecting
+the current interior keeps its viewpoint and state. Venue travel uses the same
+initialization as door entry. The event editor accepts a JSON object and applies
+the complete validated replacement only when **Apply events** is pressed.
+
 
 Add a debug mode controlled by a code constant, `DEBUG_MODE`. Keep it enabled in
 the repository. Setting the constant to false must disable the debug shortcut

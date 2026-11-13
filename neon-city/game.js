@@ -17,6 +17,8 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {createDebugMenu,DEBUG_MODE,DEBUG_RIVERSIDE_SPAWN} from './debug-menu.js';
+import {entranceWall} from './entrances.js';
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
 import {createTexturePrewarmer} from './texture-pixels.js';
 import {buildingGeometry} from './building-geometry.js';
@@ -167,16 +169,20 @@ function useDoor(){
     const arcade=!pub&&!hotel&&facingArcadeDoor(player,pubBuildings());
     const bookshop=!pub&&!hotel&&!arcade&&facingBookshopDoor(player,pubBuildings());
     if(!pub&&!hotel&&!arcade&&!bookshop)return false;
-    currentVenue=pub||hotel||arcade||bookshop;
-    streetPosition={...player,angle:player.angle+Math.PI};
-    if(pub){pubBarBeer(pub);pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);Object.assign(player,PUB.spawn);insidePub=true;}
-    // Each hotel keeps the receptionist first seen on duty there.
-    else if(bookshop){bookshopLife=bookshop.bookshopLife??=new BookshopLife(Math.random,bookshopBackpack);bookshopLife.enter();Object.assign(player,BOOKSHOP.spawn);insideBookshop=true;}
-    else if(arcade){Object.assign(player,ARCADE.spawn);insideArcade=true;arcadeLife=new ArcadeLife();currentArcadeName=arcadeName(arcade);}
-    else{currentHotel=hotel;hotel.receptionist??=RECEPTIONISTS[Math.floor(Math.random()*RECEPTIONISTS.length)];Object.assign(player,HOTEL.spawn);insideHotel=true;hotelLife=new HotelLife(Math.random,hotel);lobbyMusic.choose(LOBBY_PIECES[Math.floor(Math.random()*LOBBY_PIECES.length)]);}
+    enterVenue(pub||hotel||arcade||bookshop);
   }
   keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=0;shake=0;steps=0;arcadeAmbience.mute();parkBirds.mute();
   return true;
+}
+function enterVenue(venue){
+  const pub=venue.sign==='NEON PUB'&&venue,hotel=venue.sign==='HOTEL'&&venue,arcade=venue.sign==='ARCADE'&&venue,bookshop=venue.sign==='MIDNITE BOOKS'&&venue;
+  currentVenue=pub||hotel||arcade||bookshop;
+  streetPosition={...player,angle:player.angle+Math.PI};
+  if(pub){pubBarBeer(pub);pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);Object.assign(player,PUB.spawn);insidePub=true;}
+  // Each hotel keeps the receptionist first seen on duty there.
+  else if(bookshop){bookshopLife=bookshop.bookshopLife??=new BookshopLife(Math.random,bookshopBackpack);bookshopLife.enter();Object.assign(player,BOOKSHOP.spawn);insideBookshop=true;}
+  else if(arcade){Object.assign(player,ARCADE.spawn);insideArcade=true;arcadeLife=new ArcadeLife();currentArcadeName=arcadeName(arcade);}
+  else{currentHotel=hotel;hotel.receptionist??=RECEPTIONISTS[Math.floor(Math.random()*RECEPTIONISTS.length)];Object.assign(player,HOTEL.spawn);insideHotel=true;hotelLife=new HotelLife(Math.random,hotel);lobbyMusic.choose(LOBBY_PIECES[Math.floor(Math.random()*LOBBY_PIECES.length)]);}
 }
 // Pub chairs, park benches, arcade bridge chairs and the toilet share one seated mode: locked
 // position, limited turning, and looking up or down, until Space returns the
@@ -925,12 +931,60 @@ function render(){
   for(const f of queue)f.draw?f.draw():drawFace(f);ctx.restore();
   const vignette=ctx.createRadialGradient(320,180,110,320,180,390);vignette.addColorStop(0,'#05031000');vignette.addColorStop(1,'#050310aa');ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
 }
+// Debug travel shares venue initialization with ordinary door entry.
+function debugScene(){return insideBookshop?'bookshop':insideArcade?'arcade':insideHotel?(hotelStorage?'storage':hotelCorridor?'corridor':hotelStairs?'stairs':'hotel'):insideCubicle?'cubicle':insideLavatory?'lavatory':insidePub?'pub':'street';}
+function debugTravel(id,park){
+  if(id===debugScene()||id==='initial'&&!indoors()&&player.x===START.x&&player.z===START.z)return;
+  const origin=indoors()?streetPosition:player;
+  const signs={pub:'NEON PUB',lavatory:'NEON PUB',cubicle:'NEON PUB',hotel:'HOTEL',stairs:'HOTEL',storage:'HOTEL',corridor:'HOTEL',arcade:'ARCADE',bookshop:'MIDNITE BOOKS'};
+  let venue;
+  if(signs[id]){
+    city.update(origin.x,origin.z);
+    venue=[...city.chunks.values()].flatMap(c=>c.buildings).filter(b=>b.sign===signs[id]).sort((a,b)=>Math.hypot(a.x-origin.x,a.z-origin.z)-Math.hypot(b.x-origin.x,b.z-origin.z))[0];
+    if(!venue)throw new Error('No matching venue nearby. Explore more streets and try again.');
+  }
+  if(playerSeat?.bookshopChair)bookshopLife.stand(playerSeat.bookshopChair,inventory);
+  playerSeat=null;windowView=null;pubTalk=null;eye=1.65;
+  insideBookshop=insideArcade=insideHotel=insidePub=insideLavatory=false;insideCubicle=null;hotelStorage=hotelCorridor=false;hotelStairs=null;
+  lobbyMusic.choose(null);pubMusic.choose(null);
+  if(venue){
+    const wall=entranceWall(venue);
+    Object.assign(player,{x:wall.x+wall.nx,z:wall.z+wall.nz,angle:Math.atan2(-wall.nx,-wall.nz)});
+    enterVenue(venue);
+    if(['stairs','storage','corridor'].includes(id)){
+      hotelStairs=createHotelStairwell();Object.assign(player,HOTEL_STAIRWELL.spawn);
+      if(id==='storage'){hotelStairs.floor=2;hotelStorage=true;Object.assign(player,HOTEL_STORAGE.spawn);}
+      if(id==='corridor'){hotelCorridor=true;Object.assign(player,HOTEL_CORRIDOR.spawn);}
+    }
+    if(['lavatory','cubicle'].includes(id)){
+      insidePub=false;insideLavatory=true;lavatoryOccupied=rollOccupancy();lavatoryLife=new LavatoryLife();lavatoryTaps=LAVATORY.sinks.map(()=>false);Object.assign(player,LAVATORY.spawn);
+      if(id==='cubicle'){insideLavatory=false;insideCubicle=LAVATORY.cubicles[0];lavatoryOccupied[0]=false;Object.assign(player,CUBICLE.spawn);}
+    }
+  }else{
+    Object.assign(player,id==='initial'?START:id==='river'?DEBUG_RIVERSIDE_SPAWN:park);
+    city.update(player.x,player.z);
+  }
+  notice=shake=steps=0;painted=false;
+}
+const debugMenu=DEBUG_MODE?createDebugMenu({
+  canOpen:()=>running&&!ping&&!cabinetSession&&!banshee&&!pubMenu.open&&!inventoryBox.open&&!staffTalk,
+  pause:()=>{running=false;keys.clear();shiftKeys.clear();coverPressed=startSpaceHeld=false;seatedTexturePrewarmer.cancel();arcadeAmbience.mute();parkBirds.mute();tapWater.mute();muteBackgroundMusic();document.querySelector('#pace').hidden=true;},
+  resume:()=>{running=true;last=performance.now();canvas.focus();},
+  nearestPark:()=>{
+    const origin=indoors()?streetPosition:player;
+    const parks=[...city.parkBlocks].map(key=>key.split(',').map(Number));
+    parks.sort((a,b)=>Math.hypot(a[0]*64+32-origin.x,a[1]*64+32-origin.z)-Math.hypot(b[0]*64+32-origin.x,b[1]*64+32-origin.z));
+    const [x,z]=parks[0];const chunk=city.chunks.get(`${x},${z}`);
+    const path=chunk?.park?.path;
+    return path?{...path[0],angle:Math.atan2(path[1].x-path[0].x,path[1].z-path[0].z)}:{x:x*64+12,z:z*64+32,angle:Math.PI/2};
+  },travel:debugTravel,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
+}):null;
 function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;seatedTexturePrewarmer.cancel();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+function play(){if(debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 let hotelEventPresses=0,hotelEventKey=null;
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
-window.addEventListener('keydown',e=>{if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;
+window.addEventListener('keydown',e=>{if(debugMenu?.open||e.target?.closest?.('input,textarea,select,[contenteditable]'))return;if(debugMenu?.handleKey(e))return;if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;
 if(running&&insideHotel&&!pubMenu.open&&!inventoryBox.open&&!staffTalk&&!windowView&&['h','x'].includes(k)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
   e.preventDefault();
   if(!e.repeat){

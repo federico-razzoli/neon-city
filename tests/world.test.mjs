@@ -386,6 +386,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,shootingStars,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},canSeeHotelGuest,inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
@@ -1318,6 +1319,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={tick};",sandbox);
   const {tick}=sandbox.game,message=()=>element('#message').textContent;
@@ -1798,6 +1800,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera:v=>{prepareCamera();return camera(v);},inventory,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game;
@@ -3310,6 +3313,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
@@ -3419,6 +3423,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,tick,goToPub(){currentVenue={x:14,z:14};insidePub=true;currentPubName='THE PUB';},get seat(){return playerSeat;}};",sandbox);
   const {player,tick}=sandbox.game,location=()=>element('#location').textContent;
@@ -4925,6 +4930,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
     window:{addEventListener(name,fn){events[name]=fn;}},matchMedia:()=>({matches:true}),
     requestAnimationFrame(){},performance:{now:()=>0}};
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
+  sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
   sandbox.createTexturePrewarmer=createTexturePrewarmer;
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get arcadeLife(){return arcadeLife;},get staffTalk(){return staffTalk;},get ping(){return ping;}};",sandbox);
   let loads=0,disposals=0,failNext=false;
