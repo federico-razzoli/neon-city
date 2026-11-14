@@ -13,6 +13,13 @@ textures, sprites, sky and overlays remain part of the Three.js implementation.
 The migration entries below document earlier stages, including retired comparison
 options and fallback behavior.
 
+River water uses retained Three.js meshes and a shared animated shader in
+`three-river-water.js`. Small world-space waves travel along the river's X axis and cross
+chunk seams continuously. Diffuse crest lighting replaces the old painted ripple
+polygons. Water has no bank glow or scene or sky reflection pass. River
+chunks share their geometry and material, disposed when the street scene is
+released.
+
 ## Objective
 
 Introduce Three.js as an alternative renderer for Neon City in small, playable

@@ -29,13 +29,13 @@ const rippleFaces=Array.from({length:6},(_,i)=>[ripplePoints[i*2],ripplePoints[(
 const rippleWidths=Float64Array.from({length:7},(_,i)=>Math.sin(i/6*Math.PI)*.09);
 
 // Each chunk owns half of a river, including its share of each bridge.
-export function drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads=false},time){
+export function drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads=false,nativeWater=false},time){
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const first=chunk.z===chunk.riverStart;
   if(!nativeRoads)drawRiverbankTerrain(chunk,quad);
   for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
-  for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
+  if(!nativeWater)for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
     // This box contains both the water tile and its two animated ripples.
     if(boundsVisible&&!boundsVisible(x+a,WATER_LEVEL,b,x+a+8,WATER_LEVEL+.012,b+8))continue;
     quad(x+a,WATER_LEVEL,b,8,Math.min(8,high-b),'#164957');

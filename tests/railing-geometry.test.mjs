@@ -25,7 +25,8 @@ test('cached river railings preserve bank and bridge geometry, culling and face 
       const capture=out=>(vertices,color)=>out.push({vertices,color});
       const face=capture(before);
       originalRiverStructures(chunk,{face,box:originalBox(face,viewer)},viewer);
-      drawRiverStructures(chunk,{face:capture(after)},viewer);
+      // The later solid bridge undersides are covered by their own world test.
+      drawRiverStructures(chunk,{face:(vertices,color)=>{if(color!=='#414b5c')capture(after)(vertices,color);}},viewer);
       assert.equal(after.length,before.length,`${x},${row},${part},${dx},${y},${dz}`);
       before.forEach((f,i)=>{
         assert.equal(after[i].color,f.color);

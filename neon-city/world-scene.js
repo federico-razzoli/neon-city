@@ -182,7 +182,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
   function street(chunk){
     const x=chunk.x*64,z=chunk.z*64;
     if(renderer.drawRoad)renderer.drawRoad(chunk);
-    if(chunk.river){drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads:!!renderer.drawRoad},time);return;}
+    if(chunk.river){renderer.drawWater?.(chunk);drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads:!!renderer.drawRoad,nativeWater:!!renderer.drawWater},time);return;}
     // Asphalt needs geometry to occlude the recessed river at street approaches.
     // The screen background alone cannot hide water projected over the road.
     if(!renderer.drawRoad)quad(x,0,z,64,64,'#252233');
