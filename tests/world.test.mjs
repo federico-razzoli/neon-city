@@ -709,7 +709,7 @@ test('arcade windows and sides vary while retaining their layout on redraw',()=>
   assert.ok(layouts.size>1,'different addresses vary');
 });
 import {City,pedestrian,traffic,PEDESTRIAN_TYPES,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
-import {RIVER_ROWS,BLOCK,RIVER_WIDTH,WATER_LEVEL,BRIDGE_RISE,groundHeight,bridgeHeight} from '../neon-city/world.js';
+import {RIVER_ROWS,BLOCK,RIVER_WIDTH,WATER_LEVEL,BRIDGE_RISE,groundHeight,bridgeHeight,hasBridge} from '../neon-city/world.js';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces} from '../neon-city/rivers.js';
 
 test('only Night River remains through district 0, 4, with ordinary city blocks at the former river',()=>{
@@ -810,6 +810,26 @@ test('river geometry has recessed water, grassy banks, and elevated bridge decks
     const landFaces=[];
     drawRiverbankFaces(chunk,{face:vertices=>landFaces.push(vertices)},landViewer);
     assert.ok(landFaces.every(vertices=>vertices.every(v=>v.y>WATER_LEVEL)), 'retaining wall backs cannot cover the grass from land');
+  }
+});
+
+test('bridge undersides cover road and sidewalk across both river chunks with native roads',()=>{
+  for(const cx of [-3,-1,0,1,2,3])for(const part of [0,1]){
+    const row=RIVER_ROWS[0],chunk={x:cx,z:row+part,riverStart:row},faces=[];
+    drawRiverStructures(chunk,{nativeRoads:true,nativeRailings:true,face:(vertices,color)=>{
+      if(color==='#414b5c')faces.push(vertices);
+    }});
+    const low=row*BLOCK+(part?64:18),high=row*BLOCK+(part?110:64);
+    const edges=[0,50].filter(left=>hasBridge(cx+(left===50?1:0)));
+    assert.equal(faces.length,(high-low)/2*edges.length);
+    for(const left of edges){
+      const strips=faces.filter(f=>f[0].x===cx*BLOCK+left);
+      assert.equal(strips[0][0].z,low);assert.equal(strips.at(-1)[2].z,high);
+      for(const vertices of strips){
+        assert.equal(vertices[1].x-vertices[0].x,14);
+        for(const v of vertices)assert.ok(Math.abs(v.y-(bridgeHeight(v.z)-1.4))<1e-9);
+      }
+    }
   }
 });
 

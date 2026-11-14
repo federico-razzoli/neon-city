@@ -115,6 +115,10 @@ export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false,
       {x:x+left,y:h0+y0,z:a},{x:x+right,y:h0+y0,z:a},
       {x:x+right,y:h1+y1,z:b},{x:x+left,y:h1+y1,z:b}
     ],color);
+    // Close the slab beneath both road and sidewalk, following the fascia's
+    // lower edge even when Three.js supplies the upper road surface.
+    for(const [left,right] of [[0,14],[50,64]])if(hasBridge(chunk.x+(left===50?1:0)))
+      strip(left,right,-1.4,-1.4,'#414b5c');
     if(!nativeRoads)for(const [left,right,color] of [[0,8,'#292b3b'],[8,14,'#757380'],[50,56,'#757380'],[56,64,'#292b3b']])if(hasBridge(chunk.x+(left>=50?1:0)))strip(left,right,.075,.075,color);
     if(!nativeRoads&&hasBridge(chunk.x)&&Math.floor((a-start)/4)%3===0)strip(0,.15,.085,.085,'#c4af8c');
     if(!nativeRailings)drawRiverRailings(chunk,face,viewer,a-z);
