@@ -76,14 +76,14 @@ test('street view follows all four entrance orientations without mutating city s
   const {bookshopStreetView,createBookshopStreet}=await import('../neon-city/three-bookshop-street.js');
   for(const entranceSide of [0,1,2,3]){
     const venue={x:100,z:-200,w:18,d:18,entranceSide},other={x:50};
-    const chunk={buildings:[venue,other]},frame={currentVenue:venue,player:{x:3,z:2,angle:.4},playerSeat:{pitch:.2},skyView:{angle:.4},city:{chunks:new Map([['shop',chunk]])}};
+    const chunk={buildings:[venue,other]},frame={currentVenue:venue,player:{x:3,z:2,angle:Math.PI+.4},eye:1.65,playerSeat:{pitch:.2},skyView:{angle:.4},city:{chunks:new Map([['shop',chunk]])}};
     const view=bookshopStreetView(frame);
     const local=new THREE.Vector3(view.frame.player.x,1.65,-view.frame.player.z).applyMatrix4(view.transform);
     assert.ok(local.distanceTo(new THREE.Vector3(3,1.65,-2))<1e-10);
     assert.deepEqual(view.frame.city.chunks.get('shop').buildings,[other]);
     assert.deepEqual(chunk.buildings,[venue,other]);assert.equal(view.frame.indoors,false);assert.equal(view.frame.skyView.pitch,.2);
     const direction=new THREE.Vector3(Math.sin(view.frame.player.angle),0,-Math.cos(view.frame.player.angle)).transformDirection(view.transform);
-    assert.ok(direction.distanceTo(new THREE.Vector3(Math.sin(.4),0,-Math.cos(.4)))<1e-10);
+    assert.ok(direction.distanceTo(new THREE.Vector3(Math.sin(Math.PI+.4),0,-Math.cos(Math.PI+.4)))<1e-10);
     let calls=0,disposed=0;const exterior=new THREE.Scene(),scene=new THREE.Scene(),background=scene.background;
     const ground=new THREE.Mesh(new THREE.PlaneGeometry(10,10),new THREE.MeshBasicMaterial());exterior.add(ground);
     const street=createBookshopStreet(scene,{createStreet:()=>({scene:exterior,update(f){calls++;assert.equal(f.currentVenue,venue);},dispose(){disposed++;}})});
@@ -107,4 +107,36 @@ test('door edges close the reveal against the wall from oblique angles',async()=
     const top=new THREE.Raycaster(new THREE.Vector3(9,3.105,-.06),new THREE.Vector3(0,-2,1).normalize(),0,.2);
     assert.ok(top.intersectObject(wall).length>0,'door top closes against the lintel');
   }finally{room.dispose();}
+});
+
+test('street culling keeps views through either window and rejects the door and indoor side',async()=>{
+  const {bookshopWindowView}=await import('../neon-city/bookshop-window-view.js');
+  const {entranceWall}=await import('../neon-city/entrances.js');
+  for(const entranceSide of [0,1,2,3]){
+    const venue={x:100,z:-200,w:18,d:18,entranceSide},wall=entranceWall(venue);
+    const frame={player:{x:9,z:6,angle:Math.PI},eye:1.65,currentVenue:venue};
+    const view=bookshopWindowView(frame);assert.equal(view.visible,true);
+    const point=(x,y,z)=>({x:wall.x-wall.nz*(x-9)-wall.nx*z,y,z:wall.z+wall.nx*(x-9)-wall.nz*z});
+    const visible=(x,y,z)=>{const p=point(x,y,z);return view.boundsVisible(p.x,p.y,p.z,p.x,p.y,p.z);};
+    for(const b of BOOKSHOP.windowShelves)for(const x of [b.x+.13,b.x+b.w/2,b.x+b.w-.13])for(const y of [.96,1.85,2.74]){
+      const factor=5;
+      assert.equal(visible(9+(x-9)*factor,1.65+(y-1.65)*factor,6+(.04-6)*factor),true,'rays through the full opening stay visible');
+    }
+    assert.equal(visible(9,1.65,-1),false,'opaque door hides the centre');
+    assert.equal(visible(9,1.65,2),false,'interior side is discarded');
+    frame.player.angle=0;assert.equal(bookshopWindowView(frame).visible,false,'facing the shelves hides both windows');
+  }
+});
+
+test('turning away skips street updates and rendering while retaining it for the next view',async()=>{
+  const THREE=await import('../neon-city/vendor/three/three.module.js');
+  const {createBookshopStreet}=await import('../neon-city/three-bookshop-street.js');
+  const scene=new THREE.Scene(),exterior=new THREE.Scene();let created=0,updates=0;
+  const street=createBookshopStreet(scene,{createStreet:()=>{created++;return {scene:exterior,update(){updates++;},dispose(){}};}});
+  const frame={player:{x:9,z:6,angle:0},eye:1.65,currentVenue:{x:0,z:0,w:18,d:18},skyView:{},city:{chunks:new Map()}};
+  street.update(frame);assert.equal(created,0);
+  frame.player.angle=Math.PI;street.update(frame);assert.equal(updates,1);assert.equal(exterior.visible,true);
+  frame.player.angle=0;street.update(frame);assert.equal(updates,1);assert.equal(exterior.visible,false);
+  frame.player.angle=Math.PI;street.update(frame);assert.equal(updates,2);assert.equal(created,1);assert.equal(exterior.visible,true);
+  street.dispose();
 });

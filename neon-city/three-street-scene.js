@@ -12,7 +12,7 @@ import {createRenderCamera} from './render-camera.js';
 
 // The shared street traversal submits world coordinates directly to WebGL.
 // Batch faces by artwork/color and retain GPU buffers across frames.
-export function createThreeStreetScene(){
+export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const scene=new THREE.Scene(),camera=createInteriorCamera(),culling=createRenderCamera();
   scene.fog=new THREE.Fog('#0f0a1e',22,170);
   const sky=createCorridorSky(scene),roads=createThreeRoads(scene),railings=createThreeRailings(scene),traffic=createThreeTraffic(scene),batches=new Map();
@@ -46,11 +46,14 @@ export function createThreeStreetScene(){
     face([e,a,up(a),up(e)],color);face([b,c,up(c),up(b)],color);
     face([up(a),up(b),up(c),up(e)],roof);face([e,c,b,a],color);
   }
-  const backend={face,quad,box,drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>traffic.draw(car,surface),drawRoad:chunk=>roads.draw(chunk),drawRailings:chunk=>railings.draw(chunk),boundsVisible:(...args)=>culling.boundsVisible(...args),
+  const backend={face,quad,box,drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>{
+    if(!exteriorVisible||exteriorVisible(car.x-4,surface.base-2,car.z-4,car.x+4,surface.base+4,car.z+4))traffic.draw(car,surface);
+  },drawRoad:chunk=>roads.draw(chunk),drawRailings:chunk=>railings.draw(chunk),boundsVisible:(...args)=>culling.boundsVisible(...args)&&(!exteriorVisible||exteriorVisible(...args)),
     beginFrame(next){view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
     withStyle(next,draw){const old=style;style={...style,...next};try{return draw();}finally{style=old;}},
     beginPass(){},endPass(){return [];},drawPass(){},drawSky(){},finishStreet(){},
     billboard({position:p,height,width,image,getImage}){
+      if(exteriorVisible&&!exteriorVisible(p.x-width/2,p.y,p.z-width/2,p.x+width/2,p.y+height,p.z+width/2))return;
       const v=culling.transform(p);if(v.z<.3||v.z>105)return;
       image??=getImage();
       const dx=Math.cos(view.position.angle)*width/2,dz=-Math.sin(view.position.angle)*width/2;

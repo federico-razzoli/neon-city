@@ -827,3 +827,9 @@ the shop's entrance wall on any side of the building. Its own exterior shell is
 omitted, and material clipping keeps street surfaces outside the storefront.
 Street traffic continues updating while the player is in the shop. Exterior
 geometry, textures and materials are released on leaving the room.
+
+The bookshop exterior now skips updates and drawing when both windows are outside
+the camera view. When a window is visible, conservative view cones through its
+opening cull exterior chunks and objects before geometry submission. Simulation
+continues while the retained scene is hidden. See
+[window culling measurements](benchmarks/bookshop-window-culling/RESULTS.md).
