@@ -114,3 +114,14 @@ test('every lavatory and cubicle doorway has full coverage without overlapping w
     }
   }
 });
+
+test('cubicle blackout renders a black overlay without a banshee and stops on exit',()=>{
+  const prior=globalThis.document;let fills=0,renders=0;
+  globalThis.document={createElement:()=>({getContext:()=>({clearRect(){},fillRect(){fills++;}})})};
+  const room=createThreeCubicleScene(),renderer={autoClear:true,render(){renders++;}};
+  try{
+    room.renderOverlay(renderer,{lavatoryLife:{cubicleBlackout:true}});
+    assert.equal(fills,1);assert.equal(renders,1);assert.equal(renderer.autoClear,true);
+    room.renderOverlay(renderer,{lavatoryLife:{cubicleBlackout:false}});assert.equal(renders,1);
+  }finally{room.dispose();if(prior===undefined)delete globalThis.document;else globalThis.document=prior;}
+});

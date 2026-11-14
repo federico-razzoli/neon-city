@@ -50,7 +50,7 @@ test('real cubicle doors roll the child event only after a banshee miss and show
     const sandbox={...lavatory,washroomSpatial:()=>null,insideHotel:false,insidePub:false,insideLavatory:true,insideCubicle:null,player:{x:1.4,z:5,angle:0},
       banshee:null,bansheeMisses:0,cubicleKnock:null,register:{},audioContext:null,performance:{now:()=>0},
       rollBanshee:()=>banshee,rollCubicleKnock:()=>{childRolls++;return child;},playBansheeScream:()=>screams++,CubicleKnockEvent,KNOCK_EXIT_TEXT,
-      lavatoryOccupied:[false,true,true],lavatoryLife:{walker:{type:13},held:true,wait:0},keys:new Set(),shiftKeys:new Set(),
+      lavatoryOccupied:[false,true,true],lavatoryLife:Object.assign(new lavatory.LavatoryLife(()=>0),{walker:{type:13},held:true,wait:0}),keys:new Set(),shiftKeys:new Set(),
       arcadeAmbience:{mute(){}},parkBirds:{mute(){}},document:{querySelector:()=>message}};
     sandbox.washroomSpatial=()=>mode==='three'?(sandbox.insideCubicle?stall:main):null;
     sandbox.washroomTarget=()=>sandbox.washroomSpatial()?.target(sandbox.player);

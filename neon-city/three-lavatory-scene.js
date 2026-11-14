@@ -10,7 +10,8 @@ import {NATIVE_VIEW} from './render-camera.js';
 export function createThreeLavatoryScene({imageFor,now=()=>performance.now()/1000}={}){
   return createThreeInteriorScene({name:'lavatory',imageFor,
     drawRoom:helpers=>drawLavatory({...helpers,drawIndicators:false,drawMirrorGlass:false}),
-    actorsFor:frame=>frame.lavatoryLife?.walker?[frame.lavatoryLife.walker]:[],
+    actorsFor:frame=>[frame.lavatoryLife?.walker,frame.lavatoryLife?.mirrorChild].filter(Boolean),
+    actorView:guest=>guest.type===16?{height:1.2,reflectionOnly:true}:{},
     createExtras({scene,builder,material}){
       const flags=LAVATORY.cubicles.map((c,i)=>[false,true].map(occupied=>{
         const mesh=new THREE.Mesh(builder.build(({face})=>drawLavatoryIndicator(face,c,occupied?'#d23a32':'#3f9a4c')),material);
@@ -38,7 +39,7 @@ export function createThreeLavatoryScene({imageFor,now=()=>performance.now()/100
       for(const mirror of mirrors){
         const reflect=mirror.onBeforeRender;
         mirror.onBeforeRender=function(renderer,scene,camera){
-          // Layer 1 contains only the player's body; the normal camera uses 0.
+          // Layer 1 contains reflection-only figures; the normal camera uses 0.
           this.getReflectionCamera(camera).layers.enable(1);
           const visibility=mirrors.map(other=>other.visible);
           mirrors.forEach(other=>{if(other!==this)other.visible=false;});
@@ -68,8 +69,9 @@ export function createThreeCubicleScene(){
   let overlay;
   return {...room,
     renderOverlay(renderer,frame){
-      if(!frame.banshee)return;
-      const seconds=(performance.now()-frame.banshee.started)/1000,state=bansheeFrame(seconds);
+      const blackout=frame.lavatoryLife?.cubicleBlackout;
+      if(!frame.banshee&&!blackout)return;
+      const seconds=frame.banshee?(performance.now()-frame.banshee.started)/1000:0,state=blackout?{dark:true,opacity:0}:bansheeFrame(seconds);
       if(!state.dark&&!state.opacity)return;
       if(!overlay){
         const canvas=document.createElement('canvas');canvas.width=NATIVE_VIEW.width;canvas.height=NATIVE_VIEW.height;

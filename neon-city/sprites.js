@@ -35,6 +35,29 @@ export function sprite(type,frame,back=false,variant=0){
   const c=document.createElement('canvas');c.width=24;c.height=48;const g=c.getContext('2d');
   const rect=(color,x,y,w,h)=>{g.fillStyle=color;g.fillRect(x,y,w,h);};
   const stride=[-2,0,2,0][frame],skin=type===2?'#94624e':'#e2a282';
+  if(type===16){
+    // Pale boy: bowl-cut hair, collared school shirt, shorts and long socks.
+    rect('#302c29',7,2,11,12);rect('#d9c5b0',7,7,11,9);
+    rect('#c2aa95',6,9,1,4);rect('#c2aa95',18,9,1,4);
+    rect('#d9c5b0',10,15,5,3);
+    rect('#c1c5bd',6,18,13,13);rect('#909d99',6,29,13,2);
+    rect('#c1c5bd',3,18,4,7);rect('#c1c5bd',19,18,4,7);
+    rect('#d9c5b0',4,25,3,8);rect('#d9c5b0',19,25,3,8);
+    rect('#3b4650',7,31,6,6);rect('#3b4650',14,31,5,6);
+    rect('#d9c5b0',8,37,4,5+stride);rect('#d9c5b0',14,37,4,5-stride);
+    rect('#9baba4',8,41+stride,4,4);rect('#9baba4',14,41-stride,4,4);
+    rect('#25252a',6,45+stride,6,2);rect('#25252a',14,45-stride,6,2);
+    if(back){rect('#302c29',7,5,11,10);rect('#a2aca5',12,20,1,10);}
+    else{
+      rect('#302c29',7,6,11,3);rect('#302c29',7,8,3,3);
+      rect('#383b39',10,11,1,1);rect('#383b39',15,11,1,1);
+      rect('#ad9184',12,14,3,1);
+      rect('#e0e1d7',8,18,4,2);rect('#e0e1d7',14,18,3,2);
+      rect('#697976',12,20,1,10);
+      for(let y=22;y<30;y+=3)rect('#d9d9cd',13,y,1,1);
+    }
+    sprites[key]=c;return c;
+  }
   if(type===6){
     // Gay man with pink hair and shirt, white trousers and a right-ear hoop.
     rect('#ed68ac',8,2,10,6);rect('#ff9bcc',10,1,6,3);

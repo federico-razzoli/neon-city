@@ -103,6 +103,7 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
       if(!mesh){mesh=new THREE.Mesh(actorGeometry,material);mesh.name=`${name}-guest`;mesh.userData.actorId=typeof key==='string'?key:null;actors.set(key,mesh);scene.add(mesh);}
       const view=actorView(guest,frame),seated=!!view.seated;
       mesh.geometry=seated?seatedGeometry:actorGeometry;
+      mesh.layers.set(view.reflectionOnly?1:0);
       const image=imageFor(guest.type,seated?1:Math.floor(guest.walkTime*6)%4,view.back??pedestrianShowsBack(guest,frame.player),guest.variant);
       mesh.material=actorMaterial(image);
       const height=view.height??characterHeight(guest.type);

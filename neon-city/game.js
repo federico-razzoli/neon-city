@@ -54,7 +54,7 @@ import {drawBackpack} from './backpack.js';
 import {drawPastisBottle,drawMarijuanaPlant} from './backpack-contents.js';
 import {pubName} from './pub.js?v=park-entrances-1';
 import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
-import {LAVATORY,CUBICLE,CUBICLE_REPLIES,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle} from './lavatory.js?v=staff-room-1';
+import {LAVATORY,CUBICLE,CUBICLE_REPLIES,MIRROR_CHILD_BLACKOUT_TEXT,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=visit-buffer-1';
@@ -157,7 +157,9 @@ function useDoor(){
     const cubicle=washroomSpatial()?(target?.type==='cubicle'&&lavatoryOccupied[LAVATORY.cubicles.indexOf(target.data)]===false?target.data:null):facingVacantCubicle(player,lavatoryOccupied);
     if(cubicle){
       Object.assign(player,CUBICLE.spawn);insideLavatory=false;insideCubicle=cubicle;
-      const emptyLadies=cubicle.icon==='ladies'&&lavatoryLife.emptyLadies;
+      const blackout=lavatoryLife.enterCubicle(cubicle);
+      if(blackout){ladiesDoorEvent?.cancel();cubicleKnock?.dispose();cubicleKnock=null;}
+      const emptyLadies=blackout||(cubicle.icon==='ladies'&&lavatoryLife.emptyLadies)||(cubicle.icon==='gents'&&lavatoryLife.emptyGents);
       if(!emptyLadies&&rollBanshee(Math.random,bansheeMisses)){
         bansheeMisses=0;banshee={started:performance.now()};register.PUB_PARANORMAL_ACTIVITIES=true;playBansheeScream(audioContext,2);
       }else if(!emptyLadies){
@@ -169,7 +171,7 @@ function useDoor(){
         }
       }
     }
-    else if(washroomSpatial()?target?.type==='exit':facingLavatoryExit(player)){Object.assign(player,{x:PUB.toiletDoor.x,z:PUB.toiletDoor.z-.9,angle:Math.PI});insideLavatory=false;insidePub=true;}
+    else if(washroomSpatial()?target?.type==='exit':facingLavatoryExit(player)){Object.assign(player,{x:PUB.toiletDoor.x,z:PUB.toiletDoor.z-.9,angle:Math.PI});insideLavatory=false;insidePub=true;lavatoryLife.leaveRoom();}
     else return false;
   }else if(insideCubicle){
     if(!(washroomSpatial()?washroomTarget()?.type==='exit':facingCubicleExit(player)))return false;
@@ -177,6 +179,7 @@ function useDoor(){
       cubicleKnock.dispose();cubicleKnock=null;exitReaction=KNOCK_EXIT_TEXT;
       lavatoryLife.wait=Math.max(lavatoryLife.wait,8);
     }
+    lavatoryLife.leaveCubicle();
     Object.assign(player,outsideCubicle(insideCubicle));insideCubicle=null;insideLavatory=true;
   }else if(indoors()){
     if(!(insideBookshop?(bookshopSpatial()?bookshopTarget()?.type==='exit':facingBookshopExit(player)):insideArcade?facingArcadeExit(player):insidePub?pubFacing('exit',facingPubExit):facingHotelExit(player)))return false;
@@ -228,6 +231,7 @@ function useSeat(){
     if(playerSeat.bookshopChair)bookshopLife.stand(playerSeat.bookshopChair,inventory);
     playerSeat=null;eye=1.65;pubTalk=null;
   }else if(insideCubicle){
+    if(lavatoryLife?.cubicleBlackout)return false;
     const target=washroomSpatial()?washroomTarget():null;
     const seat=washroomSpatial()?(target?.type==='toilet'?target.data:null):facingToilet(player);
     if(!seat)return false;
@@ -366,6 +370,7 @@ document.querySelector('#inventory-actions').addEventListener('click',e=>{
   if(action)useInventoryAction(action);
 });
 function toggleInventory(){
+  if(insideCubicle&&lavatoryLife?.cubicleBlackout)return;
   keys.clear();shiftKeys.clear();coverPressed=false;
   if(inventoryBox.open){if(inventoryMessage.open)closeInventoryMessage();if(inventoryDetail.open)closeInventoryItem();inventoryBox.close();canvas.focus();}
   else{
@@ -741,12 +746,13 @@ if(running){
     }
     return;
   }
+  if(k===' '&&!e.repeat&&insideCubicle&&lavatoryLife?.cubicleBlackout){useDoor();return;}
   if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){bookshopLife?.resetBookInteraction();notice=2.5;noticeText=pickedUp;return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){if(arcadeLife?.occupied(machine)){notice=2.5;noticeText='SOMEONE IS ALREADY PLAYING THIS CABINET.';return;}const reply=tryArcadeGame(machine,inventory,false);if(reply==='PINBALL'||reply==='BYKER'||reply==='GHOST'||reply==='PUNCH'||reply==='PING'||reply==='GROG'||reply==='KONGY KONG'||reply==='AMIGOS'||reply==='METEORS'||reply==='SUPER'){playCabinet(reply,machine);}else{notice=3.5;noticeText=reply;}return;}}if(useSeat()){bookshopLife?.resetBookInteraction();return;}if(useDoor()){bookshopLife?.resetBookInteraction();return;}if(insideBookshop){const target=bookshopSpatial()?bookshopTarget():undefined;const reply=bookshopLife.interact(player,inventory,target)??(target===undefined?bookshopReply(player,bookshopLife):target?.type==='reply'?target.data:null);if(reply){notice=4;noticeText=reply;}else if(bookshopLife.atDesk&&(target===undefined?facingBookseller(player):target?.type==='seller'))talkToStaff(booksellerTalk(bookshopLife.backpack),'Talk to the bookseller',bookshopLife.booksellerGifts(inventory));return;}if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(!arcadeLife?.deskBusy&&facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(facingHotelLamp(player,currentHotel)){const complaint=switchHotelLamp(currentHotel,inventory);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player,hotelLife.guest()?.receptionWait>0,currentHotel);if(reply){notice=2.5;noticeText=reply;}else if(!(hotelLife.guest()?.receptionWait>0)&&facingReceptionistAcrossDesk(player,currentHotel))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){if(washroomSpatial()){
       const target=washroomTarget();
       if(target?.type==='cubicle'&&lavatoryOccupied[LAVATORY.cubicles.indexOf(target.data)]!==false){notice=2.5;noticeText=CUBICLE_REPLIES[Math.floor(Math.random()*CUBICLE_REPLIES.length)];}
-      else if(target?.type==='sink'){enableSound();lavatoryTaps[target.data]=!lavatoryTaps[target.data];}
+      else if(target?.type==='sink'){enableSound();lavatoryTaps[target.data]=!lavatoryTaps[target.data];lavatoryLife.triggerMirrorChild(register);}
       return;
-    }const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];}return;}if(insideCubicle)return;if(insidePub){if(pubSpatial()){
+    }const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];lavatoryLife.triggerMirrorChild(register);}return;}if(insideCubicle)return;if(insidePub){if(pubSpatial()){
       const target=pubTarget();
       if(target?.type==='bartender'){
         if(player.z>PUB.bar.z+PUB.bar.d){notice=2.5;noticeText=BARTENDER_REPLY;}
@@ -868,7 +874,7 @@ function tick(now){
       document.querySelector('#location').textContent=`${currentPubName} / LAVATORY`;
     }else if(insideCubicle){
       if(!playerSeat)(washroomSpatial()?.move??moveInCubicle)(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
-      document.querySelector('#message').textContent=cubicleKnock?.text||(notice?noticeText:'');
+      document.querySelector('#message').textContent=lavatoryLife?.cubicleBlackout?MIRROR_CHILD_BLACKOUT_TEXT:cubicleKnock?.text||(notice?noticeText:'');
       document.querySelector('#location').textContent=`${currentPubName} / ${insideCubicle.icon.toUpperCase()}`;
     }else if(insideBookshop){
       bookshopLife.update(dt,player,playerSeat?.bookshopChair);

@@ -284,14 +284,16 @@ export function createWorldScene(renderer,{reduced=false}={}){
       renderer.beginPass();drawCubicle({face,quad,box});
       drawDroppedItems(city.chunks.values());
       renderer.drawInterior();
-      if(banshee){
+      if(lavatoryLife?.cubicleBlackout){
+        renderer.overlay({kind:'banshee',seconds:0,frame:{dark:true,opacity:0}});
+      }else if(banshee){
         const seconds=(performance.now()-banshee.started)/1000,frame=bansheeFrame(seconds);
         renderer.overlay({kind:'banshee',seconds,frame});
       }
       return;
     }
     if(insideLavatory){
-      renderer.beginPass();drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle},taps:lavatoryTaps,time:performance.now()/1000});
+      renderer.beginPass();drawLavatory({face,quad,box,occupied:lavatoryOccupied,viewer:{x:player.x,z:player.z,eye,angle:player.angle},taps:lavatoryTaps,mirrorChild:lavatoryLife?.mirrorChild,time:performance.now()/1000});
       // The lavatory is built to true size, unlike the pub, so the robot is too.
       if(lavatoryLife?.walker)seatedPatron(lavatoryLife.walker,true,characterHeight(lavatoryLife.walker.type));
       drawDroppedItems(city.chunks.values());

@@ -1,3 +1,4 @@
+import {sprite} from './sprites.js?v=bumps-1';
 /*
 Browser Games — standalone browser games, including Neon City.
 Copyright (C) 2026 Federico Razzoli <federico.razzoli@vettabase.com>
@@ -59,10 +60,35 @@ export function facingVacantCubicle(player,occupied){
 // leaving the cubicle free. It waits while the player is in its path, and
 // held reports that it is waiting.
 const ROBOT=11,ROBOT_SPEED=1.3,ROBOT_EXIT={x:LAVATORY.door.x,z:.4};
+export const MIRROR_CHILD_BLACKOUT_TEXT='WTF..? I SHOULD GET OUT OF HERE...';
 export class LavatoryLife{
   constructor(random=Math.random){this.random=random;this.wait=this.delay();this.walker=null;this.held=false;}
+  triggerMirrorChild(register){
+    if(this.mirrorChildSeen||this.random()>=.4)return false;
+    this.mirrorChildSeen=true;
+    this.mirrorChild={x:LAVATORY.door.x,z:.12,elapsed:0,type:16,variant:0,walkTime:0,facingX:-.35,facingZ:1};
+    this.emptyGents=true;this.mirrorChildBlackoutPending=true;
+    register.PUB_PARANORMAL_ACTIVITIES=true;
+    return true;
+  }
+  enterCubicle(cubicle){
+    this.cubicleBlackout=!!this.mirrorChildBlackoutPending&&cubicle.icon==='gents';
+    this.mirrorChildBlackoutPending=false;this.mirrorChild=null;
+    return this.cubicleBlackout;
+  }
+  leaveCubicle(){this.cubicleBlackout=false;}
+  leaveRoom(){this.mirrorChildBlackoutPending=false;this.mirrorChild=null;this.cubicleBlackout=false;}
+  updateMirrorChild(dt){
+    const child=this.mirrorChild;if(!child)return;
+    child.elapsed+=Math.max(0,dt);child.walkTime=child.elapsed;
+    const progress=Math.min(1,child.elapsed/5);
+    child.x=LAVATORY.door.x+(LAVATORY.cubicles[0].x-LAVATORY.door.x)*progress;
+    child.z=.12+(LAVATORY.depth-.12)*progress;
+    if(progress===1)this.mirrorChild=null;
+  }
   delay(){return 20+this.random()*10;}
   update(dt,occupied,player,blocksPerson=pubPersonBlocks){
+    this.updateMirrorChild(dt);
     this.held=false;
     if(this.walker){
       const w=this.walker;let travel=dt*ROBOT_SPEED;
@@ -165,6 +191,24 @@ export function mirrorSilhouette(viewer,mirror){
     .map(points=>points.map(([z,y])=>({x:mirror.x-.004,y,z})));
 }
 
+// Project the child behind the glass onto its surface for the Canvas renderer.
+export function mirrorChildReflection(viewer,mirror,child){
+  const reflectedX=2*mirror.x-child.x;
+  const t=(mirror.x-viewer.x)/(reflectedX-viewer.x);
+  if(t<=0||t>=1)return [];
+  const image=sprite(16,Math.floor(child.walkTime*6)%4,viewer.z>child.z);
+  const {data}=image.getContext('2d').getImageData(0,0,24,48),polygons=[];
+  for(let row=0;row<48;row++)for(let col=0;col<24;col++){
+    const i=(row*24+col)*4;if(!data[i+3])continue;
+    const points=clipToMirror([[col,row],[col+1,row],[col+1,row+1],[col,row+1]].map(([x,y])=>[
+      viewer.z+(child.z+(x/24-.5)*.6-viewer.z)*t,
+      viewer.eye+((1-y/48)*1.2-viewer.eye)*t
+    ]),mirror).map(([z,y])=>({x:mirror.x-.006,y,z}));
+    if(points.length)polygons.push({points,color:`rgb(${data[i]},${data[i+1]},${data[i+2]})`});
+  }
+  return polygons;
+}
+
 // Door sign pictograms, one cell per character.
 const ICONS={
   gents:['...###...','..#####..','..#####..','...###...','.........','.#######.','#########','#.#####.#','#.#####.#','#.#####.#','#.#####.#','..#####..','..##.##..','..##.##..','..##.##..','..##.##..','..##.##..'],
@@ -246,7 +290,7 @@ export function drawLavatoryIndicator(face,c,color){
   face([{x,y:1.22,z},{x:x+.14,y:1.22,z},{x:x+.14,y:1.28,z},{x,y:1.28,z}],color,null,true);
 }
 
-export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time=0,drawIndicators=true,drawMirrorGlass=true}){
+export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time=0,drawIndicators=true,drawMirrorGlass=true,mirrorChild=null}){
   const {width:W,depth:D,height:H}=LAVATORY;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const door=(...args)=>drawDoor({face,box},...args);
@@ -270,6 +314,7 @@ export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time
     const m=mirrorOf(s);
     if(drawMirrorGlass)box(m.x,m.y0,m.z0,.02,m.y1-m.y0,m.z1-m.z0,'#8ea2ac');
     if(viewer)for(const points of mirrorSilhouette(viewer,m))face(points,'#0b0b10');
+    if(viewer&&mirrorChild)for(const {points,color} of mirrorChildReflection(viewer,m,mirrorChild))face(points,color);
     if(taps[LAVATORY.sinks.indexOf(s)])drawRunningWater({quad,cylinder},s,time);
   }
   // Two strip lights across the ceiling.
