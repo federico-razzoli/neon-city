@@ -70,3 +70,5 @@ If not, see <https://www.gnu.org/licenses/>.
 
 /* Keep the existing canvas as the input surface while WebGL owns the image. */
 #three-view{position:absolute;inset:0;pointer-events:none}#view.webgl-active{opacity:0}
+
+#start:disabled{cursor:wait;opacity:.7}

@@ -465,6 +465,19 @@ async function prepareThreeRenderer(){
   })();
   try{await threeRendererLoading;}finally{threeRendererLoading=null;}
 }
+function useCanvasFallback(){
+  for(const id of ['hotel','storage','stairs','corridor','arcade','bookshop','pub','lavatory','cubicle'])rendererPreferences.set(id,'canvas');
+}
+async function prepareRendererAtStartup(){
+  try{await prepareThreeRenderer();}
+  catch{
+    useCanvasFallback();
+    document.querySelector('#description').textContent='3D rendering could not start. You can still explore the city.';
+  }finally{
+    start.innerHTML='STEP INTO THE NIGHT <span>→</span>';
+    start.disabled=false;start.removeAttribute('aria-busy');
+  }
+}
 async function selectDebugDestination(id,park,renderer=rendererPreferences.get(id)){
   if(!supportsRenderer(id,renderer))throw new Error('This renderer is not available for that destination.');
   if(renderer==='three')await prepareThreeRenderer();
@@ -495,7 +508,7 @@ function render(){
   const destination=debugScene(),rendererChoice=rendererPreferences.get(destination);
   if(supportsRenderer(destination,'three')&&rendererChoice==='three'&&!threeRenderer&&!threeRendererLoading){
     prepareThreeRenderer().then(()=>{painted=false;}).catch(error=>{
-      for(const id of ['hotel','storage','stairs','corridor','arcade','bookshop','pub','lavatory','cubicle'])rendererPreferences.set(id,'canvas');painted=false;
+      useCanvasFallback();painted=false;
       if(supportsRenderer(debugScene(),'three')){notice=5;noticeText=error.message;}
     });
   }
@@ -554,7 +567,7 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
   },travel:selectDebugDestination,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
 }):null;
 function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();seatedTexturePrewarmer.cancel();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){if(debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 let hotelEventPresses=0,hotelEventKey=null;
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
@@ -894,4 +907,7 @@ function tick(now){
   if(running||!painted){render();painted=true;}
   requestAnimationFrame(tick);
 }
+// The initially disabled start button keeps click/Space input on the title
+// screen until the shared engine is ready. No venue scene is constructed here.
+if(start.disabled)prepareRendererAtStartup();
 city.update(player.x,player.z);requestAnimationFrame(tick);

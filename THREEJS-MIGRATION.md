@@ -116,14 +116,15 @@ NPC state. Other Three.js destinations remain disabled. Three.js is the default
 where implemented, including ordinary storage-room entry; unsupported locations
 use Canvas. Explicit comparison choices are remembered per destination for the
 session. Choosing Canvas elsewhere does not change the storage preference.
-The first ordinary visit loads Three.js in the background while Canvas draws the
-room. If WebGL 2 cannot start, ordinary entry falls back to Canvas; an explicit
-menu selection reports the failure and keeps Canvas available.
+The start screen now prepares Three.js before gameplay is enabled, avoiding
+temporary Canvas rendering while the engine loads on the first interior visit.
+If WebGL 2 cannot start, play is enabled with Canvas preferences; an explicit
+menu selection still reports startup failure and keeps Canvas available.
 
-- [three-hotel-renderer.js](neon-city/three-hotel-renderer.js) lazily creates
-  a separate WebGL canvas. The original canvas remains the keyboard/pointer/touch
-  input surface, and DOM overlays remain above the selected image. No Three.js
-  modules load during ordinary Canvas play.
+- [three-hotel-renderer.js](neon-city/three-hotel-renderer.js) creates a separate,
+  initially hidden WebGL canvas at the start screen. The original canvas remains
+  the keyboard/pointer/touch input surface, and DOM overlays remain above the
+  selected image. Venue objects are created only on entry.
 - [three-storage-scene.js](neon-city/three-storage-scene.js) builds and retains the
   complete room and window scenery from the existing helpers. Reflecting world Z
   reconciles camera handedness; the lens, shifted horizon, pitch, clipping planes
@@ -683,3 +684,23 @@ compare six room views and additional lager, stout and bottle close-ups, all fou
 bartenders, seating, arch traversal, walking patrons, tap replies, conversation,
 renderer switches, toilet and street doors and GPU cleanup. No page or shader
 errors were reported. No performance improvement is claimed.
+
+### Prepare the renderer at the start screen
+
+The initial button displays “LOADING THE NIGHT” and stays disabled while the shared
+Three.js modules and WebGL renderer initialize. Click, Space and the resume button
+cannot start gameplay until preparation finishes. The normal start button then
+returns. No venue scene, furniture, people or artwork textures are constructed
+by this preparation; readiness reports zero venue geometries and textures.
+All converted venues use the same prepared renderer on their first entry.
+
+If initialization fails, the start screen explains that play remains available,
+selects Canvas/WASM for converted venues and enables the start button. Explicit
+debug renderer choices can still retry Three.js. Ordinary pause/resume behavior
+and scene disposal on exit are unchanged; this does not introduce a pub cache.
+Room construction and first-use shader/GPU uploads still occur on entry.
+
+Validation: all 511 automated tests pass. Chromium checks hold back the renderer
+module to verify disabled-start and early-Space behavior, then confirm readiness
+without venue allocations, direct Three.js first-pub rendering with no Canvas
+frames, and playable Canvas fallback when WebGL is unavailable. No page errors.
