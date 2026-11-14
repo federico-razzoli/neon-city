@@ -183,6 +183,18 @@ Bookshop window culling can hide the tree instances as well. The legacy
 `drawTreeGeometry` helper remains for non-native geometry consumers and parity
 tests; the Three.js street backend bypasses it.
 
+## Retained Three.js manholes
+
+The street renderer converts each cached WASM manhole radius into one shared,
+vertex-coloured GPU geometry. The three layered disks and three slots retain
+their original colours and elevations. Each street chunk retains an instanced
+mesh for each radius it contains; positions are uploaded on creation and remain
+unchanged as the camera moves. Bookshop window bounds can hide these meshes
+without rebuilding them. Chunk unloading releases instance buffers, and street
+scene disposal releases the shared geometry and material. The legacy per-cover
+face submission remains available to non-native consumers but is bypassed by the
+Three.js street backend.
+
 ## Work that remains dynamic
 
 For the remaining streamed geometry, each frame still selects visible faces, applies the relevant position, scale,

@@ -842,3 +842,11 @@ positions and scales are uploaded on creation, rather than regenerating and
 uploading visible faces on every frame. Instances unload with their park, while
 the shared geometry is released with the street scene. The bookshop street view
 uses the same path and keeps its existing window culling.
+
+## Retained manhole instances
+
+Manhole covers now share a Three.js geometry per radius, converted once from
+the cached WASM model. Each chunk retains its instance positions instead of
+resubmitting cover faces on every frame. Covers preserve their layered disk and
+slot geometry, support bookshop window culling, and release instance buffers
+when their chunk unloads. Shared meshes are released with the street scene.

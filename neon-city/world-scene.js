@@ -303,7 +303,10 @@ export function createWorldScene(renderer,{reduced=false}={}){
     renderer.drawPass(terrain,{elevation:'above'});
     // Ground details go over the pavement, before people and buildings.
     renderer.beginPass();
-    for(const chunk of visible)for(const m of chunk.manholes)manhole(m);
+    for(const chunk of visible){
+      if(renderer.drawManholes)renderer.drawManholes(chunk);
+      else for(const m of chunk.manholes)manhole(m);
+    }
     renderer.drawPass(renderer.endPass());
     renderer.beginPass();
     for(const chunk of visible){
