@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeLavatorySpatial} from './three-lavatory-spatial.js';
+import {createThreeBookshopSpatial} from './three-bookshop-spatial.js';
 import {createThreePubSpatial} from './three-pub-spatial.js';
 import {profilePhase} from './render-profile.js';
 import {NATIVE_VIEW} from './render-camera.js';
@@ -29,12 +30,13 @@ export function createThreeHotelRenderer(canvas){
   const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false});
   renderer.setPixelRatio(1);renderer.setSize(NATIVE_VIEW.width,NATIVE_VIEW.height,false);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NoToneMapping;
-  let pubSpatial=null,lavatorySpatial=null,cubicleSpatial=null;
+  let bookshopSpatial=null,pubSpatial=null,lavatorySpatial=null,cubicleSpatial=null;
   let room=null,hotel=null,destination=null,floor=null;
-  function leave(){pubSpatial?.dispose();lavatorySpatial?.dispose();cubicleSpatial?.dispose();pubSpatial=lavatorySpatial=cubicleSpatial=null;if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
+  function leave(){bookshopSpatial?.dispose();bookshopSpatial=null;pubSpatial?.dispose();lavatorySpatial?.dispose();cubicleSpatial?.dispose();pubSpatial=lavatorySpatial=cubicleSpatial=null;if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
   return {
     get lavatorySpatial(){return lavatorySpatial??=createThreeLavatorySpatial();},
     get cubicleSpatial(){return cubicleSpatial??=createThreeLavatorySpatial('cubicle');},
+    get bookshopSpatial(){return bookshopSpatial??=createThreeBookshopSpatial();},
     get pubSpatial(){return pubSpatial??=createThreePubSpatial();},
     render(frame){
       const nextDestination=frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';

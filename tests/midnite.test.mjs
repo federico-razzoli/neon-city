@@ -167,7 +167,7 @@ test('game seat and door controls enforce reading loans and leave the book when 
   const seat=source.slice(source.indexOf('function useSeat(){'),source.indexOf('const hotelGuestScene='));
   const inventory=new Inventory(),life=new BookshopLife(),book=life.books[0],message={textContent:''};
   life.interact(atBook(book),inventory);life.interact(atBook(book),inventory);
-  const sandbox={...interior,inventory,bookshopLife:life,player:{...BOOKSHOP.spawn,angle:Math.PI},
+  const sandbox={...interior,bookshopSpatial:()=>null,inventory,bookshopLife:life,player:{...BOOKSHOP.spawn,angle:Math.PI},
     insideBookshop:true,insidePub:false,insideHotel:false,insideArcade:false,insideLavatory:false,insideCubicle:null,hotelStairs:null,
     indoors:()=>true,streetPosition:{x:100,z:100,angle:1},playerSeat:null,SEATED_EYE:1.5,
     keys:new Set(),shiftKeys:new Set(),seatedTexturePrewarmer:{cancel(){}},notice:0,noticeText:'',

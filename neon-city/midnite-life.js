@@ -178,21 +178,21 @@ export class BookshopLife{
   onDisplay(book){return !book.id||this.books.find(b=>b.id===book.id)?.state==='display';}
   carried(inventory){return this.books.find(book=>book.state==='carried'&&inventory.items.some(item=>item.id===book.id));}
   resetBookInteraction(){this.pendingBook=null;}
-  interact(player,inventory){
+  interact(player,inventory,spatialTarget=undefined){
     const previous=this.pendingBook;
     this.resetBookInteraction();
-    if(!this.backpackTaken&&facingNearest(player,[BOOKSHOP.backpack])){
+    if(!this.backpackTaken&&(spatialTarget===undefined?facingNearest(player,[BOOKSHOP.backpack]):spatialTarget?.type==='backpack')){
       this.backpack.seen=true;
       if(this.guardingBackpack)return BACKPACK_WARNING;
       const reply=inventory.take(BACKPACK);
       if(reply==='TAKEN')this.backpack.taken=true;
       return reply;
     }
-    const visitor=facingNearest(player,this.people.filter(p=>p.book));
+    const visitor=spatialTarget===undefined?facingNearest(player,this.people.filter(p=>p.book)):spatialTarget?.type==='visitor'?spatialTarget.data:null;
     if(visitor)return visitor.book.name;
-    const leftBook=facingNearest(player,this.visitorBooks.filter(b=>b.state==='reading').map(b=>({...BOOKSHOP.readingTables[b.seat],name:b.name,reach:1.4})));
+    const leftBook=spatialTarget===undefined?facingNearest(player,this.visitorBooks.filter(b=>b.state==='reading').map(b=>({...BOOKSHOP.readingTables[b.seat],name:b.name,reach:1.4}))):spatialTarget?.type==='leftBook'?spatialTarget.data:null;
     if(leftBook)return leftBook.name;
-    const target=facingNearest(player,BOOKSHOP_BOOKS.filter(book=>this.onDisplay(book)));
+    const target=spatialTarget===undefined?facingNearest(player,BOOKSHOP_BOOKS.filter(book=>this.onDisplay(book))):spatialTarget?.type==='book'?spatialTarget.data:null;
     const book=this.books.find(book=>book.id===target?.id);
     if(!book)return null;
     if(previous!==book){this.pendingBook=book;return `${book.name}... should I read this?`;}
