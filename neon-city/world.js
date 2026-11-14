@@ -183,7 +183,7 @@ export const BLOCK = 64;
 // Night River occupies district rows 4 and 5.
 export const RIVER_ROWS = [4];
 export const RIVER_WIDTH = 92;
-export const WATER_LEVEL = -7;
+export const WATER_LEVEL = -3.5;
 export const BRIDGE_RISE = 6;
 export const riverStart = row => RIVER_ROWS.find(start=>row>=start&&row<start+2);
 export const isRiverRow = row => riverStart(row)!==undefined;

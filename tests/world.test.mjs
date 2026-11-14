@@ -723,7 +723,7 @@ test('only Night River remains through district 0, 4, with ordinary city blocks 
     assert.ok(traffic(chunk,0).length>0,'ordinary streets retain traffic');
   }
   assert.ok(RIVER_WIDTH>BLOCK);
-  assert.ok(WATER_LEVEL<=-5);
+  assert.equal(WATER_LEVEL,-3.5);
   for(const centre of centres)assert.ok(Math.abs(centre-4)/BLOCK>=4&&Math.abs(centre-4)/BLOCK<=6);
   for(const row of RIVER_ROWS)for(const part of [row,row+1])for(const x of [-3,0,7]){
     const chunk=city.generate(x,part);
@@ -6028,7 +6028,7 @@ test('river ripple scratch geometry preserves every animated segment without ret
       const raw=Math.sin((-64+a)*12.9898+b*78.233)*43758.5453,seed=((raw%1)+1)%1;
       const phase=seed*Math.PI*2+time*.65;
       for(let ripple=0;ripple<2;ripple++)for(let segment=0;segment<6;segment++){
-        const point=(t,side)=>({x:-64+a+1+seed*1.2+Math.sin(phase)*.35+t*(2.4+seed*1.6),y:-7+.012,
+        const point=(t,side)=>({x:-64+a+1+seed*1.2+Math.sin(phase)*.35+t*(2.4+seed*1.6),y:WATER_LEVEL+.012,
           z:b+1.5+ripple*3+Math.cos(phase+ripple)*.25+Math.sin(t*Math.PI*1.6+phase+ripple)*.38+side*Math.sin(t*Math.PI)*.09});
         const t=segment/6,next=(segment+1)/6;
         assert.deepEqual(faces[index++],{points:[point(t,-1),point(next,-1),point(next,1),point(t,1)],color:ripple?'#225d70':'#306b78'});
@@ -6036,7 +6036,7 @@ test('river ripple scratch geometry preserves every animated segment without ret
     }
     assert.equal(index,faces.length);assert.equal(arrays.size,6);assert.equal(vertices.size,14);
     let skippedFaces=0,water=0,checks=0;
-    drawRiverTerrain(chunk,{quad:(x,y)=>{if(y===-7)water++;},face:()=>skippedFaces++,boundsVisible:()=>{checks++;return false;}},time);
+    drawRiverTerrain(chunk,{quad:(x,y)=>{if(y===WATER_LEVEL)water++;},face:()=>skippedFaces++,boundsVisible:()=>{checks++;return false;}},time);
     assert.ok(checks>0);assert.equal(skippedFaces,0);assert.equal(water,0,'rejected tiles skip water and ripple work');
   }
 });
