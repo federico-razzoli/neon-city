@@ -1,3 +1,4 @@
+import {installSeatedTouch} from './seated-touch.js';
 /*
 Browser Games — standalone browser games, including Neon City.
 Copyright (C) 2026 Federico Razzoli <federico.razzoli@vettabase.com>
@@ -785,6 +786,15 @@ for(const button of document.querySelectorAll('[data-key]')){
   button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||inventoryBox.open||banshee||staffTalk)return;e.preventDefault();button.setPointerCapture(e.pointerId);if(ping?.crossed){ping.continueCrossing();keys.clear();return;}keys.add(button.dataset.key);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
+installSeatedTouch(canvas,{
+  getSeat:()=>playerSeat,
+  canUse:()=>running&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk&&!debugMenu?.open,
+  look:(yaw,pitch)=>{
+    player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle+yaw));
+    playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+pitch));
+  },
+  stand:()=>useSeat()
+});
 function amigosPointer(e,type){
   if(!running||ping?.kind!=='amigos')return false;
   e.preventDefault();

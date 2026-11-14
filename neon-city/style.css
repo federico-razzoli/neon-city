@@ -72,3 +72,6 @@ If not, see <https://www.gnu.org/licenses/>.
 #three-view{position:absolute;inset:0;pointer-events:none}#view.webgl-active{opacity:0}
 
 #start:disabled{cursor:wait;opacity:.7}
+
+/* Allow captured camera gestures without browser pan/zoom cancellation. */
+#game canvas{touch-action:none}
