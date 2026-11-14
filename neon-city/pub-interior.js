@@ -377,6 +377,34 @@ export function drawPubPatron({box,seatedPatron=()=>{}},chair,type,variant=0){
   seatedPatron({x:x+w/2,z:z+d/2,type,variant,side});
 }
 
+// Paint each closed rear door as disjoint rectangles on the wall plane.
+// Replacing covered rectangles avoids depth/painter-order swaps at grazing angles.
+export function pubRearDoorPanels(door,words){
+  let panels=[{x:door.x-.78,y:0,w:1.56,h:3,color:'#a08057'}];
+  function paint(x,y,w,h,color){
+    const next=[];
+    for(const p of panels){
+      const left=Math.max(x,p.x),right=Math.min(x+w,p.x+p.w),bottom=Math.max(y,p.y),top=Math.min(y+h,p.y+p.h);
+      if(left>=right||bottom>=top){next.push(p);continue;}
+      if(p.x<left)next.push({...p,w:left-p.x});
+      if(right<p.x+p.w)next.push({...p,x:right,w:p.x+p.w-right});
+      if(p.y<bottom)next.push({...p,x:left,w:right-left,h:bottom-p.y});
+      if(top<p.y+p.h)next.push({...p,x:left,y:top,w:right-left,h:p.y+p.h-top});
+    }
+    next.push({x,y,w,h,color});panels=next;
+  }
+  paint(door.x-.7,0,1.4,2.9,'#49332d');
+  paint(door.x+.48,1.05,.12,.18,'#d9b671');
+  paint(door.x-.25,2.065,.5,.32,'#24232b');
+  words.forEach((word,line)=>{
+    const size=word.length>5?.0125:.0145,left=door.x-(word.length*6-1)*size/2;
+    [...word].forEach((char,letter)=>PUB_DOOR_LETTERING[char].forEach((row,j)=>[...row].forEach((cell,k)=>{
+      if(cell==='1')paint(left+(letter*6+k)*size,(words.length===1?2.27:2.336)-line*.133-(j+1)*size,size,size,'#eee0bb');
+    })));
+  });
+  return panels;
+}
+
 export const PUB_DOOR_LETTERING={
   S:['01111','10000','10000','01110','00001','00001','11110'],
   T:['11111','00100','00100','00100','00100','00100','00100'],
@@ -402,7 +430,13 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
       face(points(0,1),'#51362e');face(points(1,PUB.height),'#876b53');
     }
   };
-  wall(0,0,8.3,0);wall(9.7,0,PUB.width-9.7,0);wall(0,PUB.depth,PUB.width,0);wall(0,0,0,PUB.depth);wall(PUB.width,0,0,PUB.depth);
+  wall(0,0,8.3,0);wall(9.7,0,PUB.width-9.7,0);let rearX=0;
+  for(const door of [PUB.staffDoor,PUB.toiletDoor]){
+    wall(rearX,PUB.depth,door.x-.78-rearX,0);
+    face([{x:door.x-.78,y:3,z:PUB.depth},{x:door.x+.78,y:3,z:PUB.depth},{x:door.x+.78,y:PUB.height,z:PUB.depth},{x:door.x-.78,y:PUB.height,z:PUB.depth}],'#876b53');
+    rearX=door.x+.78;
+  }
+  wall(rearX,PUB.depth,PUB.width-rearX,0);wall(0,0,0,PUB.depth);wall(PUB.width,0,0,PUB.depth);
   for(const b of PUB.walls){wall(b.x,b.z,b.w,0);wall(b.x,b.z+b.d,b.w,0);wall(b.x,b.z,0,b.d);wall(b.x+b.w,b.z,0,b.d);}
   box(17.8,3.2,6,.4,PUB.height-3.2,4,'#51362e');
   // The entrance replaces its wall section. Non-overlapping coplanar panels
@@ -416,18 +450,9 @@ export function drawPubInterior({face,quad,box,patrons=[],seatedPatron=()=>{},ba
   }
   // Matching closed doors share the rear wall and compact, smoothed signs.
   for(const [staff,words] of [[PUB.staffDoor,['STAFF','ONLY']],[PUB.toiletDoor,['TOILET']]]){
-  box(staff.x-.78,0,staff.z-.035,1.56,3,.035,'#a08057');
-  box(staff.x-.7,0,staff.z-.06,1.4,2.9,.025,'#49332d');
-  box(staff.x+.48,1.05,staff.z-.12,.12,.18,.06,'#d9b671');
-  box(staff.x-.25,2.065,staff.z-.08,.5,.32,.02,'#24232b');
-  const lettering=PUB_DOOR_LETTERING;
-  for(const [line,word] of words.entries()){
-    const size=word.length>5?.0125:.0145,left=staff.x-(word.length*6-1)*size/2;
-    for(const [letter,char] of [...word].entries())for(let row=0;row<7;row++)for(let col=0;col<5;col++)if(lettering[char][row][col]==='1'){
-      const x=left+(letter*6+col)*size,y=(words.length===1?2.27:2.336)-line*.133-row*size,z=staff.z-.085;
-      face([{x,y,z},{x:x+size,y,z},{x:x+size,y:y-size,z},{x,y:y-size,z}],'#eee0bb',null,true);
+    for(const p of pubRearDoorPanels(staff,words)){
+      face([{x:p.x,y:p.y,z:staff.z},{x:p.x+p.w,y:p.y,z:staff.z},{x:p.x+p.w,y:p.y+p.h,z:staff.z},{x:p.x,y:p.y+p.h,z:staff.z}],p.color,null,true);
     }
-  }
   }
   const cylinder=(...args)=>drawCylinder(face,...args);
   const bottle=(x,y,z,i)=>{

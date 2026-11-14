@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
-import {PUB,pubChairs,PUB_DOOR_LETTERING} from './pub-interior.js?v=bar-taps-1';
+import {PUB,pubChairs,pubRearDoorPanels} from './pub-interior.js?v=bar-taps-1';
 
 const glassVertex=`
   varying vec3 vNormal;varying vec3 vEye;
@@ -56,19 +56,18 @@ export function createThreePubObjects(){
   // Floor, ceiling, perimeter walls, and the open arch between bar and lounge.
   floor('structure',0,0,0,PUB.width,PUB.depth,'#70513c');floor('structure',0,PUB.height,0,PUB.width,PUB.depth,'#31262a');
   const wall=(x,z,w,yaw=0)=>{plane('structure',x,.5,z,w,1,'#51362e',yaw);plane('structure',x,3,z,w,4,'#876b53',yaw);};
-  wall(4.15,0,8.3);wall(19.85,0,20.3);wall(15,18,30);wall(0,9,18,Math.PI/2);wall(30,9,18,Math.PI/2);
+  wall(4.15,0,8.3);wall(19.85,0,20.3);let rearX=0;
+  for(const door of [PUB.staffDoor,PUB.toiletDoor]){
+    const left=door.x-.78,right=door.x+.78;
+    wall((rearX+left)/2,PUB.depth,left-rearX);
+    plane('structure',door.x,4,PUB.depth,1.56,2,'#876b53');rearX=right;
+  }
+  wall((rearX+PUB.width)/2,PUB.depth,PUB.width-rearX);wall(0,9,18,Math.PI/2);wall(30,9,18,Math.PI/2);
   for(const b of PUB.walls){box('structure',b.x,0,b.z,b.w,1,b.d,'#51362e');box('structure',b.x,1,b.z,b.w,4,b.d,'#876b53');}
   box('structure',17.8,3.2,6,.4,1.8,4,'#51362e');
   plane('doors',9,1.45,.005,1.4,2.9,'#38262a');plane('doors',9,3.95,0,1.4,2.1,'#876b53');box('doors',9.45,1,.012,.12,.18,.025,'#e9c47e');
   for(const [door,words] of [[PUB.staffDoor,['STAFF','ONLY']],[PUB.toiletDoor,['TOILET']]]){
-    box('doors',door.x-.78,0,door.z-.035,1.56,3,.035,'#a08057');box('doors',door.x-.7,0,door.z-.06,1.4,2.9,.025,'#49332d');
-    box('doors',door.x+.48,1.05,door.z-.12,.12,.18,.06,'#d9b671');box('doors',door.x-.25,2.065,door.z-.08,.5,.32,.02,'#24232b');
-    words.forEach((word,line)=>{
-      const size=word.length>5?.0125:.0145,left=door.x-(word.length*6-1)*size/2;
-      [...word].forEach((char,letter)=>PUB_DOOR_LETTERING[char].forEach((row,j)=>[...row].forEach((cell,k)=>{
-        if(cell==='1')plane('doors',left+(letter*6+k+.5)*size,(words.length===1?2.27:2.336)-line*.133-(j+.5)*size,door.z-.085,size,size,'#eee0bb');
-      })));
-    });
+    for(const p of pubRearDoorPanels(door,words))plane('doors',p.x+p.w/2,p.y+p.h/2,door.z,p.w,p.h,p.color);
   }
   for(const b of PUB.tables){
     cylinder('tables',b.x,0,b.z,.65,.12,'#3c2a21');cylinder('tables',b.x,.12,b.z,.18,.8,'#674531','#876443');

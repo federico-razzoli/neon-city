@@ -81,3 +81,20 @@ test('pub fixtures use native primitives, with 84 tinted glass bottles and separ
   frame.pubPatrons[0][0]=8;frame.pubPatrons[0].beerSides[0]=-1;room.update(frame);assert.equal(pint.visible,true);assert.equal(pint.getObjectByName('pint-glass').geometry,geometry);
   assert.equal(pint.position.x,PUB.tables[0].x-.65);room.dispose();
 });
+
+test('rear door faces, signs and handles tile the wall without overlapping layers',async()=>{
+  const {pubRearDoorPanels}=await import('../neon-city/pub-interior.js');
+  for(const [door,words] of [[PUB.staffDoor,['STAFF','ONLY']],[PUB.toiletDoor,['TOILET']]]){
+    const panels=pubRearDoorPanels(door,words);
+    assert.ok(Math.abs(panels.reduce((area,p)=>area+p.w*p.h,0)-1.56*3)<1e-10);
+    for(let i=0;i<panels.length;i++){
+      const a=panels[i];assert.ok(a.w>0&&a.h>0);
+      for(const b of panels.slice(i+1)){
+        const w=Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x),h=Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y);
+        assert.ok(w<1e-10||h<1e-10,'door layers must not overlap');
+      }
+    }
+    assert.ok(panels.some(p=>p.color==='#eee0bb'));
+    assert.ok(panels.some(p=>p.color==='#d9b671'));
+  }
+});
