@@ -204,3 +204,61 @@ test('grates respond only to nearby lower-path players facing the wall on either
     assert.equal(facingRiverGrate({...p,x:p.x+BLOCK}),false);
   }
 });
+
+test('Three.js doorway rays require an actual hit, including viewing angle and height',async()=>{
+  const {riverGrateTarget}=await import('../neon-city/river-grates.js');
+  const p={x:0,z:RIVER_ROWS[0]*BLOCK+19.4,angle:Math.PI,riverWalk:true};
+  assert.ok(riverGrateTarget(p));
+  assert.equal(riverGrateTarget({...p,angle:Math.PI+.7}),null,'ray passes beside the opening');
+  assert.equal(riverGrateTarget({...p,pitch:.8}),null,'ray passes over the opening');
+  assert.ok(riverGrateTarget({...p,x:1.1,angle:Math.PI+.45}),'angled ray reaches the door from the side');
+});
+
+test('door clang waits three seconds, repeats at the minimum interval, and resets on lost gaze or pause',async()=>{
+  const {RiverGrateClang}=await import('../neon-city/river-grates.js');
+  let played=0,stopped=0;
+  const clang=new RiverGrateClang(()=>{played++;return {stop(){stopped++;}};},()=>0);
+  const context={state:'running'},p={x:0,z:RIVER_ROWS[0]*BLOCK+19.4,angle:Math.PI,riverWalk:true};
+  clang.update(2.99,p,context);assert.equal(played,0);
+  clang.update(.01,p,context);assert.equal(played,1);
+  clang.update(4.99,p,context);assert.equal(played,1);
+  clang.update(.01,p,context);assert.equal(played,2);
+  clang.update(.01,{...p,angle:0},context);assert.equal(stopped,2);
+  clang.update(2.99,p,context);assert.equal(played,2);
+  clang.update(.01,p,context);assert.equal(played,3);
+  clang.update(1,p,context,false);assert.equal(stopped,3);
+  clang.update(2,p,context);assert.equal(played,3);
+  clang.update(1,{...p,z:p.z+4},context);assert.equal(played,3);
+  clang.update(2,p,context);assert.equal(played,3);
+  clang.update(1,{...p,x:3*BLOCK},context);assert.equal(played,3,'switching doors restarts the delay');
+  clang.update(2,{...p,x:3*BLOCK},context);assert.equal(played,4);
+  clang.update(5,p,{state:'suspended'});assert.equal(played,4);
+});
+
+test('each clang randomly chooses one of three pitches with the original as the highest',async()=>{
+  const {playRiverGrateClang}=await import('../neon-city/river-grates.js');
+  const voices=[];
+  for(const choice of [0,.5,.99,0]){
+    const frequencies=[];
+    const param={setValueAtTime(){},exponentialRampToValueAtTime(){}};
+    const context={state:'running',currentTime:0,destination:{},
+      createGain:()=>({gain:{...param},connect(){},disconnect(){}}),
+      createOscillator:()=>({frequency:{setValueAtTime(f){frequencies.push(f);}},connect(){},disconnect(){},start(){},stop(){}})};
+    playRiverGrateClang(context,()=>choice);voices.push(frequencies);
+  }
+  assert.deepEqual(voices[2],[183,307,451,709,1031,1483]);
+  assert.ok(voices[0].every((f,i)=>f<voices[1][i]&&voices[1][i]<voices[2][i]));
+  assert.deepEqual(voices[0],voices[3],'a fresh random choice may repeat a previous voice');
+});
+
+test('each repeat interval is freshly randomized between five and eight seconds',async()=>{
+  const {RiverGrateClang}=await import('../neon-city/river-grates.js');
+  const choices=[0,.5,1];let played=0;
+  const clang=new RiverGrateClang(()=>{played++;return null;},()=>choices.shift());
+  const p={x:0,z:RIVER_ROWS[0]*BLOCK+19.4,angle:Math.PI,riverWalk:true},context={state:'running'};
+  clang.update(3,p,context);assert.equal(played,1);assert.equal(clang.remaining,5);
+  clang.update(5,p,context);assert.equal(played,2);assert.equal(clang.remaining,6.5);
+  clang.update(6.49,p,context);assert.equal(played,2);
+  clang.update(.01,p,context);assert.equal(played,3);assert.equal(clang.remaining,8);
+  clang.reset();assert.equal(clang.remaining,3);
+});

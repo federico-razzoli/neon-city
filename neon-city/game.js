@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {facingRiverGrate,RIVER_GRATE_MESSAGE} from './river-grates.js';
+import {facingRiverGrate,RIVER_GRATE_MESSAGE,RiverGrateClang} from './river-grates.js';
 import {advanceRiverFall} from './river-fall.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {supportsRenderer} from './renderer-support.js';
@@ -429,6 +429,7 @@ let noticeText='',coverPressed=false,startSpaceHeld=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let audioContext,ouchBuffer,ouchLoading;
+let riverGrateClang=null;
 const hornWarning=new HornWarning();
 const coverAttempt=new CoverAttempt();
 const riverLook=new RiverLook();
@@ -802,6 +803,10 @@ function tick(now){
     document.querySelector('#pace').hidden=true;
     document.querySelector('#message').textContent='';
     if(!bansheeFrame((now-banshee.started)/1000).active){banshee=null;notice=3.5;noticeText='WTF WAS THAT??...';}
+  }
+  if(player.riverWalk||riverGrateClang){
+    riverGrateClang??=new RiverGrateClang();
+    riverGrateClang.update(cameraDt,player,audioContext,Boolean(running&&!indoors()&&!playerSeat&&!ping&&!pubMenu.open&&!inventoryBox.open&&!staffTalk&&!banshee&&!debugMenu?.open&&browserFocused&&!document.hidden));
   }
   cubicleKnock?.update(elapsed,audioContext,Boolean(running&&insideCubicle&&!pubMenu.open&&!inventoryBox.open&&!staffTalk&&!debugMenu?.open&&browserFocused));
   if(running&&insideArcade)arcadeLife?.update(cameraDt,player,arcadePlayerMachine,Boolean(staffTalk));
