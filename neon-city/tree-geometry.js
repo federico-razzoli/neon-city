@@ -2,7 +2,7 @@
 import {geometryWasm} from './geometry-wasm.js';
 const {memory,output,tree_build:build}=geometryWasm;
 const scratch=new Float64Array(memory.buffer,output(),56*29);
-const colors=['#2a1f27','#35272c','#423133','#4d3a39',
+export const TREE_COLORS=['#2a1f27','#35272c','#423133','#4d3a39',
   '#122a24','#163228','#1b3a2d','#214432','#284e38'];
 let template;
 // world.js generates pines with radius=.45*scale, so the whole model scales
@@ -24,6 +24,6 @@ export function drawTreeGeometry(tree,face,viewer){
       const v=k+5+i*3;
       vertices.push({x:tree.x+geometry[v]*s,y:geometry[v+1]*s,z:tree.z+geometry[v+2]*s});
     }
-    face(vertices,colors[geometry[k+4]]);
+    face(vertices,TREE_COLORS[geometry[k+4]]);
   }
 }

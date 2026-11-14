@@ -164,12 +164,13 @@ export function drawFingerpost(s,boards,{face,signTexture},viewer){
   for(const b of boards)signBoard(s,b,face,viewer,signTexture);
 }
 
-export function drawParkStructures(chunk,{face,signTexture},viewer){
+export function drawParkStructures(chunk,{face,signTexture,drawTrees},viewer){
   for(const c of chunk.park.cones)if(!c.taken)pineCone(c,face,viewer);
   for(const b of chunk.park.benches)bench(b,face,viewer);
   const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
   if(sign)drawFingerpost(sign,[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}],{face,signTexture},viewer);
-  for(const t of chunk.park.trees)drawTreeGeometry(t,face,viewer);
+  if(drawTrees)drawTrees(chunk);
+  else for(const t of chunk.park.trees)drawTreeGeometry(t,face,viewer);
   for(const b of chunk.park.bushes??[])drawBush(b,face,viewer);
 }
 

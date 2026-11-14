@@ -166,9 +166,26 @@ Dim hotel variants create additional canvases, and renderer pixel caches, browse
 backing stores or graphics resources can add further copies and overhead. Geometry
 payload figures must not be mistaken for the memory cost of an entire building.
 
+## Retained Three.js trees
+
+The street renderer converts the cached WASM pine template into one shared,
+vertex-coloured `BufferGeometry` per street scene. Each park owns one
+`InstancedMesh`, with each tree's position and uniform scale written once when
+that park first renders. Camera movement does not regenerate tree vertices or
+mark geometry or instance buffers for upload. Three.js handles back-face and
+frustum culling; the original WASM face normals determine triangle winding so
+trunks, foliage caps and colours match the former draw path.
+
+Tree instances remain retained while their park is loaded, including frames
+where it is outside the street view. Unloading a park releases its instance
+buffer; disposing the street scene releases the shared geometry and material.
+Bookshop window culling can hide the tree instances as well. The legacy
+`drawTreeGeometry` helper remains for non-native geometry consumers and parity
+tests; the Three.js street backend bypasses it.
+
 ## Work that remains dynamic
 
-Each frame still selects visible faces, applies the relevant position, scale,
+For the remaining streamed geometry, each frame still selects visible faces, applies the relevant position, scale,
 turn and ground transforms, projects into the camera, clips geometry, handles
 depth and draws it. Static geometry caches do not store the final screen image.
 Collectible state, such as whether a flower or cone has been taken, remains on

@@ -833,3 +833,12 @@ the camera view. When a window is visible, conservative view cones through its
 opening cull exterior chunks and objects before geometry submission. Simulation
 continues while the retained scene is hidden. See
 [window culling measurements](benchmarks/bookshop-window-culling/RESULTS.md).
+
+## Retained tree instances
+
+Parks now render trees through a shared, vertex-coloured Three.js geometry built
+once from the cached WASM pine model. Each park retains one instanced mesh; tree
+positions and scales are uploaded on creation, rather than regenerating and
+uploading visible faces on every frame. Instances unload with their park, while
+the shared geometry is released with the street scene. The bookshop street view
+uses the same path and keeps its existing window culling.

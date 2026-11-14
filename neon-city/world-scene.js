@@ -315,7 +315,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
       for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
       if(chunk.park){
         // Benches and trees are small, layered objects; order them at real overlaps.
-        renderer.withStyle({detail:true,textureSmooth:true},()=>drawParkStructures(chunk,{face,signTexture},{x:player.x,y:eye,z:player.z}));
+        renderer.withStyle({detail:true,textureSmooth:true},()=>drawParkStructures(chunk,{face,signTexture,drawTrees:renderer.drawTrees},{x:player.x,y:eye,z:player.z}));
       }
       for(const p of chunk.people)person(pedestrian(chunk,p,time));
     }
