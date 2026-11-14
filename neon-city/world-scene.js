@@ -194,12 +194,13 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
   }
   function street(chunk){
     const x=chunk.x*64,z=chunk.z*64;
-    if(chunk.river){drawRiverTerrain(chunk,{quad,face,boundsVisible},time);return;}
+    if(renderer.drawRoad)renderer.drawRoad(chunk);
+    if(chunk.river){drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads:!!renderer.drawRoad},time);return;}
     // Asphalt needs geometry to occlude the recessed river at street approaches.
     // The screen background alone cannot hide water projected over the road.
-    quad(x,0,z,64,64,'#252233');
+    if(!renderer.drawRoad)quad(x,0,z,64,64,'#252233');
     quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
-    drawRoadMarkings(x,z,face);
+    if(!renderer.drawRoad)drawRoadMarkings(x,z,face);
     // Pavement seams and a pool of neon light outside each storefront.
     for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
     if(chunk.park){drawParkGround(chunk,{quad,face});return;}
@@ -334,7 +335,7 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
     renderer.drawPass(renderer.endPass());
     renderer.beginPass();
     for(const chunk of visible){
-      if(chunk.river)drawRiverStructures(chunk,{face,boundsVisible},{x:player.x,y:eye,z:player.z});
+      if(chunk.river)drawRiverStructures(chunk,{face,boundsVisible,nativeRoads:!!renderer.drawRoad},{x:player.x,y:eye,z:player.z});
       for(const b of chunk.buildings)building(b);
       for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
       if(chunk.park){

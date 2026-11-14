@@ -29,10 +29,10 @@ const rippleFaces=Array.from({length:6},(_,i)=>[ripplePoints[i*2],ripplePoints[(
 const rippleWidths=Float64Array.from({length:7},(_,i)=>Math.sin(i/6*Math.PI)*.09);
 
 // Each chunk owns half of a river, including its share of each bridge.
-export function drawRiverTerrain(chunk,{quad,face,boundsVisible},time){
+export function drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads=false},time){
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const first=chunk.z===chunk.riverStart;
-  drawRiverbankTerrain(chunk,quad);
+  if(!nativeRoads)drawRiverbankTerrain(chunk,quad);
   for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
@@ -54,11 +54,13 @@ export function drawRiverTerrain(chunk,{quad,face,boundsVisible},time){
       for(const vertices of rippleFaces)face(vertices,ripple?'#225d70':'#306b78');
     }
   }
-  const road=first?start:start+120;
-  quad(x,.015,road,64,8,'#252233');
-  for(let t=16;t<52;t+=12)quad(x+t,.025,first?road+.1:road+7.8,4,.18,'#b09485');
-  // Flat bridge approaches cut through the grass without a step.
-  drawRiverbankTerrain(chunk,quad,true);
+  if(!nativeRoads){
+    const road=first?start:start+120;
+    quad(x,.015,road,64,8,'#252233');
+    for(let t=16;t<52;t+=12)quad(x+t,.025,first?road+.1:road+7.8,4,.18,'#b09485');
+    // Canvas keeps its own road submission; Three.js owns all road meshes.
+    drawRiverbankTerrain(chunk,quad,true);
+  }
 }
 
 // Split the fascia at ground level so its buried ends draw before the banks.
@@ -100,7 +102,7 @@ export function drawRiverbankFaces(chunk,{face,boundsVisible},viewer){
   if(waterSide)drawCachedRiverbankFaces(chunk,face);
 }
 
-export function drawRiverStructures(chunk,{face,boundsVisible},viewer){
+export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false},viewer){
   if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,8,chunk.z*BLOCK+64))return;
   drawBridgeFascias(chunk,{face,boundsVisible},viewer);
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
@@ -113,8 +115,8 @@ export function drawRiverStructures(chunk,{face,boundsVisible},viewer){
       {x:x+left,y:h0+y0,z:a},{x:x+right,y:h0+y0,z:a},
       {x:x+right,y:h1+y1,z:b},{x:x+left,y:h1+y1,z:b}
     ],color);
-    for(const [left,right,color] of [[0,8,'#292b3b'],[8,14,'#757380'],[50,56,'#757380'],[56,64,'#292b3b']])if(hasBridge(chunk.x+(left>=50?1:0)))strip(left,right,.075,.075,color);
-    if(hasBridge(chunk.x)&&Math.floor((a-start)/4)%3===0)strip(0,.15,.085,.085,'#c4af8c');
+    if(!nativeRoads)for(const [left,right,color] of [[0,8,'#292b3b'],[8,14,'#757380'],[50,56,'#757380'],[56,64,'#292b3b']])if(hasBridge(chunk.x+(left>=50?1:0)))strip(left,right,.075,.075,color);
+    if(!nativeRoads&&hasBridge(chunk.x)&&Math.floor((a-start)/4)%3===0)strip(0,.15,.085,.085,'#c4af8c');
     drawRiverRailings(chunk,face,viewer,a-z);
   }
 }

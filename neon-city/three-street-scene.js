@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createThreeRoads} from './three-roads.js';
 import {createWorldScene} from './world-scene.js';
 import {createInteriorCamera,updateInteriorCamera} from './three-interior-scene.js';
 import {createCorridorSky} from './three-corridor-sky.js';
@@ -10,7 +11,7 @@ import {createRenderCamera} from './render-camera.js';
 export function createThreeStreetScene(){
   const scene=new THREE.Scene(),camera=createInteriorCamera(),culling=createRenderCamera();
   scene.fog=new THREE.Fog('#0f0a1e',22,170);
-  const sky=createCorridorSky(scene),batches=new Map();
+  const sky=createCorridorSky(scene),roads=createThreeRoads(scene),batches=new Map();
   let style={},view;
   function batch(color,image,smooth){
     const key=image??color;
@@ -40,7 +41,7 @@ export function createThreeStreetScene(){
     face([e,a,up(a),up(e)],color);face([b,c,up(c),up(b)],color);
     face([up(a),up(b),up(c),up(e)],roof);face([e,c,b,a],color);
   }
-  const backend={face,quad,box,boundsVisible:(...args)=>culling.boundsVisible(...args),
+  const backend={face,quad,box,drawRoad:chunk=>roads.draw(chunk),boundsVisible:(...args)=>culling.boundsVisible(...args),
     beginFrame(next){view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
     withStyle(next,draw){const old=style;style={...style,...next};try{return draw();}finally{style=old;}},
     beginPass(){},endPass(){return [];},drawPass(){},drawSky(){},finishStreet(){},
@@ -62,11 +63,11 @@ export function createThreeStreetScene(){
     attribute.array.set(values);attribute.needsUpdate=true;
   }
   return {scene,camera,update(frame){
-    sky.update(frame);world.render(frame);
+    roads.beginFrame();sky.update(frame);world.render(frame);roads.endFrame();
     for(const [key,b] of batches){
       if(!b.positions.length){scene.remove(b.mesh);b.geometry.dispose();b.material.dispose();b.texture?.dispose();batches.delete(key);continue;}
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){roads.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }
