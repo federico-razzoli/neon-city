@@ -102,3 +102,37 @@ test('only bridge approaches have stairs, with readable tread and riser colours'
   }
   walks.dispose();railings.dispose();
 });
+
+test('three benches per inter-bridge bank span are equally spaced with backs against the wall',async()=>{
+  const {riverBenches}=await import('../neon-city/world.js');
+  for(const bridge of [-6,-3,0,3])for(const part of [0,1]){
+    const row=RIVER_ROWS[0],chunks=[0,1,2].map(i=>({x:bridge+i,z:row+part,riverStart:row}));
+    const benches=chunks.flatMap(riverBenches);assert.equal(benches.length,3);
+    const left=bridge*BLOCK+14,right=(bridge+3)*BLOCK-14;
+    const margin=benches[0].x-1-left,gap=benches[1].x-benches[0].x-2;
+    assert.ok(Math.abs(right-benches[2].x-1-margin)<1e-9);
+    assert.equal(margin,64);
+    assert.equal(gap,15);
+    assert.equal(benches[1].x,(benches[0].x+benches[2].x)/2);
+    for(const b of benches)assert.ok(Math.abs(b.z+b.nz*.3-(row*BLOCK+(part?110:18)))<1e-9);
+  }
+});
+test('riverside benches block walking and use the existing sit and stand interaction',async()=>{
+  const {facingBench}=await import('../neon-city/parks.js');
+  const {readFile}=await import('node:fs/promises'),{runInNewContext}=await import('node:vm');
+  const source=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
+  const useSeat=source.slice(source.indexOf('function useSeat(){'),source.indexOf('const hotelGuestScene='));
+  for(const part of [0,1]){
+    const city=new City(1),row=RIVER_ROWS[0],chunk=city.generate(1,row+part);city.chunks.set(`1,${row+part}`,chunk);
+    const b=chunk.riverBenches[0],dir=part?-1:1;
+    const player={x:b.x-.5,z:b.z+dir*1.2,angle:part?0:Math.PI,riverWalk:true},standing={x:player.x,z:player.z};
+    assert.ok(facingBench(player,city.chunks.values()));
+    assert.equal(facingBench({...player,riverWalk:false},city.chunks.values()),null,'upper promenade cannot target lower benches');
+    const sandbox={city,player,playerSeat:null,hotelStairs:null,insideCubicle:null,insideLavatory:false,insidePub:false,insideBookshop:false,insideHotel:false,insideArcade:false,facingBench,SEATED_EYE:1.5,keys:new Set(),shiftKeys:new Set(),eye:1.65,pubTalk:null};
+    runInNewContext(useSeat+'globalThis.sit=useSeat;',sandbox);
+    assert.equal(sandbox.sit(),true);assert.ok(sandbox.playerSeat);assert.equal(player.riverWalk,true);
+    assert.ok(Math.abs(player.z-b.z)<1e-9);assert.ok(Math.abs(Math.cos(player.angle)-dir)<1e-9,'seated player faces water');
+    assert.equal(sandbox.sit(),true);assert.equal(sandbox.playerSeat,null);assert.equal(player.x,standing.x);assert.equal(player.z,standing.z);
+    city.move(player,0,-dir*2);assert.ok((player.z-b.z)*dir>=.75-1e-9,'cannot walk through the bench');
+  }
+});

@@ -19,7 +19,7 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {PubConversation} from './pub-life.js?v=npc-followup-1';
-import {placeLines} from './world.js?v=lavatory-talk-1';
+import {placeLines,groundHeight} from './world.js?v=lavatory-talk-1';
 
 // A walk away shorter than this keeps the conversation going; a longer one
 // starts it again from the first line, like sitting down at a pub table.
@@ -36,6 +36,7 @@ export class WalkerTalk{
   interact(player,people){
     const target=people.filter(person=>{
       if(!talksHere(person))return false;
+      if(Math.abs((person.ground??groundHeight(person.x,person.z))-groundHeight(player.x,player.z,player.riverWalk))>1.5)return false;
       const dx=person.x-player.x,dz=person.z-player.z,distance=Math.hypot(dx,dz);
       return distance>0&&distance<=2.8&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/distance>.75;
     }).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];

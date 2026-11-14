@@ -13,6 +13,8 @@ venue visitors and interior actors also have their own behaviour modules.
 - [`world.js`](neon-city/world.js): walker generation, route evaluation,
   `City.advancePedestrians()`, crossings, park paths, collision planning and
   recovery from blocked movement.
+- [`river-pedestrians.js`](neon-city/river-pedestrians.js): generated river
+  walkers, lower paths, stair choices, directional reservations and exit queues.
 - [`pedestrian-collisions-wasm.js`](neon-city/pedestrian-collisions-wasm.js): numeric
   buffer interface and fallback selection.
 - [`pedestrian-collisions.c`](neon-city/pedestrian-collisions.c): batched collision
@@ -31,7 +33,32 @@ loop; their route spans the larger riverside area.
 `pedestrianRoute()` maps phase plus signed speed times route time onto a
 rectangular loop. Ordinary sidewalks use four 42-unit sides (168 units total),
 with corners at local coordinates 11 and 53. River loops use widths of 170 and
-lengths of 106 (552 units total).
+lengths of 106 (552 units total) for legacy river states. Generated river walkers
+use the explicit upper/lower routes described below.
+
+## Lower riverside paths and stairs
+
+Each generated river population starts four walkers on the lower paths, two on
+each bank, with the remaining ten on the upper loop. Opposing normal walkers
+use separate lanes. Explicit route progress controls position; `walkTime` still
+controls animation and only advances on accepted movement.
+
+At each stair approach, a walker makes one random choice: 25% take the stairs,
+75% keep walking. A queued choice is retained rather than rerolled every frame.
+The queue stops 1.5m before the junction so it leaves the exit available.
+
+Stairs and their connecting landings are reserved by bridge, bank and direction.
+Walkers travelling the same direction may follow with normal spacing. Opposing
+walkers wait until all occupants have left. A walker cannot finish the route or
+release its reservation until the destination path has space, on either level.
+Reservations are reconstructed from loaded occupants, so unloading an area
+cannot leave a stale lock.
+
+All river owners advance together with a spatial collision index, including
+nearby walkers from other chunks and the player. Ground height separates the
+upper bridge/promenade from the lower path. Rendering and conversations use the
+same explicit ground height, including the stair treads. The ordinary sidewalk
+WASM resolver remains responsible for other pedestrians.
 
 `pedestrian()` evaluates the current position, facing direction and sprite frame.
 It uses `walkTime` when present, so stopping that clock stops route progress

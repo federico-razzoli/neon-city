@@ -178,7 +178,7 @@ export const benchSeats=b=>[-.5,.5].map(u=>({x:b.x+b.tx*u,z:b.z+b.tz*u,bench:b,a
 // The same reach and viewing cone as a pub chair.
 export function facingBench(player,chunks){
   let nearest=null,distance=1.5;
-  for(const chunk of chunks)for(const b of chunk.park?.benches??[])for(const seat of benchSeats(b)){
+  for(const chunk of chunks)for(const b of (player.riverWalk?chunk.riverBenches:chunk.park?.benches)??[])for(const seat of benchSeats(b)){
     const dx=seat.x-player.x,dz=seat.z-player.z,gap=Math.hypot(dx,dz);
     if(gap>distance)continue;
     const radius=.45,halfAngle=.45+Math.asin(Math.min(1,radius/Math.max(gap,.001)));

@@ -117,7 +117,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     if(player.x>x+w)wall(3);
   }
   function person(p){
-    renderer.billboard({position:{x:p.x,y:groundHeight(p.x,p.z)+.075,z:p.z},
+    renderer.billboard({position:{x:p.x,y:(p.ground??groundHeight(p.x,p.z))+.075,z:p.z},
       height:characterHeight(p.type),width:characterHeight(p.type)*characterGirth(p.type)/2,
       getImage:()=>sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant)});
   }

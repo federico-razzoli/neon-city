@@ -730,8 +730,11 @@ test('only Night River remains through district 0, 4, with ordinary city blocks 
     assert.ok(chunk.river);
     assert.equal(chunk.buildings.length+chunk.manholes.length+chunk.newspaperMachines.length,0);
     for(const p of chunk.people)for(let t=0;t<400;t++){
-      const pos=pedestrian(chunk,{...p,walkTime:t},t);
-      assert.ok(!city.solid(pos.x,pos.z),'bank and bridge pedestrian routes stay dry');
+      const pos=pedestrian(chunk,{...p,walkTime:t,riverMotion:p.riverMotion?{...p.riverMotion,s:p.riverMotion.s+t*p.speed}:undefined},t);
+      if(pos.riverWalk){
+        const distance=Math.min(pos.z-row*BLOCK-18,row*BLOCK+110-pos.z);
+        assert.ok(pos.ground>WATER_LEVEL&&distance>=.45&&distance<=5.55,'lower pedestrian routes stay on the dry paths');
+      }else assert.ok(!city.solid(pos.x,pos.z),'bank and bridge pedestrian routes stay dry');
     }
     for(let t=0;t<20;t+=.1)for(const car of traffic(chunk,t))assert.ok(!city.solid(car.x,car.z,1.5),'traffic crosses on bridges or follows bank roads');
     if(part===row+1)assert.ok(traffic(chunk,0).every(c=>c.axis===0),'no cross traffic on water');
@@ -6133,6 +6136,7 @@ test('pedestrian nearby-pair planning matches exhaustive checks for swept steps 
   `+source.slice(end);
   source=source.replace("'./entrances.js'",JSON.stringify(new URL('../neon-city/entrances.js',import.meta.url).href));
   source=source.replace("'./pedestrian-collisions-wasm.js'",JSON.stringify(new URL('../neon-city/pedestrian-collisions-wasm.js',import.meta.url).href));
+  source=source.replace("'./river-pedestrians.js'",JSON.stringify(new URL('../neon-city/river-pedestrians.js',import.meta.url).href));
   source=source.replace('if(!pedestrianCollisionKernel(moves,PERSON_CLEARANCE)){','if(true){');
   const {City:Exhaustive}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
   for(const chunkX of [-1,0])for(const reverseOrder of [false,true]){

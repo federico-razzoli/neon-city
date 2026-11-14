@@ -19,6 +19,7 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import {orientEntrances} from './entrances.js';
 import {pedestrianCollisionKernel} from './pedestrian-collisions-wasm.js';
+import {seedRiverPeople,riverPerson,advanceRiverPeople} from './river-pedestrians.js';
 export const PEDESTRIAN_TYPES=16;
 // Optional per-character traits; characters without an entry use the defaults.
 const CHARACTER_TRAITS={
@@ -196,6 +197,15 @@ export function riverWalkPosition(x,z){
   const first=z<row*BLOCK+64,bank=row*BLOCK+(first?18:110),dir=first?1:-1;
   return {d:(z-bank)*dir,lx:mod(x,BLOCK),bank,dir};
 }
+// Keep the original outer benches and place a third exactly halfway between.
+export function riverBenches(chunk){
+  if(mod(chunk.x,3)!==1)return [];
+  const first=chunk.z===chunk.riverStart,dir=first?1:-1;
+  const bank=chunk.riverStart*BLOCK+(first?18:110);
+  const left=(chunk.x-1)*BLOCK+14,length=3*BLOCK-28;
+  const margin=(length-4)/2.5;
+  return [left+margin+1,left+length/2,left+length-margin-1].map(x=>({x,z:bank+dir*.3,tx:1,tz:0,nx:0,nz:-dir,riverWalk:true}));
+}
 export function riverWalkHeight(x,z){
   const at=riverWalkPosition(x,z);
   if(at&&hasRiverStairs(x)&&at.d<=RIVER_STAIRS.width&&at.lx>=RIVER_STAIRS.landing&&at.lx<RIVER_STAIRS.end)
@@ -355,7 +365,7 @@ class CrossingPositions {
 
 // Let an actor already inside the collision area retreat without getting stuck.
 function crossesPlayer(a,b,person){
-  if((a.riverWalk||person.riverWalk)&&Math.abs(groundHeight(a.x,a.z,a.riverWalk)-groundHeight(person.x,person.z,person.riverWalk))>1.5)return false;
+  if((a.riverWalk||person.riverWalk)&&Math.abs((a.ground??groundHeight(a.x,a.z,a.riverWalk))-(person.ground??groundHeight(person.x,person.z,person.riverWalk)))>1.5)return false;
   const dx=b.x-a.x,dz=b.z-a.z;
   if(Math.hypot(a.x-person.x,a.z-person.z)<STREET_BUMP_RADIUS&&
     (a.x-person.x)*dx+(a.z-person.z)*dz>=0&&
@@ -396,11 +406,14 @@ export class City {
     if(x===0&&z===0)buildings[0].sign='NEON PUB';
     // Jitter separated slots so new pedestrians never spawn inside each other.
     // Assign speed once, using a separate random draw from appearance.
-    for(let i=0;i<7;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:streetType(r()),reverse:r()>.5,variant:r(),walkTime:0});
+    const population=isRiverRow(z)&&z===riverStart(z)&&hasBridge(x)?14:7;
+    for(let i=0;i<population;i++) people.push({phase:i*24+r()*20,speed:PEDESTRIAN_MIN_SPEED+r()*(PEDESTRIAN_MAX_SPEED-PEDESTRIAN_MIN_SPEED),type:streetType(r()),reverse:r()>.5,variant:r(),walkTime:0});
     if(isRiverRow(z)){
       const start=riverStart(z);
       // A three-block loop follows both banks between consecutive bridges.
-      return {x,z,river:true,riverStart:start,buildings:[],people:z===start&&hasBridge(x)?people:[],manholes:[],newspaperMachines:[]};
+      const chunk={x,z,river:true,riverStart:start,riverBenches:riverBenches({x,z,riverStart:start}),buildings:[],people:[],manholes:[],newspaperMachines:[]};
+      if(z===start&&hasBridge(x))chunk.people=seedRiverPeople(chunk,people,r);
+      return chunk;
     }
     const startPark=x===this.startPark.x&&z===this.startPark.z;
     const park=startPark||r()<PARK_CHANCE&&!this.parkNear(x,z)?parkLayout(x,z,r):null;
@@ -545,7 +558,19 @@ export class City {
   advancePedestrians(dt,player,time,speaker=null,traffic=null) {
     const crossingWalkers=traffic?this.advanceCrossings(dt,player,time,traffic):new Set();
     const crossingPositions=this.pedestrians(time).filter(person=>crossingWalkers.has(person.walker));
-    const heldInPlace=[];
+    const heldInPlace=advanceRiverPeople(this,dt,player,time,speaker);
+    const riverCells=new Map();
+    for(const q of this.pedestrians(time))if(q.walker.riverMotion){
+      const key=`${Math.floor(q.x/4)},${Math.floor(q.z/4)}`;
+      if(!riverCells.has(key))riverCells.set(key,[]);riverCells.get(key).push(q);
+    }
+    const riverBlocked=(before,after)=>{
+      const ground=groundHeight(after.x,after.z);
+      for(let x=Math.floor((Math.min(before.x,after.x)-PERSON_CLEARANCE)/4);x<=Math.floor((Math.max(before.x,after.x)+PERSON_CLEARANCE)/4);x++)
+        for(let z=Math.floor((Math.min(before.z,after.z)-PERSON_CLEARANCE)/4);z<=Math.floor((Math.max(before.z,after.z)+PERSON_CLEARANCE)/4);z++)
+          if((riverCells.get(`${x},${z}`)??[]).some(q=>Math.abs(q.ground-ground)<1.5&&crossesPerson(before,after,q)))return true;
+      return false;
+    };
     // Keep an encounter stopped until the player clears every participant's
     // forward route, even if they have already cleared the original speaker.
     this.conversationWaiters??=new Map();
@@ -575,7 +600,9 @@ export class City {
     const scratch=this.pedestrianScratch??={pairs:createPedestrianPairScratch(),positions:new Map(),stationary:[],stationaryPool:[]};
     // Sidewalk loops in separate blocks are at least 22 units apart.
     for(const chunk of this.chunks.values()){
-      for(const p of chunk.people)p.walkTime??=time-dt;
+      const people=chunk.people.filter(p=>!p.riverMotion);
+      if(!people.length)continue;
+      for(const p of people)p.walkTime??=time-dt;
       const positions=scratch.positions;positions.clear();
       const at=p=>{
         if(!positions.has(p))positions.set(p,pedestrian(chunk,p,time));
@@ -583,16 +610,16 @@ export class City {
       };
       const stationaryPairs=clearance=>{
         const moves=scratch.stationary;moves.length=0;
-        for(let i=0;i<chunk.people.length;i++){
+        for(let i=0;i<people.length;i++){
           const move=scratch.stationaryPool[i]??={before:null,after:null};
-          move.before=move.after=at(chunk.people[i]);moves.push(move);
+          move.before=move.after=at(people[i]);moves.push(move);
         }
         return pedestrianPairs(moves,clearance,scratch.pairs);
       };
       // Reserve one yielding pedestrian per encounter. Their route clock stays
       // frozen until they have stepped out, let the other pass, and returned.
       for(const [i,j] of stationaryPairs(1.2)){
-        const a=chunk.people[i],b=chunk.people[j];
+        const a=people[i],b=people[j];
         if(crossingWalkers.has(a)||crossingWalkers.has(b)||waiters.has(a)||waiters.has(b)||a.yielding||b.yielding||a.detour||b.detour||a.reverse===b.reverse)continue;
         const pa=at(a),pb=at(b);
         const gap=Math.hypot(pa.x-pb.x,pa.z-pb.z);
@@ -605,30 +632,30 @@ export class City {
         const {side}=pedestrianRoute(chunk,p,p.walkTime);
         const dx=[0,1,0,-1][side],dz=[-1,0,1,0][side];
         const origin=at(p),target={x:origin.x+dx*1.3,z:origin.z+dz*1.3};
-        if(crossesPlayer(origin,target,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))continue;
+        if(crossesPlayer(origin,target,player)||people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))continue;
         p.yielding={dx,dz,offset:0,stage:'out',partner,partnerTime:partner.walkTime,passDistance:gap+1.2};
       }
       // Recover interrupted sidesteps too: their route clocks are deliberately
       // frozen, so ordinary blocked-walker recovery cannot release them.
-      for(const p of chunk.people){
+      for(const p of people){
         const y=p.yielding;
         if(!y||waiters.has(p))continue;
         if((p.stuckTime??0)>=1.5){
           if(y.stage==='out')y.stage='back';
-          else if(y.stage==='wait'&&(!chunk.people.includes(y.partner)||y.partner.reverse===p.reverse||(y.partner.stuckTime??0)>=1.5))y.stage='back';
+          else if(y.stage==='wait'&&(!people.includes(y.partner)||y.partner.reverse===p.reverse||(y.partner.stuckTime??0)>=1.5))y.stage='back';
           else if(y.stage==='back')y.stage='escape';
         }
         if(y.stage==='escape'){
           const origin=at(p),target=pedestrian(chunk,{...p,yielding:undefined},time);
-          if(!crossesPlayer(origin,target,player)&&!chunk.people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))y.stage='back';
+          if(!crossesPlayer(origin,target,player)&&!people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))y.stage='back';
         }
         if(y.stage==='back'&&y.offset===0){delete p.yielding;p.stuckTime=0;}
       }
-      const moves=chunk.people.filter(p=>!crossingWalkers.has(p)).map(p=>{
+      const moves=people.filter(p=>!crossingWalkers.has(p)).map(p=>{
         p.walkTime??=time-dt;
         const before=at(p);
         const y=p.yielding;
-        const waitingForSideStep=chunk.people.some(q=>q.yielding?.partner===p&&q.yielding.stage==='out');
+        const waitingForSideStep=people.some(q=>q.yielding?.partner===p&&q.yielding.stage==='out');
         if(y?.stage==='wait'&&y.partner&&(y.partner.walkTime-y.partnerTime)*y.partner.speed>=y.passDistance)y.stage='back';
         const offset=y?(y.stage==='out'?Math.min(1.3,y.offset+dt*1.8):y.stage==='back'?Math.max(0,y.offset-dt*1.8):y.offset):0;
         // Turning onto or off the footpath is part of the planned step, so the
@@ -636,7 +663,7 @@ export class City {
         const route=!y&&!waitingForSideStep&&chunk.park?this.footpathStep(chunk,p,dt):null;
         const after=pedestrian(chunk,{...p,...route,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
         const held=waiters.has(p)||crossesPlayer(before,after,player);
-        return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)||crossingPositions.some(q=>crossesPerson(before,after,q))};
+        return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)||crossingPositions.some(q=>crossesPerson(before,after,q))||riverBlocked(before,after)};
       });
       // Walkers with lines for their place stay to talk while the player blocks them.
       const talking=new Set();
@@ -698,12 +725,12 @@ export class City {
         const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=at(p);
         const next=pedestrian(chunk,{...p,...turned,walkTime:p.walkTime+.2},time);
-        if(this.solid(next.x,next.z)||crossesPlayer(origin,next,player)||chunk.people.some(q=>q!==p&&crossesPerson(origin,next,at(q))))return false;
+        if(this.solid(next.x,next.z)||crossesPlayer(origin,next,player)||people.some(q=>q!==p&&crossesPerson(origin,next,at(q))))return false;
         Object.assign(p,turned);positions.delete(p);p.stuckTime=0;p.turnCooldown=3;delete p.footpathChoice;
         return true;
       };
       for(const [i,j] of stationaryPairs(2.6)){
-        const a=chunk.people[i],b=chunk.people[j];
+        const a=people[i],b=people[j];
         if(a.detour||b.detour||a.reverse===b.reverse||a.stuckTime<1.5||b.stuckTime<1.5||a.turnCooldown||b.turnCooldown)continue;
         const pa=at(a),pb=at(b);
         if(Math.hypot(pa.x-pb.x,pa.z-pb.z)>2.6)continue;
@@ -754,11 +781,14 @@ export class City {
   move(p,dx,dz,people=[],bumped=[],cars=[],bumpedCars=[]) {
     let bumpedPedestrian=false;
     const reach=Math.hypot(dx,dz)+STREET_BUMP_RADIUS;
-    const nearby=people.filter(person=>Math.abs(groundHeight(person.x,person.z)-groundHeight(p.x,p.z,p.riverWalk))<1.5&&Math.hypot(person.x-p.x,person.z-p.z)<=reach);
+    const nearby=people.filter(person=>Math.abs((person.ground??groundHeight(person.x,person.z))-groundHeight(p.x,p.z,p.riverWalk))<1.5&&Math.hypot(person.x-p.x,person.z-p.z)<=reach);
     const blocked=(x,z)=>{
       const at=riverWalkPosition(x,z),gate=at&&hasRiverStairs(x)&&at.lx>=RIVER_STAIRS.landing+.45&&at.lx<=RIVER_STAIRS.start-.45&&at.d>=-.5&&at.d<=RIVER_STAIRS.width;
       if(p.riverWalk){
         if(!at||(!gate&&(at.d<.45||at.d>RIVER_WALK_WIDTH-.45)))return true;
+        const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
+        const benches=chunk?.riverBenches??riverBenches({x:Math.floor(x/BLOCK),z:Math.floor(z/BLOCK),riverStart:riverStart(Math.floor(z/BLOCK))});
+        if(benches.some(b=>Math.abs(x-b.x)<1.45&&Math.abs(z-b.z)<.75))return true;
         if(Math.abs(riverWalkHeight(x,z)-groundHeight(p.x,p.z,true))>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
       }else if(!gate&&this.solid(x,z))return true;
       const height=groundHeight(x,z,p.riverWalk||gate&&at.d>=0);
@@ -927,6 +957,7 @@ function pedestrianRoute(chunk,p,time){
 }
 export function pedestrian(chunk,p,time) {
   time=p.walkTime??time;
+  if(p.riverMotion)return riverPerson(chunk,p);
   if(p.crossing){
     const c=p.crossing;
     return {x:c.x+c.dx*c.distance-c.dz*(c.offset??0),z:c.z+c.dz*c.distance-c.dx*(c.offset??0),facingX:c.dx,facingZ:c.dz,type:p.type,frame:c.started?Math.floor(time*p.speed*5+p.phase)%4:0,variant:p.variant};

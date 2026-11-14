@@ -29,6 +29,11 @@ under bridges, with a separate player elevation so traffic and pedestrians
 above do not collide with the player below. Water edges, retaining walls and
 the sides of the stairs block movement; the stairs provide the return route.
 Stairs and lower paths have no railings.
+Each inter-bridge lower path has three wooden benches facing the river, with
+their backs flush against the retaining wall. Clear distances are 64m to each
+nearest bridge edge and 15m between adjacent benches. Space sits or stands using the
+existing bench interaction. Bench wood and metal use two instanced batches per
+populated chunk, sharing geometry and materials with no per-frame rebuilding.
 
 ## Objective
 
