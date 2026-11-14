@@ -22,7 +22,8 @@ import {START_SIGN,groundHeight} from './world.js?v=park-entrances-1';
 // Keep money in pence, separate from objects that can be carried or dropped.
 export class Wallet{
   pence=0;
-  note={x:START_SIGN.x+1.2,z:START_SIGN.z+.7,taken:false};
+  // Match outdoor dropped items: keep the note above the raised sidewalk details.
+  note={x:START_SIGN.x+1.2,z:START_SIGN.z+.7,ground:.085,taken:false};
   get balance(){return `£${(this.pence/100).toFixed(2)}`;}
   takeNote(player,note=this.note){
     const dx=note.x-player.x,dz=note.z-player.z,gap=Math.hypot(dx,dz);
