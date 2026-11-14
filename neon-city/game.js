@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {facingRiverGrate,RIVER_GRATE_MESSAGE} from './river-grates.js';
 import {advanceRiverFall} from './river-fall.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {supportsRenderer} from './renderer-support.js';
@@ -911,7 +912,9 @@ function tick(now){
         break collision;
       }
     }
-    if(riverLook.try(player,coverPressed||keys.has(' '),coverPressed)){
+    if(player.riverWalk&&coverPressed&&facingRiverGrate(player)){
+      notice=4.5;noticeText=RIVER_GRATE_MESSAGE;
+    }else if(riverLook.try(player,coverPressed||keys.has(' '),coverPressed)){
       notice=4.5;noticeText="THIS IS NIGHT RIVER. IT'S BEAUTIFUL...";
     }else if((coverPressed||keys.has(' '))&&coverAttempt.try(player,city.chunks.values(),time,!coverPressed)){
       notice=2.5;noticeText="IT'S TOO HEAVY.";

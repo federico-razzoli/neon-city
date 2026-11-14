@@ -311,7 +311,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     renderer.drawPass(terrain,{elevation:'below'});
     renderer.beginPass();
     for(const chunk of visible)if(chunk.river){
-      drawRiverbankFaces(chunk,{face,boundsVisible},player);
+      drawRiverbankFaces(chunk,{face,boundsVisible,nativeWater:!!renderer.drawWater},player);
       drawBridgeFascias(chunk,{face,boundsVisible},player,true);
     }
     renderer.drawPass(renderer.endPass('depth'));

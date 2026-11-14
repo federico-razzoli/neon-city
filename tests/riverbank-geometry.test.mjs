@@ -70,3 +70,17 @@ test('wall-only generation omits terrain and approaches while preserving every r
     for(let k=0;k<walls.length;k+=14)assert.equal(walls[k],2);
   }
 });
+
+test('native door openings remove wall faces on both sides of each chunk boundary',()=>{
+  for(const street of [-3,0,3])for(const part of [0,1]){
+    const row=RIVER_ROWS[0],faces=[];
+    for(const x of [street-1,street])drawRiverbankFaces({x,z:row+part,riverStart:row},{nativeWater:true,face:v=>faces.push(v)});
+    let area=0;
+    for(const v of faces){
+      const left=v[0].x,right=v[1].x,bottom=v[0].y,top=v[2].y;
+      assert.ok(right<=street*BLOCK-.9||left>=street*BLOCK+.9||top<=-3.4||bottom>=-1.4,'no wall crosses the doorway');
+      area+=(right-left)*(top-bottom);
+    }
+    assert.ok(Math.abs(area-(128*3.9-1.8*2))<1e-8,'only the door opening is removed');
+  }
+});

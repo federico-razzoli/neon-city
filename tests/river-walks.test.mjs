@@ -159,3 +159,48 @@ test('players fall off both stair sides, with landing remarks only above three s
     assert.equal(advanceRiverFall(p,2,()=>random),text);
   }
 });
+
+test('locked grates sit under bridge approaches on both banks and release their resources',()=>{
+  const scene=new THREE.Scene(),walks=createThreeRiverWalks(scene),row=RIVER_ROWS[0];
+  walks.beginFrame();
+  for(const x of [-3,0,1,3])for(const part of [0,1])walks.draw({x,z:row+part,riverStart:row});
+  walks.endFrame();
+  for(const group of scene.children){
+    const isBridge=!group.name.startsWith('river-walk:1,');
+    const bars=group.getObjectByName('river-grate-iron');
+    assert.equal(Boolean(bars),isBridge);
+    if(isBridge){
+      assert.ok(bars.count>40);
+      assert.equal(group.getObjectByName('river-grate-lock').count,1);
+      assert.equal(group.getObjectByName('river-grate-dark').count,1);
+      assert.equal(group.getObjectByName('river-grate-keyhole').count,1);
+      assert.equal(group.getObjectByName('river-grate-frame'),undefined);
+      for(const child of group.children.filter(m=>m.name.startsWith('river-grate-'))){
+        child.computeBoundingBox();
+        assert.ok(child.boundingBox.min.y>=RIVER_WALK_HEIGHT-1e-6);
+        assert.ok(child.boundingBox.max.y<=-1.4+1e-6,'door fits below the bridge slab');
+        const bank=row*BLOCK+(group.name.endsWith(`,${row}`)?18:110),dir=bank===row*BLOCK+18?1:-1;
+        const nearest=dir===1?-child.boundingBox.min.z:child.boundingBox.max.z;
+        assert.ok((nearest-bank*dir)<-.02,'ironwork is recessed behind the wall');
+      }
+      assert.equal(group.getObjectByName('river-grate-hardware').material.color.getHexString(),'191c1c');
+    }
+  }
+  walks.beginFrame();walks.endFrame();assert.equal(scene.children.length,0);
+  walks.dispose();
+});
+
+test('grates respond only to nearby lower-path players facing the wall on either bank',async()=>{
+  const {facingRiverGrate,RIVER_GRATE_MESSAGE}=await import('../neon-city/river-grates.js');
+  assert.equal(RIVER_GRATE_MESSAGE,'THIS LOOKS ANCIENT, MYSTERIOUS AND SCARY...');
+  for(const street of [-3,0,3])for(const [bank,dir] of [[RIVER_ROWS[0]*BLOCK+18,1],[RIVER_ROWS[0]*BLOCK+110,-1]]){
+    const p={x:street*BLOCK,z:bank+dir*1.4,angle:dir===1?Math.PI:0,riverWalk:true};
+    assert.equal(facingRiverGrate(p),true);
+    assert.equal(facingRiverGrate({...p,riverWalk:false}),false);
+    assert.equal(facingRiverGrate({...p,angle:p.angle+Math.PI}),false);
+    assert.equal(facingRiverGrate({...p,x:p.x+4}),false);
+    assert.equal(facingRiverGrate({...p,z:bank+dir*4}),false);
+    assert.equal(facingRiverGrate({...p,riverFall:{height:0}}),false);
+    assert.equal(facingRiverGrate({...p,x:p.x+BLOCK}),false);
+  }
+});

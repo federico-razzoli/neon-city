@@ -93,13 +93,13 @@ export function drawBridgeFascias(chunk,{face,boundsVisible},viewer,belowGround=
 }
 
 // Below-ground faces must be painted before the grass, promenade, and roads.
-export function drawRiverbankFaces(chunk,{face,boundsVisible},viewer){
+export function drawRiverbankFaces(chunk,{face,boundsVisible,nativeWater=false},viewer){
   if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,0,chunk.z*BLOCK+64))return;
   const start=chunk.riverStart*BLOCK;
   const bank=chunk.z===chunk.riverStart?start+18:start+110;
   // Stone retaining walls expose the full drop from the grass to the water.
   const waterSide=!viewer||(chunk.z===chunk.riverStart?viewer.z>bank:viewer.z<bank);
-  if(waterSide)drawCachedRiverbankFaces(chunk,face);
+  if(waterSide)drawCachedRiverbankFaces(chunk,face,nativeWater);
 }
 
 export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false,nativeRailings=false},viewer){
