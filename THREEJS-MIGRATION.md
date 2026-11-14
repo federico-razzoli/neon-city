@@ -704,3 +704,32 @@ Validation: all 511 automated tests pass. Chromium checks hold back the renderer
 module to verify disabled-start and early-Space behavior, then confirm readiness
 without venue allocations, direct Three.js first-pub rendering with no Canvas
 frames, and playable Canvas fallback when WebGL is unavailable. No page errors.
+
+### Three.js pub collisions and targeting
+
+The main pub room now uses `three-pub-spatial.js` when its Three.js renderer is
+selected. A radius .18 player body collides with Three.js box/sphere volumes for
+walls, furniture and people. Movement uses .08 maximum substeps and slides along
+blocked axes. The old .3 furniture clearance and .85 person separation no longer
+apply to this path. Occupied-seat bumps still notify the pub life system.
+
+Seating, doors, bottles, the pint, taps and bartender use exact Three.js raycasts
+against dedicated object volumes. Horizontal seat/hand/eye rays replace facing
+cones: targets need a hit, with intervening furniture blocking each ray.
+The glass has .18 units of extra targeting radius and taps have .2, allowing
+slightly off-centre aim without changing their collision shapes or reach.
+Targets are within two units of the ray origin, except the bartender's eye ray
+which reaches 3.5 units to span the counter. Occupied and reserved chairs remain
+unavailable. Table ray hits within 1.4375 units of a chair centre also target
+that chair. Collisions in the same table-edge region count as bumping its seated
+patron when occupied; the table's sides and opposite unoccupied seat do not
+trigger that patron. Replies, dialogue and venue transitions still use shared game state.
+Generic inventory and dropped-item handling remain shared with other rooms.
+
+Spatial objects are created lazily, reused during the visit and disposed when
+leaving the renderer's room. Canvas mode retains its existing spatial checks;
+the lavatory and cubicles are outside this change.
+
+Validation: 520 automated tests pass, including direct collision and raycasting
+checks. Chromium verifies wall blocking, arch traversal, seating, tap replies,
+bartender conversation, toilet return and street exit without page errors.

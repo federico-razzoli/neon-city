@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createThreePubSpatial} from './three-pub-spatial.js';
 import {profilePhase} from './render-profile.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {createThreeStorageScene} from './three-storage-scene.js';
@@ -27,9 +28,11 @@ export function createThreeHotelRenderer(canvas){
   const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false});
   renderer.setPixelRatio(1);renderer.setSize(NATIVE_VIEW.width,NATIVE_VIEW.height,false);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NoToneMapping;
+  let pubSpatial=null;
   let room=null,hotel=null,destination=null,floor=null;
-  function leave(){if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
+  function leave(){pubSpatial?.dispose();pubSpatial=null;if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
   return {
+    get pubSpatial(){return pubSpatial??=createThreePubSpatial();},
     render(frame){
       const nextDestination=frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
       const nextHotel=['arcade','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
