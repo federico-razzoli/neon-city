@@ -31,6 +31,7 @@ function createScene(destination,hotel,floor){
 
 export function createThreeHotelRenderer(canvas){
   const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false});
+  renderer.localClippingEnabled=true;
   renderer.setPixelRatio(1);renderer.setSize(NATIVE_VIEW.width,NATIVE_VIEW.height,false);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NoToneMapping;
   let bookshopSpatial=null,pubSpatial=null,lavatorySpatial=null,cubicleSpatial=null;

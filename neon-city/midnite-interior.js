@@ -121,20 +121,40 @@ export function drawBookseller({face,box},seller,angle=Math.PI){
   };
   drawStaff({face:turnedFace,box:turnedBox},seller,0);
 }
-export function drawBookshopInterior({face,quad,box},life=null,{dynamic=true,solidShelfEnds=false}={}){
+export function drawBookshopInterior({face,quad,box},life=null,{dynamic=true,solidShelfEnds=false,transparentWindows=false}={}){
   const panel=(x,y,z,w,h,c,smooth=false)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y:y+h,z},{x,y:y+h,z}],c,null,smooth);
   const glyphs={A:['010','101','111','101','101'],B:['110','101','110','101','110'],C:['111','100','100','100','111'],E:['111','100','110','100','111'],F:['111','100','110','100','100'],I:['111','010','010','010','111'],K:['101','101','110','101','101'],M:['101','111','111','101','101'],N:['101','111','111','111','101'],O:['111','101','101','101','111'],R:['110','101','110','101','101'],S:['111','100','111','001','111'],T:['111','010','010','010','010'],U:['101','101','101','101','111'],X:['101','101','010','101','101'],Y:['101','101','010','010','010'],P:['110','101','110','100','100'],H:['101','101','111','101','101'],'-':['000','000','111','000','000']};
   const label=(word,x,y,z,scale,reverse=false)=>{for(const [i,c] of [...word].entries())for(let row=0;row<5;row++)for(let col=0;col<3;col++)if(glyphs[c]?.[row][col]==='1')panel(x+(reverse?-1:1)*(i*4+col)*scale,y+(4-row)*scale,z,(reverse?-1:1)*scale,scale,'#302c26',true);};
   const {width,depth,height,door,counter,chairs}=BOOKSHOP;
   for(let x=0;x<width;x++)for(let z=0;z<depth;z+=3){quad(x,0,z,1,3,(x+z)%3?'#72543e':'#816047');}
   quad(0,height,0,width,depth,'#414337');
-  panel(0,0,depth,width,height,'#344b3e');panel(0,0,0,door.x-.85,height,'#344b3e');panel(door.x+.85,0,0,width-door.x-.85,height,'#344b3e');
+  panel(0,0,depth,width,height,'#344b3e');
+  if(transparentWindows){
+    let left=0;
+    for(const opening of [...BOOKSHOP.windowShelves.map(b=>({x:b.x+.12,w:b.w-.24,y:.95,h:1.8})),{x:door.x-.85,w:1.7,y:0,h:3}].sort((a,b)=>a.x-b.x)){
+      if(opening.x>left)panel(left,0,0,opening.x-left,height,'#344b3e');
+      if(opening.y)panel(opening.x,0,0,opening.w,opening.y,'#344b3e');
+      panel(opening.x,opening.y+opening.h,0,opening.w,height-opening.y-opening.h,'#344b3e');
+      left=opening.x+opening.w;
+    }
+    panel(left,0,0,width-left,height,'#344b3e');
+  }else{
+    panel(0,0,0,door.x-.85,height,'#344b3e');panel(door.x+.85,0,0,width-door.x-.85,height,'#344b3e');
+  }
   for(const x of [0,width])face([{x,y:0,z:0},{x,y:0,z:depth},{x,y:height,z:depth},{x,y:height,z:0}],'#344b3e');
-  panel(door.x-.85,0,.01,1.7,3,'#203c32');panel(door.x-.85,3,0,1.7,1.5,'#344b3e');
+  // A solid door closes the shallow reveal between its face and the wall.
+  box(door.x-.85,0,0,1.7,3,.01,'#203c32');
+  if(!transparentWindows)panel(door.x-.85,3,0,1.7,1.5,'#344b3e');
   box(door.x+.55,1.1,.05,.1,.3,.1,'#ddc38a');
   panel(door.x-.6,3.25,.03,1.2,.4,'#d5c494');label('EXIT',door.x+.45,3.3,.04,.055,true);
-  // Street-facing display windows, with gold frames and a dark night beyond.
-  for(const b of BOOKSHOP.windowShelves){panel(b.x,.8,.02,b.w,2.1,'#a68b5e');panel(b.x+.12,.95,.04,b.w-.24,1.8,'#152d2c');box(b.x,.7,b.z,b.w,.15,b.d,'#9b754e');}
+  // Street-facing display windows retain their gold frames around the glass.
+  for(const b of BOOKSHOP.windowShelves){
+    if(transparentWindows){
+      panel(b.x,.8,.02,b.w,.15,'#a68b5e');panel(b.x,2.75,.02,b.w,.15,'#a68b5e');
+      panel(b.x,.95,.02,.12,1.8,'#a68b5e');panel(b.x+b.w-.12,.95,.02,.12,1.8,'#a68b5e');
+    }else{panel(b.x,.8,.02,b.w,2.1,'#a68b5e');panel(b.x+.12,.95,.04,b.w-.24,1.8,'#152d2c');}
+    box(b.x,.7,b.z,b.w,.15,b.d,'#9b754e');
+  }
   const colors=['#93634e','#ae925c','#526e60','#71617d','#a06b75','#557985'];
   // Stock both window ledges with groups of upright books and low stacks.
   for(const {x} of BOOKSHOP.windowShelves){

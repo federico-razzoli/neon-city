@@ -1,16 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {Mesh} from './vendor/three/three.module.js';
+import {Mesh,PlaneGeometry,MeshBasicMaterial,DoubleSide} from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {BOOKSHOP,BOOKSHOP_BOOKS,drawBookshopInterior,drawBookshopBook,drawBookseller} from './midnite-interior.js';
 import {bookshopVisitorShowsBack} from './midnite-life.js';
 import {drawBackpack} from './backpack.js';
+import {createBookshopStreet} from './three-bookshop-street.js';
 
 export function createThreeBookshopScene({imageFor}={}){
   return createThreeInteriorScene({name:'bookshop',background:'#302c26',imageFor,
-    drawRoom:helpers=>drawBookshopInterior(helpers,null,{dynamic:false,solidShelfEnds:true}),
+    drawRoom:helpers=>drawBookshopInterior(helpers,null,{dynamic:false,solidShelfEnds:true,transparentWindows:true}),
     actorsFor:frame=>frame.bookshopLife?.people,
     actorView:(person,frame)=>({seated:person.state==='reading',back:bookshopVisitorShowsBack(person,frame.player)}),
     createExtras({scene,builder,material}){
+      const street=createBookshopStreet(scene);
+      const glassGeometry=new PlaneGeometry(1,1),glassMaterial=new MeshBasicMaterial({color:'#8bb9ae',transparent:true,opacity:.22,depthWrite:false,side:DoubleSide,toneMapped:false});
+      for(const [i,b] of BOOKSHOP.windowShelves.entries()){
+        const glass=new Mesh(glassGeometry,glassMaterial);glass.name=`bookshop-window-${i}`;
+        glass.position.set(b.x+b.w/2,1.85,-.04);glass.scale.set(b.w-.24,1.8,1);scene.add(glass);
+      }
       const seller=new Mesh(builder.build(helpers=>drawBookseller(helpers,{x:0,z:0})),material);
       seller.name='bookshop-bookseller';scene.add(seller);
       const backpack=new Mesh(builder.build(({box,face})=>drawBackpack(BOOKSHOP.backpack,box,face)),material);
@@ -27,7 +34,8 @@ export function createThreeBookshopScene({imageFor}={}){
         mesh.visible=true;mesh.position.set(x,y,-z);mesh.scale.setScalar(scale);
       }
       return {
-        update({bookshopLife:life}){
+        update(frame){
+          const {bookshopLife:life}=frame;street.update(frame);
           for(const mesh of books.values())mesh.visible=false;
           const position=life?.seller??BOOKSHOP.bookseller,angle=life?.sellerAngle??Math.PI;
           seller.position.set(position.x,0,-position.z);seller.rotation.y=-(angle-Math.PI);
@@ -53,7 +61,7 @@ export function createThreeBookshopScene({imageFor}={}){
             scene.remove(mesh);books.delete(key);
           }
         },
-        dispose(){seller.geometry.dispose();backpack.geometry.dispose();for(const geometry of geometries.values())geometry.dispose();geometries.clear();books.clear();}
+        dispose(){street.dispose();glassGeometry.dispose();glassMaterial.dispose();seller.geometry.dispose();backpack.geometry.dispose();for(const geometry of geometries.values())geometry.dispose();geometries.clear();books.clear();}
       };
     }
   });

@@ -877,6 +877,8 @@ function tick(now){
       document.querySelector('#message').textContent=lavatoryLife?.cubicleBlackout?MIRROR_CHILD_BLACKOUT_TEXT:cubicleKnock?.text||(notice?noticeText:'');
       document.querySelector('#location').textContent=`${currentPubName} / ${insideCubicle.icon.toUpperCase()}`;
     }else if(insideBookshop){
+      roadTraffic.update(city.chunks.values(),time,dt,null,city.crossingPeople?.()??[]);
+      city.advancePedestrians(dt,{x:currentVenue.x+currentVenue.w/2,z:currentVenue.z+currentVenue.d/2},time,null,roadTraffic);
       bookshopLife.update(dt,player,playerSeat?.bookshopChair);
       const bumpedTable=!playerSeat&&(bookshopSpatial()?.move??moveInBookshop)(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,bookshopLife.seller,bookshopLife.people);
       if(pace>1&&bumpedTable&&!bookshopLife.bumpedReadingTable){

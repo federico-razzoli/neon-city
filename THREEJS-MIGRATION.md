@@ -816,3 +816,14 @@ panels still consumed by the street renderer. Building, tree, flower, pine-cone,
 manhole, newspaper-machine and fingerpost-sign generators remain in WASM.
 The shared scratch buffer now holds the largest remaining output (56 tree faces
 of 29 doubles), and linear memory occupies 64 KiB.
+
+
+## Midnite Books display windows
+
+The bookshop's Three.js room has openings behind both gold-framed display
+windows and tinted transparent glass with depth writes disabled. A retained
+street scene renders the actual loaded city, pedestrians and traffic, aligned to
+the shop's entrance wall on any side of the building. Its own exterior shell is
+omitted, and material clipping keeps street surfaces outside the storefront.
+Street traffic continues updating while the player is in the shop. Exterior
+geometry, textures and materials are released on leaving the room.
