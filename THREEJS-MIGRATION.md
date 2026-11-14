@@ -733,3 +733,26 @@ the lavatory and cubicles are outside this change.
 Validation: 520 automated tests pass, including direct collision and raycasting
 checks. Chromium verifies wall blocking, arch traversal, seating, tap replies,
 bartender conversation, toilet return and street exit without page errors.
+
+### Three.js lavatory and cubicle collisions and targeting
+
+`three-lavatory-spatial.js` now supplies spatial queries for both rooms when
+Three.js is selected. Three.js box/sphere checks block the player at walls,
+sinks, the toilet and walking robots, using a .18 body radius and .08 maximum
+movement substeps. Robot walking and emergence use a Three.js line-segment
+proximity check against the player, including an escape path for overlapping
+bodies moving apart.
+
+Three.js raycasts select the lavatory exit, individual cubicle doors, each sink,
+the toilet seat and the cubicle exit. Seat/hand/eye rays stop at intervening
+fixtures and robots; reach is two units. Sink hits toggle the corresponding tap.
+Door hits consult current occupancy before admitting the player or giving an
+occupied reply. Sitting, standing and flushing, banshee rolls and the child-knock
+event retain shared gameplay state. Canvas mode keeps its previous spatial code;
+generic dropped-item handling remains shared.
+
+Spatial resources are lazy and disposed on room changes. Chromium checks passed
+for sink/toilet blocking, both tap toggles, occupied/vacant doors, toilet seating,
+standing, cubicle exit and return to the pub, with no page errors. Automated
+coverage includes robot blocking and the knock-event door flow with both spatial
+backends.

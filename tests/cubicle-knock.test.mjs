@@ -38,17 +38,22 @@ test('voice loads once and resumes from the event offset; exit disconnects and p
   }finally{globalThis.fetch=previous;}
 });
 
-test('real cubicle doors roll the child event only after a banshee miss and show the reaction on exit',async()=>{
-  const {runInNewContext}=await import('node:vm'),lavatory=await import('../neon-city/lavatory.js');
+test('real cubicle doors roll the child event only after a banshee miss and show the reaction on exit',async t=>{
+  const {runInNewContext}=await import('node:vm'),lavatory=await import('../neon-city/lavatory.js?v=staff-room-1');
+  const {createThreeLavatorySpatial}=await import('../neon-city/three-lavatory-spatial.js');
+  const main=createThreeLavatorySpatial(),stall=createThreeLavatorySpatial('cubicle');
+  t.after(()=>{main.dispose();stall.dispose();});
   const game=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
   const source=game.slice(game.indexOf('function useDoor(){'),game.indexOf('function enterVenue('));
-  for(const [banshee,child] of [[true,true],[false,false],[false,true]]){
+  for(const mode of ['canvas','three'])for(const [banshee,child] of [[true,true],[false,false],[false,true]]){
     let childRolls=0,screams=0;const message={textContent:''};
-    const sandbox={...lavatory,insideHotel:false,insidePub:false,insideLavatory:true,insideCubicle:null,player:{x:1.4,z:5,angle:0},
+    const sandbox={...lavatory,washroomSpatial:()=>null,insideHotel:false,insidePub:false,insideLavatory:true,insideCubicle:null,player:{x:1.4,z:5,angle:0},
       banshee:null,bansheeMisses:0,cubicleKnock:null,register:{},audioContext:null,performance:{now:()=>0},
       rollBanshee:()=>banshee,rollCubicleKnock:()=>{childRolls++;return child;},playBansheeScream:()=>screams++,CubicleKnockEvent,KNOCK_EXIT_TEXT,
       lavatoryOccupied:[false,true,true],lavatoryLife:{walker:{type:13},held:true,wait:0},keys:new Set(),shiftKeys:new Set(),
       arcadeAmbience:{mute(){}},parkBirds:{mute(){}},document:{querySelector:()=>message}};
+    sandbox.washroomSpatial=()=>mode==='three'?(sandbox.insideCubicle?stall:main):null;
+    sandbox.washroomTarget=()=>sandbox.washroomSpatial()?.target(sandbox.player);
     runInNewContext(source+'\nuseDoor();',sandbox);
     assert.equal(childRolls,banshee?0:1);assert.equal(screams,banshee?1:0);assert.equal(!!sandbox.cubicleKnock,!banshee&&child);
     if(banshee||!child)continue;

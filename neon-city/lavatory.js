@@ -62,7 +62,7 @@ const ROBOT=11,ROBOT_SPEED=1.3,ROBOT_EXIT={x:LAVATORY.door.x,z:.4};
 export class LavatoryLife{
   constructor(random=Math.random){this.random=random;this.wait=this.delay();this.walker=null;this.held=false;}
   delay(){return 20+this.random()*10;}
-  update(dt,occupied,player){
+  update(dt,occupied,player,blocksPerson=pubPersonBlocks){
     this.held=false;
     if(this.walker){
       const w=this.walker;let travel=dt*ROBOT_SPEED;
@@ -71,7 +71,7 @@ export class LavatoryLife{
         if(!d){this.walker=null;return;}
         w.facingX=dx/d;w.facingZ=dz/d;
         const move=Math.min(d,travel,.05),next={x:w.x+dx/d*move,z:w.z+dz/d*move};
-        if(pubPersonBlocks(w,next,player)){this.held=true;return;}
+        if(blocksPerson(w,next,player)){this.held=true;return;}
         w.x=next.x;w.z=next.z;w.walkTime+=move/ROBOT_SPEED;travel-=move;
       }
       return;
@@ -82,7 +82,7 @@ export class LavatoryLife{
     if(!taken.length){this.wait=this.delay();return;}
     const index=taken[Math.floor(this.random()*taken.length)],start={x:LAVATORY.cubicles[index].x,z:LAVATORY.depth-.4};
     // Someone standing at that door keeps it shut until they step aside.
-    if(pubPersonBlocks(start,start,player))return;
+    if(blocksPerson(start,start,player))return;
     this.wait=this.delay();occupied[index]=false;
     this.walker={...start,type:ROBOT,variant:0,walkTime:0,facingX:0,facingZ:-1};
   }
