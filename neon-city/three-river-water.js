@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
 import {BLOCK,RIVER_WIDTH,WATER_LEVEL} from './world.js';
+import {createRiverFishResources,createRiverSchool,riverSchoolPlacements} from './three-river-fish.js';
 
 // One material serves every visible river chunk. World-space
 // waves stay continuous across chunk boundaries; chunks retain their GPU mesh.
@@ -52,14 +53,16 @@ export function createThreeRiverWater(scene){
         vec3 color=water*(0.82+0.3*light+wave.x*2.0);
         float distanceToEye=length(cameraPosition-waterPosition);
         color=mix(color,vec3(0.0048,0.0030,0.012),smoothstep(22.0,170.0,distanceToEye));
-        gl_FragColor=vec4(color,1.0);
+        // A uniform veil of water keeps submerged fish only faintly visible.
+        gl_FragColor=vec4(color,0.84);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
-      }`,toneMapped:false
+      }`,toneMapped:false,transparent:true,depthWrite:false
   });
-  const parts=new Map();
+  const parts=new Map(),fishResources=createRiverFishResources();
+  let time=0;
   return {
-    beginFrame(frame){material.uniforms.time.value=frame.time;for(const part of parts.values())part.seen=false;},
+    beginFrame(frame){time=frame.time;material.uniforms.time.value=frame.time;for(const part of parts.values())part.seen=false;},
     draw(chunk){
       const key=`${chunk.x},${chunk.z}`;
       let part=parts.get(key);
@@ -67,12 +70,16 @@ export function createThreeRiverWater(scene){
         const start=chunk.riverStart*BLOCK+18,low=Math.max(chunk.z*BLOCK,start),high=Math.min((chunk.z+1)*BLOCK,start+RIVER_WIDTH);
         const mesh=new THREE.Mesh(geometry,material);mesh.name=`river-water:${key}`;
         mesh.scale.z=(high-low)/(RIVER_WIDTH/2);mesh.position.set(chunk.x*BLOCK+BLOCK/2,WATER_LEVEL,-(low+high)/2);
+        const schools=riverSchoolPlacements(fishResources.seed,Math.floor(chunk.x/3),chunk.riverStart)
+          .filter(p=>Math.floor(p.x/BLOCK)===chunk.x&&p.z>=low&&p.z<high)
+          .map(p=>createRiverSchool(fishResources,p));
+        for(const school of schools)scene.add(school.group);
         mesh.onBeforeRender=()=>{material.uniforms.riverStart.value=start;material.uniformsNeedUpdate=true;};
-        group.add(mesh);part={mesh,seen:true};parts.set(key,part);
+        group.add(mesh);part={mesh,schools,seen:true};parts.set(key,part);
       }
-      part.seen=true;material.uniforms.riverStart.value=chunk.riverStart*BLOCK+18;
+      part.seen=true;for(const school of part.schools)school.update(time);material.uniforms.riverStart.value=chunk.riverStart*BLOCK+18;
     },
-    endFrame(){for(const [key,part] of parts)if(!part.seen){group.remove(part.mesh);parts.delete(key);}},
-    dispose(){scene.remove(group);parts.clear();geometry.dispose();material.dispose();}
+    endFrame(){for(const [key,part] of parts)if(!part.seen){group.remove(part.mesh);for(const school of part.schools)scene.remove(school.group);parts.delete(key);}},
+    dispose(){scene.remove(group);for(const part of parts.values())for(const school of part.schools)scene.remove(school.group);parts.clear();fishResources.dispose();geometry.dispose();material.dispose();}
   };
 }
