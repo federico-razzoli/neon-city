@@ -29,7 +29,7 @@ test('cone cache survives scratch reuse, drawing and relocation; shape changes r
   const geometry=pineConeGeometry(cone),snapshot=geometry.slice();
   assert.ok(geometry instanceof Float64Array);
   assert.equal(geometry.length,19*23);
-  geometryWasm.car_build(2,1,-1);
+  geometryWasm.tree_build();
   Object.assign(cone,{x:20,z:30,ground:4,taken:true});
   pineCone(cone,v=>{v[0].x=99;},{x:0,y:5,z:0});
   assert.strictEqual(pineConeGeometry(cone),geometry);

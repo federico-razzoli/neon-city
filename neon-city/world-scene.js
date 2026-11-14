@@ -20,9 +20,6 @@ If not, see <https://www.gnu.org/licenses/>.
 import {profilePhase} from './render-profile.js';
 import {buildingGeometry} from './building-geometry.js';
 import {manholeGeometry} from './manhole-geometry.js';
-import {drawRoadMarkings} from './road-marking-geometry.js';
-import {drawCarGeometry} from './car-geometry.js';
-import {vehicleTexture as carTexture} from './vehicle-textures.js';
 import {newspaperGeometry,drawNewspaperGeometry} from './newspaper-geometry.js';
 import {hotelStreetLife} from './hotel-street.js?v=1';
 import {corridorWindowState,drawHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
@@ -61,13 +58,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
     pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView,hotelGuests,itemRoom,indoors;
-  let vehicleSurface=null,vehicleTurn=null;
   function face(vertices,color,texture=null,smooth=false,buildingWall=false){
-    if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
-    if(vehicleTurn){
-      const {x,z,angle}=vehicleTurn,c=Math.cos(angle),s=Math.sin(angle);
-      vertices=vertices.map(v=>({...v,x:x+(v.x-x)*c+(v.z-z)*s,z:z-(v.x-x)*s+(v.z-z)*c}));
-    }
     renderer.face(vertices,color,texture,smooth,buildingWall);
   }
   function wallTexture(b,side,dim=hotelHIsDim(b,time)){
@@ -122,12 +113,8 @@ export function createWorldScene(renderer,{reduced=false}={}){
       getImage:()=>sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant)});
   }
   function car(c,groundOverride){
-    vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
     const base=groundOverride??groundHeight(c.x,c.z),slope=groundOverride!=null||c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
-    if(renderer.drawCar){renderer.drawCar(c,{base,slope});vehicleTurn=null;return;}
-    vehicleSurface=z=>base+(z-c.z)*slope;
-    drawCarGeometry(c,{player,eye,base,slope,indoors:indoors,face,texture:carTexture});
-    vehicleSurface=null;vehicleTurn=null;
+    renderer.drawCar?.(c,{base,slope});
   }
   // Cabinet colours per paper; any paper without an entry uses the Bugle's.
   // Papers without a subtitle print CITY NEWS.
@@ -182,12 +169,8 @@ export function createWorldScene(renderer,{reduced=false}={}){
   function street(chunk){
     const x=chunk.x*64,z=chunk.z*64;
     if(renderer.drawRoad)renderer.drawRoad(chunk);
-    if(chunk.river){renderer.drawWater?.(chunk);drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads:!!renderer.drawRoad,nativeWater:!!renderer.drawWater},time);return;}
-    // Asphalt needs geometry to occlude the recessed river at street approaches.
-    // The screen background alone cannot hide water projected over the road.
-    if(!renderer.drawRoad)quad(x,0,z,64,64,'#252233');
+    if(chunk.river){renderer.drawWater?.(chunk);drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeWater:!!renderer.drawWater},time);return;}
     quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
-    if(!renderer.drawRoad)drawRoadMarkings(x,z,face);
     // Pavement seams and a pool of neon light outside each storefront.
     for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
     if(chunk.park){drawParkGround(chunk,{quad,face});return;}
@@ -326,7 +309,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     for(const chunk of visible){
       if(chunk.river){
         renderer.drawRailings?.(chunk);
-        drawRiverStructures(chunk,{face,boundsVisible,nativeRoads:!!renderer.drawRoad,nativeRailings:!!renderer.drawRailings},{x:player.x,y:eye,z:player.z});
+        drawRiverStructures(chunk,{face,boundsVisible},{x:player.x,y:eye,z:player.z});
       }
       for(const b of chunk.buildings)building(b);
       for(const m of chunk.newspaperMachines??[])newspaperMachine(m);

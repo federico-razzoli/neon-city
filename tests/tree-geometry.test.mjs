@@ -43,7 +43,7 @@ test('all tree scales share one template that survives scratch reuse and drawing
   assert.ok(geometry instanceof Float64Array);
   assert.equal(geometry.length,56*29);
   assert.equal(geometryWasm.tree_build(),56);
-  geometryWasm.car_build(2,0,1);
+  geometryWasm.building_build(1,2,3,4,5);
   for(const scale of [.9,1,1.2]){
     drawTreeGeometry({x:10,z:20,scale,radius:.45*scale},v=>{v[0].x=999;},{x:0,y:1.65,z:0});
     assert.strictEqual(treeGeometry(),geometry);

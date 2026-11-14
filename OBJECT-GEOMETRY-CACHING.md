@@ -1,6 +1,12 @@
 # Object geometry caching
 
 Neon City generates static object geometry once and reuses it while drawing.
+The WASM generators cover buildings, manholes, newspaper machines, fingerpost signs,
+trees, flowers, pine cones and riverbank retaining walls. Cars, roads, road
+markings, river railings, riverbank ground and bridge approaches are generated
+directly in Three.js; their former WASM generators and fallback paths have been
+removed.
+
 Several templates remain cached for the entire game session and are shared by
 every matching object, including objects in newly generated city chunks.
 Camera movement does not rebuild these templates.
@@ -50,12 +56,9 @@ game starts fresh caches. They are not saved to disk or local storage.
 
 | Object | Sharing and cache key |
 | --- | --- |
-| Riverbanks | Grass, promenade, bridge approaches and separate retaining-wall panels, keyed by river-block half and bridge presence. Water-side culling and the original draw passes remain dynamic. |
-| River railings | Complete bank and bridge railing templates keyed by river-block half and bridge presence on either edge. Individual faces and segment submission order are retained; blocks share templates regardless of position. |
-| Road markings | One complete template for lane dashes and crossing stripes, translated to each street chunk. |
+| Riverbank retaining walls | Separate wall panels keyed by river-block half. Bridge presence does not change this template; doorway cutouts and water-side culling remain dynamic. |
 | Trees | One complete unit-scale pine, including trunk, foliage tiers, normals and shading. Every tree applies its own scale and position. Generated trunk radius is proportional to scale. |
 | Flowers | One three-quad template shared across sizes and colours. Drawing applies size, position and ground height, and optionally omits the centre. |
-| Cars | Complete models keyed by vehicle type, road axis and direction: at most 16 templates for the current four types. Position, paint colour, turns and bridge slopes do not create new templates. |
 | Manholes | Geometry keyed by radius. Current covers share the same radius and template. |
 | Newspaper machines | Geometry keyed by orientation, width and depth, shared across positions and newspaper designs. |
 | Fingerpost signs | Board geometry keyed by direction, dimensions and texture dimensions; pole geometry keyed by height and radius. Position and lettering do not create new geometry. |
@@ -96,12 +99,12 @@ of the browser's total memory consumption.
 
 | Allocation | Current size | Ownership |
 | --- | ---: | --- |
-| Shared linear memory | 131,072 bytes (128 KiB) | One allocation for all these generators. |
-| Scratch output buffer | 49,152 bytes (48 KiB) | Inside linear memory: `256 * 24` doubles, at eight bytes each. |
+| Shared linear memory | 65,536 bytes (64 KiB) | One allocation for all these generators. |
+| Scratch output buffer | 12,992 bytes (about 12.7 KiB) | Inside linear memory: `56 * 29` doubles, at eight bytes each. |
 | Reserved C stack | 16,384 bytes (16 KiB) | Inside linear memory, configured by the shared build script. |
-| `geometry.wasm` binary | 51,775 bytes | File size of the current build, not its runtime compiled-code size. |
+| `geometry.wasm` binary | 20,788 bytes | File size of the current build, not its runtime compiled-code size. |
 
-The scratch buffer and stack are **included in** the 128 KiB figure, not extra
+The scratch buffer and stack are **included in** the 64 KiB figure, not extra
 allocations to add to it. Linear memory also accommodates C static data and
 alignment; the remainder is not a separate object cache. The generators currently
 do not grow this memory. Each JavaScript `scratch` view shares that allocation,
@@ -110,8 +113,7 @@ even when several views overlap it.
 The browser also maintains the WASM instance, compiled machine code and JavaScript
 wrappers. Their engine-dependent overhead is not included in the table. In
 particular, adding the `.wasm` file size to linear memory does not give an exact
-runtime memory total. Other WASM systems, such as wall rendering and pedestrian
-collisions, are outside this shared geometry module and these figures.
+runtime memory total. The separate pedestrian-collision WASM module is outside these figures.
 
 ### Cached typed-array payloads
 
@@ -121,16 +123,9 @@ numeric face counts, palette indices and any unused slots in fixed-size records.
 
 | Cached object | Payload per cached entry | Current sharing / total when populated |
 | --- | ---: | --- |
-| Road markings | 2,880 bytes | One template for the game. |
 | Tree | 12,992 bytes | One template for all tree scales and positions. |
 | Flower | 120 bytes | One template for all flowers, including optional centres. |
-| Ordinary car | 9,216 bytes | Four axis/direction variants. |
-| Hippie van | 9,984 bytes | Four axis/direction variants. |
-| Mercedes | 48,576 bytes | Four axis/direction variants. |
-| Taxi | 37,248 bytes | Four axis/direction variants. |
-| All car variants | 420,096 bytes | All 16 complete templates together (about 410.3 KiB). |
-| River railings | 19,800–31,680 bytes | Six reachable block layouts together: 165,120 bytes (161.25 KiB). |
-| Riverbanks | 4,704–4,928 bytes | Six reachable block layouts together: 29,120 bytes (about 28.4 KiB). |
+| Riverbank retaining wall | 2,688 bytes | Two block-half templates together: 5,376 bytes (5.25 KiB). |
 | Manhole | 792 bytes | Per distinct radius; current covers share one entry. |
 | Newspaper machine | 1,760 bytes | Per distinct orientation/width/depth key. |
 | Sign board | 1,904 bytes | Per distinct board geometry key. |
@@ -138,18 +133,13 @@ numeric face counts, palette indices and any unused slots in fixed-size records.
 | Building | 5,120 bytes | Per cached building, released with its weak key. |
 | Pine cone | 3,496 bytes | Per cached cone, released with its weak key. The inventory preview has its own entry. |
 
-River layout totals use the current bridge placement rule: adjacent streets
-cannot both have a bridge, so only three bridge-presence patterns occur for each
-of the two river-block halves. The generators can also represent both bridges,
-but those layouts are not generated by the current world.
-
-For example, populating every car, railing and riverbank variant, the road, tree
-and flower templates, and one manhole radius retains **631,120 bytes** (about
-616.3 KiB) of typed-array payload. Together with shared WASM linear memory, that
-is **762,192 bytes** (about 744.3 KiB). This example excludes signs, newspaper
-machines, buildings and pine cones, whose counts depend on the scene and cache
-history. It is not an upper bound or a complete game-memory estimate. Lazy caches
-consume less before all those variants have been encountered.
+Populating the tree, flower, both retaining-wall templates and one manhole radius
+retains **19,280 bytes** (about 18.8 KiB) of typed-array payload. Together with
+shared WASM linear memory, that is **84,816 bytes** (about 82.8 KiB). This excludes
+signs, newspaper machines, buildings and pine cones, whose counts depend on the
+scene and cache history. It also excludes native Three.js meshes and GPU buffers;
+it is not a complete game-memory estimate. Lazy caches consume less before all
+those templates have been encountered.
 
 For the variable entries, add `1,904 * (boardKeys + poleKeys)`,
 `1,760 * machineKeys`, `5,120 * cachedBuildings` and `3,496 * cachedCones` bytes,
@@ -159,7 +149,7 @@ not necessarily immediate. Regenerating a cone after changing its shape also
 temporarily leaves its old array awaiting collection.
 
 These payload counts exclude typed-array wrappers, `Map`/`WeakMap` storage, cache
-keys, metadata objects, railing/bank range maps, temporary render vertices and
+keys, metadata objects, retaining-wall range maps, temporary render vertices and
 other caches such as bush meshes and textures. Those have additional runtime
 costs.
 

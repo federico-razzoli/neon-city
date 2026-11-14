@@ -17,8 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {drawRiverbankTerrain,drawCachedRiverbankFaces} from './riverbank-geometry.js';
-import {drawRiverRailings} from './railing-geometry.js';
+import {drawCachedRiverbankFaces} from './riverbank-geometry.js';
 import {flowersFor,drawFlower} from './flowers.js';
 import {BLOCK,WATER_LEVEL,bridgeHeight,hasBridge,mod} from './world.js?v=parks-4';
 
@@ -29,10 +28,8 @@ const rippleFaces=Array.from({length:6},(_,i)=>[ripplePoints[i*2],ripplePoints[(
 const rippleWidths=Float64Array.from({length:7},(_,i)=>Math.sin(i/6*Math.PI)*.09);
 
 // Each chunk owns half of a river, including its share of each bridge.
-export function drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads=false,nativeWater=false},time){
+export function drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeWater=false},time){
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
-  const first=chunk.z===chunk.riverStart;
-  if(!nativeRoads)drawRiverbankTerrain(chunk,quad);
   for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   if(!nativeWater)for(let a=0;a<64;a+=8)for(let b=low;b<high;b+=8){
@@ -53,13 +50,6 @@ export function drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeRoads=fals
       }
       for(const vertices of rippleFaces)face(vertices,ripple?'#225d70':'#306b78');
     }
-  }
-  if(!nativeRoads){
-    const road=first?start:start+120;
-    quad(x,.015,road,64,8,'#252233');
-    for(let t=16;t<52;t+=12)quad(x+t,.025,first?road+.1:road+7.8,4,.18,'#b09485');
-    // Canvas keeps its own road submission; Three.js owns all road meshes.
-    drawRiverbankTerrain(chunk,quad,true);
   }
 }
 
@@ -102,11 +92,10 @@ export function drawRiverbankFaces(chunk,{face,boundsVisible,nativeWater=false},
   if(waterSide)drawCachedRiverbankFaces(chunk,face,nativeWater);
 }
 
-export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false,nativeRailings=false},viewer){
+export function drawRiverStructures(chunk,{face,boundsVisible},viewer){
   if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,8,chunk.z*BLOCK+64))return;
   drawBridgeFascias(chunk,{face,boundsVisible},viewer);
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
-  if(!nativeRailings)drawRiverRailings(chunk,face,viewer);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   // Short planar segments approximate a continuous arch; physics uses the same curve.
   for(let a=low;a<high;a+=2){
@@ -119,8 +108,5 @@ export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false,
     // lower edge even when Three.js supplies the upper road surface.
     for(const [left,right] of [[0,14],[50,64]])if(hasBridge(chunk.x+(left===50?1:0)))
       strip(left,right,-1.4,-1.4,'#414b5c');
-    if(!nativeRoads)for(const [left,right,color] of [[0,8,'#292b3b'],[8,14,'#757380'],[50,56,'#757380'],[56,64,'#292b3b']])if(hasBridge(chunk.x+(left>=50?1:0)))strip(left,right,.075,.075,color);
-    if(!nativeRoads&&hasBridge(chunk.x)&&Math.floor((a-start)/4)%3===0)strip(0,.15,.085,.085,'#c4af8c');
-    if(!nativeRailings)drawRiverRailings(chunk,face,viewer,a-z);
   }
 }

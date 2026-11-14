@@ -804,3 +804,15 @@ character sprites keep their existing materials.
 The spotlight follows the shared lamp-on and lamp-taken flags, including the
 receptionist's automatic shutoff. It is retained during the visit and disposed
 on exit. It does not enable shadow maps. Canvas rendering is unchanged.
+
+
+## Removed geometry WASM exports
+
+Cars, road markings, river railings, riverbank ground and bridge approaches now
+have only their native Three.js geometry paths. Their obsolete C generators,
+JavaScript wrappers and fallback submissions have been removed from the shared
+geometry module. The riverbank WASM generator retains only the retaining-wall
+panels still consumed by the street renderer. Building, tree, flower, pine-cone,
+manhole, newspaper-machine and fingerpost-sign generators remain in WASM.
+The shared scratch buffer now holds the largest remaining output (56 tree faces
+of 29 doubles), and linear memory occupies 64 KiB.

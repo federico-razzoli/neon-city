@@ -24,10 +24,10 @@ test('native water meets both banks, shares its resources, and releases unloaded
   a.geometry.addEventListener('dispose',()=>geometryDisposed=true);a.material.addEventListener('dispose',()=>materialDisposed=true);
   water.dispose();assert.equal(scene.children.length,0);assert.ok(geometryDisposed&&materialDisposed);
 });
-test('native water skips legacy water tiles and ripples while preserving riverbank terrain',()=>{
+test('native water skips legacy water tiles, ripples and replaced riverbank terrain',()=>{
   const quads=[];let faces=0;
   drawRiverTerrain(chunk(0,0),{nativeWater:true,quad:(...q)=>quads.push(q),face:()=>faces++},0);
-  assert.equal(faces,0);assert.ok(quads.length>0);assert.ok(quads.every(q=>q[1]!==WATER_LEVEL));
+  assert.equal(faces,0);assert.ok(quads.every(q=>q[1]!==WATER_LEVEL));
 });
 test('occasional submerged schools animate, stay inside their chunk, and unload',()=>{
   const scene=new THREE.Scene(),water=createThreeRiverWater(scene);

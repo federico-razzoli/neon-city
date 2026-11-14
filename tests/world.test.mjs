@@ -1,3 +1,5 @@
+import * as THREE from '../neon-city/vendor/three/three.module.js';
+import {createThreeRoads} from '../neon-city/three-roads.js';
 /*
 Browser Games — standalone browser games, including Neon City.
 Copyright (C) 2026 Federico Razzoli <federico.razzoli@vettabase.com>
@@ -767,12 +769,11 @@ test('only every third side street has a bridge, including negative coordinates'
       assert.equal(groundHeight(street*BLOCK+offset,z),expected?BRIDGE_RISE:0);
     }
     for(const part of [row,row+1]){
-      const chunk=city.generate(street,part),decks=[];
-      drawRiverStructures(chunk,{face:(vertices,color)=>{
-        if(color==='#292b3b'||color==='#757380')decks.push(vertices);
-      },box:()=>{}});
-      assert.equal(decks.some(v=>v[0].x===street*BLOCK),expected);
-      assert.equal(decks.some(v=>v[0].x===street*BLOCK+56),(street+1)%3===0);
+      const chunk=city.generate(street,part),nativeScene=new THREE.Scene(),roads=createThreeRoads(nativeScene);
+      roads.beginFrame();roads.draw(chunk);roads.endFrame();
+      assert.equal(!!nativeScene.getObjectByName(`bridge:${street},${row}`),expected);
+      assert.equal(!!nativeScene.getObjectByName(`bridge:${street+1},${row}`),(street+1)%3===0);
+      roads.dispose();
       assert.equal(traffic(chunk,0).some(car=>car.axis===0),expected);
     }
   }
@@ -799,8 +800,20 @@ test('river geometry has recessed water, grassy banks, and elevated bridge decks
     drawRiverTerrain(chunk,{quad:(...args)=>quads.push(args),face:()=>{}},0);
     drawRiverStructures(chunk,{face:(vertices,color)=>faces.push({vertices,color}),box:()=>{} });
     assert.ok(quads.some(q=>q[1]===WATER_LEVEL));
-    assert.ok(quads.some(q=>q[5]==='#345841'),'grass on each bank');
-    assert.ok(quads.some(q=>q[5]==='#757380'),'walking path on each bank');
+    const nativeScene=new THREE.Scene(),roads=createThreeRoads(nativeScene);
+    roads.beginFrame();roads.draw(chunk);roads.endFrame();
+    assert.ok(nativeScene.getObjectByName('riverside-grass'),'grass on each bank');
+    assert.ok(nativeScene.getObjectByName('riverside-pavement'),'walking path on each bank');
+    nativeScene.updateMatrixWorld(true);
+    nativeScene.traverse(mesh=>{
+      if(!['bridge-asphalt','bridge-pavement'].includes(mesh.name))return;
+      const p=mesh.geometry.attributes.position;
+      for(let i=0;i<p.count;i++){
+        const v=new THREE.Vector3().fromBufferAttribute(p,i).applyMatrix4(mesh.matrixWorld);
+        assert.ok(Math.abs(v.y-groundHeight(v.x,-v.z)-.075)<1e-5,'native deck matches collision elevation');
+      }
+    });
+    roads.dispose();
     for(const {vertices,color} of faces)if(color==='#292b3b'||color==='#757380')for(const v of vertices)
       assert.ok(Math.abs(v.y-groundHeight(v.x,v.z)-.075)<1e-9,'road and path match collision elevation');
     assert.ok(faces.some(f=>f.vertices.some(v=>v.y>5)),'arched structure reaches above banks');
@@ -819,7 +832,7 @@ test('river geometry has recessed water, grassy banks, and elevated bridge decks
 test('bridge undersides cover road and sidewalk across both river chunks with native roads',()=>{
   for(const cx of [-3,-1,0,1,2,3])for(const part of [0,1]){
     const row=RIVER_ROWS[0],chunk={x:cx,z:row+part,riverStart:row},faces=[];
-    drawRiverStructures(chunk,{nativeRoads:true,nativeRailings:true,face:(vertices,color)=>{
+    drawRiverStructures(chunk,{face:(vertices,color)=>{
       if(color==='#414b5c')faces.push(vertices);
     }});
     const low=row*BLOCK+(part?64:18),high=row*BLOCK+(part?110:64);
