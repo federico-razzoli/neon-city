@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {BLOCK,RIVER_ROWS,WATER_LEVEL,hasBridge} from '../neon-city/world.js';
 import {drawRiverbankFaces,drawRiverTerrain} from '../neon-city/rivers.js';
-import {riverbankGeometry,drawRiverbankTerrain} from '../neon-city/riverbank-geometry.js';
+import {riverbankGeometry,riverbankWallGeometry,drawRiverbankTerrain} from '../neon-city/riverbank-geometry.js';
 import {geometryWasm} from '../neon-city/geometry-wasm.js';
 import {originalRiverbankFaces} from './fixtures/original-riverbanks.mjs';
 
@@ -50,4 +50,23 @@ test('bank templates share across blocks, survive scratch reuse and respect cull
   }
   for(const first of [0,1])for(const left of [0,1])for(const right of [0,1])
     assert.ok(geometryWasm.riverbank_build(first,left,right,WATER_LEVEL)*14<=256*24);
+});
+
+test('wall-only generation omits terrain and approaches while preserving every retaining-wall panel',()=>{
+  const scratch=new Float64Array(geometryWasm.memory.buffer,geometryWasm.output(),256*24);
+  for(const first of [0,1])for(const left of [0,1])for(const right of [0,1]){
+    const count=geometryWasm.riverbank_build(first,left,right,WATER_LEVEL),walls=[];
+    for(let k=0;k<count*14;k+=14)if(scratch[k]===2)walls.push(...scratch.slice(k,k+14));
+    const wallCount=geometryWasm.riverbank_walls_build(first,WATER_LEVEL);
+    assert.deepEqual(scratch.slice(0,wallCount*14),new Float64Array(walls));
+    assert.ok(wallCount<count,'unused terrain is never emitted by the wall-only builder');
+  }
+  for(const part of [0,1]){
+    const row=RIVER_ROWS[0],chunk={x:0,z:row+part,riverStart:row};
+    const walls=riverbankWallGeometry(chunk),snapshot=walls.slice();
+    assert.strictEqual(riverbankWallGeometry({...chunk,x:1}),walls,'walls share across bridge layouts');
+    geometryWasm.riverbank_build(1,1,1,WATER_LEVEL);
+    assert.deepEqual(walls,snapshot,'wall cache owns its data');
+    for(let k=0;k<walls.length;k+=14)assert.equal(walls[k],2);
+  }
 });

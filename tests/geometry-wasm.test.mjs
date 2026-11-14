@@ -7,7 +7,7 @@ import {newspaperGeometry} from '../neon-city/newspaper-geometry.js';
 import {signBoardGeometry,signPoleGeometry} from '../neon-city/sign-geometry.js';
 import {pineConeGeometry} from '../neon-city/pine-cone-geometry.js';
 import {flowerGeometry} from '../neon-city/flower-geometry.js';
-import {riverbankGeometry} from '../neon-city/riverbank-geometry.js';
+import {riverbankGeometry,riverbankWallGeometry} from '../neon-city/riverbank-geometry.js';
 import {railingGeometry} from '../neon-city/railing-geometry.js';
 import {treeGeometry} from '../neon-city/tree-geometry.js';
 import {carGeometry} from '../neon-city/car-geometry.js';
@@ -18,10 +18,10 @@ test('shared WASM scratch memory preserves every generator cache',()=>{
   const cone={length:.22,radius:.07,angle:.3};
   const board={dx:1,dz:0,bottom:3,top:3.5},dimensions={start:.1,reach:2,tip:.3};
   const getters=[()=>buildingGeometry(building),()=>manholeGeometry(.65),
-    ()=>newspaperGeometry(machine),()=>signBoardGeometry(board,dimensions,300,72),()=>signPoleGeometry(3.75,.08),roadMarkingGeometry,()=>carGeometry({type:'mercedes',axis:1,dir:-1}),treeGeometry,()=>pineConeGeometry(cone),flowerGeometry,()=>railingGeometry({x:0,z:0,riverStart:0}),()=>riverbankGeometry({x:0,z:0,riverStart:0})];
+    ()=>newspaperGeometry(machine),()=>signBoardGeometry(board,dimensions,300,72),()=>signPoleGeometry(3.75,.08),roadMarkingGeometry,()=>carGeometry({type:'mercedes',axis:1,dir:-1}),treeGeometry,()=>pineConeGeometry(cone),flowerGeometry,()=>railingGeometry({x:0,z:0,riverStart:0}),()=>riverbankGeometry({x:0,z:0,riverStart:0}),()=>riverbankWallGeometry({x:0,z:0,riverStart:0})];
   const cached=getters.map(get=>get()),snapshots=cached.map(data=>data.slice());
   const builds=[()=>wasm.building_build(0,0,1,1,1),()=>wasm.manhole_build(.9),
-    ()=>wasm.newspaper_build(0,2,1),()=>wasm.sign_board(0,1,1,2,.1,2,.3,300,72),()=>wasm.sign_pole(5,.1),()=>wasm.road_marking_build(),()=>wasm.car_build(3,0,1),()=>wasm.tree_build(),()=>wasm.pine_cone_build(.2,.06,1,0),()=>wasm.flower_build(),()=>wasm.railing_build(1,1,0),()=>wasm.riverbank_build(1,1,0,-7)];
+    ()=>wasm.newspaper_build(0,2,1),()=>wasm.sign_board(0,1,1,2,.1,2,.3,300,72),()=>wasm.sign_pole(5,.1),()=>wasm.road_marking_build(),()=>wasm.car_build(3,0,1),()=>wasm.tree_build(),()=>wasm.pine_cone_build(.2,.06,1,0),()=>wasm.flower_build(),()=>wasm.railing_build(1,1,0),()=>wasm.riverbank_build(1,1,0,-7),()=>wasm.riverbank_walls_build(0,-7)];
   const scratch=new Float64Array(wasm.memory.buffer,wasm.output(),256*24);
   for(const build of builds){
     scratch.fill(NaN);build();
