@@ -176,7 +176,26 @@ const SIGN_COLORS={gents:'#2f5aa3',ladies:'#b03a5a',disabled:'#1f6fb5'};
 // Black and white floor tiles, a plain ceiling, and walls tiled to shoulder
 // height in two near-white glazes, painted above.
 const TILE=.3;
-function drawTiledRoom({face,quad},W,D,H){
+function drawTiledRoom({face,quad},W,D,H,doors=[]){
+  const emit=face;
+  face=(points,...args)=>{
+    const z=points[0].z;
+    const openings=doors.filter(d=>d.z===z&&points.every(p=>p.z===z));
+    let parts=[points];
+    for(const d of openings){
+      const left=d.x-d.halfWidth-.08,right=d.x+d.halfWidth+.08,next=[];
+      for(const ps of parts){
+        const x0=Math.min(...ps.map(p=>p.x)),x1=Math.max(...ps.map(p=>p.x)),y0=ps[0].y,y1=ps[2].y;
+        if(x1<=left||x0>=right||y0>=2.3){next.push(ps);continue;}
+        const rect=(a,b,c,e)=>[{x:a,y:c,z},{x:b,y:c,z},{x:b,y:e,z},{x:a,y:e,z}];
+        if(x0<left)next.push(rect(x0,left,y0,y1));
+        if(x1>right)next.push(rect(right,x1,y0,y1));
+        if(y1>2.3)next.push(rect(Math.max(x0,left),Math.min(x1,right),2.3,y1));
+      }
+      parts=next;
+    }
+    for(const ps of parts)emit(ps,...args);
+  };
   for(let x=0;x<W;x+=TILE)for(let z=0;z<D;z+=TILE)
     quad(x,0,z,Math.min(TILE,W-x),Math.min(TILE,D-z),Math.round(x/TILE+z/TILE)%2?'#d9d6cc':'#2a2a30');
   for(let x=0;x<W;x++)for(let z=0;z<D;z++)quad(x,H,z,Math.min(1,W-x),Math.min(1,D-z),'#bcb7a8');
@@ -191,36 +210,52 @@ function drawTiledRoom({face,quad},W,D,H){
   };
   wall(0,0,W,0);wall(0,D,W,D);wall(0,0,0,D);wall(W,0,W,D);
 }
-// A wooden door in a light frame, on the south (z=0) or north wall.
-function drawDoor({face,box},x,z,halfWidth,south){
-  const s=south?1:-1;
-  // The frame is only its front face: its 3.5 cm sides, seen at a slant,
-  // would be thinner than a pixel and speckle the tiles beside it.
-  const frameZ=z+s*.035,left=x-halfWidth-.08,right=x+halfWidth+.08;
-  face([{x:left,y:0,z:frameZ},{x:right,y:0,z:frameZ},{x:right,y:2.3,z:frameZ},{x:left,y:2.3,z:frameZ}],'#a08057');
-  box(x-halfWidth,0,south?z+.035:z-.06,2*halfWidth,2.22,.025,'#49332d');
-  box(x+s*(halfWidth-.22)-.06,1.,south?z+.06:z-.12,.12,.16,.06,'#d9b671');
+// Each decoration replaces its patch of the door, on the same wall plane.
+export function lavatoryDoorPanels(x,halfWidth,south,icon=null){
+  let panels=[{x:x-halfWidth-.08,y:0,w:2*halfWidth+.16,h:2.3,color:'#a08057'}];
+  function paint(x,y,w,h,color){
+    const next=[];
+    for(const p of panels){
+      const l=Math.max(x,p.x),r=Math.min(x+w,p.x+p.w),b=Math.max(y,p.y),t=Math.min(y+h,p.y+p.h);
+      if(l>=r||b>=t){next.push(p);continue;}
+      if(p.x<l)next.push({...p,w:l-p.x});
+      if(r<p.x+p.w)next.push({...p,x:r,w:p.x+p.w-r});
+      if(p.y<b)next.push({...p,x:l,w:r-l,h:b-p.y});
+      if(t<p.y+p.h)next.push({...p,x:l,y:t,w:r-l,h:p.y+p.h-t});
+    }
+    if(color)next.push({x,y,w,h,color});panels=next;
+  }
+  paint(x-halfWidth,0,2*halfWidth,2.22,'#49332d');
+  paint(x+(south?1:-1)*(halfWidth-.22)-.06,1,.12,.16,'#d9b671');
+  if(icon){
+    const rows=ICONS[icon],size=.032,width=rows[0].length*size,top=1.98,bottom=top-rows.length*size;
+    paint(x-width/2-.06,bottom-.07,width+.12,top-bottom+.14,SIGN_COLORS[icon]);
+    rows.forEach((line,row)=>[...line].forEach((cell,col)=>{
+      if(cell==='#')paint(x-width/2+col*size,top-(row+1)*size,size,size,'#f2efe4');
+    }));
+    // Filled by the separately updated occupancy indicator.
+    paint(x-halfWidth+.15,1.22,.14,.06,null);
+  }
+  return panels;
+}
+function drawDoor({face},x,z,halfWidth,south,icon=null){
+  for(const p of lavatoryDoorPanels(x,halfWidth,south,icon))face([{x:p.x,y:p.y,z},{x:p.x+p.w,y:p.y,z},{x:p.x+p.w,y:p.y+p.h,z},{x:p.x,y:p.y+p.h,z}],p.color,null,true);
+}
+export function drawLavatoryIndicator(face,c,color){
+  const x=c.x-c.halfWidth+.15,z=LAVATORY.depth;
+  face([{x,y:1.22,z},{x:x+.14,y:1.22,z},{x:x+.14,y:1.28,z},{x,y:1.28,z}],color,null,true);
 }
 
 export function drawLavatory({face,quad,box,occupied=[],viewer=null,taps=[],time=0,drawIndicators=true,drawMirrorGlass=true}){
   const {width:W,depth:D,height:H}=LAVATORY;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const door=(...args)=>drawDoor({face,box},...args);
-  drawTiledRoom({face,quad},W,D,H);
+  drawTiledRoom({face,quad},W,D,H,[LAVATORY.door,...LAVATORY.cubicles.map(c=>({...c,z:D}))]);
   // Doors back to the pub and into the three cubicles.
   door(LAVATORY.door.x,0,LAVATORY.door.halfWidth,true);
   for(const c of LAVATORY.cubicles){
-    door(c.x,D,c.halfWidth,false);
-    // A red ENGAGED or green VACANT flag just above the handle.
-    if(drawIndicators)box(c.x-c.halfWidth+.15,1.22,D-.1,.14,.06,.04,isOccupied(c,occupied)?'#d23a32':'#3f9a4c');
-    // The cubicle's pictogram, white on a coloured plate.
-    const rows=ICONS[c.icon],size=.032,z=D-.09,width=rows[0].length*size,top=1.98,bottom=top-rows.length*size;
-    box(c.x-width/2-.06,bottom-.07,z+.01,width+.12,top-bottom+.14,.02,SIGN_COLORS[c.icon]);
-    const left=c.x-width/2;
-    for(const [row,line] of rows.entries())for(const [col,cell] of [...line].entries())if(cell==='#'){
-      const x=left+col*size,y=top-row*size;
-      face([{x,y,z},{x:x+size,y,z},{x:x+size,y:y-size,z},{x,y:y-size,z}],'#f2efe4');
-    }
+    door(c.x,D,c.halfWidth,false,c.icon);
+    if(drawIndicators)drawLavatoryIndicator(face,c,isOccupied(c,occupied)?'#d23a32':'#3f9a4c');
   }
   // White basins on pedestals, each with a chrome tap and a mirror above.
   for(const s of LAVATORY.sinks){
@@ -288,7 +323,7 @@ export function drawCubicle({face,quad,box}){
   const {width:W,depth:D,height:H,seat}=CUBICLE,x=seat.x;
   const cylinder=(...args)=>drawCylinder(face,...args);
   const china='#eceae2',white='#f5f4ee',chrome='#c6ccd0';
-  drawTiledRoom({face,quad},W,D,H);
+  drawTiledRoom({face,quad},W,D,H,[CUBICLE.door]);
   drawDoor({face,box},CUBICLE.door.x,0,CUBICLE.door.halfWidth,true);
   // A coat hook on the back of the door.
   box(CUBICLE.door.x-.03,1.85,.06,.06,.06,.08,chrome);

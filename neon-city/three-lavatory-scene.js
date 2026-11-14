@@ -3,7 +3,7 @@ import * as THREE from './vendor/three/three.module.js';
 import {createThreeSinkWater} from './three-sink-water.js';
 import {Reflector} from './vendor/three/Reflector.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
-import {LAVATORY,drawLavatory,drawCubicle,mirrorOf,playerSilhouetteContours} from './lavatory.js?v=staff-room-1';
+import {LAVATORY,drawLavatory,drawCubicle,drawLavatoryIndicator,mirrorOf,playerSilhouetteContours} from './lavatory.js?v=staff-room-1';
 import {bansheeFrame,drawBanshee} from './banshee.js?v=6';
 import {NATIVE_VIEW} from './render-camera.js';
 
@@ -13,7 +13,7 @@ export function createThreeLavatoryScene({imageFor,now=()=>performance.now()/100
     actorsFor:frame=>frame.lavatoryLife?.walker?[frame.lavatoryLife.walker]:[],
     createExtras({scene,builder,material}){
       const flags=LAVATORY.cubicles.map((c,i)=>[false,true].map(occupied=>{
-        const mesh=new THREE.Mesh(builder.build(({box})=>box(c.x-c.halfWidth+.15,1.22,LAVATORY.depth-.1,.14,.06,.04,occupied?'#d23a32':'#3f9a4c')),material);
+        const mesh=new THREE.Mesh(builder.build(({face})=>drawLavatoryIndicator(face,c,occupied?'#d23a32':'#3f9a4c')),material);
         mesh.name=`lavatory-flag-${i}-${occupied?'engaged':'vacant'}`;scene.add(mesh);return mesh;
       }));
       const water=createThreeSinkWater(LAVATORY.sinks);scene.add(water.group);

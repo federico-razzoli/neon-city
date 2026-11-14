@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createThreeLavatoryScene,createThreeCubicleScene} from '../neon-city/three-lavatory-scene.js';
-import {LAVATORY,CUBICLE,drawLavatory} from '../neon-city/lavatory.js';
+import {LAVATORY,CUBICLE,drawLavatory,drawCubicle} from '../neon-city/lavatory.js';
 import {createRendererPreferences} from '../neon-city/renderer-support.js';
 import {DEBUG_DESTINATIONS} from '../neon-city/debug-menu.js';
 
@@ -50,7 +50,7 @@ test('banshee overlay preserves renderer clear state and disposes its resources'
   }finally{if(prior===undefined)delete globalThis.document;else globalThis.document=prior;}
 });
 test('Canvas defaults retain occupancy indicators',()=>{
-  const count=options=>{let boxes=0;drawLavatory({face(){},quad(){},box(){boxes++;},...options});return boxes;};
+  const count=options=>{let boxes=0;drawLavatory({face(){boxes++;},quad(){},box(){boxes++;},...options});return boxes;};
   assert.equal(count(),count({drawIndicators:true}));assert.equal(count()-count({drawIndicators:false}),LAVATORY.cubicles.length);
   assert.equal(count()-count({drawMirrorGlass:false}),LAVATORY.sinks.length);
 });
@@ -91,4 +91,26 @@ test('sink water aligns with the taps, animates retained meshes and settles inde
   water.update([false,true],20,false);assert.equal(basin.material.uniforms.activity.value,activity);assert.equal(basin.material.uniforms.time.value,time);
   water.update([false,true],22);assert.equal(basin.material.uniforms.activity.value,0);assert.equal(second.material.uniforms.activity.value,1);
   assert.equal(basin.visible,true);assert.equal(stream.geometry,streamGeometry);water.dispose();
+});
+
+test('every lavatory and cubicle doorway has full coverage without overlapping wall or decoration faces',()=>{
+  for(const [draw,doors] of [
+    [drawLavatory,[LAVATORY.door,...LAVATORY.cubicles.map(c=>({...c,z:LAVATORY.depth}))]],
+    [drawCubicle,[CUBICLE.door]]
+  ]){
+    const faces=[];draw({face:points=>faces.push(points),quad(){},box(){}});
+    for(const door of doors){
+      const left=door.x-door.halfWidth-.08,right=door.x+door.halfWidth+.08;
+      const panels=faces.filter(ps=>ps.every(p=>Math.abs(p.z-door.z)<1e-10)).map(ps=>({
+        x0:Math.max(left,Math.min(...ps.map(p=>p.x))),x1:Math.min(right,Math.max(...ps.map(p=>p.x))),
+        y0:Math.max(0,Math.min(...ps.map(p=>p.y))),y1:Math.min(2.3,Math.max(...ps.map(p=>p.y)))
+      })).filter(p=>p.x1-p.x0>1e-10&&p.y1-p.y0>1e-10);
+      const area=panels.reduce((sum,p)=>sum+(p.x1-p.x0)*(p.y1-p.y0),0);
+      assert.ok(Math.abs(area-(right-left)*2.3)<1e-9,`door at ${door.x},${door.z} must fill its opening once`);
+      for(let i=0;i<panels.length;i++)for(const b of panels.slice(i+1)){
+        const a=panels[i];
+        assert.ok(Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0)<1e-10||Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0)<1e-10,'wall, frame, leaf and markings must not overlap');
+      }
+    }
+  }
 });
