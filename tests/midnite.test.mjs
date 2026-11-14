@@ -1,6 +1,8 @@
+import {createThreeBookshopScene} from '../neon-city/three-bookshop-scene.js';
+import {Box3,Vector3} from '../neon-city/vendor/three/three.module.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,moveInBookshop,drawBookshopInterior,bookshopReply,facingBookseller} from '../neon-city/midnite-interior.js';
+import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,moveInBookshop,bookshopReply,facingBookseller} from '../neon-city/midnite-interior.js';
 import {entranceWall} from '../neon-city/entrances.js';
 
 test('bookshop doors work on every street orientation and exit from inside',()=>{
@@ -22,10 +24,11 @@ test('bookshop furniture blocks movement and entrance aisle reaches the back',()
   assert.ok(facingBookseller({x:15.5,z:13,angle:0}));
 });
 test('bookshop renders finite geometry',()=>{
-  let count=0;
-  const check=(...args)=>{count++;for(const a of args)if(typeof a==='number')assert.ok(Number.isFinite(a));};
-  drawBookshopInterior({box:check,quad:check,face:(points)=>{count++;for(const p of points)check(p.x,p.y,p.z);}});
-  assert.ok(count>500);
+  const room=nativeShop(new BookshopLife());
+  try{
+    let count=0;room.scene.traverse(mesh=>{if(mesh.geometry){const p=mesh.geometry.attributes.position;count+=p.count;assert.ok([...p.array].every(Number.isFinite));}});
+    assert.ok(count>500);
+  }finally{room.dispose();}
 });
 
 test('both window shelves block movement while the entrance stays clear',()=>{
@@ -148,15 +151,15 @@ test('the bookseller waits for a player blocking the route and resumes when they
 });
 
 test('display and reading books render at their current locations without duplicating a loan',()=>{
-  const life=new BookshopLife(),inventory=new Inventory(),book=life.books[0];
-  const covers=[];
-  const draw=()=>{covers.length=0;drawBookshopInterior({face(){},quad(){},box:(x,y,z,w,h,d)=>{if(w===.6&&h===.08&&d===.55)covers.push({x,y,z});}},life);return covers.length;};
-  assert.equal(draw(),12);
-  life.interact(atBook(book),inventory);life.interact(atBook(book),inventory);
-  assert.equal(draw(),11);
-  life.stand(BOOKSHOP.chairs[1],inventory);
-  assert.equal(draw(),12);
-  assert.ok(covers.some(cover=>cover.y===.68));
+  const life=new BookshopLife(),inventory=new Inventory(),book=life.books[0],room=nativeShop(life);
+  const visible=()=>room.scene.children.filter(mesh=>mesh.name.startsWith('bookshop-book-')&&mesh.visible);
+  try{
+    assert.equal(visible().length,12);
+    life.interact(atBook(book),inventory);life.interact(atBook(book),inventory);room.refresh();
+    assert.equal(visible().length,11);
+    life.stand(BOOKSHOP.chairs[1],inventory);room.refresh();
+    assert.equal(visible().length,12);assert.ok(visible().some(mesh=>mesh.position.y===.68));
+  }finally{room.dispose();}
 });
 
 test('game seat and door controls enforce reading loans and leave the book when standing',async()=>{
@@ -230,11 +233,13 @@ test('book collection creates an opportunity to take the backpack and it stays t
 test('the floor backpack disappears from every shop after a successful pickup',()=>{
   const life=new BookshopLife(),inventory=new Inventory();
   const body=(shop=life)=>{
-    const parts=[];
-    drawBookshopInterior({face:(points,color)=>{if(color==='#44605c')parts.push(...points);},quad(){},box(){}},shop);
-    if(!parts.length)return [];
-    const x=Math.min(...parts.map(p=>p.x)),y=Math.min(...parts.map(p=>p.y)),z=Math.min(...parts.map(p=>p.z));
-    return [{x,y,z,w:Math.max(...parts.map(p=>p.x))-x,d:Math.max(...parts.map(p=>p.z))-z}];
+    const room=nativeShop(shop);
+    try{
+      const mesh=room.scene.getObjectByName('bookshop-backpack');
+      if(!mesh.visible)return [];
+      const bounds=new Box3().setFromObject(mesh);
+      return [{x:bounds.min.x,y:bounds.min.y,z:-bounds.max.z,w:bounds.max.x-bounds.min.x,d:bounds.max.z-bounds.min.z}];
+    }finally{room.dispose();}
   };
   const [bag]=body();assert.ok(bag);
   assert.equal(bag.y,0);assert.ok(bag.x+bag.w<=BOOKSHOP.width&&bag.z+bag.d<=BOOKSHOP.depth);
@@ -430,19 +435,19 @@ test('the bookseller faces his walking direction and faces the counter again at 
   }
   assert.ok(moved);assert.equal(life.atDesk,true);assert.equal(life.sellerAngle,Math.PI);
 });
-test('bookseller model turns his face toward each walking direction',async()=>{
-  const {drawBookseller}=await import('../neon-city/midnite-interior.js');
-  const seller={x:8,z:9};
-  for(const angle of [0,Math.PI/2,-Math.PI/2,Math.PI/4]){
-    const nose=[];
-    drawBookseller({box(){},face(points,color){
-      if(color==='#94624e'&&points.every(p=>p.y>=1.57*4/3-1e-8&&p.y<=1.66*4/3+1e-8))nose.push(...points);
-    }},seller,angle);
-    assert.ok(nose.length>0);
-    const x=nose.reduce((sum,p)=>sum+p.x,0)/nose.length-seller.x;
-    const z=nose.reduce((sum,p)=>sum+p.z,0)/nose.length-seller.z;
-    assert.ok(x*Math.sin(angle)+z*Math.cos(angle)>.2,'face points in the travel direction');
-  }
+test('bookseller model turns his face toward each walking direction',()=>{
+  const life=new BookshopLife(),room=nativeShop(life);
+  try{
+    life.seller={x:8,z:9};
+    for(const angle of [0,Math.PI/2,-Math.PI/2,Math.PI/4]){
+      life.sellerAngle=angle;room.refresh();room.scene.updateMatrixWorld(true);
+      const seller=room.scene.getObjectByName('bookshop-bookseller');
+      // The nose's centre is on the model's forward (-game Z) side.
+      const nose=new Vector3(.0025*4/3,1.615*4/3,.195*4/3).applyMatrix4(seller.matrixWorld);
+      const x=nose.x-life.seller.x,z=-nose.z-life.seller.z;
+      assert.ok(x*Math.sin(angle)+z*Math.cos(angle)>.2);
+    }
+  }finally{room.dispose();}
 });
 
 
@@ -461,18 +466,17 @@ test('the gay visitor browses SCI-FI then leaves on his next event',()=>{
 });
 
 test('visitors carry compact books beside their hands rather than through their necks',()=>{
-  for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
-    const book={color:'#123456'},visitor={x:9,z:9,angle,state:'walking',book};
-    const covers=[];
-    drawBookshopInterior({face(){},quad(){},box:(x,y,z,w,h,d,color)=>{
-      if(color===book.color)covers.push({x,y,z,w,h,d});
-    }},{people:[visitor],onDisplay:()=>true});
-    assert.equal(covers.length,1);
-    const cover=covers[0];
-    assert.ok(cover.y+cover.h<.8,'book stays below the chest');
-    assert.ok(Math.hypot(cover.x+cover.w/2-visitor.x,cover.z+cover.d/2-visitor.z)>.4,'book is beside the body');
-    assert.ok(cover.w<.45&&cover.d<.4,'carried book fits the hand');
-  }
+  const life=new BookshopLife(),room=nativeShop(life);
+  try{
+    for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+      const visitor={id:'carrier',type:4,variant:0,walkTime:0,x:9,z:9,angle,state:'walking',book:{id:'carried',color:'#123456'}};
+      life.people=[visitor];room.refresh();
+      const book=room.scene.getObjectByName('bookshop-book-carried'),bounds=new Box3().setFromObject(book);
+      assert.ok(bounds.max.y<.8,'book stays below the chest');
+      assert.ok(Math.hypot(book.position.x-visitor.x,-book.position.z-visitor.z)>.4,'book is beside the body');
+      assert.ok(bounds.max.x-bounds.min.x<.45&&bounds.max.z-bounds.min.z<.4);
+    }
+  }finally{room.dispose();}
 });
 
 
@@ -536,3 +540,9 @@ test('returning the backpack only earns the ticket after asking for it',()=>{
     assert.equal(askAboutBackpack(),"I THINK I'VE LOST IT. IF YOU FIND IT, PLEASE, TAKE IT TO ME.");
   }
 });
+
+function nativeShop(life){
+  const room=createThreeBookshopScene({imageFor:()=>({width:24,height:48})});
+  const frame={player:{...BOOKSHOP.spawn},eye:1.65,bookshopLife:life,city:{chunks:new Map()},itemRoom:'bookshop'};
+  room.update(frame);return {...room,refresh(){room.update(frame);}};
+}

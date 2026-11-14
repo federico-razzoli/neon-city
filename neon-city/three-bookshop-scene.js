@@ -1,33 +1,34 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {Mesh,PlaneGeometry,MeshBasicMaterial,DoubleSide} from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
-import {BOOKSHOP,BOOKSHOP_BOOKS,drawBookshopInterior,drawBookshopBook,drawBookseller} from './midnite-interior.js';
+import {BOOKSHOP,BOOKSHOP_BOOKS} from './midnite-interior.js';
 import {bookshopVisitorShowsBack} from './midnite-life.js';
-import {drawBackpack} from './backpack.js';
+import {createBookshopRoomGeometry,createBooksellerGeometry,createBackpackGeometry,createBookGeometry} from './three-bookshop-models.js';
 import {createBookshopStreet} from './three-bookshop-street.js';
 
 export function createThreeBookshopScene({imageFor}={}){
   return createThreeInteriorScene({name:'bookshop',background:'#302c26',imageFor,
-    drawRoom:helpers=>drawBookshopInterior(helpers,null,{dynamic:false,solidShelfEnds:true,transparentWindows:true}),
+    createRoomGeometry:createBookshopRoomGeometry,
     actorsFor:frame=>frame.bookshopLife?.people,
     actorView:(person,frame)=>({seated:person.state==='reading',back:bookshopVisitorShowsBack(person,frame.player)}),
-    createExtras({scene,builder,material}){
+    createExtras({scene,material}){
       const street=createBookshopStreet(scene);
       const glassGeometry=new PlaneGeometry(1,1),glassMaterial=new MeshBasicMaterial({color:'#8bb9ae',transparent:true,opacity:.22,depthWrite:false,side:DoubleSide,toneMapped:false});
       for(const [i,b] of BOOKSHOP.windowShelves.entries()){
         const glass=new Mesh(glassGeometry,glassMaterial);glass.name=`bookshop-window-${i}`;
         glass.position.set(b.x+b.w/2,1.85,-.04);glass.scale.set(b.w-.24,1.8,1);scene.add(glass);
       }
-      const seller=new Mesh(builder.build(helpers=>drawBookseller(helpers,{x:0,z:0})),material);
+      const seller=new Mesh(createBooksellerGeometry(),material);
       seller.name='bookshop-bookseller';scene.add(seller);
-      const backpack=new Mesh(builder.build(({box,face})=>drawBackpack(BOOKSHOP.backpack,box,face)),material);
+      const backpack=new Mesh(createBackpackGeometry(),material);
+      backpack.position.set(BOOKSHOP.backpack.x,0,-BOOKSHOP.backpack.z);
       backpack.name='bookshop-backpack';scene.add(backpack);
       const geometries=new Map(),books=new Map();
       function place(key,book,x,z,y=1,scale=1){
         let mesh=books.get(key);
         if(!mesh){
           let geometry=geometries.get(book.color);
-          if(!geometry){geometry=builder.build(({box})=>drawBookshopBook(box,book,0,0,0));geometries.set(book.color,geometry);}
+          if(!geometry){geometry=createBookGeometry(book.color);geometries.set(book.color,geometry);}
           mesh=new Mesh(geometry,material);mesh.name=`bookshop-book-${book.id??BOOKSHOP_BOOKS.indexOf(book)}`;
           books.set(key,mesh);scene.add(mesh);
         }

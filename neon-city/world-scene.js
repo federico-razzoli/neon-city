@@ -35,8 +35,6 @@ import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascia
 import {drawParkGround,drawParkStructures,drawFingerpost,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
 import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gauche.js?v=5';
 import {drawArcade,arcadeName} from './arcade.js?v=park-entrances-1';
-import {drawBookshopInterior} from './midnite-interior.js';
-import {bookshopVisitorShowsBack} from './midnite-life.js';
 import {drawMidniteBooks} from './midnite-books.js?v=unique-labels-4';
 import {drawBlueNote} from './blue-note.js?v=unique-labels-4';
 import {drawPub,pubName} from './pub.js?v=park-entrances-1';
@@ -228,12 +226,6 @@ export function createWorldScene(renderer,{reduced=false}={}){
   }
   function renderScene(){
     renderer.beginFrame({position:player,eye,pitch:windowView?.pitch??playerSeat?.pitch??0,indoors});
-    if(insideBookshop){
-      renderer.beginPass();drawBookshopInterior({face,quad,box},bookshopLife);
-      for(const p of bookshopLife.people)seatedPatron(p,p.state!=='reading',characterHeight(p.type),bookshopVisitorShowsBack(p,player));
-      drawDroppedItems(city.chunks.values());
-      renderer.drawInterior('#302c26');return;
-    }
     if(insideArcade){
       renderer.beginPass();drawArcadeInterior({face,quad,box});
       for(const p of arcadeLife?.people??[])seatedPatron(p,true,characterHeight(p.type));

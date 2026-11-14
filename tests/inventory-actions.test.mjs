@@ -36,9 +36,8 @@ test('inventory previews reuse the existing world object models',async()=>{
   const {drawDroppedToken}=await import('../neon-city/inventory.js');
   const {drawDroppedNote}=await import('../neon-city/hotel-storage.js');
   const {drawHotelLamp}=await import('../neon-city/hotel-interior.js');
-  const {drawBackpack}=await import('../neon-city/backpack.js');
+  const {previewBackpack,previewBook}=await import('../neon-city/bookshop-preview.js');
   const {drawPastisBottle,drawMarijuanaPlant}=await import('../neon-city/backpack-contents.js');
-  const {drawBookshopBook}=await import('../neon-city/midnite-interior.js');
   const origin={x:0,z:0,ground:0,angle:0};
   const images=[
     inventoryImage(PASTIS_BOTTLE,(item,{box,face})=>drawPastisBottle(origin,box,face)),
@@ -48,8 +47,8 @@ test('inventory previews reuse the existing world object models',async()=>{
     inventoryImage(arcadeTokens(1),(item,{face})=>drawDroppedToken(origin,face)),
     inventoryImage(FLOWER,(item,{quad})=>drawFlower({...item,x:0,z:0},quad)),
     inventoryImage(LAMP,(item,{box})=>drawHotelLamp(0,0,0,box)),
-    inventoryImage({id:'backpack'},(item,{box,face})=>drawBackpack({x:0,z:0},box,face)),
-    inventoryImage({color:'#93634e'},(item,{box})=>drawBookshopBook(box,item,0,0,0))
+    inventoryImage({id:'backpack'},(item,{box,face})=>previewBackpack({x:0,z:0},face)),
+    inventoryImage({color:'#93634e'},(item,{face})=>previewBook(item,face))
   ];
   assert.equal(new Set(images).size,images.length);
   for(const image of images){

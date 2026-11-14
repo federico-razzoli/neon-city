@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createThreeBookshopScene} from '../neon-city/three-bookshop-scene.js';
-import {BOOKSHOP,BOOKSHOP_BOOKS,drawBookshopInterior} from '../neon-city/midnite-interior.js';
+import {BOOKSHOP,BOOKSHOP_BOOKS} from '../neon-city/midnite-interior.js';
 import {BookshopLife,bookshopVisitorShowsBack} from '../neon-city/midnite-life.js';
 import {createRendererPreferences} from '../neon-city/renderer-support.js';
 
@@ -48,11 +48,6 @@ test('scene-owned geometry, materials and textures are disposed exactly once',()
   let disposed=0;for(const resource of resources)resource.addEventListener('dispose',()=>disposed++);
   room.dispose();room.dispose();assert.equal(disposed,resources.size);
 });
-test('Canvas defaults still include all movable contents',()=>{
-  const count=options=>{let n=0;drawBookshopInterior({face(){n++;},box(){n++;},quad(){n++;}},null,options);return n;};
-  assert.equal(count(),count({dynamic:true}));assert.ok(count()>count({dynamic:false}));
-});
-
 test('display windows have translucent glass and genuine openings through the wall',async()=>{
   const THREE=await import('../neon-city/vendor/three/three.module.js');
   const {room}=fixture();

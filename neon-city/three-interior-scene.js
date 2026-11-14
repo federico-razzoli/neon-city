@@ -3,6 +3,7 @@ import * as THREE from './vendor/three/three.module.js';
 import {createThreeArtwork} from './three-artwork.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {drawDroppedObject} from './dropped-object.js';
+import {createBackpackGeometry} from './three-bookshop-models.js';
 import {sprite} from './sprites.js?v=bumps-1';
 import {characterHeight,characterGirth,pedestrianShowsBack} from './world.js?v=start-pub-1';
 
@@ -55,13 +56,13 @@ export function createInteriorGeometryBuilder(){
   return {build,dispose(){cube.dispose();colors.clear();}};
 }
 
-export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,actorView=()=>({}),background='#3a2d36',createMaterial}){
+export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,actorView=()=>({}),background='#3a2d36',createMaterial}){
   const scene=new THREE.Scene(),camera=createInteriorCamera();
   scene.background=new THREE.Color(background);
   const builder=createInteriorGeometryBuilder();
   const material=createMaterial?createMaterial():new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
   const artworkMeshes=createThreeArtwork();
-  const room=drawRoom?new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material):new THREE.Group();
+  const room=createRoomGeometry?new THREE.Mesh(createRoomGeometry(),material):drawRoom?new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material):new THREE.Group();
   room.name=`${name}-room`;scene.add(room);
   const extras=createExtras?.({scene,room,builder,material,artwork:artworkMeshes});
   const dropped=new Map(),actors=new Map(),artwork=new Map();
@@ -89,7 +90,10 @@ export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sp
       if(item.room!==frame.itemRoom)continue;
       present.add(item);
       if(!dropped.has(item)){
-        const mesh=new THREE.Mesh(builder.build(helpers=>drawDroppedObject(item,helpers)),material);
+        const nativeBackpack=item.item.id==='backpack';
+        const geometry=nativeBackpack?createBackpackGeometry():builder.build(helpers=>drawDroppedObject(item,helpers));
+        const mesh=new THREE.Mesh(geometry,material);
+        if(nativeBackpack)mesh.position.set(item.x,item.ground??0,-item.z);
         mesh.name=`dropped-${item.item.id}`;dropped.set(item,mesh);scene.add(mesh);
       }
     }

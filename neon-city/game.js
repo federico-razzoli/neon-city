@@ -48,9 +48,9 @@ import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=r
 import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
-import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,booksellerTalk,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop,drawBookshopBook} from './midnite-interior.js';
+import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,booksellerTalk,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop} from './midnite-interior.js';
 import {BookshopLife} from './midnite-life.js';
-import {drawBackpack} from './backpack.js';
+import {previewBackpack,previewBook} from './bookshop-preview.js';
 import {drawPastisBottle,drawMarijuanaPlant} from './backpack-contents.js';
 import {pubName} from './pub.js?v=park-entrances-1';
 import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
@@ -322,10 +322,10 @@ function drawInventoryObject(item,{face,quad,box}){
   else if(['hotel-note','ticket'].includes(item.id))drawDroppedNote(position,face);
   else if(item.id==='arcade-token')drawDroppedToken(position,face);
   else if(item.id==='lamp')drawHotelLamp(0,0,0,box);
-  else if(item.id==='backpack')drawBackpack(position,box,face);
+  else if(item.id==='backpack')previewBackpack(position,face);
   else if(item.id==='pastis-bottle')drawPastisBottle(position,box,face);
   else if(item.id==='marijuana-plant')drawMarijuanaPlant(position,box,face);
-  else if(item.bookshopLoan)drawBookshopBook(box,item,0,0,0);
+  else if(item.bookshopLoan)previewBook(item,face);
   else if(item.id==='pine-cone')pineCone(inventoryConePreview,face,{x:2,y:3,z:-4});
 }
 function showItemActions(){

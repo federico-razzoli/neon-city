@@ -578,8 +578,11 @@ between backends; no performance improvement is claimed.
 
 ### Midnite Books interior
 
-Midnite Books now uses Three.js by default, with the Canvas/WASM comparison
-available in the debug menu. `three-bookshop-scene.js` retains the shelves,
+Midnite Books uses Three.js. `three-bookshop-models.js` builds native box, plane,
+cylinder, lathe, extrusion and tube geometries; the former bookshop drawing
+generators and Canvas room path have been removed. Inventory thumbnails project
+the same book and backpack models, and dropped backpacks use native geometry.
+`three-bookshop-scene.js` retains the shelves,
 lettering, furniture and lights as one room mesh. The bookseller, backpack and
 individual books have retained meshes. Books share geometry by cover color and
 move between displays, reading tables, visitors and the bookseller using existing
