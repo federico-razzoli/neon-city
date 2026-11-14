@@ -37,6 +37,18 @@ test('traffic and people above the lower path do not block walking under a bridg
   city.move(p,8,0,[{x:0,z}],bumped,[{x:0,z,axis:0,waiting:true}],bumpedCars);
   assert.ok(Math.abs(p.x-4)<1e-9);assert.deepEqual(bumped,[]);assert.deepEqual(bumpedCars,[]);
 });
+test('stair landing cannot overlap bridge railings while lower paths pass underneath',()=>{
+  const city=new City(1);
+  for(const row of RIVER_ROWS)for(const street of [-3,0,3])for(const [bank,dir] of [[row*BLOCK+18,1],[row*BLOCK+110,-1]]){
+    const landing={x:street*BLOCK+15,z:bank+dir*1.5,riverWalk:true};
+    city.move(landing,-2,0);
+    assert.ok(landing.x>=street*BLOCK+14.55-1e-9,'player radius stays outside railing');
+    city.move(landing,1,0);assert.ok(landing.x>street*BLOCK+15,'can retreat from railing');
+    const below={x:street*BLOCK+16,z:bank+dir*4.5,riverWalk:true};
+    city.move(below,-32,0);
+    assert.ok(Math.abs(below.x-(street*BLOCK-16))<1e-7,'can cross beneath both bridge sides');
+  }
+});
 test('native paths retain shared geometry, release unloaded chunks and leave upper stair entrances open',()=>{
   const scene=new THREE.Scene(),walks=createThreeRiverWalks(scene),railings=createThreeRailings(scene),row=RIVER_ROWS[0];
   walks.beginFrame();railings.beginFrame();

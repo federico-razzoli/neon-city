@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
-import {BLOCK,RIVER_WIDTH,BRIDGE_RISE,bridgeHeight,hasBridge} from './world.js';
+import {BLOCK,RIVER_WIDTH,BRIDGE_RISE,bridgeHeight,hasBridge,RIVER_STAIRS} from './world.js';
 
 // All exterior road surfaces and paint use Three.js plane geometry.
 // World Z is reflected here, just as it is in the street geometry adapter.
@@ -71,8 +71,17 @@ export function createThreeRoads(scene){
     // Leave the full bridge corridor open: asphalt occupies its middle 16m,
     // and the two 6m footways belong to the bridge approach itself.
     const left=hasBridge(chunk.x)?14:0,right=hasBridge(chunk.x+1)?50:BLOCK;
-    surface(group,'riverside-grass',x+left,bankZ,right-left,10,.04,.04,grass);
-    surface(group,'riverside-pavement',x+left,first?bankZ:bankZ+4,right-left,6,.06,.06,pavement);
+    const grassLeft=hasBridge(chunk.x)?RIVER_STAIRS.start:left;
+    surface(group,'riverside-grass',x+grassLeft,bankZ,right-grassLeft,10,.04,.04,grass);
+    surface(group,'riverside-pavement',x+grassLeft,first?bankZ:bankZ+4,right-grassLeft,6,.06,.06,pavement);
+    // Join the bridge footway at its actual .075m elevation, tapering down
+    // across the access strip to meet the .06m riverside pavement seamlessly.
+    if(hasBridge(chunk.x)){
+      const width=RIVER_STAIRS.start-left;
+      surface(group,'riverside-stair-access',x+left,bankZ,width,10,.0675,.0675,pavement);
+      const access=group.children.at(-1);
+      access.scale.x=Math.hypot(width,.015);access.rotation.z=Math.atan2(-.015,width);
+    }
     kerb(group,x+left,first?bankZ:bankZ+10,right-left,.06,first);
   }
   function bridge(group,streetIndex,riverRow){

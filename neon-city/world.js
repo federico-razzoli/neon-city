@@ -762,6 +762,15 @@ export class City {
         if(Math.abs(riverWalkHeight(x,z)-groundHeight(p.x,p.z,true))>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
       }else if(!gate&&this.solid(x,z))return true;
       const height=groundHeight(x,z,p.riverWalk||gate&&at.d>=0);
+      if(at){
+        const street=Math.round(x/BLOCK),start=riverStart(Math.floor(z/BLOCK))*BLOCK;
+        // Include the player's radius around the bridge fascia and railing.
+        // Lower-path walkers can still pass beneath the entire structure.
+        if(hasBridge(street)&&Math.abs(Math.abs(x-street*BLOCK)-14)<.55&&z>=start+18-.45&&z<=start+110+.45){
+          const deck=bridgeHeight(Math.max(start+18,Math.min(start+110,z)));
+          if(height<deck+1.2&&height+1.65>deck-1.4)return true;
+        }
+      }
       const car=cars.find(car=>car.waiting&&Math.abs(groundHeight(car.x,car.z)-height)<1.5&&Math.abs(x-car.x)<(car.axis?2.8:1.5)&&Math.abs(z-car.z)<(car.axis?1.5:2.8));
       if(car){if(!bumpedCars.includes(car))bumpedCars.push(car);return true;}
       const hit=x!==p.x||z!==p.z?nearby.filter(person=>
