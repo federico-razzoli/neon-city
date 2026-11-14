@@ -77,3 +77,30 @@ test('ordinary streets retain native lane markings and crossing stripes',()=>{
     assert.deepEqual(paint.map(mesh=>mesh.geometry),snapshots);
   }finally{roads.dispose();}
 });
+
+
+test('river-facing bridge sidewalk corners and kerbs share a rounded outline on both banks',()=>{
+  const scene=new THREE.Scene(),roads=createThreeRoads(scene),row=RIVER_ROWS[0];
+  try{
+    roads.beginFrame();roads.draw({x:0,z:row,riverStart:row,river:true});roads.endFrame();
+    scene.updateMatrixWorld(true);
+    const bridge=scene.getObjectByName(`bridge:0,${row}`);
+    const approaches=bridge.children.filter(mesh=>mesh.name==='bridge-approach-pavement');
+    assert.equal(approaches.length,4);
+    assert.ok(approaches.every(mesh=>mesh.geometry===approaches[0].geometry),'corners reuse one geometry');
+    for(const mesh of approaches){
+      const positions=mesh.geometry.attributes.position,points=[];
+      for(let i=0;i<positions.count;i++){
+        const p=new THREE.Vector3().fromBufferAttribute(positions,i);
+        assert.ok(p.x>=-1e-6&&p.x<=6&&-p.z>=-1e-6&&-p.z<=10);
+        if(p.x<2&&-p.z<2)assert.ok(Math.abs(Math.hypot(p.x-2,-p.z-2)-2)<1e-5);
+        points.push(p.applyMatrix4(mesh.matrixWorld));
+      }
+      assert.ok(points.every(p=>Math.abs(p.y-.075)<1e-6));
+      assert.ok(points.some(p=>Math.abs(p.x)>8&&Math.abs(p.x)<10),'curve replaces the square road corner');
+    }
+    const kerbs=bridge.children.filter(mesh=>mesh.name==='riverside-kerb');
+    assert.equal(kerbs.length,4);
+    assert.ok(kerbs.every(mesh=>mesh.geometry.attributes.position.count>12));
+  }finally{roads.dispose();}
+});

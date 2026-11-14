@@ -22,6 +22,30 @@ export function createThreeRoads(scene){
   const paint=color=>new THREE.MeshBasicMaterial({color,toneMapped:false,
     polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
   const dashes=paint('#b09485'),crossings=paint('#81798a'),bridgePaint=paint('#c4af8c');
+  // A shared approach tile, measured away from the road corner toward
+  // the bank and river. Mirror it for each side of each bridge.
+  const outline=new THREE.Shape();
+  outline.moveTo(2,0);outline.lineTo(6,0);outline.lineTo(6,10);
+  outline.lineTo(0,10);outline.lineTo(0,2);
+  outline.absarc(2,2,2,Math.PI,Math.PI*1.5,false);outline.closePath();
+  const roundedApproach=new THREE.ShapeGeometry(outline,12);
+  roundedApproach.rotateX(-Math.PI/2);
+  // Follow the same outline with a vertical kerb along the road edge.
+  const edge=[[6,0],[2,0]];
+  for(let i=1;i<=12;i++){
+    const angle=-Math.PI/2-i*Math.PI/24;
+    edge.push([2+2*Math.cos(angle),2+2*Math.sin(angle)]);
+  }
+  edge.push([0,10]);
+  const kerbVertices=[];
+  for(let i=1;i<edge.length;i++){
+    const [a,b]=[edge[i-1],edge[i]];
+    for(const [point,y] of [[a,0],[b,.075],[b,0],[a,0],[a,.075],[b,.075]])
+      kerbVertices.push(point[0],y,-point[1]);
+  }
+  const roundedKerb=new THREE.BufferGeometry();
+  roundedKerb.setAttribute('position',new THREE.Float32BufferAttribute(kerbVertices,3));
+  roundedKerb.computeVertexNormals();
   const parts=new Map(),matrix=new THREE.Matrix4();
   function rectangle(mesh,index,x,y,z,w,d){
     matrix.makeScale(w,1,d);matrix.setPosition(x+w/2,y,-z-d/2);
@@ -98,9 +122,16 @@ export function createThreeRoads(scene){
     // material. The approaches meet the bank road and the arch exactly.
     for(const [z,y0,y1] of [[start+8,0,.075],[start+110,.075,0]]){
       add('bridge-approach',x-8,z,16,10,y0,y1,asphalt);
-      for(const dx of [-14,8]){
-        add('bridge-approach-pavement',x+dx,z,6,10,.075,.075,pavement);
-        kerb(group,x+dx,y0===0?z:z+10,6,.075,y0===0);
+      for(const side of [-1,1]){
+        const first=y0===0,dir=first?1:-1,cornerZ=first?z:z+10;
+        // The curved cutout exposes the road, following the approach slope.
+        surface(group,'bridge-corner-asphalt',x+(side<0?-10:8),first?cornerZ:cornerZ-2,
+          2,2,first?0:.015,first?.015:0,asphalt);
+        for(const [geometry,name,height] of [[roundedApproach,'bridge-approach-pavement',.075],[roundedKerb,'riverside-kerb',0]]){
+          const mesh=new THREE.Mesh(geometry,pavement);mesh.name=name;
+          mesh.scale.set(side,1,dir);mesh.position.set(x+side*8,height,-cornerZ);
+          group.add(mesh);
+        }
       }
     }
     const deck=new THREE.Mesh(arch,asphalt);deck.name='bridge-asphalt';
@@ -145,7 +176,7 @@ export function createThreeRoads(scene){
     },
     endFrame(){for(const [key,part] of parts)if(!part.seen){release(part);parts.delete(key);}},
     dispose(){
-      for(const part of parts.values())release(part);parts.clear();plane.dispose();arch.dispose();
+      for(const part of parts.values())release(part);parts.clear();plane.dispose();arch.dispose();roundedApproach.dispose();roundedKerb.dispose();
       for(const mat of [asphalt,pavement,grass,dashes,crossings,bridgePaint])mat.dispose();
     }
   };
