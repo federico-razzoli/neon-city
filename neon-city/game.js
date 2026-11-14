@@ -703,6 +703,17 @@ if(k===' '&&!running){
 if(k===' '&&startSpaceHeld){e.preventDefault();return;}
 if(running){
   e.preventDefault();
+  handleWorldInput(k,e);
+}});
+function interactTouchGround(){
+  const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround(),true);
+  if(pickedUp){bookshopLife?.resetBookInteraction();notice=2.5;noticeText=pickedUp;return;}
+  const note=!indoors()?wallet.note:insideHotel&&hotelStairs&&!hotelCorridor&&hotelStairs.floor===1&&hotelStairs.flight===null?stairwellNote(currentHotel):null;
+  const cash=note&&wallet.takeNote(player,note,true);
+  if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}
+  if(!indoors()){coverPressed=true;enableSound();}
+}
+function handleWorldInput(k,e){
   if(k===' '&&!e.repeat&&!indoors()){
     const line=walkerTalk.interact(player,city.pedestrians(time));
     if(startFollowup())return;
@@ -763,8 +774,8 @@ if(running){
         if(reply){notice=2.5;noticeText=reply;}
       }return;
     }const tapReply=pubTapReply(player);if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingCounterObject(player,currentVenue.barBeer??PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(tapReply){notice=2.5;noticeText=tapReply;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
-  keys.add(k);syncShift(e);
-}});
+  if(!e.touch){keys.add(k);syncShift(e);}
+}
 function syncShift(e){
   if(e.key==='Shift'){if(e.type==='keydown')shiftKeys.add(e.code);else shiftKeys.delete(e.code);}
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
@@ -786,14 +797,19 @@ for(const button of document.querySelectorAll('[data-key]')){
   button.addEventListener('pointerdown',e=>{if(!running||pubMenu.open||inventoryBox.open||banshee||staffTalk)return;e.preventDefault();button.setPointerCapture(e.pointerId);if(ping?.crossed){ping.continueCrossing();keys.clear();return;}keys.add(button.dataset.key);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(button.dataset.key));
 }
-installSeatedTouch(canvas,{
+const touchControls=installSeatedTouch(canvas,{
   getSeat:()=>playerSeat,
-  canUse:()=>running&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk&&!debugMenu?.open,
+  canUse:()=>running&&!windowView&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk&&!debugMenu?.open,
   look:(yaw,pitch)=>{
+    if(!playerSeat){player.angle+=yaw;return;}
     player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle+yaw));
     playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+pitch));
   },
-  stand:()=>useSeat()
+  stand:()=>useSeat(),
+  tap:ground=>{
+    if(ground){interactTouchGround();return;}
+    handleWorldInput(' ',{key:' ',repeat:false,touch:true});
+  }
 });
 function amigosPointer(e,type){
   if(!running||ping?.kind!=='amigos')return false;
@@ -822,6 +838,7 @@ canvas.addEventListener('contextmenu',e=>{if(ping?.kind==='amigos'){e.preventDef
 canvas.addEventListener('pointerdown',e=>{if(amigosPointer(e,'down'))return;if(!running)return;if(ping?.crossed){ping.continueCrossing();keys.clear();}else if(ping?.kind==='kong')keys.add(' ');});
 for(const event of ['pointerup','pointercancel','pointerleave'])canvas.addEventListener(event,()=>keys.delete(' '));
 function tick(now){
+  const touchWalking=touchControls.update();
   startPhase('neon:simulation');
   // Camera input follows elapsed time through ordinary slow frames. Bound long
   // stalls, while retaining the smaller simulation step for safe movement.
@@ -861,7 +878,7 @@ function tick(now){
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
       playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
     }
-    const forward=Number(keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
+    const forward=Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(indoors())hornWarning.update(dt,null,[]);
     if(insidePub){
       pubLife?.update(dt,pubPatrons,playerSeat,player);

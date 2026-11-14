@@ -123,13 +123,13 @@ export function drawDroppedToken(item,face){
   face(centre,'#bc8d36');
   face([0,1,2,3].map(i=>point(r*.38,Math.PI/4+i*Math.PI/2,top+.002)),'#edca70');
 }
-export function takeDroppedItem(player,chunks,inventory,room='street',ground=0){
+export function takeDroppedItem(player,chunks,inventory,room='street',ground=0,underfoot=false){
   let nearest=null,owner=null,distance=3.5;
   for(const chunk of chunks)for(const dropped of chunk.droppedItems??[]){
     if(dropped.room!==room||Math.abs(dropped.ground-ground)>1)continue;
     const dx=dropped.x-player.x,dz=dropped.z-player.z,gap=Math.hypot(dx,dz);
-    if(gap>distance)continue;
-    if(gap>.25&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(.45+Math.asin(Math.min(1,.25/gap))))continue;
+    if(gap>distance||(underfoot&&gap>.8))continue;
+    if(!underfoot&&gap>.25&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(.45+Math.asin(Math.min(1,.25/gap))))continue;
     nearest=dropped;owner=chunk;distance=gap;
   }
   if(!nearest)return null;

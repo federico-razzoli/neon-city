@@ -25,10 +25,10 @@ export class Wallet{
   // Match outdoor dropped items: keep the note above the raised sidewalk details.
   note={x:START_SIGN.x+1.2,z:START_SIGN.z+.7,ground:.085,taken:false};
   get balance(){return `£${(this.pence/100).toFixed(2)}`;}
-  takeNote(player,note=this.note){
+  takeNote(player,note=this.note,underfoot=false){
     const dx=note.x-player.x,dz=note.z-player.z,gap=Math.hypot(dx,dz);
-    if(note.taken||gap>3.5)return null;
-    if(gap>.25&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(.45+Math.asin(Math.min(1,.25/gap))))return null;
+    if(note.taken||gap>(underfoot ? .8 : 3.5))return null;
+    if(!underfoot&&gap>.25&&(dx*Math.sin(player.angle)+dz*Math.cos(player.angle))/gap<Math.cos(.45+Math.asin(Math.min(1,.25/gap))))return null;
     note.taken=true;
     this.pence+=500;
     return 'TAKEN £5.00';

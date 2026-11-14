@@ -116,3 +116,17 @@ test('backpack OPEN and DROP in the bookshop close the object box and show NOT H
     }
   }
 });
+
+test('ground touches collect only underfoot items and notes regardless of facing',async()=>{
+  const {takeDroppedItem}=await import('../neon-city/inventory.js');
+  const {Wallet}=await import('../neon-city/money.js');
+  const player={x:0,z:0,angle:0},inventory=new Inventory();
+  const chunk={droppedItems:[{item:LAMP,x:0,z:-.5,room:'street',ground:0}]};
+  assert.equal(takeDroppedItem(player,[chunk],inventory),null);
+  assert.ok(takeDroppedItem(player,[chunk],inventory,'street',0,true));assert.equal(chunk.droppedItems.length,0);
+  chunk.droppedItems.push({item:FLOWER,x:0,z:2,room:'street',ground:0});
+  assert.equal(takeDroppedItem(player,[chunk],inventory,'street',0,true),null);
+  const wallet=new Wallet(),note={x:0,z:-.5,taken:false};
+  assert.equal(wallet.takeNote(player,note),null);assert.equal(wallet.takeNote(player,note,true),'TAKEN £5.00');
+  assert.equal(wallet.takeNote(player,{x:0,z:2,taken:false},true),null);
+});
