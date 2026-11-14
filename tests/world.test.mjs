@@ -4624,6 +4624,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
 
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get arcadeLife(){return arcadeLife;},get staffTalk(){return staffTalk;},get ping(){return ping;}};",sandbox);
   let loads=0,disposals=0,failNext=false;
+  sandbox.loadCabinetDisplay=()=>({ready:Promise.resolve({draw(){}}),dispose(){}});
   sandbox.loadCabinetGame=name=>{
     loads++;
     const Type={PING:sandbox.Ping,GROG:sandbox.Frog,'KONGY KONG':sandbox.KongyKong,PINBALL:sandbox.Pinball}[name];

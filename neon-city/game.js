@@ -23,6 +23,7 @@ import {startPhase,endPhase,profilePhase} from './render-profile.js';
 import {createDebugMenu,DEBUG_MODE,DEBUG_RIVERSIDE_SPAWN} from './debug-menu.js';
 import {entranceWall} from './entrances.js';
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
+import {loadCabinetDisplay} from './cabinet-display-loader.js';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
@@ -456,13 +457,24 @@ function playOuch(){
   source.onended=()=>source.disconnect();
 }
 
-let cabinetRenderer,cabinetRendererLoading,threeRenderer,threeCanvas,threeRendererLoading;
+let cabinetRenderer,cabinetRendererLoading,cabinetDisplaySession,threeRenderer,threeCanvas,threeRendererLoading;
+function syncArcadeDisplay(){
+  if(insideArcade){
+    if(cabinetDisplaySession)return;
+    const session=loadCabinetDisplay(canvas,NATIVE_VIEW);cabinetDisplaySession=session;
+    cabinetRendererLoading=session.ready.then(renderer=>{
+      if(cabinetDisplaySession===session)cabinetRenderer=renderer;
+    });
+    // The arcade room remains usable on failure; playing reports the error.
+    cabinetRendererLoading.catch(()=>{});
+  }else if(cabinetDisplaySession){
+    closeCabinet();cabinetDisplaySession.dispose();cabinetDisplaySession=null;
+    cabinetRenderer=null;cabinetRendererLoading=null;
+  }
+}
 async function prepareCabinetRenderer(){
-  if(cabinetRenderer)return;
-  cabinetRendererLoading??=import('./cabinet-renderer.js').then(({createCabinetRenderer})=>{
-    cabinetRenderer=createCabinetRenderer(canvas,NATIVE_VIEW);
-  });
-  try{await cabinetRendererLoading;}finally{cabinetRendererLoading=null;}
+  if(!insideArcade)throw new Error('Enter the arcade before playing');
+  syncArcadeDisplay();await cabinetRendererLoading;
 }
 async function prepareThreeRenderer(){
   if(threeRenderer)return;
@@ -497,6 +509,7 @@ function selectRenderSurface(useThree){
   if(!useThree)threeRenderer?.leave();
 }
 function render(){
+  syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);

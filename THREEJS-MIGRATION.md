@@ -5,8 +5,10 @@
 Three.js is now the only world renderer. The debug menu offers destination
 travel without a Canvas renderer choice. Legacy Canvas rasterization, surface
 ordering, texture readback/prewarming and `wall-columns.wasm` have been removed.
-Arcade games still use Canvas 2D through `cabinet-renderer.js`, loaded on demand
-when the first cabinet opens. Canvas-generated
+Arcade games still use Canvas 2D through `cabinet-renderer.js`, loaded into a
+disposable iframe when entering the arcade. Leaving removes that iframe and
+clears the renderer references, allowing its module map to be collected. Each
+cabinet game retains its separate session iframe. Canvas-generated
 textures, sprites, sky and overlays remain part of the Three.js implementation.
 The migration entries below document earlier stages, including retired comparison
 options and fallback behavior.

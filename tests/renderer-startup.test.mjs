@@ -31,7 +31,8 @@ test('world rendering uses Three.js exclusively and arcade drawing has its own r
   const render=game.slice(game.indexOf('function render(){'),game.indexOf('// Debug travel'));
   assert.match(render,/cabinetRenderer.draw\(ping,running\)/);
   assert.doesNotMatch(game,/^import .*from ['"]\.\/cabinet-renderer\.js['"]/m);
-  assert.match(game,/import\(['"]\.\/cabinet-renderer\.js['"]\)/);
+  assert.doesNotMatch(game,/import\(['"]\.\/cabinet-renderer\.js['"]\)/);
+  assert.match(render,/syncArcadeDisplay\(\)/);
   assert.match(render,/selectRenderSurface\(true\)/);
   assert.match(render,/if\(threeRenderer\)/);
   assert.doesNotMatch(game,/canvasRenderer|createCanvasRenderer|useCanvasFallback|wall-columns|texture-pixels/);
