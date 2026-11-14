@@ -102,11 +102,11 @@ export function drawRiverbankFaces(chunk,{face,boundsVisible},viewer){
   if(waterSide)drawCachedRiverbankFaces(chunk,face);
 }
 
-export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false},viewer){
+export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false,nativeRailings=false},viewer){
   if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,8,chunk.z*BLOCK+64))return;
   drawBridgeFascias(chunk,{face,boundsVisible},viewer);
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
-  drawRiverRailings(chunk,face,viewer);
+  if(!nativeRailings)drawRiverRailings(chunk,face,viewer);
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   // Short planar segments approximate a continuous arch; physics uses the same curve.
   for(let a=low;a<high;a+=2){
@@ -117,6 +117,6 @@ export function drawRiverStructures(chunk,{face,boundsVisible,nativeRoads=false}
     ],color);
     if(!nativeRoads)for(const [left,right,color] of [[0,8,'#292b3b'],[8,14,'#757380'],[50,56,'#757380'],[56,64,'#292b3b']])if(hasBridge(chunk.x+(left>=50?1:0)))strip(left,right,.075,.075,color);
     if(!nativeRoads&&hasBridge(chunk.x)&&Math.floor((a-start)/4)%3===0)strip(0,.15,.085,.085,'#c4af8c');
-    drawRiverRailings(chunk,face,viewer,a-z);
+    if(!nativeRailings)drawRiverRailings(chunk,face,viewer,a-z);
   }
 }

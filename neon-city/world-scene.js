@@ -335,7 +335,10 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
     renderer.drawPass(renderer.endPass());
     renderer.beginPass();
     for(const chunk of visible){
-      if(chunk.river)drawRiverStructures(chunk,{face,boundsVisible,nativeRoads:!!renderer.drawRoad},{x:player.x,y:eye,z:player.z});
+      if(chunk.river){
+        renderer.drawRailings?.(chunk);
+        drawRiverStructures(chunk,{face,boundsVisible,nativeRoads:!!renderer.drawRoad,nativeRailings:!!renderer.drawRailings},{x:player.x,y:eye,z:player.z});
+      }
       for(const b of chunk.buildings)building(b);
       for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
       if(chunk.park){
