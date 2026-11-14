@@ -19,9 +19,10 @@ export function createThreeHallScene(hotel,{imageFor}={}){
         const mesh=new THREE.Mesh(builder.build(({box})=>drawHotelLamp(lamp.x,1.3,lamp.z,box,look.metal,on)),material);
         mesh.name=on?'hall-lamp-on':'hall-lamp-off';return mesh;
       });
-      // Ambient illumination preserves the hall's painted colours when off.
+      // Lambert diffuse divides irradiance by PI. Match the full painted
+      // colours of the other rooms' unlit materials, even with the lamp off.
       // The bulb sits just below the shade, directing warm light onto the desk.
-      const ambient=new THREE.AmbientLight(0xffffff,1);ambient.name='hall-ambient';
+      const ambient=new THREE.AmbientLight(0xffffff,Math.PI);ambient.name='hall-ambient';
       // Two successive 50% increases: cone width is proportional to tan(angle).
       const glow=new THREE.SpotLight(0xffd690,.14,2,Math.atan(Math.tan(Math.PI*.4)*2.25),.8,2);
       glow.name='hall-lamp-glow';glow.position.set(lamp.x,1.555,-lamp.z);
