@@ -125,3 +125,15 @@ test('cubicle blackout renders a black overlay without a banshee and stops on ex
     room.renderOverlay(renderer,{lavatoryLife:{cubicleBlackout:false}});assert.equal(renders,1);
   }finally{room.dispose();if(prior===undefined)delete globalThis.document;else globalThis.document=prior;}
 });
+
+test('sink water reflects above the basin and hides other reflective surfaces during capture',()=>{
+  const room=createThreeLavatoryScene(),state=frame();room.update(state);room.scene.updateMatrixWorld(true);
+  const water=room.scene.getObjectByName('lavatory-water-basin-0');
+  const others=['lavatory-water-basin-1','lavatory-mirror-0','lavatory-mirror-1'].map(name=>room.scene.getObjectByName(name));
+  let renders=0,target=null;
+  const renderer={xr:{enabled:false},shadowMap:{autoUpdate:true},autoClear:true,state:{buffers:{depth:{setMask(){}}}},getRenderTarget:()=>target,setRenderTarget:t=>{target=t;},
+    render(scene,camera){renders++;assert.equal(water.visible,false);for(const other of others)assert.equal(other.visible,false);assert.ok(Math.abs(camera.position.y-(2*water.position.y-room.camera.position.y))<1e-6);}};
+  water.onBeforeRender(renderer,room.scene,room.camera);
+  assert.equal(renders,1);assert.equal(target,null);for(const other of others)assert.equal(other.visible,true);
+  let disposed=0;water.getRenderTarget().addEventListener('dispose',()=>disposed++);room.dispose();room.dispose();assert.equal(disposed,1);
+});
