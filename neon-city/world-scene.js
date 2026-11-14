@@ -138,6 +138,7 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
   function car(c,groundOverride){
     vehicleTurn=c.turn?{x:c.x,z:c.z,angle:c.turn.angle}:null;
     const base=groundOverride??groundHeight(c.x,c.z),slope=groundOverride!=null||c.axis?0:(groundHeight(c.x,c.z+.1)-groundHeight(c.x,c.z-.1))/.2;
+    if(renderer.drawCar){renderer.drawCar(c,{base,slope});vehicleTurn=null;return;}
     vehicleSurface=z=>base+(z-c.z)*slope;
     drawCarGeometry(c,{player,eye,base,slope,indoors:indoors,face,texture:carTexture});
     vehicleSurface=null;vehicleTurn=null;
