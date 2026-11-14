@@ -3200,6 +3200,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   const {runInNewContext}=await import('node:vm');
   const pubInterior=await import('../neon-city/pub-interior.js');
   const lavatory=await import('../neon-city/lavatory.js');
+  const {LadiesDoorEvent}=await import('../neon-city/ladies-door.js');
   const {register}=await import('../neon-city/register.js');
   for(const key in register)delete register[key];
   const events={},elements=new Map();let flushes=0,rolls=0,tapVolumes=[];
@@ -3207,7 +3208,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
     if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,open:false,classList:{toggle(){}},focus(){},getContext:()=>({}),addEventListener(){}});
     return elements.get(id);
   };
-  const sandbox={...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),...await import('../neon-city/midnite-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,rollBanshee:()=>false,rollCubicleKnock:()=>false,loadCubicleKnock(){},playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
+  const sandbox={...await import('../neon-city/sky.js'),...await import('../neon-city/npc-dialogue.js'),...await import('../neon-city/inventory.js'),...await import('../neon-city/money.js'),...await import('../neon-city/hotel-stairwell.js'),...await import('../neon-city/hotel-corridor.js'),...await import('../neon-city/hotel-storage.js'),...await import('../neon-city/shooting-stars.js'),...await import('../neon-city/arcade-interior.js'),...await import('../neon-city/midnite-interior.js'),groundHeight:(await import('../neon-city/world.js')).groundHeight,START:(await import('../neon-city/world.js')).START,...pubInterior,...lavatory,register,LadiesDoorEvent:class extends LadiesDoorEvent{constructor(){super(()=>.99);}},rollBanshee:()=>false,rollCubicleKnock:()=>false,loadCubicleKnock(){},playFlush(){flushes++;},rollOccupancy:()=>{rolls++;return [false,true,true];},
     CoverAttempt:class{try(){return false;}},RiverLook:class{try(){return false;}},PubLife:class{},PubConversation:class{},WalkerTalk:class{update(){}interact(){}},talksHere:()=>false,
     pubLines:()=>[],pubName:()=>'',facingPubMenu:()=>false,facingBench:()=>null,playCoverGrunt(){},loadCoverGrunt(){},
     City:class{constructor(){this.chunks=new Map();}update(){} pedestrians(){return [];}move(){return false;}advancePedestrians(){return [];}},

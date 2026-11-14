@@ -78,7 +78,7 @@ export class LavatoryLife{
     }
     this.wait-=dt;
     if(this.wait>0)return;
-    const taken=LAVATORY.cubicles.map((c,i)=>i).filter(i=>occupied[i]&&!LAVATORY.cubicles[i].alwaysOccupied);
+    const taken=LAVATORY.cubicles.map((c,i)=>i).filter(i=>occupied[i]&&i!==this.hauntedLadiesPending&&!LAVATORY.cubicles[i].alwaysOccupied);
     if(!taken.length){this.wait=this.delay();return;}
     const index=taken[Math.floor(this.random()*taken.length)],start={x:LAVATORY.cubicles[index].x,z:LAVATORY.depth-.4};
     // Someone standing at that door keeps it shut until they step aside.
