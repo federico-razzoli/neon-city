@@ -4815,6 +4815,14 @@ test('shooting stars stay on river walks and choose visible paths every 10–30 
   const {ShootingStars,onRiverWalk}=await import('../neon-city/shooting-stars.js');
   const bank=RIVER_ROWS[0]*BLOCK;
   for(const x of [-192,0,64,137])for(const z of [bank+11,bank+117])assert.ok(onRiverWalk({x,z}));
+  for(const x of [-192,0,64,137])for(const offset of [18,21,24,104,107,110]){
+    const player={x,z:bank+offset};
+    assert.ok(onRiverWalk(player),'both lower banks allow shooting stars, including between bridges');
+    const effect=new ShootingStars(()=>0),view={angle:0,width:640,focal:355,horizon:164,pitch:0};
+    effect.update(10,onRiverWalk(player),view);
+    assert.ok(effect.star,'waiting on the lower path starts a shooting star');
+  }
+  for(const offset of [17,25,103,111])assert.ok(!onRiverWalk({x:64,z:bank+offset}));
   assert.ok(onRiverWalk({x:12,z:bank+64}));
   assert.ok(!onRiverWalk({x:64,z:bank+64}));
   assert.ok(!onRiverWalk({x:0,z:bank-20}));

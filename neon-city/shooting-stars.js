@@ -17,14 +17,16 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {BLOCK,riverStart,hasBridge} from './world.js?v=parks-4';
+import {BLOCK,RIVER_WALK_WIDTH,riverWalkPosition,riverStart,hasBridge} from './world.js?v=parks-4';
 import {projectSky} from './sky.js?v=bench-1';
 
 export function onRiverWalk({x,z}){
   const row=riverStart(Math.floor(z/BLOCK));
   if(row===undefined)return false;
   const along=z-row*BLOCK,street=Math.round(x/BLOCK);
+  const lower=riverWalkPosition(x,z);
   return (along>=8&&along<=14)||(along>=114&&along<=120)||
+    (lower.d>=0&&lower.d<=RIVER_WALK_WIDTH)||
     (along>=8&&along<=120&&hasBridge(street)&&Math.abs(x-street*BLOCK)<=14);
 }
 

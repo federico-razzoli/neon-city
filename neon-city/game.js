@@ -62,7 +62,7 @@ import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=visit-buffer-1
 import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BUSINESSWOMAN_TALK,COMPANION_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,advanceHotelReceptionist,drawHotelLamp} from './hotel-interior.js?v=receptionist-lamp-2';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
 import {facingPubMenu} from './pub-menu.js?v=park-entrances-1';
-import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=window-2';
+import {ShootingStars,onRiverWalk} from './shooting-stars.js?v=lower-walk-3';
 import {URSA_MAJOR,skyDirection} from './sky.js?v=stars-2';
 import {HornWarning,playHorn} from './horn.js?v=junction-priority-1';
 
