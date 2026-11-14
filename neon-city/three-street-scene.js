@@ -12,12 +12,12 @@ export function createThreeStreetScene(){
   scene.fog=new THREE.Fog('#0f0a1e',22,170);
   const sky=createCorridorSky(scene),batches=new Map();
   let style={},view;
-  function batch(color,image){
+  function batch(color,image,smooth){
     const key=image??color;
     let value=batches.get(key);
     if(!value){
       const texture=image?new THREE.CanvasTexture(image):null;
-      if(texture){texture.colorSpace=THREE.SRGBColorSpace;texture.magFilter=THREE.NearestFilter;texture.minFilter=THREE.NearestFilter;texture.generateMipmaps=false;}
+      if(texture){texture.colorSpace=THREE.SRGBColorSpace;texture.magFilter=smooth?THREE.LinearFilter:THREE.NearestFilter;texture.minFilter=smooth?THREE.LinearMipmapLinearFilter:THREE.NearestFilter;texture.generateMipmaps=!!smooth;}
       const material=new THREE.MeshBasicMaterial({color:image?'#ffffff':color,map:texture,side:THREE.DoubleSide,alphaTest:image?0.05:0,toneMapped:false,polygonOffset:!!style.detail,polygonOffsetFactor:style.detail?-1:0,polygonOffsetUnits:style.detail?-1:0});
       const geometry=new THREE.BufferGeometry(),mesh=new THREE.Mesh(geometry,material);
       mesh.frustumCulled=false;scene.add(mesh);
@@ -25,9 +25,9 @@ export function createThreeStreetScene(){
     }
     return value;
   }
-  function face(vertices,color,image){
+  function face(vertices,color,image,smooth=false){
     if(vertices.length<3)return;
-    const b=batch(color,image);
+    const b=batch(color,image,smooth||style.textureSmooth);
     for(let i=1;i<vertices.length-1;i++)for(const p of [vertices[0],vertices[i],vertices[i+1]]){
       b.positions.push(p.x,p.y,-p.z);
       b.uvs.push(image?(p.u??0)/image.width:0,image?1-(p.v??0)/image.height:0);

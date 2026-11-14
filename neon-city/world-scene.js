@@ -161,14 +161,14 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
       g.fillStyle=look.frame;g.fillRect(9,56,142,130);
       g.fillStyle='#829395';g.fillRect(13,60,134,122);
       g.fillStyle='#e2d8b9';g.fillRect(22,69,106,103);
-      g.fillStyle='#292636';g.font='bold 13px serif';g.fillText(paper,75,85,100);
-      g.font='bold 10px monospace';g.fillText(look.subtitle??'CITY NEWS',75,101);
-      g.fillStyle='#626272';g.fillRect(29,109,43,31);
-      for(let y=110;y<161;y+=6){g.fillRect(79,y,40,2);if(y>143)g.fillRect(29,y,43,2);}
+      g.fillStyle='#292636';g.font='bold 15px serif';g.fillText(paper,75,86,100);
+      g.font='bold 14px monospace';g.fillText(look.subtitle??'CITY NEWS',75,104,100);
+      g.fillStyle='#41414d';g.fillRect(29,113,43,31);
+      for(let y=114;y<165;y+=6){g.fillRect(79,y,40,2);if(y>143)g.fillRect(29,y,43,2);}
       g.fillStyle='#e2d8b9';g.fillRect(133,98,8,36);
       g.fillStyle='#beb9ac';g.fillRect(15,195,33,19);
       g.fillStyle='#232231';g.fillRect(20,202,23,4);
-      g.fillStyle=look.price;g.font='bold 12px monospace';g.fillText('25¢',113,210);
+      g.fillStyle=look.price;g.font='bold 18px monospace';g.fillText('25¢',113,212);
       newspaperTextures[paper]=c;
     }
     renderer.withStyle({detail:true,textureSmooth:true},()=>drawNewspaperGeometry(m,newspaperGeometry(m),player,eye,look,newspaperTextures[paper],face));
