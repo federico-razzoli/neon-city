@@ -30,6 +30,11 @@ test('lamp switches and receptionist trips update retained objects using the sha
   const staff=room.scene.getObjectByName('hall-receptionist'),staffGeometry=staff.geometry;
   const on=room.scene.getObjectByName('hall-lamp-on'),off=room.scene.getObjectByName('hall-lamp-off'),glow=room.scene.getObjectByName('hall-lamp-glow');
   const lampGeometry=on.geometry;
+  assert.equal(glow.isSpotLight,true);assert.ok(glow.intensity>0);
+  assert.equal(room.scene.getObjectByName('hall-room').material.isMeshLambertMaterial,true);
+  assert.ok(glow.position.y>glow.target.position.y);
+  assert.equal(glow.position.x,HOTEL.lamp.x);
+  assert.equal(glow.position.z,-HOTEL.lamp.z);
   assert.equal(off.visible,true);assert.equal(on.visible,false);assert.equal(glow.visible,false);
   switchHotelLamp(hotel);room.update(frame);
   assert.equal(off.visible,false);assert.equal(on.visible,true);assert.equal(glow.visible,true);

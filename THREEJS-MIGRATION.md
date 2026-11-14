@@ -756,3 +756,16 @@ for sink/toilet blocking, both tap toggles, occupied/vacant doors, toilet seatin
 standing, cubicle exit and return to the pub, with no page errors. Automated
 coverage includes robot blocking and the knock-event door flow with both spatial
 backends.
+
+### Hall desk lamp lighting
+
+The hall lamp now uses a warm Three.js `SpotLight` beneath its shade, aimed at
+the reception desk with a soft cone edge and distance falloff. This replaces
+the two flat coloured glow rectangles. The hall's shared surface material is
+now `MeshLambertMaterial`, with ambient light preserving its painted appearance
+when the lamp is off; other interiors keep their existing material. Artwork and
+character sprites keep their existing materials.
+
+The spotlight follows the shared lamp-on and lamp-taken flags, including the
+receptionist's automatic shutoff. It is retained during the visit and disposed
+on exit. It does not enable shadow maps. Canvas rendering is unchanged.

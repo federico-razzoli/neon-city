@@ -55,11 +55,11 @@ export function createInteriorGeometryBuilder(){
   return {build,dispose(){cube.dispose();colors.clear();}};
 }
 
-export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,actorView=()=>({}),background='#3a2d36'}){
+export function createThreeInteriorScene({name,drawRoom,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,actorView=()=>({}),background='#3a2d36',createMaterial}){
   const scene=new THREE.Scene(),camera=createInteriorCamera();
   scene.background=new THREE.Color(background);
   const builder=createInteriorGeometryBuilder();
-  const material=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
+  const material=createMaterial?createMaterial():new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
   const artworkMeshes=createThreeArtwork();
   const room=drawRoom?new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material):new THREE.Group();
   room.name=`${name}-room`;scene.add(room);
