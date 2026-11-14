@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
-import {BLOCK,RIVER_WIDTH,BRIDGE_RISE,bridgeHeight,hasBridge} from './world.js';
+import {BLOCK,RIVER_WIDTH,BRIDGE_RISE,bridgeHeight,hasBridge,RIVER_STAIRS} from './world.js';
 
 // Native Three.js geometry for every bank and bridge railing. Shared geometry
 // and instancing keep the static railings on the GPU between frames.
@@ -35,8 +35,9 @@ export function createThreeRailings(scene){
     const z=start+(chunk.z===chunk.riverStart?18:110);
     const left=hasBridge(chunk.x)?14:0,right=hasBridge(chunk.x+1)?50:BLOCK;
     const bases=[],rails=[],posts=[];
-    for(let a=left;a<right;a+=6){
-      const w=Math.min(6,right-a);
+    const spans=hasBridge(chunk.x)?[[left,RIVER_STAIRS.landing],[RIVER_STAIRS.start,right]]:[[left,right]];
+    for(const [from,to] of spans)for(let a=from;a<to;a+=6){
+      const w=Math.min(6,to-a);
       bases.push([x+a,.06,z-.22,w,.2,.44]);
       rails.push([x+a,1.05,z-.09,w,.12,.18]);
       posts.push([x+a,.1,z-.1,.18,1,.2]);

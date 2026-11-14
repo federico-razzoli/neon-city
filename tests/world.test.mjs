@@ -723,7 +723,7 @@ test('only Night River remains through district 0, 4, with ordinary city blocks 
     assert.ok(traffic(chunk,0).length>0,'ordinary streets retain traffic');
   }
   assert.ok(RIVER_WIDTH>BLOCK);
-  assert.equal(WATER_LEVEL,-3.5);
+  assert.equal(WATER_LEVEL,-3.9);
   for(const centre of centres)assert.ok(Math.abs(centre-4)/BLOCK>=4&&Math.abs(centre-4)/BLOCK<=6);
   for(const row of RIVER_ROWS)for(const part of [row,row+1])for(const x of [-3,0,7]){
     const chunk=city.generate(x,part);

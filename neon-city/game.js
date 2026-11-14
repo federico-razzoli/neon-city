@@ -274,7 +274,7 @@ function itemRoom(){
 }
 // Where something dropped here comes to rest, and the height it rests at.
 function dropSpot(){
-  if(!indoors())return {x:player.x,z:player.z,ground:groundHeight(player.x,player.z)+.085};
+  if(!indoors())return {x:player.x,z:player.z,ground:groundHeight(player.x,player.z,player.riverWalk)+.085};
   if(hotelCorridor)return {x:player.x,z:player.z,ground:.015};
   if(insideHotel&&!hotelStorage)return hotelStairs?stairwellDropSpot(player,hotelStairs):hotelDropSpot(player);
   return {x:player.x,z:player.z,ground:0};
@@ -512,7 +512,7 @@ function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
-  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
+  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z,player.riverWalk);
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
@@ -541,7 +541,7 @@ function debugTravel(id,park){
     if(!venue)throw new Error('No matching venue nearby. Explore more streets and try again.');
   }
   if(playerSeat?.bookshopChair)bookshopLife.stand(playerSeat.bookshopChair,inventory);
-  playerSeat=null;windowView=null;pubTalk=null;eye=1.65;
+  playerSeat=null;windowView=null;pubTalk=null;eye=1.65;delete player.riverWalk;
   insideBookshop=insideArcade=insideHotel=insidePub=insideLavatory=false;insideCubicle=null;hotelStorage=hotelCorridor=false;hotelStairs=null;
   lobbyMusic.choose(null);pubMusic.choose(null);
   if(venue){
@@ -885,10 +885,11 @@ function tick(now){
     city.update(player.x,player.z);
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
     parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
-    const cars=roadTraffic.update(city.chunks.values(),time,dt,player,city.crossingPeople?.()??[]);
-    if(hornWarning.update(dt,player,cars))playHorn(audioContext);
+    const streetPlayer=player.riverWalk?null:player;
+    const cars=roadTraffic.update(city.chunks.values(),time,dt,streetPlayer,city.crossingPeople?.()??[]);
+    if(hornWarning.update(dt,streetPlayer,cars))playHorn(audioContext);
     // Waiting cars remain solid even while their warning is on cooldown.
-    for(const c of cars)if(c.waiting){
+    for(const c of cars)if(c.waiting&&!player.riverWalk){
       const dx=player.x-c.x,dz=player.z-c.z,hx=c.axis?2.8:1.5,hz=c.axis?1.5:2.8;
       const overlapping=Math.abs(dx)<hx&&Math.abs(dz)<hz;
       if(overlapping){
@@ -899,7 +900,7 @@ function tick(now){
         playHorn(audioContext);notice=2.5;noticeText='HEY! STAY OFF MY CAR!';hitCooldown=1.5;
       }
     }
-    collision: if(!hitCooldown)for(const c of cars){
+    collision: if(!hitCooldown&&!player.riverWalk)for(const c of cars){
       if(c.waiting)continue;
       if(Math.abs(player.x-c.x)<(c.axis?2.8:1.5)&&Math.abs(player.z-c.z)<(c.axis?1.5:2.8)){
         const side=c.axis?(player.z>=c.z?1:-1):(player.x>=c.x?1:-1);

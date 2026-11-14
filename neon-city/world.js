@@ -183,7 +183,25 @@ export const BLOCK = 64;
 // Night River occupies district rows 4 and 5.
 export const RIVER_ROWS = [4];
 export const RIVER_WIDTH = 92;
-export const WATER_LEVEL = -3.5;
+export const WATER_LEVEL = -3.9;
+export const RIVER_WALK_HEIGHT=-3.4;
+export const RIVER_WALK_WIDTH=6;
+// One stairway at the east edge of each bridge approach, on both banks.
+// Its 2m landing is followed by twelve 1m treads running east.
+export const RIVER_STAIRS={landing:14,start:16,end:28,width:3,steps:12};
+export const hasRiverStairs=x=>hasBridge(Math.floor(x/BLOCK));
+export function riverWalkPosition(x,z){
+  const row=riverStart(Math.floor(z/BLOCK));
+  if(row===undefined)return null;
+  const first=z<row*BLOCK+64,bank=row*BLOCK+(first?18:110),dir=first?1:-1;
+  return {d:(z-bank)*dir,lx:mod(x,BLOCK),bank,dir};
+}
+export function riverWalkHeight(x,z){
+  const at=riverWalkPosition(x,z);
+  if(at&&hasRiverStairs(x)&&at.d<=RIVER_STAIRS.width&&at.lx>=RIVER_STAIRS.landing&&at.lx<RIVER_STAIRS.end)
+    return RIVER_WALK_HEIGHT*Math.max(0,Math.min(RIVER_STAIRS.steps,Math.ceil((at.lx-RIVER_STAIRS.start)/((RIVER_STAIRS.end-RIVER_STAIRS.start)/RIVER_STAIRS.steps)-1e-9)))/RIVER_STAIRS.steps||0;
+  return RIVER_WALK_HEIGHT;
+}
 export const BRIDGE_RISE = 6;
 export const riverStart = row => RIVER_ROWS.find(start=>row>=start&&row<start+2);
 export const isRiverRow = row => riverStart(row)!==undefined;
@@ -204,7 +222,8 @@ export function bridgeHeight(z) {
   const t=(z-start*BLOCK-18)/RIVER_WIDTH;
   return t>0&&t<1?BRIDGE_RISE*Math.sin(Math.PI*t):0;
 }
-export function groundHeight(x,z) {
+export function groundHeight(x,z,riverWalk=false) {
+  if(riverWalk)return riverWalkHeight(x,z);
   const lx=mod(x,BLOCK);
   const street=Math.round(x/BLOCK);
   return hasBridge(street)&&(lx<=14||lx>=50)?bridgeHeight(z):0;
@@ -336,6 +355,7 @@ class CrossingPositions {
 
 // Let an actor already inside the collision area retreat without getting stuck.
 function crossesPlayer(a,b,person){
+  if((a.riverWalk||person.riverWalk)&&Math.abs(groundHeight(a.x,a.z,a.riverWalk)-groundHeight(person.x,person.z,person.riverWalk))>1.5)return false;
   const dx=b.x-a.x,dz=b.z-a.z;
   if(Math.hypot(a.x-person.x,a.z-person.z)<STREET_BUMP_RADIUS&&
     (a.x-person.x)*dx+(a.z-person.z)*dz>=0&&
@@ -537,6 +557,7 @@ export class City {
     for(const p of waiters.keys())if(!walkers.has(p))waiters.delete(p);
     const routeBlocked=(p,chunk,clearance)=>{
       const a=pedestrian(chunk,p,time);
+      if(player.riverWalk&&Math.abs(groundHeight(a.x,a.z)-groundHeight(player.x,player.z,true))>1.5)return false;
       return crossesPerson(a,{x:a.x+a.facingX*4,z:a.z+a.facingZ*4},player,clearance);
     };
     if(waiters.size&&![...waiters].some(([p,chunk])=>routeBlocked(p,chunk,1.6)))waiters.clear();
@@ -733,10 +754,15 @@ export class City {
   move(p,dx,dz,people=[],bumped=[],cars=[],bumpedCars=[]) {
     let bumpedPedestrian=false;
     const reach=Math.hypot(dx,dz)+STREET_BUMP_RADIUS;
-    const nearby=people.filter(person=>Math.hypot(person.x-p.x,person.z-p.z)<=reach);
+    const nearby=people.filter(person=>Math.abs(groundHeight(person.x,person.z)-groundHeight(p.x,p.z,p.riverWalk))<1.5&&Math.hypot(person.x-p.x,person.z-p.z)<=reach);
     const blocked=(x,z)=>{
-      if(this.solid(x,z))return true;
-      const car=cars.find(car=>car.waiting&&Math.abs(x-car.x)<(car.axis?2.8:1.5)&&Math.abs(z-car.z)<(car.axis?1.5:2.8));
+      const at=riverWalkPosition(x,z),gate=at&&hasRiverStairs(x)&&at.lx>=RIVER_STAIRS.landing+.45&&at.lx<=RIVER_STAIRS.start-.45&&at.d>=-.5&&at.d<=RIVER_STAIRS.width;
+      if(p.riverWalk){
+        if(!at||(!gate&&(at.d<.45||at.d>RIVER_WALK_WIDTH-.45)))return true;
+        if(Math.abs(riverWalkHeight(x,z)-groundHeight(p.x,p.z,true))>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
+      }else if(!gate&&this.solid(x,z))return true;
+      const height=groundHeight(x,z,p.riverWalk||gate&&at.d>=0);
+      const car=cars.find(car=>car.waiting&&Math.abs(groundHeight(car.x,car.z)-height)<1.5&&Math.abs(x-car.x)<(car.axis?2.8:1.5)&&Math.abs(z-car.z)<(car.axis?1.5:2.8));
       if(car){if(!bumpedCars.includes(car))bumpedCars.push(car);return true;}
       const hit=x!==p.x||z!==p.z?nearby.filter(person=>
         Math.hypot(x-person.x,z-person.z)<=Math.hypot(p.x-person.x,p.z-person.z)&&
@@ -748,7 +774,15 @@ export class City {
       return nearby.some(person=>crossesPlayer(p,{x,z},person));
     };
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.3));
-    for(let i=0;i<steps;i++){if(!blocked(p.x+dx/steps,p.z))p.x+=dx/steps;if(!blocked(p.x,p.z+dz/steps))p.z+=dz/steps;}
+    const layer=()=>{
+      const at=riverWalkPosition(p.x,p.z);
+      if(at&&at.d>=0&&(p.riverWalk||hasRiverStairs(p.x)&&at.lx>=RIVER_STAIRS.landing+.45&&at.lx<=RIVER_STAIRS.start-.45&&at.d<=RIVER_STAIRS.width))p.riverWalk=true;
+      else if(p.riverWalk)delete p.riverWalk;
+    };
+    for(let i=0;i<steps;i++){
+      if(!blocked(p.x+dx/steps,p.z)){p.x+=dx/steps;layer();}
+      if(!blocked(p.x,p.z+dz/steps)){p.z+=dz/steps;layer();}
+    }
     return bumpedPedestrian;
   }
 }

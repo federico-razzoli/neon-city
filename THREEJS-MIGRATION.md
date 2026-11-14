@@ -20,6 +20,16 @@ polygons. Water has no bank glow or scene or sky reflection pass. River
 chunks share their geometry and material, disposed when the street scene is
 released.
 
+`three-river-walks.js` adds retained stone paths along both banks at
+`-3.4`, with the banks unchanged. Water is at `-3.9`, 50cm below the paths. Each bridge approach has a landing
+and twelve larger steps down from an opening in the upper railing; there are no stairs
+between bridges. Lighter treads, darker risers and small stone-colour variations
+make each step visible. Lower paths pass
+under bridges, with a separate player elevation so traffic and pedestrians
+above do not collide with the player below. Water edges, retaining walls and
+the sides of the stairs block movement; the stairs provide the return route.
+Stairs and lower paths have no railings.
+
 ## Objective
 
 Introduce Three.js as an alternative renderer for Neon City in small, playable
