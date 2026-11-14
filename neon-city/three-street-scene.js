@@ -54,7 +54,7 @@ export function createThreeStreetScene(){
       face([{x:p.x-dx,y:p.y,z:p.z-dz,u:0,v:image.height},{x:p.x+dx,y:p.y,z:p.z+dz,u:image.width,v:image.height},{x:p.x+dx,y:p.y+height,z:p.z+dz,u:image.width,v:0},{x:p.x-dx,y:p.y+height,z:p.z-dz,u:0,v:0}],'#ffffff',image);
     }
   };
-  const world=createWorldScene(backend,{seatedTexturePrewarmer:{add(){}}});
+  const world=createWorldScene(backend);
   function upload(geometry,name,values,size){
     let attribute=geometry.getAttribute(name);
     if(!attribute||attribute.array.length<values.length){

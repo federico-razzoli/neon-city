@@ -27,11 +27,13 @@ test('initial HTML gates play and gameplay checks that gate before enabling move
   runInNewContext(play+'\nplay();',state);assert.equal(enabled,0);
 });
 
-test('normal rendering cannot fall through to the legacy renderer while Three.js is unavailable',()=>{
+test('world rendering uses Three.js exclusively and arcade drawing has its own renderer',()=>{
   const render=game.slice(game.indexOf('function render(){'),game.indexOf('// Debug travel'));
-  const branch=render.slice(render.indexOf("if(rendererChoice==='three')"),render.indexOf('  selectRenderSurface(false);',render.indexOf("if(rendererChoice==='three')")));
-  assert.match(branch,/if\(threeRenderer\)/);
-  assert.match(branch,/return;/);
-  assert.doesNotMatch(game,/useCanvasFallback/);
-  assert.doesNotMatch(branch,/worldScene|canvasRenderer/);
+  assert.match(render,/cabinetRenderer.draw\(ping,running\)/);
+  assert.doesNotMatch(game,/^import .*from ['"]\.\/cabinet-renderer\.js['"]/m);
+  assert.match(game,/import\(['"]\.\/cabinet-renderer\.js['"]\)/);
+  assert.match(render,/selectRenderSurface\(true\)/);
+  assert.match(render,/if\(threeRenderer\)/);
+  assert.doesNotMatch(game,/canvasRenderer|createCanvasRenderer|useCanvasFallback|wall-columns|texture-pixels/);
+  assert.doesNotMatch(render,/worldScene|rendererChoice/);
 });

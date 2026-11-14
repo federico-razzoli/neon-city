@@ -87,22 +87,13 @@ surfaces and texture coordinates; canvas painting remains in JavaScript.
 Hotel dimming keeps a second set in `building.dimTextures[side]`. On first use,
 the code obtains the normal canvas, copies it into a new canvas and applies
 `dimHotelH()`. Switching between states then selects the corresponding cached
-canvas. The normal canvas remains unchanged, which keeps pixel readback caches
-valid. Dim variants add memory; they do not replace the normal canvases.
+canvas. The normal canvas remains unchanged, so each variant has its own artwork. Dim variants add memory; they do not replace the normal canvases.
 
-## Pixel readbacks and seated prewarming
+## Three.js texture use
 
-[`texturePixels()`](neon-city/texture-pixels.js) caches an `ImageData` readback in
-a `WeakMap` keyed by the canvas. Render paths that need those pixels, including
-pitched wall rendering in [`perspective.js`](neon-city/perspective.js), can reuse
-the readback rather than repeatedly calling `getImageData()`.
-
-While the player is seated outdoors, the scene traversal can request artwork for
-player-facing sides of offscreen buildings and enqueue it for prewarming. This
-prepares textures that may become visible when turning or looking up, without
-building offscreen wall geometry. The prewarmer keeps pending canvases in a
-temporary `Set` and reads one texture per idle callback. Cancellation clears that
-set and cancels the scheduled callback; completed readbacks remain weakly cached.
+Three.js uploads the retained artwork canvases as textures. The legacy Canvas
+pixel-readback cache and seated texture prewarmer have been removed. Offscreen
+buildings are culled without generating their wall artwork just for prewarming.
 
 ## Unloading and garbage collection
 
@@ -115,9 +106,8 @@ city.chunks -> chunk -> buildings[] -> building -> textures / dimTextures
 ```
 
 Once nothing else references a building, its weak geometry-cache entry does not
-keep it alive. Its 5,120-byte array becomes eligible for garbage collection. When
-its canvases also become unreachable, the weak pixel-cache entries can be
-collected with them.
+keep it alive. Its 5,120-byte array becomes eligible for garbage collection. Its canvases become eligible for collection once no scene textures or other
+objects retain them.
 
 Deleting a chunk does **not** guarantee immediate reclamation. Active venue
 references such as `currentVenue` or `currentHotel`, a pending prewarm request,

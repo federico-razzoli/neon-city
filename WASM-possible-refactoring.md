@@ -1,10 +1,15 @@
 # Possible WebAssembly refactoring
 
+The legacy Canvas world renderer and its wall-column WASM module have now been
+removed. This document is a historical assessment of that retired renderer;
+its kernel build commands and rasterizer opportunities no longer apply. Live
+geometry generation and pedestrian collision WASM are separate and remain in use.
+
 WebAssembly (WASM) could reduce CPU time in Neon City's software rasterizers. A focused experiment is justified if profiling confirms that these functions consume a substantial part of the frame budget. A broad rewrite is not currently justified, and memory savings would likely come primarily from data layout and allocation changes that are also possible in JavaScript.
 
 The original candidate assessment below is based on source inspection. An upright-wall column kernel has since been implemented in WASM, as described below. The remaining candidate rankings and further kernel optimisations are hypotheses, not measured speedups.
 
-## Current implementation state
+## Historical implementation state
 
 The upright-wall column projection is implemented in [wall-columns.c](neon-city/wall-columns.c), compiled to [wall-columns.wasm](neon-city/wall-columns.wasm), and loaded through [wall-columns-wasm.js](neon-city/wall-columns-wasm.js). [perspective.js](neon-city/perspective.js) uses its packed output to issue Canvas drawing calls.
 

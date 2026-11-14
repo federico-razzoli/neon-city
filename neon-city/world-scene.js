@@ -53,7 +53,7 @@ import {hotelHIsDim,dimHotelH,drawHotel,hotelLook} from './hotel.js?v=park-entra
 // the backend. Local Canvas contexts below generate reusable artwork only.
 // The backend consumes world-space points and source-pixel UVs synchronously;
 // generators may reuse scratch arrays once face() returns.
-export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}){
+export function createWorldScene(renderer,{reduced=false}={}){
   const {boundsVisible,quad,box}=renderer;
   let player,eye,windowView,playerSeat,running,time,
     insideBookshop,bookshopLife,insideArcade,arcadeLife,
@@ -63,9 +63,6 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
     banshee,shake,steps,starfield,moon,shootingStars,skyView,hotelGuests,itemRoom,indoors;
   let vehicleSurface=null,vehicleTurn=null;
   function face(vertices,color,texture=null,smooth=false,buildingWall=false){
-    // Include textures above and beside the current view: they can become visible
-    // when a seated player looks up or turns. Reuse the normal scene traversal.
-    if(texture&&playerSeat&&!indoors&&running)seatedTexturePrewarmer.add(texture);
     if(vehicleSurface)vertices=vertices.map(v=>({...v,y:v.y+vehicleSurface(v.z)}));
     if(vehicleTurn){
       const {x,z,angle}=vehicleTurn,c=Math.cos(angle),s=Math.sin(angle);
@@ -100,21 +97,10 @@ export function createWorldScene(renderer,{seatedTexturePrewarmer,reduced=false}
   }
   function building(b){
     const x=b.x,z=b.z,w=b.w,d=b.d,h=b.h;
-    if(!boundsVisible(x,0,z,x+w,h,z+d)){
-      // Seated players can turn toward these walls: keep their textures warm
-      // without constructing, transforming or clipping offscreen wall panels.
-      if(playerSeat&&!indoors&&running){
-        if(player.z<z)seatedTexturePrewarmer.add(wallTexture(b,0));
-        if(player.z>z+d)seatedTexturePrewarmer.add(wallTexture(b,1));
-        if(player.x<x)seatedTexturePrewarmer.add(wallTexture(b,2));
-        if(player.x>x+w)seatedTexturePrewarmer.add(wallTexture(b,3));
-      }
-      return;
-    }
+    if(!boundsVisible(x,0,z,x+w,h,z+d))return;
     const panels=buildingGeometry(b);
     function wall(side){
       const tex=wallTexture(b,side);
-      if(playerSeat&&!indoors&&running)seatedTexturePrewarmer.add(tex);
       // Panels retain fine-grained depth ordering against cars and pedestrians.
       for(let s=0;s<8;s++){
         const vertices=[];

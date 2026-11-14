@@ -75,7 +75,7 @@ test('all collectible dropped-object models are retained, room filtered, removed
 
 test('renderer support enables the converted hotel scenes in the debug menu',()=>{
   for(const [id] of DEBUG_DESTINATIONS){
-    assert.equal(supportsRenderer(id,'canvas'),true);
+    assert.equal(supportsRenderer(id,'canvas'),false);
     assert.equal(supportsRenderer(id,'three'),true);
     assert.equal(supportsRenderer(id,'unknown'),false);
   }
@@ -89,18 +89,13 @@ test('profiling markers do not accumulate during play or after a failed renderin
   assert.equal(performance.getEntriesByName('test:render:end').length,0);
 });
 
-test('converted destinations default to Three.js and comparison overrides stay local to each destination',()=>{
+test('all destinations require Three.js and reject the retired Canvas choice',()=>{
   const preferences=createRendererPreferences();
   for(const [destination] of DEBUG_DESTINATIONS){
     assert.equal(defaultRenderer(destination),'three');
-    assert.equal(preferences.get(destination),defaultRenderer(destination));
+    assert.equal(preferences.get(destination),'three');
+    assert.throws(()=>preferences.set(destination,'canvas'));
+    preferences.set(destination,'three');
   }
-  preferences.set('hotel','canvas');assert.equal(preferences.get('storage'),'three');
-  preferences.set('storage','canvas');preferences.set('arcade','canvas');
-  assert.equal(preferences.get('storage'),'canvas');
-  preferences.set('storage','three');assert.equal(preferences.get('hotel'),'canvas');
-  preferences.set('hotel','three');assert.equal(preferences.get('hotel'),'three');
-  preferences.set('arcade','three');assert.equal(preferences.get('arcade'),'three');
-  preferences.set('initial','canvas');assert.equal(preferences.get('street'),'canvas');
-  preferences.set('river','three');assert.equal(preferences.get('street'),'three');
+  assert.throws(()=>defaultRenderer('unknown'));
 });

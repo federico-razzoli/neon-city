@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createCanvasRenderer} from '../neon-city/canvas-renderer.js';
+import {createCabinetRenderer} from '../neon-city/cabinet-renderer.js';
 import {createRenderCamera,NATIVE_VIEW} from '../neon-city/render-camera.js';
 import {createWorldScene} from '../neon-city/world-scene.js';
 import {HOTEL_STORAGE} from '../neon-city/hotel-storage.js';
@@ -12,69 +12,17 @@ function canvasFixture(){
   return {canvas,ctx,draws,transforms};
 }
 
-test('Canvas projects and clips world-space submissions without mutating source points or UVs',()=>{
-  const {canvas}=canvasFixture();
-  const renderer=createCanvasRenderer(canvas,{width:32,height:20,focal:16,horizon:10,near:1,far:100});
-  renderer.beginFrame({position:{x:10,z:20,angle:0},eye:2});
-  const points=[{x:9,y:1,z:20.5,u:0,v:0},{x:11,y:1,z:22,u:8,v:0},
-    {x:11,y:3,z:22,u:8,v:8},{x:9,y:3,z:20.5,u:0,v:8}];
-  const original=structuredClone(points),texture={width:8,height:8};
-  renderer.face(points,'#fff000',texture);
-  const [face]=renderer.endPass();
-  assert.deepEqual(points,original);
-  assert.equal(face.texture,texture);
-  assert.ok(face.vs.every(point=>point.z>=1));
-  assert.ok(face.vs.some(point=>point.z===1&&Math.abs(point.u-8/3)<1e-12));
-  assert.ok(face.ps.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y)));
-  renderer.beginFrame({position:{x:10,z:20,angle:Math.PI},eye:2});
-  renderer.face(points,'#fff000',texture);
-  assert.deepEqual(renderer.endPass(),[],'geometry behind the new camera is culled only by the backend');
-});
-
-test('submission styles are scoped, including after errors and across passes',()=>{
-  const {canvas}=canvasFixture(),renderer=createCanvasRenderer(canvas);
-  renderer.beginFrame({position:{x:0,z:0,angle:0},eye:1.65});
-  const draw=()=>renderer.quad(-1,0,3,2,2,'#ffffff');
-  renderer.withStyle({detail:true},()=>{
-    draw();
-    renderer.withStyle({textureSmooth:true},draw);
-    draw();
-  });
-  assert.throws(()=>renderer.withStyle({groundTexture:true},()=>{throw new Error('failed scene');}));
-  draw();
-  const faces=renderer.endPass();
-  assert.deepEqual(faces.map(f=>[!!f.detail,!!f.textureSmooth,!!f.groundTexture]),
-    [[true,false,false],[true,true,false],[true,false,false],[false,false,false]]);
-  assert.deepEqual(renderer.endPass(),[]);
-});
-
-test('world-space sprite operations reach Canvas drawing with the legacy dimensions and opacity',()=>{
-  const {canvas,ctx,draws}=canvasFixture(),renderer=createCanvasRenderer(canvas);
-  renderer.beginFrame({position:{x:0,z:0,angle:0},eye:1.65});
-  const image={};
-  renderer.billboard({position:{x:0,y:0,z:10},height:2,width:1,image});
-  renderer.drawPass(renderer.endPass());
-  assert.deepEqual(draws,[[image,302,152,36,71]]);
-  assert.equal(ctx.globalAlpha,1);
-  let resolved=0;
-  renderer.billboard({position:{x:0,y:0,z:-10},height:2,width:1,getImage(){resolved++;return image;}});
-  renderer.drawPass(renderer.endPass());
-  assert.equal(resolved,0,'offscreen sprites do not generate artwork');
-  renderer.billboard({position:{x:0,y:0,z:10},height:2,width:1,getImage(){resolved++;return image;}});
-  assert.equal(resolved,0,'artwork resolution stays deferred until drawing');
-  renderer.drawPass(renderer.endPass());
-  assert.equal(resolved,1);
-});
-
-test('cabinet display scaling returns to the native world viewport',()=>{
-  const {canvas,ctx,transforms}=canvasFixture(),renderer=createCanvasRenderer(canvas);
+test('cabinet display scaling returns to native resolution for other games',()=>{
+  const {canvas,ctx,transforms}=canvasFixture(),renderer=createCabinetRenderer(canvas);
   const previous=globalThis.window;globalThis.window={devicePixelRatio:1};
   try{
     let drawn=false,synced=false;
-    renderer.cabinet({kind:'byker',syncInput(surface,running){assert.equal(surface,canvas);assert.equal(running,true);synced=true;},draw(context){assert.equal(context,ctx);drawn=true;}},true);
+    renderer.draw({kind:'byker',syncInput(surface,running){assert.equal(surface,canvas);assert.equal(running,true);synced=true;},draw(context){assert.equal(context,ctx);drawn=true;}},true);
     assert.equal(drawn&&synced,true);
     assert.equal(canvas.width,1280);assert.equal(canvas.height,720);
-    renderer.beginFrame({position:{x:0,z:0,angle:0},eye:1.65});
+    globalThis.window.devicePixelRatio=4;renderer.draw({kind:'pinball',draw(){}},false);
+    assert.equal(canvas.width,1920);assert.equal(canvas.height,1080);
+    renderer.draw({kind:'ping',draw(){}},false);
     assert.equal(canvas.width,NATIVE_VIEW.width);assert.equal(canvas.height,NATIVE_VIEW.height);
     assert.equal(ctx.imageSmoothingEnabled,false);
     assert.deepEqual(transforms.at(-1),[1,0,0,1,0,0]);
@@ -94,7 +42,7 @@ function recordingBackend(){
 }
 
 test('storage construction works with a non-Canvas backend and includes shared state and dropped objects before clipping',()=>{
-  const renderer=recordingBackend(),scene=createWorldScene(renderer,{seatedTexturePrewarmer:{add(){}}});
+  const renderer=recordingBackend(),scene=createWorldScene(renderer);
   const hotel={storageNoteTaken:false},player={...HOTEL_STORAGE.spawn};
   const room='14,14:hotel-storage',chunk={droppedItems:[]};
   const frame={player,eye:1.65,indoors:true,insideHotel:true,hotelStorage:true,currentHotel:hotel,

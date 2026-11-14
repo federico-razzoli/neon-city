@@ -4,11 +4,11 @@ import {createThreeArcadeScene} from '../neon-city/three-arcade-scene.js';
 import {ARCADE} from '../neon-city/arcade-interior.js';
 import {createRendererPreferences,supportsRenderer} from '../neon-city/renderer-support.js';
 
-test('arcade defaults to Three.js and remembers the Canvas comparison choice',()=>{
+test('arcade uses Three.js and rejects the retired Canvas choice',()=>{
   const preferences=createRendererPreferences();
   assert.equal(supportsRenderer('arcade','three'),true);
   assert.equal(preferences.get('arcade'),'three');
-  preferences.set('arcade','canvas');assert.equal(preferences.get('arcade'),'canvas');
+  assert.throws(()=>preferences.set('arcade','canvas'));assert.equal(preferences.get('arcade'),'three');
 });
 
 test('arcade retains its complete room, updates visitors and drops, and releases resources',()=>{

@@ -37,8 +37,7 @@ export function createDebugMenu(api){
       <button type="button" role="tab" id="debug-tab-events" aria-controls="debug-panel-events" aria-selected="false" tabindex="-1">EVENTS</button>
     </div>
     <section role="tabpanel" id="debug-panel-locations" aria-labelledby="debug-tab-locations">
-    <table><caption>Destination and renderer</caption><thead><tr><th>Destination</th><th>Canvas/WASM</th><th>Three.js</th></tr></thead><tbody></tbody></table>
-    <p>Three.js is the default for all streets and interiors. Canvas/WASM is available here for debugging. Switching renderers preserves the current viewpoint and scene state.</p>
+    <table><caption>Travel to a destination</caption><thead><tr><th>Destination</th><th>Travel</th></tr></thead><tbody></tbody></table>
     </section>
     <section role="tabpanel" id="debug-panel-inventory" aria-labelledby="debug-tab-inventory" hidden>
     <fieldset><legend>Money</legend><label>Balance (£) <input id="debug-money" inputmode="decimal"></label> <button type="button" id="debug-money-apply">Apply money</button></fieldset>
@@ -72,24 +71,22 @@ export function createDebugMenu(api){
   const destinationButtons=[];
   for(const [id,label] of DEBUG_DESTINATIONS){
     const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=label;row.append(name);
-    for(const [renderer,labelRenderer] of [['canvas','Canvas/WASM'],['three','Three.js']]){
-      const cell=document.createElement('td'),button=document.createElement('button');button.type='button';button.textContent=labelRenderer;button.setAttribute('aria-label',`${label}: ${labelRenderer}`);
-      const supported=supportsRenderer(id,renderer);
-      button.disabled=!supported;if(!supported)button.title='Renderer not implemented for this destination';
-      destinationButtons.push({button,supported});
-      button.addEventListener('click',async()=>{
-        if(pending)return;pending=true;
-        for(const {button} of destinationButtons)button.disabled=true;
-        find('close').disabled=true;dialog.setAttribute('aria-busy','true');
-        status(renderer==='three'?'Loading Three.js…':'Entering destination…');
-        try{await api.travel(id,park,renderer);dialog.close();}
-        catch(error){status(error.message);}
-        finally{
-          pending=false;find('close').disabled=false;dialog.removeAttribute('aria-busy');
-          for(const {button,supported} of destinationButtons)button.disabled=!supported;
-        }
-      });cell.append(button);row.append(cell);
-    }
+    const cell=document.createElement('td'),button=document.createElement('button');button.type='button';button.textContent='Go';button.setAttribute('aria-label',`Go to ${label}`);
+    const supported=supportsRenderer(id,'three');
+    button.disabled=!supported;if(!supported)button.title='Renderer not implemented for this destination';
+    destinationButtons.push({button,supported});
+    button.addEventListener('click',async()=>{
+      if(pending)return;pending=true;
+      for(const {button} of destinationButtons)button.disabled=true;
+      find('close').disabled=true;dialog.setAttribute('aria-busy','true');
+      status('Entering destination…');
+      try{await api.travel(id,park);dialog.close();}
+      catch(error){status(error.message);}
+      finally{
+        pending=false;find('close').disabled=false;dialog.removeAttribute('aria-busy');
+        for(const {button,supported} of destinationButtons)button.disabled=!supported;
+      }
+    });cell.append(button);row.append(cell);
     dialog.querySelector('tbody').append(row);
   }
   const objects=[PINE_CONE,LADYBUG,FLOWER,LAMP,PASTIS_BOTTLE,MARIJUANA_PLANT,TICKET,HOTEL_NOTE,BACKPACK];

@@ -18,14 +18,11 @@ If not, see <https://www.gnu.org/licenses/>.
 */
 
 import {NATIVE_VIEW} from './render-camera.js';
-import {createCanvasRenderer} from './canvas-renderer.js';
-import {createWorldScene} from './world-scene.js';
-import {supportsRenderer,createRendererPreferences} from './renderer-support.js';
+import {supportsRenderer} from './renderer-support.js';
 import {startPhase,endPhase,profilePhase} from './render-profile.js';
 import {createDebugMenu,DEBUG_MODE,DEBUG_RIVERSIDE_SPAWN} from './debug-menu.js';
 import {entranceWall} from './entrances.js';
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
-import {createTexturePrewarmer} from './texture-pixels.js';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
@@ -101,7 +98,7 @@ async function playCabinet(name,machine){
   ping={loading:true,update(){}};
   const session=loadCabinetGame(name);cabinetSession=session;
   try{
-    const game=await session.ready;
+    const [game]=await Promise.all([session.ready,prepareCabinetRenderer()]);
     if(cabinetSession!==session)return;
     const reply=tryArcadeGame(machine,inventory);
     if(reply!==name){closeCabinet();notice=3.5;noticeText=reply;return;}
@@ -117,12 +114,12 @@ const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings)
 const indoors=()=>insideBookshop||insideArcade||insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
 // The pub's TOILET door leads to its lavatory, where a free cubicle opens.
-function bookshopSpatial(){return rendererPreferences.get('bookshop')==='three'?threeRenderer?.bookshopSpatial:null;}
+function bookshopSpatial(){return threeRenderer?.bookshopSpatial;}
 function bookshopTarget(){return bookshopSpatial()?.target(player,bookshopLife);}
-function pubSpatial(){return rendererPreferences.get('pub')==='three'?threeRenderer?.pubSpatial:null;}
+function pubSpatial(){return threeRenderer?.pubSpatial;}
 function pubTarget(){return pubSpatial()?.target(player,pubPatrons,pubLife?.walker,currentVenue.barBeer??PUB.barBeer);}
 function pubFacing(type,legacy){return pubSpatial()?pubTarget()?.type===type:legacy(player);}
-function washroomSpatial(){const id=insideCubicle?'cubicle':'lavatory';return rendererPreferences.get(id)==='three'?threeRenderer?.[`${id}Spatial`]:null;}
+function washroomSpatial(){const id=insideCubicle?'cubicle':'lavatory';return threeRenderer?.[`${id}Spatial`];}
 function washroomTarget(){return washroomSpatial()?.target(player,insideLavatory?lavatoryLife?.walker:null);}
 function useDoor(){
   let exitReaction='';
@@ -206,12 +203,11 @@ function enterVenue(venue){
 // position, limited turning, and looking up or down, until Space returns the
 // player to their feet. Getting up from the toilet flushes it.
 const SEATED_EYE=1.5;
-const seatedTexturePrewarmer=createTexturePrewarmer();
 function useSeat(){
   if(hotelStairs)return false;
   let greet=false,seatReply=null;
   if(playerSeat){
-    seatedTexturePrewarmer.cancel();
+
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
     if(playerSeat.toilet)playFlush(audioContext);
@@ -460,9 +456,14 @@ function playOuch(){
   source.onended=()=>source.disconnect();
 }
 
-
-let worldScene,canvasRenderer,threeRenderer,threeCanvas,threeRendererLoading;
-const rendererPreferences=createRendererPreferences();
+let cabinetRenderer,cabinetRendererLoading,threeRenderer,threeCanvas,threeRendererLoading;
+async function prepareCabinetRenderer(){
+  if(cabinetRenderer)return;
+  cabinetRendererLoading??=import('./cabinet-renderer.js').then(({createCabinetRenderer})=>{
+    cabinetRenderer=createCabinetRenderer(canvas,NATIVE_VIEW);
+  });
+  try{await cabinetRendererLoading;}finally{cabinetRendererLoading=null;}
+}
 async function prepareThreeRenderer(){
   if(threeRenderer)return;
   threeRendererLoading??=(async()=>{
@@ -470,7 +471,7 @@ async function prepareThreeRenderer(){
     const surface=document.createElement('canvas');surface.id='three-view';surface.hidden=true;
     surface.setAttribute('aria-hidden','true');
     try{threeRenderer=createThreeHotelRenderer(surface);}
-    catch(error){surface.remove();throw new Error(`Three.js could not start: ${error.message}. Use the debug menu to select Canvas/WASM.`);}
+    catch(error){surface.remove();throw new Error(`Three.js could not start: ${error.message}.`);}
     canvas.after(surface);threeCanvas=surface;
   })();
   try{await threeRendererLoading;}finally{threeRendererLoading=null;}
@@ -485,10 +486,10 @@ async function prepareRendererAtStartup(){
     start.innerHTML='3D RENDERING UNAVAILABLE';
   }finally{start.removeAttribute('aria-busy');}
 }
-async function selectDebugDestination(id,park,renderer=rendererPreferences.get(id)){
+async function selectDebugDestination(id,park,renderer='three'){
   if(!supportsRenderer(id,renderer))throw new Error('This renderer is not available for that destination.');
-  if(renderer==='three')await prepareThreeRenderer();
-  debugTravel(id,park);rendererPreferences.set(id,renderer);painted=false;
+  await prepareThreeRenderer();
+  debugTravel(id,park);painted=false;
 }
 function selectRenderSurface(useThree){
   if(threeCanvas)threeCanvas.hidden=!useThree;
@@ -497,7 +498,7 @@ function selectRenderSurface(useThree){
 }
 function render(){
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
-  if(ping){canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);selectRenderSurface(false);canvasRenderer.cabinet(ping,running);return;}
+  if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
@@ -510,16 +511,8 @@ function render(){
     pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors()
   };
-  const destination=debugScene(),rendererChoice=rendererPreferences.get(destination);
-  if(rendererChoice==='three'){
-    selectRenderSurface(true);
-    if(threeRenderer)profilePhase('neon:three:frame',()=>threeRenderer.render(frame));
-    return;
-  }
-  selectRenderSurface(false);
-  canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);
-  worldScene??=createWorldScene(canvasRenderer,{seatedTexturePrewarmer,reduced});
-  profilePhase('neon:canvas:frame',()=>worldScene.render(frame));
+  selectRenderSurface(true);
+  if(threeRenderer)profilePhase('neon:three:frame',()=>threeRenderer.render(frame));
 }
 // Debug travel shares venue initialization with ordinary door entry.
 function debugScene(){return insideBookshop?'bookshop':insideArcade?'arcade':insideHotel?(hotelStorage?'storage':hotelCorridor?'corridor':hotelStairs?'stairs':'hotel'):insideCubicle?'cubicle':insideLavatory?'lavatory':insidePub?'pub':'street';}
@@ -559,7 +552,7 @@ function debugTravel(id,park){
 }
 const debugMenu=DEBUG_MODE?createDebugMenu({
   canOpen:()=>running&&!ping&&!cabinetSession&&!banshee&&!pubMenu.open&&!inventoryBox.open&&!staffTalk,
-  pause:()=>{running=false;keys.clear();shiftKeys.clear();coverPressed=startSpaceHeld=false;seatedTexturePrewarmer.cancel();arcadeAmbience.mute();parkBirds.mute();tapWater.mute();muteBackgroundMusic();document.querySelector('#pace').hidden=true;},
+  pause:()=>{running=false;keys.clear();shiftKeys.clear();coverPressed=startSpaceHeld=false;arcadeAmbience.mute();parkBirds.mute();tapWater.mute();muteBackgroundMusic();document.querySelector('#pace').hidden=true;},
   resume:()=>{running=true;last=performance.now();canvas.focus();},
   nearestPark:()=>{
     const origin=indoors()?streetPosition:player;
@@ -570,7 +563,7 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
     return path?{...path[0],angle:Math.atan2(path[1].x-path[0].x,path[1].z-path[0].z)}:{x:x*64+12,z:z*64+32,angle:Math.PI/2};
   },travel:selectDebugDestination,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
 }):null;
-function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();seatedTexturePrewarmer.cancel();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
+function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
 function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 let hotelEventPresses=0,hotelEventKey=null;

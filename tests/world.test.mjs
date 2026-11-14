@@ -20,26 +20,6 @@ If not, see <https://www.gnu.org/licenses/>.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {drawArcade} from '../neon-city/arcade.js';
-import {createTexturePrewarmer} from '../neon-city/texture-pixels.js';
-
-test('seated texture preparation spreads readbacks and retains completed pixels after cancellation',async()=>{
-  const {createTexturePrewarmer,texturePixels}=await import('../neon-city/texture-pixels.js');
-  const callbacks=new Map();let id=0,reads=0;
-  const warmer=createTexturePrewarmer(callback=>{callbacks.set(++id,callback);return id;},handle=>callbacks.delete(handle));
-  const texture=()=>({width:1,height:1,getContext:()=>({getImageData:()=>{reads++;return {data:new Uint8ClampedArray([1,2,3,255])};}})});
-  const a=texture(),b=texture();
-  const runNext=()=>{const [handle,callback]=callbacks.entries().next().value;callbacks.delete(handle);callback();};
-  warmer.add(a);warmer.add(a);warmer.add(b);
-  assert.equal(reads,0,'sitting does not synchronously read pixels');
-  assert.equal(callbacks.size,1);
-  runNext();assert.equal(reads,1,'one texture is read per callback');
-  warmer.cancel();assert.equal(callbacks.size,0);
-  const cached=texturePixels(a);
-  assert.strictEqual(texturePixels(a),cached);assert.equal(reads,1,'standing preserves completed cache entries');
-  warmer.add(a);assert.equal(callbacks.size,0,'cached textures need no scheduled work');
-  warmer.add(b);runNext();assert.equal(reads,2,'cancelled textures can be prepared on a later seat visit');
-  assert.equal(callbacks.size,0);
-});
 
 test('hotel window street life moves continuously on sidewalks and lanes and matches across floors',async()=>{
   const {hotelStreetLife}=await import('../neon-city/hotel-street.js');
@@ -388,7 +368,7 @@ test('Space enters a hotel through its doors and leaves it the same way',async()
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   Object.assign(sandbox,await import('../neon-city/render-camera.js'),await import('../neon-city/render-profile.js'),await import('../neon-city/renderer-support.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
-  sandbox.createTexturePrewarmer=createTexturePrewarmer;
+
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,shootingStars,get seat(){return playerSeat;},get hotelLife(){return hotelLife;},get stairs(){return hotelStairs;},canSeeHotelGuest,inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   const hotel={x:14,z:14,w:18,d:18,j:0,sign:'HOTEL'};
@@ -731,37 +711,6 @@ test('arcade windows and sides vary while retaining their layout on redraw',()=>
 import {City,pedestrian,traffic,PEDESTRIAN_TYPES,PERSON_CLEARANCE,PEDESTRIAN_MIN_SPEED,PEDESTRIAN_MAX_SPEED} from '../neon-city/world.js';
 import {RIVER_ROWS,BLOCK,RIVER_WIDTH,WATER_LEVEL,BRIDGE_RISE,groundHeight,bridgeHeight} from '../neon-city/world.js';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces} from '../neon-city/rivers.js';
-import {orderGroundSurfaces} from '../neon-city/surface-order.js';
-
-test('river ground visibility matches nearest surface from either bank and camera bearing',()=>{
-  const city=new City(1);
-  for(const row of RIVER_ROWS){
-    const terrain=[];
-    for(const part of [row,row+1])drawRiverTerrain(city.generate(0,part),{
-      quad:(x,elevation,z,w,d,color)=>terrain.push({x,elevation,z,w,d,color}),face:()=>{}
-    },0);
-    for(const side of [0,1])for(const cameraX of [10,32,53])for(const offset of [9,13,16]){
-      const camera={x:cameraX,y:1.65,z:row*BLOCK+(side?128-offset:offset)};
-      for(const targetOffset of [10,12,15,17,25,60]){
-        const target={x:32,y:targetOffset<18?(targetOffset<14?.06:.04):WATER_LEVEL,
-          z:row*BLOCK+(side?128-targetOffset:targetOffset)};
-        const dx=target.x-camera.x,dz=target.z-camera.z,length=Math.hypot(dx,dz)||1;
-        const faces=terrain.map(f=>({...f,depth:((f.x+f.w/2-camera.x)*dx+(f.z+f.d/2-camera.z)*dz)/length}));
-        // Intersect a viewing ray with the actual terrain, independently of
-        // painter ordering, and compare the final painted surface to the nearest.
-        const hits=faces.flatMap(f=>{
-          const t=(f.elevation-camera.y)/(target.y-camera.y);
-          const x=camera.x+t*dx,z=camera.z+t*dz;
-          return t>0&&x>=f.x&&x<=f.x+f.w&&z>=f.z&&z<=f.z+f.d?[{f,t}]:[];
-        });
-        assert.ok(hits.length);
-        const visible=new Set(hits.map(hit=>hit.f));
-        const painted=orderGroundSurfaces(faces).filter(f=>visible.has(f)).at(-1);
-        assert.equal(painted.color,hits.sort((a,b)=>a.t-b.t)[0].f.color);
-      }
-    }
-  }
-});
 
 test('only Night River remains through district 0, 4, with ordinary city blocks at the former river',()=>{
   const city=new City(42),centres=RIVER_ROWS.map(row=>(row+1)*BLOCK);
@@ -1090,7 +1039,6 @@ test('a blocked sidestep on a straight sidewalk triggers the turnaround fallback
   assert.ok(people.every(p=>!p.yielding&&p.walkTime>5),'both resume after clearance');
 });
 
-
 test('individual pedestrian speeds stay within 1–2x and do not depend on appearance',()=>{
   const city=new City(42);city.update(0,0);
   const byType=Array.from({length:PEDESTRIAN_TYPES},()=>new Set());
@@ -1322,7 +1270,7 @@ test('bumping into a talker in their place shows their line instead of the bump 
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   Object.assign(sandbox,await import('../neon-city/render-camera.js'),await import('../neon-city/render-profile.js'),await import('../neon-city/renderer-support.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
-  sandbox.createTexturePrewarmer=createTexturePrewarmer;
+
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={tick};",sandbox);
   const {tick}=sandbox.game,message=()=>element('#message').textContent;
   events.keydown({key:' ',code:'Space',repeat:false,preventDefault(){}});tick(0);
@@ -1492,157 +1440,6 @@ test('stale same-direction sidesteps recover without teleporting or overlapping'
   }
 });
 
-test('wall texture lines follow perspective through left and right turns and near clipping',async()=>{
-  const {wallColumns}=await import('../neon-city/perspective.js');
-  const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
-  for(const angle of [-1,-.6,0,.6,1]){
-    const camera=(x,y)=>({x:x*Math.cos(angle)-8*Math.sin(angle),y,z:x*Math.sin(angle)+8*Math.cos(angle)});
-    const left=camera(-6,0),right=camera(6,0);
-    let lo=0,hi=1;
-    if(left.z<.15)lo=(.15-left.z)/(right.z-left.z);
-    if(right.z<.15)hi=(.15-left.z)/(right.z-left.z);
-    const vertex=(t,y,v)=>({x:left.x+(right.x-left.x)*t,y,z:left.z+(right.z-left.z)*t,u:160*t,v});
-    const vs=[vertex(lo,-1.65,200),vertex(hi,-1.65,200),vertex(hi,10,0),vertex(lo,10,0)];
-    const columns=[...wallColumns(vs.map(project),vs,640)];
-    assert.ok(columns.length>0);
-    for(const {x,top,bottom} of columns){
-      // Independently intersect a camera ray with the original wall plane.
-      const ray=(x+.5-320)/355;
-      const t=(ray*left.z-left.x)/((right.x-left.x)-ray*(right.z-left.z));
-      assert.ok(Math.abs(top.u-160*t)<1e-8,'texture columns use perspective-correct u');
-      assert.ok(Math.abs(bottom.u-top.u)<1e-8);
-      for(const fraction of [.1,.45,.8]){
-        const expected=project(vertex(t,10-11.65*fraction,200*fraction));
-        const actual=top.y+(bottom.y-top.y)*(200*fraction-top.v)/(bottom.v-top.v);
-        assert.ok(Math.abs(actual-expected.y)<1e-8,'horizontal texture lines stay straight');
-      }
-    }
-  }
-});
-
-test('street wall panels own every column once and share continuous depth and fog',async()=>{
-  const {wallColumns,wallFog}=await import('../neon-city/perspective.js');
-  const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
-  for(const reverse of [false,true]){
-    const at=(u,v)=>({x:-30+60*u/160,y:38*(1-v/180)-1.65,z:reverse?85-55*u/160:30+55*u/160,u,v});
-    const columns=(l,r)=>{const vs=[[l,180],[r,180],[r,0],[l,0]].map(([u,v])=>at(u,v));return [...wallColumns(vs.map(project),vs,640)];};
-    const whole=columns(0,160),panels=Array.from({length:8},(_,i)=>columns(i*20,(i+1)*20)).flat();
-    assert.deepEqual(panels.map(c=>c.x),whole.map(c=>c.x),'no missing or overlapping columns at fractional panel boundaries');
-    for(let i=0;i<whole.length;i++){
-      const a=whole[i],b=panels[i];
-      for(const edge of ['top','bottom'])for(const key of ['y','u','v','depth'])assert.ok(Math.abs(a[edge][key]-b[edge][key])<1e-8);
-      assert.ok(Math.abs(wallFog(a.top.depth)-wallFog(b.top.depth))<1e-10,'fog does not depend on panel subdivision');
-      // Independently intersect this camera ray with z = z0 + slope * (x+30).
-      const slope=(reverse?-55:55)/60,z0=reverse?85:30,rayX=(a.x+.5-320)/355;
-      const depth=(z0+30*slope)/(1-slope*rayX);
-      assert.ok(Math.abs(a.top.depth-depth)<1e-8);
-    }
-  }
-  assert.equal(wallFog(10),0);assert.equal(wallFog(22),0);
-  assert.equal(wallFog(89.5),.5);assert.equal(wallFog(1000),.94);
-});
-
-test('pitched wall fog and edge coverage are independent of panel subdivision',async()=>{
-  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
-  const texture={width:1,height:1,data:new Uint8ClampedArray([186,164,134,255])};
-  for(const pitch of [0,.5,1.1]){
-    const at=(u,v)=>{const x=-30+60*u,z=30+55*u,y=38*(1-v)-1.65;return {x,y:y*Math.cos(pitch)-z*Math.sin(pitch),z:z*Math.cos(pitch)+y*Math.sin(pitch),u,v};};
-    const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
-    const render=count=>{
-      const output=new Uint8ClampedArray(640*360*4),coverage=new Uint8Array(640*360);
-      for(let part=0;part<count;part++){
-        const l=part/count,r=(part+1)/count,vs=[[l,1],[r,1],[r,0],[l,0]].map(([u,v])=>at(u,v));
-        const pixels=new Uint8ClampedArray(output.length);
-        rasterizePitchedWall(vs.map(project),vs,texture,640,360,pixels,false,true);
-        for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]){coverage[i/4]++;output.set(pixels.subarray(i,i+4),i);}
-      }
-      assert.ok(coverage.every(n=>n<=1),'panels never apply fog twice to a pixel');
-      return output;
-    };
-    const whole=render(1),panels=render(8);
-    for(let i=0;i<whole.length;i++)assert.ok(Math.abs(whole[i]-panels[i])<=1,'fogged pixels match an unsplit wall');
-  }
-});
-
-test('pitched wall textures stay perspective-correct when a seated player looks up',async()=>{
-  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
-  const project=p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z});
-  let checked=0;
-  for(const pitch of [.2,.6,1.1])for(const angle of [-.7,0,.5]){
-    // The same camera as the game: turn, then pitch about the eye.
-    const c=Math.cos(angle),sn=Math.sin(angle),cp=Math.cos(pitch),sp=Math.sin(pitch);
-    const camera=w=>{const dx=w.x,dz=w.z-12,y=w.y-1.5,z=dx*sn+dz*c;return {x:dx*c-dz*sn,y:y*cp-z*sp,z:z*cp+y*sp};};
-    const wall=(u,v)=>({x:-4+8*u/160,y:20*(1-v/180),z:24});
-    const vs=[[0,180],[160,180],[160,0],[0,0]].map(([u,v])=>({...camera(wall(u,v)),u,v}));
-    if(vs.some(p=>p.z<=.15))continue;
-    checked++;
-    // Independently cast a camera ray through a screen point onto the wall.
-    const o=camera({x:0,y:0,z:24}),eu=camera({x:1,y:0,z:24}),ev=camera({x:0,y:1,z:24});
-    const ax={x:eu.x-o.x,y:eu.y-o.y,z:eu.z-o.z},ay={x:ev.x-o.x,y:ev.y-o.y,z:ev.z-o.z};
-    const n={x:ax.y*ay.z-ax.z*ay.y,y:ax.z*ay.x-ax.x*ay.z,z:ax.x*ay.y-ax.y*ay.x};
-    const texel=(sx,sy)=>{
-      const ray={x:(sx-320)/355,y:(164-sy)/355,z:1},t=(n.x*o.x+n.y*o.y+n.z*o.z)/(n.x*ray.x+n.y*ray.y+n.z*ray.z);
-      const p={x:ray.x*t-o.x,y:ray.y*t-o.y,z:ray.z*t-o.z},det=ax.x*ay.y-ax.y*ay.x;
-      const wx=(p.x*ay.y-p.y*ay.x)/det,wy=(ax.x*p.y-ax.y*p.x)/det;
-      return {u:(wx+4)*160/8,v:180*(1-wy/20)};
-    };
-    const texture={width:160,height:180,data:new Uint8ClampedArray(160*180*4)};
-    for(let y=0;y<180;y++)for(let x=0;x<160;x++)texture.data.set([x,y,73,255],(y*160+x)*4);
-    const pixels=new Uint8ClampedArray(640*360*4);
-    const bounds=rasterizePitchedWall(vs.map(project),vs,texture,640,360,pixels);
-    assert.ok(bounds&&bounds.left>=0&&bounds.top>=0&&bounds.left+bounds.width<=640&&bounds.top+bounds.height<=360);
-    let samples=0;
-    for(let y=0;y<360;y+=3)for(let x=0;x<640;x+=3){
-      const offset=(y*640+x)*4;
-      if(!pixels[offset+3])continue;
-      const truth=texel(x+.5,y+.5);
-      assert.ok(Math.abs(pixels[offset]-Math.max(0,Math.min(159,truth.u-.5)))<=.501,'u matches independent ray intersection');
-      assert.ok(Math.abs(pixels[offset+1]-Math.max(0,Math.min(179,truth.v-.5)))<=.501,'v matches independent ray intersection');
-      assert.equal(pixels[offset+2],73);samples++;
-    }
-    assert.ok(samples>0);
-
-  }
-  assert.ok(checked>=6,`${checked} camera setups checked`);
-
-});
-
-test('pitched textures clip to the viewport, clear scratch pixels, and preserve filtered alpha',async()=>{
-  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
-  const points=[{x:-100000,y:-100000},{x:100000,y:-100000},{x:500,y:300},{x:100,y:300}];
-  const vertices=[{z:.15,u:0,v:0},{z:.15,u:2,v:0},{z:100,u:2,v:2},{z:100,u:0,v:2}];
-  const texture={width:2,height:2,data:new Uint8ClampedArray([255,0,0,255,0,255,0,0,255,0,0,255,0,255,0,0])};
-  const pixels=new Uint8ClampedArray(640*360*4).fill(255);
-  const bounds=rasterizePitchedWall(points,vertices,texture,640,360,pixels);
-  assert.deepEqual(bounds,{left:0,top:0,width:640,height:300});
-  assert.equal(pixels[(299*640)*4+3],0,'scratch pixels outside the polygon are cleared');
-  assert.equal(rasterizePitchedWall(points.map(p=>({x:p.x+200000,y:p.y})),vertices,texture,640,360,pixels),null);
-  const square=[{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
-  const uv=[{z:1,u:0,v:0},{z:1,u:2,v:0},{z:1,u:2,v:2},{z:1,u:0,v:2}];
-  const sample=new Uint8ClampedArray(4);
-  rasterizePitchedWall(square,uv,texture,1,1,sample,true);
-  assert.deepEqual([...sample],[255,0,0,128],'bilinear filtering uses premultiplied alpha');
-});
-
-test('pitched texture panels meet without gaps and support upside-down walls',async()=>{
-  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
-  const texture={width:8,height:8,data:new Uint8ClampedArray(8*8*4)};
-  for(let y=0;y<8;y++)for(let x=0;x<8;x++)texture.data.set([x*20,y*20,10,255],(y*8+x)*4);
-  const coverage=new Uint8Array(64);
-  for(const [left,right] of [[0,3.5],[3.5,8]]){
-    const points=[{x:left,y:0},{x:right,y:0},{x:right,y:8},{x:left,y:8}];
-    const vertices=points.map(p=>({z:2,u:p.x,v:8-p.y}));
-    const pixels=new Uint8ClampedArray(64*4);
-    rasterizePitchedWall(points,vertices,texture,8,8,pixels);
-    for(let y=0;y<8;y++)for(let x=0;x<8;x++){
-      const i=y*8+x;if(!pixels[i*4+3])continue;
-      coverage[i]++;
-      assert.deepEqual([...pixels.slice(i*4,i*4+4)],[x*20,(7-y)*20,10,255]);
-    }
-  }
-  assert.ok(coverage.every(n=>n===1),'each pixel belongs to exactly one panel, including shared edge pixel centres');
-});
-
 test('all pedestrian types have distinct cached front/back sprites and walking frames',async()=>{
   const previous=globalThis.document;
   globalThis.document={createElement(){
@@ -1804,7 +1601,7 @@ test('game input replays manhole feedback on separate presses and held Space wit
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   Object.assign(sandbox,await import('../neon-city/render-camera.js'),await import('../neon-city/render-profile.js'),await import('../neon-city/renderer-support.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
-  sandbox.createTexturePrewarmer=createTexturePrewarmer;
+
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,camera:v=>{const camera=createRenderCamera(NATIVE_VIEW);camera.set({position:player,eye,pitch:windowView?.pitch??playerSeat?.pitch??0});return camera.transform(v);},inventory,get seat(){return playerSeat;}};",sandbox);
   const {player,city,tick}=sandbox.game;
   city.chunks.set('0,0',{buildings:[],manholes:[{x:player.x+2,z:player.z,radius:.65}]});
@@ -2111,8 +1908,6 @@ test('game input replays manhole feedback on separate presses and held Space wit
   assert.equal(tattooBox.hidden,true);
   tick(ms+=20);assert.equal(tattooBox.hidden,true,'finished follow-up does not reopen every frame');
 
-
-
 });
 
 test('Ursa Major has a fixed seven-star pattern that follows camera rotation',async()=>{
@@ -2188,21 +1983,6 @@ test('pub furniture and walls block running while the passage connects both room
   }
   moveInPub(player,-100,0);assert.ok(player.x>=.3);
   moveInPub(player,0,-100);assert.ok(player.z>=.3);
-});
-
-test('interior depth rendering keeps overlapping details visible regardless of submission order',async()=>{
-  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
-  let frame;
-  const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>{frame=f;}},20,20);
-  const polygon=(color,depths)=>({color,ps:[{x:0,y:0},{x:20,y:0},{x:20,y:20},{x:0,y:20}],vs:depths.map(z=>({z}))});
-  const wall=polygon('#876b53',[10,2,2,10]);
-  const detail=polygon('#e9c47e',[4.1,4.1,4.1,4.1]);
-  renderer.render([wall,detail]);const first=Array.from(frame.data);
-  renderer.render([detail,wall]);assert.deepEqual(Array.from(frame.data),first);
-  const pixel=(x,y)=>Array.from(frame.data.slice((y*20+x)*4,(y*20+x)*4+3));
-  assert.deepEqual(pixel(2,10),[233,196,126],'near detail covers the far end of a slanted face');
-  assert.deepEqual(pixel(17,10),[135,107,83],'near end of slanted face covers the detail');
-  renderer.render([detail]);assert.deepEqual(pixel(17,10),[233,196,126],'depth clears between frames');
 });
 
 test('door interaction remains available when approaching off-centre on either side',async()=>{
@@ -2492,7 +2272,6 @@ test('the pint on the bar belongs to someone else, from either side of the bar',
   assert.equal(facingCounterObject(front,beer),false,'aiming at the bartender talks to them');
   assert.equal(facingBartenderAcrossBar(front),true);
 });
-
 
 test('a chat with the bartender answers each line, in sequence where it has more than one',async()=>{
   const {BARTENDER_TALK,StaffTalk}=await import('../neon-city/pub-interior.js');
@@ -3052,19 +2831,6 @@ test('a chat with a waiting robot moves to robot-friendly hotels and back, and e
   assert.equal(facingHotelRobot({x:18.2,z:9,angle:0},null),false,'no robot about');
 });
 
-test('small sign strokes retain coverage between pixels and respect foreground occlusion',async()=>{
-  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
-  let frame;const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>frame=f},8,8);
-  const rect=(x,w,z,smooth,color)=>({color,smooth,ps:[{x,y:0},{x:x+w,y:0},{x:x+w,y:8},{x,y:8}],vs:Array.from({length:4},()=>({z}))});
-  for(const x of [2,2.25,2.5,2.75]){
-    const ink=rect(x,.25,2,true,'#ffffff');
-    renderer.render([ink],'#000000');
-    assert.ok(frame.data.some((v,i)=>i%4!==3&&v>0),'thin letter survives subpixel movement');
-    renderer.render([ink,rect(0,8,1,false,'#000000')],'#000000');
-    assert.ok(frame.data.every((v,i)=>i%4===3||v===0),'foreground still hides lettering');
-  }
-});
-
 test('toilet door is reachable between lounge tables and requires looking at it',async()=>{
   const {PUB,facingToiletDoor,moveInPub}=await import('../neon-city/pub-interior.js');
   const p={x:PUB.toiletDoor.x,z:12,angle:0};
@@ -3318,7 +3084,7 @@ test('boogie-woogie plays in the pub, faint and muffled in the lavatory, gone in
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   Object.assign(sandbox,await import('../neon-city/render-camera.js'),await import('../neon-city/render-profile.js'),await import('../neon-city/renderer-support.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
-  sandbox.createTexturePrewarmer=createTexturePrewarmer;
+
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,inventory};",sandbox);
   const {player,city,tick}=sandbox.game,location=()=>element('#location').textContent;
   city.chunks.set('0,0',{buildings:[{x:14,z:14,w:18,d:18,j:0,sign:'NEON PUB'}],manholes:[],newspaperMachines:[]});
@@ -3429,7 +3195,7 @@ test('Space walks from the pub into a free cubicle, sits, flushes on standing an
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   Object.assign(sandbox,await import('../neon-city/render-camera.js'),await import('../neon-city/render-profile.js'),await import('../neon-city/renderer-support.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
-  sandbox.createTexturePrewarmer=createTexturePrewarmer;
+
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,tick,goToPub(){currentVenue={x:14,z:14};insidePub=true;currentPubName='THE PUB';},get seat(){return playerSeat;}};",sandbox);
   const {player,tick}=sandbox.game,location=()=>element('#location').textContent;
   const space={key:' ',code:'Space',repeat:false,preventDefault(){}};
@@ -4121,24 +3887,6 @@ test('newspaper machines vary by street, leave doors clear and block running',()
   assert.deepEqual([...papers].sort(),['DAILY BUGLE','NEON NEWS','THE RECORD'],'each machine sells one of the three papers');
 });
 
-test('machine surfaces use overlap depth so slanted walls cannot erase tops or labels',async()=>{
-  const {orderSurfaces}=await import('../neon-city/surface-order.js');
-  const panel=(name,left,right,depths,detail=false)=>({name,detail,depth:depths.reduce((a,b)=>a+b)/4,ps:[{x:left,y:0},{x:right,y:0},{x:right,y:10},{x:left,y:10}],vs:depths.map(z=>({z}))});
-  const wall=panel('wall',0,10,[20,2,2,20]);
-  const top=panel('top',0,2,[7,7,7,7],true);
-  const label=panel('label',0,2,[6.99,6.99,6.99,6.99],true);
-  const pedestrian=panel('pedestrian',0,2,[3,3,3,3]);
-  const foreground=panel('foreground',8,10,[3,3,3,3],true);
-  for(const input of [[wall,top,label,pedestrian,foreground],[foreground,pedestrian,label,top,wall]]){
-    const order=orderSurfaces(input).map(f=>f.name);
-    assert.ok(order.indexOf('wall')<order.indexOf('top'),'far portion of wall stays behind top');
-    assert.ok(order.indexOf('top')<order.indexOf('label'),'label remains above cabinet');
-    assert.ok(order.indexOf('label')<order.indexOf('pedestrian'),'nearby pedestrian still occludes cabinet');
-    assert.ok(order.indexOf('foreground')<order.indexOf('wall'),'near end of wall still occludes objects behind it');
-  }
-});
-
-
 test('adjacent venues share walls without gaps and collision matches the outer walls',()=>{
   const city=new City(52);
   for(const [x,z] of [[0,0],[-2,3],[4,-4]]){
@@ -4175,32 +3923,6 @@ test('bridge fascia separates buried ends and hides lower walls from the deck si
         'only the parapet remains above the deck');
     }
   }
-});
-
-test('bridge pavement stays behind pedestrian legs at oblique camera bearings',async()=>{
-  const {orderSurfaces}=await import('../neon-city/surface-order.js');
-  let corrected=0;
-  for(const angle of [-1.2,-.8,-.4,.4,.8,1.2]){
-    const s=Math.sin(angle),c=Math.cos(angle);
-    const camera={x:11-s*10,z:1-c*10,y:1.725};
-    const project=v=>{
-      const dx=v.x-camera.x,dz=v.z-camera.z,z=dx*s+dz*c;
-      return {z,p:{x:(dx*c-dz*s)/z,y:(camera.y-v.y)/z}};
-    };
-    const vertices=[{x:8,y:.075,z:0},{x:14,y:.075,z:0},{x:14,y:.075,z:2},{x:8,y:.075,z:2}].map(project);
-    const deck={name:'deck',depth:vertices.reduce((sum,v)=>sum+v.z,0)/4,ps:vertices.map(v=>v.p),vs:vertices};
-    // The pedestrian stands nearer one end of the panel, not at its centre.
-    const feet=project({x:11,y:.075,z:1.6}),width=.09,height=.185;
-    const person={name:'person',detail:true,depth:feet.z,vs:Array.from({length:4},()=>({z:feet.z})),ps:[
-      {x:feet.p.x-width/2,y:feet.p.y},{x:feet.p.x+width/2,y:feet.p.y},
-      {x:feet.p.x+width/2,y:feet.p.y-height},{x:feet.p.x-width/2,y:feet.p.y-height}
-    ]};
-    if(person.depth>deck.depth)corrected++;
-    for(const faces of [[person,deck],[deck,person]])assert.deepEqual(orderSurfaces(faces).map(f=>f.name),['deck','person']);
-    const rail={...person,name:'rail',detail:false,depth:feet.z-1,vs:person.vs.map(()=>({z:feet.z-1}))};
-    assert.deepEqual(orderSurfaces([rail,person,deck]).map(f=>f.name),['deck','person','rail'],'foreground rail still hides pedestrians');
-  }
-  assert.ok(corrected>0,'covers angles where centre-distance sorting hides the legs');
 });
 
 test('one block in ten becomes a park with benches and trees in place of buildings',async()=>{
@@ -4284,42 +4006,6 @@ test('the winding footpath is walkable, curves, and leaves trees and benches cle
     }
     // Unloaded blocks keep their solid footprint.
     assert.ok(city.solid(x+BLOCK*50+32,z+32));
-  }
-});
-
-test('park footpath and decals always paint over the lawn from any viewpoint',async()=>{
-  const {drawParkGround,PARK_LAYERS}=await import('../neon-city/parks.js');
-  const inside=(poly,x,z)=>{
-    let hit=false;
-    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-      const a=poly[i],b=poly[j];
-      if((a.z>z)!==(b.z>z)&&x<(b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x)hit=!hit;
-    }
-    return hit;
-  };
-  for(let seed=1;seed<6;seed++){
-    const {chunk}=parkChunk(seed),terrain=[],x=chunk.x*BLOCK,z=chunk.z*BLOCK;
-    drawParkGround(chunk,{
-      quad:(x,elevation,z,w,d,color)=>terrain.push({poly:[{x,z},{x:x+w,z},{x:x+w,z:z+d},{x,z:z+d}],elevation,color}),
-      face:(vertices,color)=>terrain.push({poly:vertices,elevation:vertices[0].y,color})
-    });
-    assert.ok(terrain.filter(f=>f.elevation===PARK_LAYERS.path).length>20,'the path is a curved ribbon');
-    assert.ok(Math.max(...terrain.filter(f=>f.elevation<PARK_LAYERS.path).map(f=>f.elevation))<PARK_LAYERS.path);
-    for(const cameraX of [-20,11,32,70])for(const cameraZ of [-15,11,40,90])for(const target of chunk.park.path.slice(1,-1)){
-      const camera={x:x+cameraX,y:1.65,z:z+cameraZ};
-      const dx=target.x-camera.x,dz=target.z-camera.z,length=Math.hypot(dx,dz)||1;
-      const faces=terrain.map(f=>{
-        const c=f.poly.reduce((s,p)=>({x:s.x+p.x/f.poly.length,z:s.z+p.z/f.poly.length}),{x:0,z:0});
-        return {...f,depth:((c.x-camera.x)*dx+(c.z-camera.z)*dz)/length};
-      });
-      const hits=faces.filter(f=>{
-        const t=(f.elevation-camera.y)/(PARK_LAYERS.path-camera.y);
-        return inside(f.poly,camera.x+t*dx,camera.z+t*dz);
-      });
-      assert.ok(hits.some(f=>f.color==='#345841'),'the ray also crosses the lawn');
-      const painted=orderGroundSurfaces(faces).filter(f=>hits.includes(f)).at(-1);
-      assert.ok(painted.elevation>=PARK_LAYERS.path,'footpath is never hidden by the lawn');
-    }
   }
 });
 
@@ -4877,7 +4563,6 @@ test('the pub plays seamless, swung twelve-bar boogie-woogies on the piano, each
   assert.ok(performance.now()-started<1500,'quick enough to prepare when sound is switched on');
 });
 
-
 test('taxis, hippie vans, and Mercedes each appear once per ten normal cars on average',()=>{
   let taxis=0,vans=0,mercedes=0,normal=0;
   for(let x=-100;x<100;x++)for(let z=-25;z<25;z++){
@@ -4892,7 +4577,6 @@ test('taxis, hippie vans, and Mercedes each appear once per ten normal cars on a
   assert.ok(Math.abs(vans/normal-.1)<.01,`van to normal ratio: ${vans/normal}`);
   assert.ok(Math.abs(mercedes/normal-.1)<.01,`Mercedes to normal ratio: ${mercedes/normal}`);
 });
-
 
 test('arcade doors work on both street sides and furniture blocks running',async()=>{
   const {ARCADE,facingArcadeDoor,facingArcadeExit,moveInArcade,drawArcadeInterior}=await import('../neon-city/arcade-interior.js');
@@ -4937,7 +4621,7 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   const source=(await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   Object.assign(sandbox,await import('../neon-city/render-camera.js'),await import('../neon-city/render-profile.js'),await import('../neon-city/renderer-support.js'));
   sandbox.DEBUG_MODE=false; // These gameplay tests use a minimal DOM without the debug dialog.
-  sandbox.createTexturePrewarmer=createTexturePrewarmer;
+
   runInNewContext(source.replaceAll('import.meta.url',JSON.stringify('http://localhost/game.js'))+"\nrender=()=>{};globalThis.game={player,city,tick,get seat(){return playerSeat;},inventory,get arcadeLife(){return arcadeLife;},get staffTalk(){return staffTalk;},get ping(){return ping;}};",sandbox);
   let loads=0,disposals=0,failNext=false;
   sandbox.loadCabinetGame=name=>{
@@ -5071,10 +4755,6 @@ test('Space sits at an arcade bridge chair facing its console and stands up agai
   assert.ok(sandbox.game.ping);const remaining=visitor.wait;tick(ms+=100);
   assert.ok(visitor.wait<remaining,'visitors continue playing while the player plays');
   events.keydown(arrow('Escape'));events.keyup(arrow('Escape'));
-
-
-
-
 
 });
 
@@ -5811,33 +5491,6 @@ test('starting cash adds pounds once without becoming an inventory item',async()
   assert.equal(new Wallet().balance,'£0.00');
 });
 
-test('ground note print remains attached to world coordinates as the camera turns and moves',async()=>{
-  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
-  const texture={width:160,height:80,data:new Uint8ClampedArray(160*80*4)};
-  for(let v=0;v<80;v++)for(let u=0;u<160;u++)texture.data.set([u,v,50,255],(v*160+u)*4);
-  for(const angle of [-.4,0,.4])for(const px of [-.3,.3]){
-    const c=Math.cos(angle),s=Math.sin(angle);
-    const vertices=[[0,0],[160,0],[160,80],[0,80]].map(([u,v])=>{
-      const dx=-.32+.64*u/160-px,dz=3+.32*v/80;
-      return {x:dx*c-dz*s,y:-1.5,z:dx*s+dz*c,u,v};
-    });
-    const points=vertices.map(p=>({x:320+355*p.x/p.z,y:164-355*p.y/p.z}));
-    const pixels=new Uint8ClampedArray(640*360*4);
-    rasterizePitchedWall(points,vertices,texture,640,360,pixels);
-    let samples=0;
-    for(let y=0;y<360;y++)for(let x=0;x<640;x++){
-      const offset=(y*640+x)*4;if(!pixels[offset+3])continue;
-      const depth=-1.5/((164-y-.5)/355),cx=(x+.5-320)/355*depth;
-      const wx=px+cx*c+depth*s,wz=-cx*s+depth*c;
-      assert.ok(Math.abs(pixels[offset]-Math.floor((wx+.32)/.64*160))<=1);
-      assert.ok(Math.abs(pixels[offset+1]-Math.floor((wz-3)/.32*80))<=1);
-      samples++;
-    }
-    assert.ok(samples>0);
-  }
-});
-
-
 test('cars brake progressively before crossings and accelerate when clear',async()=>{
   const {Traffic}=await import('../neon-city/traffic.js');
   const simulation=new Traffic(),car={x:3,z:-35,axis:0,dir:1};
@@ -6044,39 +5697,6 @@ test('dropping a ladybug loses it without leaving any recoverable item',async()=
     assert.deepEqual(inventory.items,[FLOWER]);assert.equal(inventory.selected,0);
     assert.equal(chunk.droppedItems,undefined);
     assert.equal(takeDroppedItem(player,[chunk],inventory,room),null);
-  }
-});
-
-test('interior floor textures preserve artwork, perspective and foreground occlusion',async()=>{
-  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
-  let frame;
-  const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>frame=f},8,8);
-  const texture={width:2,height:1,getContext:()=>({getImageData:()=>({width:2,height:1,data:new Uint8ClampedArray([240,20,30,255,10,40,230,255])})})};
-  const floor={color:'#58665a',texture,ps:[{x:0,y:0},{x:8,y:0},{x:8,y:8},{x:0,y:8}],vs:[{z:1,u:0,v:0},{z:4,u:2,v:0},{z:4,u:2,v:1},{z:1,u:0,v:1}]};
-  const pixel=x=>Array.from(frame.data.slice((4*8+x)*4,(4*8+x)*4+3));
-  renderer.render([floor]);
-  assert.deepEqual(pixel(5),[240,20,30],'UV interpolation accounts for depth');
-  assert.deepEqual(pixel(7),[10,40,230],'both parts of the artwork appear');
-  const wall={...floor,texture:null,color:'#abcdef',vs:floor.vs.map(v=>({...v,z:.5}))};
-  renderer.render([wall,floor]);
-  assert.deepEqual(pixel(5),[171,205,239],'nearer geometry hides the texture');
-});
-
-test('hotel note colour matches outdoor artwork after the hotel overlay',async()=>{
-  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
-  const {rasterizePitchedWall}=await import('../neon-city/perspective.js');
-  let frame;
-  const renderer=new DepthRenderer({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:f=>frame=f},8,8);
-  const data={width:2,height:1,data:new Uint8ClampedArray([88,102,90,255,37,46,40,255])};
-  const texture={width:2,height:1,getContext:()=>({getImageData:()=>data})};
-  const face={color:'#58665a',texture,textureSmooth:true,textureOverlay:{color:[9,7,21],alpha:.2},ps:[{x:0,y:0},{x:8,y:0},{x:8,y:8},{x:0,y:8}],vs:[{z:1,u:0,v:0},{z:4,u:2,v:0},{z:4,u:2,v:1},{z:1,u:0,v:1}]};
-  const outdoor=new Uint8ClampedArray(8*8*4);
-  rasterizePitchedWall(face.ps,face.vs,data,8,8,outdoor,true);
-  renderer.render([face]);
-  for(let x=0;x<8;x++)for(let c=0;c<3;c++){
-    const offset=(4*8+x)*4+c;
-    const displayed=Math.round(frame.data[offset]*.8+[9,7,21][c]*.2);
-    assert.ok(Math.abs(displayed-outdoor[offset])<=1,'same visible colour including filtered print edges');
   }
 });
 
@@ -6305,7 +5925,6 @@ test('waiting cars block movement from every side and report contact without a p
   }
 });
 
-
 test('punk girl mentions tickets only after the marriage line is heard, in every place',async()=>{
   const {followupFor}=await import('../neon-city/npc-dialogue.js');
   const {PubConversation}=await import('../neon-city/pub-life.js');
@@ -6337,7 +5956,6 @@ test('punk girl mentions tickets only after the marriage line is heard, in every
   }
 });
 
-
 test('music synthesis writes identical samples directly into audio buffer channels',async()=>{
   for(const [moduleName,prefix] of [['lobby-music','LOBBY'],['pub-music','PUB']]){
     const module=await import(`../neon-city/${moduleName}.js`);
@@ -6365,71 +5983,6 @@ test('music synthesis writes identical samples directly into audio buffer channe
       assert.equal(samples(pieces[i],rate,reused),reused);
       assert.deepEqual(reused,expected,'reused output does not retain old samples');
     }
-  }
-});
-
-test('outdoor and interior renderers share one pixel read per immutable texture',async()=>{
-  const {drawPitchedWallTexture}=await import('../neon-city/perspective.js?v=shared-pixels-1');
-  const {DepthRenderer}=await import('../neon-city/depth-renderer.js?v=shared-pixels-1');
-  const image=(width,height)=>({width,height,data:new Uint8ClampedArray(width*height*4)});
-  const scratch={putImageData(){},createImageData:image};
-  const previousDocument=globalThis.document;
-  globalThis.document={createElement:()=>({getContext:()=>scratch})};
-  try{
-    let reads=0;
-    const texture={width:1,height:1,getContext:()=>({getImageData:()=>{
-      reads++;return {width:1,height:1,data:new Uint8ClampedArray([240,20,30,255])};
-    }})};
-    const ps=[{x:0,y:0},{x:2,y:0},{x:2,y:2},{x:0,y:2}];
-    const vs=[{z:1,u:0,v:0},{z:1,u:1,v:0},{z:1,u:1,v:1},{z:1,u:0,v:1}];
-    const outdoor={canvas:{height:2},save(){},restore(){},drawImage(){}};
-    let frame;
-    const interior=new DepthRenderer({createImageData:image,putImageData:f=>frame=f},2,2);
-    for(let i=0;i<2;i++){
-      drawPitchedWallTexture(outdoor,ps,vs,texture,2);
-      interior.render([{ps,vs,texture,color:'#000000'}]);
-    }
-    assert.equal(reads,1,'both module variants reuse the same texture pixels across frames');
-    assert.deepEqual(Array.from(frame.data.slice(0,4)),[240,20,30,255]);
-    interior.render([{ps,vs,texture:{...texture},color:'#000000'}]);
-    assert.equal(reads,2,'distinct canvases have distinct cache entries');
-  }finally{
-    if(previousDocument===undefined)delete globalThis.document;
-    else globalThis.document=previousDocument;
-  }
-});
-
-test('lettering coverage clears between overlapping colors and subsequent frames',async()=>{
-  const {DepthRenderer}=await import('../neon-city/depth-renderer.js');
-  const context=()=>({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData(){}});
-  const renderer=new DepthRenderer(context(),4,4);
-  const glyph=(color,x=0)=>({smooth:true,color,
-    ps:[{x:x+.25,y:.25},{x:x+1.75,y:.25},{x:x+1.75,y:2.75},{x:x+.25,y:2.75}],
-    vs:Array.from({length:4},()=>({z:1}))});
-  const red=glyph('#ff0000'),green=glyph('#00ff00',1);
-  const background='#000000';
-  renderer.render([],background);
-  assert.equal(renderer.coverage,null,'allocate coverage only when lettering is rendered');
-  assert.equal(renderer.coverageTouched,null,'allocate pixel indices only when lettering is rendered');
-  renderer.render([red,green],background);
-  const coverage=renderer.coverage,touched=renderer.coverageTouched;
-  assert.ok(touched instanceof Uint32Array);
-  assert.equal(touched.length,16);
-  // Render each color separately and composite its coverage over the first.
-  const first=new DepthRenderer(context(),4,4),second=new DepthRenderer(context(),4,4);
-  first.render([red],background);second.render([green],background);
-  for(let i=0;i<renderer.frame.data.length;i+=4){
-    const alpha=second.frame.data[i+1]/255;
-    assert.ok(Math.abs(renderer.frame.data[i]-Math.round(first.frame.data[i]*(1-alpha)))<=1);
-    assert.equal(renderer.frame.data[i+1],second.frame.data[i+1]);
-  }
-  const full={smooth:true,color:'#ffffff',ps:[{x:0,y:0},{x:4,y:0},{x:4,y:4},{x:0,y:4}],vs:Array.from({length:4},()=>({z:1}))};
-  for(const faces of [[green],[red],[],[full,full],[green],[red,green]]){
-    renderer.render(faces,background);
-    const fresh=new DepthRenderer(context(),4,4);fresh.render(faces,background);
-    assert.deepEqual(renderer.frame.data,fresh.frame.data,'no stale coverage from previous colors or frames');
-    assert.equal(renderer.coverage,coverage);assert.equal(renderer.coverageTouched,touched);
-    assert.ok(coverage.every(value=>value===0));
   }
 });
 
@@ -6486,7 +6039,6 @@ test('river ripple scratch geometry preserves every animated segment without ret
     assert.ok(checks>0);assert.equal(skippedFaces,0);assert.equal(water,0,'rejected tiles skip water and ripple work');
   }
 });
-
 
 test('receptionist waits for a continuously lit lamp, switches it off and returns behind the desk',async()=>{
   const {HOTEL,switchHotelLamp,advanceHotelReceptionist,hotelReceptionistPosition}=await import('../neon-city/hotel-interior.js');
@@ -6590,7 +6142,6 @@ test('pedestrian scratch reuse stays correct when crowds shrink, empty, and repo
     }
   }
 });
-
 
 test('five receptionist shutoffs unlock a two-step lamp pickup unless a lamp is already carried',async()=>{
   const {HOTEL,switchHotelLamp,advanceHotelReceptionist,facingHotelLamp,drawHotelInterior}=await import('../neon-city/hotel-interior.js');
