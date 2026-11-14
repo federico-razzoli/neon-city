@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
 import {NATIVE_VIEW} from './render-camera.js';
-import {starProjector} from './sky.js?v=stars-2';
+import {projectSky,starProjector} from './sky.js?v=stars-2';
 
 // Reuse the pixel sky artwork as a scene background. All world geometry stays
 // in WebGL, so walls, casements and street objects naturally occlude this image.
@@ -17,11 +17,15 @@ export function createCorridorSky(scene){
       const key=`${view.angle}:${view.pitch}:${star?.age}`;
       if(key===previousKey&&frame.starfield===previousField&&star===previousStar)return;
       previousKey=key;previousField=frame.starfield;previousStar=star;
-      context.fillStyle='#000';context.fillRect(0,0,canvas.width,canvas.height);
+      context.fillStyle=frame.indoors?'#000':'#0f0a1e';context.fillRect(0,0,canvas.width,canvas.height);
       const project=starProjector(view.angle,view.width,view.focal,view.horizon,view.pitch);
       for(const star of frame.starfield){
         const point=project(star);if(!point)continue;
         context.fillStyle=star.color??'#3b344e';context.fillRect(Math.floor(point.x),Math.floor(point.y),1,1);
+      }
+      if(frame.moon){
+        const point=projectSky(frame.moon,view.angle,view.width,view.focal,view.horizon,view.pitch);
+        if(point){context.fillStyle='#c4aacb';[5,9,11,11,13,13,13,13,13,11,11,9,5].forEach((width,row)=>context.fillRect(point.x-(width-1)/2,point.y-6+row,width,1));}
       }
       frame.shootingStars.draw(context,view);texture.needsUpdate=true;
     },

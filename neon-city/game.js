@@ -470,23 +470,20 @@ async function prepareThreeRenderer(){
     const surface=document.createElement('canvas');surface.id='three-view';surface.hidden=true;
     surface.setAttribute('aria-hidden','true');
     try{threeRenderer=createThreeHotelRenderer(surface);}
-    catch(error){surface.remove();throw new Error(`Three.js could not start: ${error.message}. Canvas/WASM is still available.`);}
+    catch(error){surface.remove();throw new Error(`Three.js could not start: ${error.message}. Use the debug menu to select Canvas/WASM.`);}
     canvas.after(surface);threeCanvas=surface;
   })();
   try{await threeRendererLoading;}finally{threeRendererLoading=null;}
 }
-function useCanvasFallback(){
-  for(const id of ['hotel','storage','stairs','corridor','arcade','bookshop','pub','lavatory','cubicle'])rendererPreferences.set(id,'canvas');
-}
 async function prepareRendererAtStartup(){
-  try{await prepareThreeRenderer();}
-  catch{
-    useCanvasFallback();
-    document.querySelector('#description').textContent='3D rendering could not start. You can still explore the city.';
-  }finally{
+  try{
+    await prepareThreeRenderer();
     start.innerHTML='STEP INTO THE NIGHT <span>→</span>';
-    start.disabled=false;start.removeAttribute('aria-busy');
-  }
+    start.disabled=false;
+  }catch(error){
+    document.querySelector('#description').textContent=error.message;
+    start.innerHTML='3D RENDERING UNAVAILABLE';
+  }finally{start.removeAttribute('aria-busy');}
 }
 async function selectDebugDestination(id,park,renderer=rendererPreferences.get(id)){
   if(!supportsRenderer(id,renderer))throw new Error('This renderer is not available for that destination.');
@@ -499,10 +496,8 @@ function selectRenderSurface(useThree){
   if(!useThree)threeRenderer?.leave();
 }
 function render(){
-  canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);
-  worldScene??=createWorldScene(canvasRenderer,{seatedTexturePrewarmer,reduced});
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
-  if(ping){selectRenderSurface(false);canvasRenderer.cabinet(ping,running);return;}
+  if(ping){canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);selectRenderSurface(false);canvasRenderer.cabinet(ping,running);return;}
   if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z);
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
@@ -516,16 +511,15 @@ function render(){
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors()
   };
   const destination=debugScene(),rendererChoice=rendererPreferences.get(destination);
-  if(supportsRenderer(destination,'three')&&rendererChoice==='three'&&!threeRenderer&&!threeRendererLoading){
-    prepareThreeRenderer().then(()=>{painted=false;}).catch(error=>{
-      useCanvasFallback();painted=false;
-      if(supportsRenderer(debugScene(),'three')){notice=5;noticeText=error.message;}
-    });
+  if(rendererChoice==='three'){
+    selectRenderSurface(true);
+    if(threeRenderer)profilePhase('neon:three:frame',()=>threeRenderer.render(frame));
+    return;
   }
-  const useThree=Boolean(supportsRenderer(destination,'three')&&rendererChoice==='three'&&threeRenderer);
-  selectRenderSurface(useThree);
-  if(useThree)profilePhase('neon:three:frame',()=>threeRenderer.render(frame));
-  else profilePhase('neon:canvas:frame',()=>worldScene.render(frame));
+  selectRenderSurface(false);
+  canvasRenderer??=createCanvasRenderer(canvas,NATIVE_VIEW);
+  worldScene??=createWorldScene(canvasRenderer,{seatedTexturePrewarmer,reduced});
+  profilePhase('neon:canvas:frame',()=>worldScene.render(frame));
 }
 // Debug travel shares venue initialization with ordinary door entry.
 function debugScene(){return insideBookshop?'bookshop':insideArcade?'arcade':insideHotel?(hotelStorage?'storage':hotelCorridor?'corridor':hotelStairs?'stairs':'hotel'):insideCubicle?'cubicle':insideLavatory?'lavatory':insidePub?'pub':'street';}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 export function supportsRenderer(destination,renderer){
-  return renderer==='canvas'||renderer==='three'&&['hotel','storage','stairs','corridor','arcade','bookshop','pub','lavatory','cubicle'].includes(destination);
+  return renderer==='canvas'||renderer==='three'&&['street','initial','river','park','hotel','storage','stairs','corridor','arcade','bookshop','pub','lavatory','cubicle'].includes(destination);
 }
 
 export function defaultRenderer(destination){
@@ -9,10 +9,10 @@ export function defaultRenderer(destination){
 export function createRendererPreferences(){
   const choices=new Map();
   return {
-    get(destination){return choices.get(destination)??defaultRenderer(destination);},
+    get(destination){return choices.get(['initial','river','park'].includes(destination)?'street':destination)??defaultRenderer(destination);},
     set(destination,renderer){
       if(!supportsRenderer(destination,renderer))throw new Error('This renderer is not available for that destination.');
-      choices.set(destination,renderer);
+      choices.set(['initial','river','park'].includes(destination)?'street':destination,renderer);
     }
   };
 }

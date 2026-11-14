@@ -14,7 +14,10 @@ import {createThreePubScene} from './three-pub-scene.js';
 import {createThreeLavatoryScene,createThreeCubicleScene} from './three-lavatory-scene.js';
 import {createThreeHallScene} from './three-hall-scene.js';
 
+import {createThreeStreetScene} from './three-street-scene.js';
+
 function createScene(destination,hotel,floor){
+  if(destination==='street')return createThreeStreetScene();
   if(destination==='lavatory')return createThreeLavatoryScene();
   if(destination==='cubicle')return createThreeCubicleScene();
   if(destination==='pub')return createThreePubScene();
@@ -39,8 +42,8 @@ export function createThreeHotelRenderer(canvas){
     get bookshopSpatial(){return bookshopSpatial??=createThreeBookshopSpatial();},
     get pubSpatial(){return pubSpatial??=createThreePubSpatial();},
     render(frame){
-      const nextDestination=frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
-      const nextHotel=['arcade','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
+      const nextDestination=!frame.indoors?'street':frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
+      const nextHotel=nextDestination==='street'?null:['arcade','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
       const nextFloor=nextDestination==='corridor'?frame.hotelStairs.floor:null;
       if(!room||hotel!==nextHotel||destination!==nextDestination||floor!==nextFloor){
         leave();

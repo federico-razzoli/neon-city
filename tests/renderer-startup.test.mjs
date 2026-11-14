@@ -15,9 +15,9 @@ test('title remains gated until shared renderer preparation finishes',async()=>{
   assert.equal(start.disabled,true);assert.equal(calls,1);resolve();await ready;
   assert.equal(start.disabled,false);assert.equal(start.busy,false);assert.match(start.innerHTML,/STEP INTO THE NIGHT/);assert.equal(state.fallback,0);
 });
-test('renderer failure still enables play and selects the Canvas fallback',async()=>{
+test('renderer failure keeps play gated without selecting Canvas',async()=>{
   const {start,state,description,ready}=fixture(async()=>{throw new Error('WebGL unavailable');});await ready;
-  assert.equal(start.disabled,false);assert.equal(start.busy,false);assert.equal(state.fallback,1);assert.match(description.textContent,/still explore/);
+  assert.equal(start.disabled,true);assert.equal(start.busy,false);assert.equal(state.fallback,0);assert.match(description.textContent,/WebGL unavailable/);
 });
 test('initial HTML gates play and gameplay checks that gate before enabling movement',async()=>{
   const html=await readFile(new URL('../neon-city/index.html',import.meta.url),'utf8');
@@ -25,4 +25,13 @@ test('initial HTML gates play and gameplay checks that gate before enabling move
   const play=game.slice(game.indexOf('function play(){'),game.indexOf("start.addEventListener('click',play)"));
   let enabled=0;const state={start:{disabled:true},enableSound(){enabled++;}};
   runInNewContext(play+'\nplay();',state);assert.equal(enabled,0);
+});
+
+test('normal rendering cannot fall through to the legacy renderer while Three.js is unavailable',()=>{
+  const render=game.slice(game.indexOf('function render(){'),game.indexOf('// Debug travel'));
+  const branch=render.slice(render.indexOf("if(rendererChoice==='three')"),render.indexOf('  selectRenderSurface(false);',render.indexOf("if(rendererChoice==='three')")));
+  assert.match(branch,/if\(threeRenderer\)/);
+  assert.match(branch,/return;/);
+  assert.doesNotMatch(game,/useCanvasFallback/);
+  assert.doesNotMatch(branch,/worldScene|canvasRenderer/);
 });
