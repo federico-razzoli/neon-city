@@ -65,7 +65,21 @@ const PUNK_GIRL={
 };
 // The interactive conversation each character opens, by place, once their
 // place-specific lines are over.
+const LAVATORY_ROBOT={
+  label:'Talk to the robot',
+  script:[
+    {ask:'BUT HOW DO YOU PEE?',answer:["THAT'S A PRIVATE QUESTION."]},
+    {ask:'YOU SAID... LADYBUGS?',answer:['YES. THE HIGHEST FORM OF LIFE IN YOUR GALAXY!']},
+    {ask:'HAVE YOU SEEN OR HEARD ANYTHING UNUSUAL IN THE TOILET?',needs:'PUB_PARANORMAL_ACTIVITIES',answer:[
+      'YES. A WEIRD GIRL SINGING A WEIRD SONG IN A CUBICLE.',
+      "I DIDN'T GET EVERY WORD, BUT IT WAS ABOUT...",
+      'A COW, I THINK.',
+    ]},
+    {ask:'BYE!',answer:['BYE!'],ends:true},
+  ],
+};
 const FOLLOWUPS={
+  11:{lavatory:LAVATORY_ROBOT},
   3:PUNK_GIRL,
   5:{pub:TATTOOED_MAN,river:TATTOOED_MAN,footpath:TATTOOED_MAN},
 };

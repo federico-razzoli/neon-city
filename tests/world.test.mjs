@@ -2994,7 +2994,8 @@ test('every 20-30 seconds a robot leaves a taken gents or ladies cubicle and wal
   const {WalkerTalk}=await import('../neon-city/walker-talk.js');
   const talk=new WalkerTalk(()=>0),contact=[{walker:life.walker,place:'lavatory'}],said=[];
   for(let t=0;t<13;t+=.02){const line=talk.update(.02,contact);if(line)said.push(line);}
-  assert.deepEqual(said,['I FEEL MUCH BETTER NOW!','ROBOTS NEED TO GO TO THE TOILET, TOO.','ACTUALLY, MORE OFTEN THAN HUMANS.','BUT NOT AS OFTEN AS LADYBUGS.','I FEEL MUCH BETTER NOW!']);
+  assert.deepEqual(said,['I FEEL MUCH BETTER NOW!','ROBOTS NEED TO GO TO THE TOILET, TOO.','ACTUALLY, MORE OFTEN THAN HUMANS.','BUT NOT AS OFTEN AS LADYBUGS.']);
+  assert.equal(talk.conversation.ready,true,'interactive robot follow-up is ready after the final line');
   run(life,occupied,away,.02);
   assert.equal(life.held,false);
   run(life,occupied,away,10);
