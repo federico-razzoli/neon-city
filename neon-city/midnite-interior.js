@@ -92,9 +92,18 @@ export function bookshopWalkable(x,z,r=.3,staff=BOOKSHOP.bookseller){
     [...BOOKSHOP.chairs,...BOOKSHOP.readingTables,...(staff?[staff]:[])].every(b=>Math.hypot(x-b.x,z-b.z)>=r+b.radius);
 }
 export function moveInBookshop(player,dx,dz,staff=BOOKSHOP.bookseller,people=[]){
-  const n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));
-  for(let i=0;i<n;i++){if(bookshopWalkable(player.x+dx/n,player.z,.3,staff)&&people.every(p=>Math.hypot(player.x+dx/n-p.x,player.z-p.z)>=.6))player.x+=dx/n;if(bookshopWalkable(player.x,player.z+dz/n,.3,staff)&&people.every(p=>Math.hypot(player.x-p.x,player.z+dz/n-p.z)>=.6))player.z+=dz/n;}
+  const n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.15));let bumpedTable=false;
+  function clear(x,z){
+    if(!bookshopWalkable(x,z,.3,staff)){
+      if(BOOKSHOP.readingTables.some(t=>Math.hypot(x-t.x,z-t.z)<.3+t.radius))bumpedTable=true;
+      return false;
+    }
+    return people.every(p=>Math.hypot(x-p.x,z-p.z)>=.6);
+  }
+  for(let i=0;i<n;i++){if(dx&&clear(player.x+dx/n,player.z))player.x+=dx/n;if(dz&&clear(player.x,player.z+dz/n))player.z+=dz/n;}
+  return bumpedTable;
 }
+
 export function drawBookshopBook(box,book,x=book.x,z=book.z,y=1){
   box(x-.3,y,z-.275,.6,.08,.55,book.color);
   box(x-.26,y+.08,z-.235,.52,.015,.47,'#dccca5');

@@ -43,3 +43,20 @@ test('counter targets and backpack follow seller and collection state',()=>{
   assert.equal(spatial.target({x:3,z:9,angle:Math.PI/2},life)?.type,'reply');
   spatial.dispose();
 });
+
+test('both movement backends report bumps only against the small reading tables',async()=>{
+  const {moveInBookshop}=await import('../neon-city/midnite-interior.js');
+  const spatial=createThreeBookshopSpatial();
+  for(const move of [moveInBookshop,spatial.move]){
+    for(const t of BOOKSHOP.readingTables){
+      const p={x:t.x,z:t.z+1};
+      assert.equal(move(p,0,-.5,null,[]),true);
+      assert.ok(p.z>=t.z+t.radius+.3-1e-10);
+      assert.equal(move(p,0,.3,null,[]),false);
+      assert.equal(move(p,0,0,null,[]),false);
+    }
+    assert.equal(move({x:8,z:5.5},0,.5,null,[]),false);
+    assert.equal(move({x:9,z:2},0,.1,null,[]),false);
+  }
+  spatial.dispose();
+});

@@ -19,7 +19,7 @@ export function createThreeBookshopSpatial(){
   B.windowShelves.forEach(b=>box(fixed,b,1.35,'reply',"I SHOULDN'T TAKE THESE."));
   B.tables.forEach(b=>box(fixed,b,1));box(fixed,B.counter,1.28);
   B.chairs.forEach(b=>round(fixed,b,1.42,'chair',b));
-  B.readingTables.forEach(b=>round(fixed,b,.68));
+  B.readingTables.forEach(b=>round(fixed,b,.68,undefined,b));
   box(fixed,{x:B.door.x-.85,z:0,w:1.7,d:.04},3,'exit');
   round(fixed,B.till,.65,'reply',"DON'T PLAY WITH THE TILL, PLEASE.",1.65,false);
   round(fixed,B.deskBook,.2,'reply',"A BOOK I'VE ALREADY READ.",1.4,false);
@@ -35,6 +35,7 @@ export function createThreeBookshopSpatial(){
   function move(player,dx,dz,staff=B.bookseller,people=[]){
     sync({seller:staff,people,backpackTaken:true,onDisplay:()=>false});
     const solids=[...fixed,...dynamic].filter(e=>e.solid!==false&&e.type!=='exit');
+    let bumpedTable=false;
     const radius=.3,n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.1));
     function clear(x,z){
       if(x<radius||z<radius||x>B.width-radius||z>B.depth-radius)return false;
@@ -43,11 +44,13 @@ export function createThreeBookshopSpatial(){
         if(e.bounds)return !e.bounds.intersectsSphere(sphere);
         other.set(other.center.set(e.center.x,.5,e.center.z),e.radius);
         if(!sphere.intersectsSphere(other))return true;
+        if(B.readingTables.includes(e.data))bumpedTable=true;
         // Allow separation when a moving visitor has overlapped the player.
         return dynamic.includes(e)&&Math.hypot(x-e.center.x,z+e.center.z)>Math.hypot(player.x-e.center.x,player.z+e.center.z);
       });
     }
     for(let i=0;i<n;i++){if(dx&&clear(player.x+dx/n,player.z))player.x+=dx/n;if(dz&&clear(player.x,player.z+dz/n))player.z+=dz/n;}
+    return bumpedTable;
   }
   function target(player,life){
     sync(life);

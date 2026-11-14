@@ -852,7 +852,11 @@ function tick(now){
       document.querySelector('#location').textContent=`${currentPubName} / ${insideCubicle.icon.toUpperCase()}`;
     }else if(insideBookshop){
       bookshopLife.update(dt,player,playerSeat?.bookshopChair);
-      if(!playerSeat)(bookshopSpatial()?.move??moveInBookshop)(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,bookshopLife.seller,bookshopLife.people);
+      const bumpedTable=!playerSeat&&(bookshopSpatial()?.move??moveInBookshop)(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,bookshopLife.seller,bookshopLife.people);
+      if(pace>1&&bumpedTable&&!bookshopLife.bumpedReadingTable){
+        notice=2.5;noticeText=Math.random()<.5?'OUCH! MY KNEE!':'OUCH! I THINK I LOST 1 HP!';
+      }
+      bookshopLife.bumpedReadingTable=pace>1&&bumpedTable;
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent='MIDNITE BOOKS';
     }else if(insideArcade){
