@@ -319,13 +319,14 @@ export function createWorldScene(renderer,{reduced=false}={}){
       for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
       if(chunk.park){
         // Benches and trees are small, layered objects; order them at real overlaps.
-        renderer.withStyle({detail:true,textureSmooth:true},()=>drawParkStructures(chunk,{face,signTexture,drawTrees:renderer.drawTrees},{x:player.x,y:eye,z:player.z}));
+        renderer.withStyle({detail:true,textureSmooth:true},()=>drawParkStructures(chunk,{face,signTexture,drawTrees:renderer.drawTrees,drawFingerpost:renderer.drawFingerpost},{x:player.x,y:eye,z:player.z}));
       }
       for(const p of chunk.people)person(pedestrian(chunk,p,time));
     }
     drawDroppedItems(visible);
     renderer.withStyle({detail:true,textureSmooth:true,groundTexture:true},()=>drawMoneyNote(wallet.note,face));
-    renderer.withStyle({detail:true,textureSmooth:true},()=>drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z}));
+    if(renderer.drawFingerpost)renderer.drawFingerpost(START_SIGN,city.startSignBoards,signTexture);
+    else renderer.withStyle({detail:true,textureSmooth:true},()=>drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z}));
     renderer.withStyle({detail:true,textureSmooth:true},()=>{
       for(const s of RIVE_GAUCHE_SIGNS)drawRiveGaucheSign(s,{face},{x:player.x,y:eye,z:player.z},riveGaucheTexture());
     });

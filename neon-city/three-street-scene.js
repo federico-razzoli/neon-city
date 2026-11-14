@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createThreeFingerposts} from './three-fingerposts.js';
 import {createThreeRetainingWalls} from './three-retaining-walls.js';
 import {createThreeManholes} from './three-manholes.js';
 import {createThreeTrees} from './three-trees.js';
@@ -19,6 +20,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const scene=new THREE.Scene(),camera=createInteriorCamera(),culling=createRenderCamera();
   scene.fog=new THREE.Fog('#0f0a1e',22,170);
   const sky=createCorridorSky(scene),roads=createThreeRoads(scene),railings=createThreeRailings(scene),traffic=createThreeTraffic(scene),batches=new Map();
+  const fingerposts=createThreeFingerposts(scene,{boundsVisible:exteriorVisible});
   const retainingWalls=createThreeRetainingWalls(scene,{boundsVisible:exteriorVisible});
   const trees=createThreeTrees(scene,{boundsVisible:exteriorVisible}),manholes=createThreeManholes(scene,{boundsVisible:exteriorVisible});
   const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene);
@@ -51,7 +53,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
     face([e,a,up(a),up(e)],color);face([b,c,up(c),up(b)],color);
     face([up(a),up(b),up(c),up(e)],roof);face([e,c,b,a],color);
   }
-  const backend={face,quad,box,drawRetainingWalls:(chunk,viewer)=>retainingWalls.draw(chunk,viewer),drawManholes:chunk=>manholes.draw(chunk),drawTrees:chunk=>trees.draw(chunk),drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>{
+  const backend={face,quad,box,drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetainingWalls:(chunk,viewer)=>retainingWalls.draw(chunk,viewer),drawManholes:chunk=>manholes.draw(chunk),drawTrees:chunk=>trees.draw(chunk),drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>{
     if(!exteriorVisible||exteriorVisible(car.x-4,surface.base-2,car.z-4,car.x+4,surface.base+4,car.z+4))traffic.draw(car,surface);
   },drawRoad:chunk=>roads.draw(chunk),drawRailings:chunk=>railings.draw(chunk),boundsVisible:(...args)=>culling.boundsVisible(...args)&&(!exteriorVisible||exteriorVisible(...args)),
     beginFrame(next){view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
@@ -77,11 +79,11 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
     attribute.array.set(values);attribute.needsUpdate=true;
   }
   return {scene,camera,update(frame){
-    retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
+    fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
     for(const [key,b] of batches){
       if(!b.positions.length){scene.remove(b.mesh);b.geometry.dispose();b.material.dispose();b.texture?.dispose();batches.delete(key);continue;}
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }

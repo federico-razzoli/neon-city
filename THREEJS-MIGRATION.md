@@ -859,3 +859,12 @@ when the geometry is first built from the cached WASM panels. Per-chunk meshes
 retain their translated GPU buffers until unloading, with water-side visibility
 and bookshop window culling preserved. Shared resources are released with the
 street scene. Bridge fascias and undersides are unchanged.
+
+## Retained fingerpost signs
+
+Fingerpost poles and arrow boards now render as retained Three.js assemblies
+built from the cached WASM geometry. Matching layouts share geometry and artwork
+materials, including the separately oriented lettering on both faces. Street and
+park sign vertices and UVs are no longer packed and uploaded every frame. Park
+sign groups unload with their chunks; shared resources release with the street
+scene. The existing bookshop window culling also applies to these signs.

@@ -207,6 +207,19 @@ Chunk unloading drops its mesh, and disposing the street scene releases all
 shared wall geometries and the material. Bridge fascias and slab undersides
 remain on their existing rendering paths.
 
+## Retained Three.js fingerposts
+
+Fingerpost poles, coloured board edges and both textured arrow faces are built
+once from the cached WASM geometry. Matching board layouts and pole heights
+share complete assemblies, while sign positions use retained scene transforms.
+Lettering canvases remain shared by text and arrow direction, and their Three.js
+textures use nearest-neighbour sampling without mipmaps to keep lettering crisp.
+Camera frames do not reconstruct sign vertices, UVs or textures. Park signs drop
+their scene groups on chunk unloading; the initial street sign persists for the
+street scene. All shared geometry, materials and textures release on scene exit.
+Bookshop window bounds can hide and restore these assemblies. Facade lettering
+and the separate Rive Gauche tourist signs remain on their existing paths.
+
 ## Work that remains dynamic
 
 For the remaining streamed geometry, each frame still selects visible faces, applies the relevant position, scale,

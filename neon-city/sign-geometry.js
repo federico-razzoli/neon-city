@@ -25,7 +25,7 @@ export function drawSignGeometry(data,s,viewer,face,style){
     const k=f*34,nx=data[k+1],ny=data[k+2],nz=data[k+3];
     // Board edges originally test visibility at the positive-side vertex.
     const anchor=k+4+(style.board&&f>=2?3*5:0);
-    if((viewer.x-(s.x+data[anchor]))*nx+(viewer.y-data[anchor+1])*ny+(viewer.z-(s.z+data[anchor+2]))*nz<=0)continue;
+    if(!style.complete&&((viewer.x-(s.x+data[anchor]))*nx+(viewer.y-data[anchor+1])*ny+(viewer.z-(s.z+data[anchor+2]))*nz<=0))continue;
     const vertices=[];
     for(let i=0;i<data[k];i++){
       const v=k+4+i*5;

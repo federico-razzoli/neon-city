@@ -140,16 +140,16 @@ export function paintSign(g,text,tipRight){
 
 // An arrow-shaped board hanging off a pole at s, pointing along the street
 // direction (dx,dz) between heights bottom and top.
-function signBoard(s,{text,dx,dz,bottom,top},face,viewer,texture){
+function signBoard(s,{text,dx,dz,bottom,top},face,viewer,texture,complete=false){
   const palette=signPalette(text);
   const geometry=signBoardGeometry({dx,dz,bottom,top},RIVER_SIGN,SIGN_TEXTURE.width,SIGN_TEXTURE.height);
-  drawSignGeometry(geometry,s,viewer,face,{board:true,colors:SIGN_BOARD_COLORS.get(palette),texture:tipRight=>texture?.(text,tipRight)??null});
+  drawSignGeometry(geometry,s,viewer,face,{board:true,complete,colors:SIGN_BOARD_COLORS.get(palette),texture:tipRight=>texture?.(text,tipRight)??null});
 }
 
 const poleColors=new WeakMap();
 
 // A pole, as tall as s.height or a park's, with one board per entry in boards.
-export function drawFingerpost(s,boards,{face,signTexture},viewer){
+export function drawFingerpost(s,boards,{face,signTexture,complete=false},viewer){
   const geometry=signPoleGeometry(s.height??RIVER_SIGN.height,RIVER_SIGN.pole);
   if(!poleColors.has(geometry)){
     const colors=[];
@@ -160,15 +160,19 @@ export function drawFingerpost(s,boards,{face,signTexture},viewer){
     colors.push(SIGN_POST.at(-1));
     poleColors.set(geometry,colors);
   }
-  drawSignGeometry(geometry,s,viewer,face,{colors:poleColors.get(geometry)});
-  for(const b of boards)signBoard(s,b,face,viewer,signTexture);
+  drawSignGeometry(geometry,s,viewer,face,{complete,colors:poleColors.get(geometry)});
+  for(const b of boards)signBoard(s,b,face,viewer,signTexture,complete);
 }
 
-export function drawParkStructures(chunk,{face,signTexture,drawTrees},viewer){
+export function drawParkStructures(chunk,{face,signTexture,drawTrees,drawFingerpost:nativeFingerpost},viewer){
   for(const c of chunk.park.cones)if(!c.taken)pineCone(c,face,viewer);
   for(const b of chunk.park.benches)bench(b,face,viewer);
   const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
-  if(sign)drawFingerpost(sign,[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}],{face,signTexture},viewer);
+  if(sign){
+    const boards=[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}];
+    if(nativeFingerpost)nativeFingerpost(sign,boards,signTexture);
+    else drawFingerpost(sign,boards,{face,signTexture},viewer);
+  }
   if(drawTrees)drawTrees(chunk);
   else for(const t of chunk.park.trees)drawTreeGeometry(t,face,viewer);
   for(const b of chunk.park.bushes??[])drawBush(b,face,viewer);
