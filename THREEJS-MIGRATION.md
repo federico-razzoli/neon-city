@@ -850,3 +850,12 @@ the cached WASM model. Each chunk retains its instance positions instead of
 resubmitting cover faces on every frame. Covers preserve their layered disk and
 slot geometry, support bookshop window culling, and release instance buffers
 when their chunk unloads. Shared meshes are released with the street scene.
+
+## Retained riverbank walls
+
+Riverbank retaining walls now share static Three.js geometry by bank half and
+bridge layout. Doorway cutouts on both sides of chunk boundaries are preserved
+when the geometry is first built from the cached WASM panels. Per-chunk meshes
+retain their translated GPU buffers until unloading, with water-side visibility
+and bookshop window culling preserved. Shared resources are released with the
+street scene. Bridge fascias and undersides are unchanged.

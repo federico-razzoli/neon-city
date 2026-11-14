@@ -195,6 +195,18 @@ scene disposal releases the shared geometry and material. The legacy per-cover
 face submission remains available to non-native consumers but is bypassed by the
 Three.js street backend.
 
+## Retained Three.js retaining walls
+
+The street renderer converts the cached WASM riverbank wall panels into shared
+Three.js geometry, including the recessed-door cutouts. Geometry is keyed by bank
+half and bridge presence on each edge (six layouts under the current bridge
+rules). Each river chunk retains a translated mesh and reuses the GPU buffers;
+camera movement only changes visibility. The original water-facing-side rule,
+Three.js frustum culling and bookshop window bounds determine what is rendered.
+Chunk unloading drops its mesh, and disposing the street scene releases all
+shared wall geometries and the material. Bridge fascias and slab undersides
+remain on their existing rendering paths.
+
 ## Work that remains dynamic
 
 For the remaining streamed geometry, each frame still selects visible faces, applies the relevant position, scale,
