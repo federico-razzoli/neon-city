@@ -789,7 +789,7 @@ export class City {
         const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
         const benches=chunk?.riverBenches??riverBenches({x:Math.floor(x/BLOCK),z:Math.floor(z/BLOCK),riverStart:riverStart(Math.floor(z/BLOCK))});
         if(benches.some(b=>Math.abs(x-b.x)<1.45&&Math.abs(z-b.z)<.75))return true;
-        if(Math.abs(riverWalkHeight(x,z)-groundHeight(p.x,p.z,true))>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
+        if(riverWalkHeight(x,z)-groundHeight(p.x,p.z,true)>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
       }else if(!gate&&this.solid(x,z))return true;
       const height=groundHeight(x,z,p.riverWalk||gate&&at.d>=0);
       if(at){
@@ -818,9 +818,17 @@ export class City {
       if(at&&at.d>=0&&(p.riverWalk||hasRiverStairs(p.x)&&at.lx>=RIVER_STAIRS.landing+.45&&at.lx<=RIVER_STAIRS.start-.45&&at.d<=RIVER_STAIRS.width))p.riverWalk=true;
       else if(p.riverWalk)delete p.riverWalk;
     };
+    const moveAxis=(x,z)=>{
+      if(blocked(x,z))return;
+      const before=groundHeight(p.x,p.z,p.riverWalk);
+      p.x=x;p.z=z;layer();
+      const after=groundHeight(p.x,p.z,p.riverWalk);
+      if(p.riverWalk&&before-after>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01&&!p.riverFall)
+        p.riverFall={height:before,start:before,velocity:0};
+    };
     for(let i=0;i<steps;i++){
-      if(!blocked(p.x+dx/steps,p.z)){p.x+=dx/steps;layer();}
-      if(!blocked(p.x,p.z+dz/steps)){p.z+=dz/steps;layer();}
+      moveAxis(p.x+dx/steps,p.z);
+      moveAxis(p.x,p.z+dz/steps);
     }
     return bumpedPedestrian;
   }

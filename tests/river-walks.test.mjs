@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../neon-city/vendor/three/three.module.js';
 import {City,BLOCK,RIVER_ROWS,WATER_LEVEL,RIVER_WALK_HEIGHT,groundHeight,riverWalkHeight} from '../neon-city/world.js';
+import {advanceRiverFall} from '../neon-city/river-fall.js';
 import {createThreeRiverWalks} from '../neon-city/three-river-walks.js';
 import {createThreeRailings} from '../neon-city/three-railings.js';
 
@@ -134,5 +135,27 @@ test('riverside benches block walking and use the existing sit and stand interac
     assert.ok(Math.abs(player.z-b.z)<1e-9);assert.ok(Math.abs(Math.cos(player.angle)-dir)<1e-9,'seated player faces water');
     assert.equal(sandbox.sit(),true);assert.equal(sandbox.playerSeat,null);assert.equal(player.x,standing.x);assert.equal(player.z,standing.z);
     city.move(player,0,-dir*2);assert.ok((player.z-b.z)*dir>=.75-1e-9,'cannot walk through the bench');
+  }
+});
+
+test('players fall off both stair sides, with landing remarks only above three steps',()=>{
+  const city=new City(1);
+  for(const [bank,dir] of [[RIVER_ROWS[0]*BLOCK+18,1],[RIVER_ROWS[0]*BLOCK+110,-1]]){
+    for(const [x,expected] of [[26,null],[25,null],[24,'OUCH! MY FOOT!'],[19,'OUCH! MY FOOT!']]){
+      const p={x,z:bank+dir*2.9,riverWalk:true};
+      const before=groundHeight(p.x,p.z,true);
+      city.move(p,0,dir*.5);
+      assert.ok((p.z-bank)*dir>3,'can step off the stair side');
+      assert.equal(p.riverFall.start,before);
+      assert.equal(advanceRiverFall(p,.02,()=>0),null);
+      assert.ok(p.riverFall.height<before&&p.riverFall.height>RIVER_WALK_HEIGHT);
+      assert.equal(advanceRiverFall(p,2,()=>0),expected);
+      assert.equal(p.riverFall,undefined);
+      assert.equal(advanceRiverFall(p,2),null,'landing triggers once');
+    }
+  }
+  for(const [random,text] of [[0,'OUCH! MY FOOT!'],[.4,'OUCH! MY KNEE!'],[.9,'I THINK I LOST 5 HPs!']]){
+    const p={x:19,z:RIVER_ROWS[0]*BLOCK+22,riverWalk:true,riverFall:{height:0,start:0,velocity:0}};
+    assert.equal(advanceRiverFall(p,2,()=>random),text);
   }
 });

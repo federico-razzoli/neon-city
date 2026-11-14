@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {advanceRiverFall} from './river-fall.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {supportsRenderer} from './renderer-support.js';
 import {startPhase,endPhase,profilePhase} from './render-profile.js';
@@ -512,7 +513,7 @@ function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
-  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+groundHeight(player.x,player.z,player.riverWalk);
+  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??groundHeight(player.x,player.z,player.riverWalk));
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
@@ -879,6 +880,8 @@ function tick(now){
     const people=city.pedestrians(time-dt);
     const bumped=[],bumpedCars=[];
     const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people,bumped,roadTraffic.cars,bumpedCars);
+    const fallReply=player.riverFall?advanceRiverFall(player,dt):null;
+    if(fallReply){notice=2.5;noticeText=fallReply;}
     // On the promenade or a footpath, someone with lines for it answers a bump with them instead.
     if(bumpedPedestrian&&!bumped.some(talksHere)){notice=2.5;noticeText='HEY! WATCH OUT!';}
     if(!playerSeat&&(forward||side))steps+=dt*10*pace;
