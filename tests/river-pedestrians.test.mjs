@@ -11,7 +11,7 @@ function walker(chunk,mode='upper',bank=0){
   const p={phase:0,speed:1.5,type:0,variant:0,reverse:false,walkTime:0};
   seedRiverPeople(chunk,[p],()=>0);
   const route=mode==='upper'?chunk.riverRoutes.forward.upper:chunk.riverRoutes.forward.lower[bank];
-  p.riverMotion={mode,bank,s:route.total-1.5,lastDecision:-Infinity};
+  p.riverMotion={mode,bank,s:mode==='lower'?-1.5:route.total-1.5,lastDecision:-Infinity};
   return p;
 }
 function tick(city,n=1,dt=.05){for(let i=0;i<n;i++)city.advancePedestrians(dt,far,i*dt);}
@@ -84,4 +84,40 @@ test('player collisions and conversations respect lower walker elevation',async(
   assert.ok(talk.interact(player,city.pedestrians(0)));
   city.move(player,4,0,city.pedestrians(0),bumped);
   assert.ok(at.x-player.x>=PERSON_CLEARANCE*1.5-1e-7);assert.equal(bumped[0].walker,p);
+});
+
+test('lower walkers continue straight through successive bridges without reversing or teleporting',()=>{
+  for(const bank of [0,1])for(const reverse of [false,true]){
+    const {city,chunk}=fixture(),p=walker(chunk,'lower',bank);p.reverse=reverse;
+    p.riverMotion.s=0;chunk.people=[p];let decisions=0;
+    city.rng=()=>{decisions++;return .99;};
+    const heading=bank?(reverse?1:-1):(reverse?-1:1);
+    let before=pedestrian(chunk,p,0);
+    for(let i=0;i<1600;i++){
+      city.advancePedestrians(.2,far,i*.2);
+      const after=pedestrian(chunk,p,0);
+      assert.equal(p.riverMotion.mode,'lower');
+      assert.equal(after.facingX,heading);
+      assert.ok((after.x-before.x)*heading>=0);
+      assert.ok(Math.abs(after.x-before.x)<=p.speed*.2+1e-7);
+      assert.equal(after.z,before.z);assert.equal(after.ground,RIVER_WALK_HEIGHT);
+      before=after;
+    }
+    assert.equal(decisions,2,'one stair choice at each successive bridge');
+  }
+});
+
+test('walkers use stairs at the bridge they actually reach, preserving direction when they leave',()=>{
+  for(const bank of [0,1])for(const reverse of [false,true]){
+    const {city,chunk}=fixture(),p=walker(chunk,'lower',bank);p.reverse=reverse;
+    p.riverMotion.s=3*BLOCK-1.5;chunk.people=[p];
+    const heading=bank?(reverse?1:-1):(reverse?-1:1);
+    tick(city);assert.equal(p.riverMotion.mode,'stairs');
+    assert.equal(p.riverMotion.key,`${heading*3}:${row}:${bank}`);
+    assert.ok(p.riverMotion.route.points.every(point=>Math.abs(point.x-heading*3*BLOCK)<35));
+    for(let i=0;i<1500&&p.riverMotion.mode==='stairs';i++)tick(city);
+    assert.equal(p.riverMotion.mode,'upper');
+    tick(city,25);
+    assert.ok(Math.abs(pedestrian(chunk,p,0).facingX-heading)<1e-9);
+  }
 });

@@ -26,8 +26,9 @@ function routes(chunk,reverse=false){
   ],[[0,0,reverse?-1:1],[3,1,reverse?1:-1]]);
   const lower=[0,1].map(bank=>{
     const wall=z+(bank?110:18),dir=bank?-1:1,bottom=x+RIVER_STAIRS.end+1;
-    return path([{x:bottom,z:wall+dir*4},{x:x+181,z:wall+dir*4},{x:x+181,z:wall+dir*5},
-      {x:bottom,z:wall+dir*5},{x:x+5,z:wall+dir*5},{x:x+5,z:wall+dir*4},{x:bottom,z:wall+dir*4}],[[0,bank,1],[3,bank,-1]]);
+    const heading=bank?(reverse?1:-1):(reverse?-1:1),lane=heading>0?4:5;
+    // Repeat the straight segment by translation, never by turning around.
+    return path([{x:bottom,z:wall+dir*lane},{x:bottom+heading*3*BLOCK,z:wall+dir*lane}],[[0,bank,heading]]);
   });
   return chunk.riverRoutes[key]={upper,lower};
 }
@@ -45,6 +46,10 @@ export function seedRiverPeople(chunk,people,random){
 export function riverPerson(chunk,p){
   const m=p.riverMotion,route=m.mode==='stairs'?m.route:m.mode==='lower'?routes(chunk,p.reverse).lower[m.bank]:routes(chunk,p.reverse).upper;
   const at=sample(route,m.s,m.mode!=='stairs');
+  if(m.mode!=='stairs'){
+    at.x+=(m.offset??0)*BLOCK;
+    if(m.mode==='lower')at.x+=Math.floor(m.s/route.total)*route.junctions[0].heading*3*BLOCK;
+  }
   let ground=groundHeight(at.x,at.z);
   if(m.mode==='lower')ground=RIVER_WALK_HEIGHT;
   if(m.mode==='stairs'){
@@ -63,19 +68,27 @@ function nextEvent(route,m){
   }
   return best;
 }
+function eventOffset(chunk,p,event){
+  const m=p.riverMotion;
+  if(m.mode!=='lower')return m.offset??0;
+  const route=routes(chunk,p.reverse).lower[m.bank];
+  return (m.offset??0)+Math.round((event.s+STAGING)/route.total)*event.heading*3;
+}
+function stairKey(chunk,p,event){return `${chunk.x+eventOffset(chunk,p,event)}:${chunk.riverStart}:${event.bank}`;}
 function transition(chunk,p,event){
-  const m=p.riverMotion,down=m.mode==='upper',bank=event.bank,dir=bank?-1:1,wall=chunk.riverStart*BLOCK+(bank?110:18),x=chunk.x*BLOCK;
+  const m=p.riverMotion,down=m.mode==='upper',bank=event.bank,dir=bank?-1:1,wall=chunk.riverStart*BLOCK+(bank?110:18),offset=eventOffset(chunk,p,event),x=(chunk.x+offset)*BLOCK;
   // Preserve the direction along the bank when rejoining the other level.
   const reverse=bank?event.heading>0:event.heading<0;
   const r=routes(chunk,reverse),upper=r.upper.junctions.find(j=>j.bank===bank);
   const lower=r.lower[bank].junctions.find(j=>j.heading===event.heading);
   const upperPoint=sample(r.upper,upper.s),lowerPoint=sample(r.lower[bank],lower.s);
+  upperPoint.x+=offset*BLOCK;lowerPoint.x+=offset*BLOCK;
   const landing={x:x+RIVER_STAIRS.landing+1,z:wall+dir*1.5},bottom={x:x+RIVER_STAIRS.end+1,z:wall+dir*1.5};
   const start=riverPerson(chunk,p);
   return {mode:'stairs',bank,direction:down?'down':'up',s:0,
-    key:`${chunk.x}:${chunk.riverStart}:${bank}`,
+    key:stairKey(chunk,p,event),
     route:path(down?[start,upperPoint,landing,bottom,lowerPoint]:[start,lowerPoint,bottom,landing,upperPoint]),
-    exit:{mode:down?'lower':'upper',bank,s:down?lower.s:upper.s,lastDecision:-Infinity},reverse};
+    exit:{mode:down?'lower':'upper',bank,offset,s:down?lower.s:upper.s,lastDecision:-Infinity},reverse};
 }
 function sweptNear(a,b,q,clearance){
   if(Math.abs(b.ground-q.ground)>1.5)return false;
@@ -113,7 +126,7 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
               if(city.rng()<RIVER_STAIR_CHANCE)m.pending=event;
             }
             if(m.pending){
-              const key=`${chunk.x}:${chunk.riverStart}:${event.bank}`,direction=m.mode==='upper'?'down':'up';
+              const key=stairKey(chunk,p,event),direction=m.mode==='upper'?'down':'up';
               if(locks.has(key)&&locks.get(key)!==direction)continue;
               next=transition(chunk,p,event);locks.set(key,direction);
             }else next={...m,s:m.s+budget};
