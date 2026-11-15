@@ -42,12 +42,11 @@ test('cubicle retains toilet geometry with the seated camera and releases scene 
   }
 });
 test('banshee overlay preserves renderer clear state and disposes its resources',()=>{
-  const prior=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>({clearRect(){},fillRect(){}})})};
-  try{
-    const room=createThreeCubicleScene(),resources=new Set(),renderer={autoClear:true,render(scene){assert.equal(this.autoClear,false);scene.traverse(o=>{if(o.geometry)resources.add(o.geometry);if(o.material){resources.add(o.material);resources.add(o.material.map);}});}};
+  {
+    const room=createThreeCubicleScene(),resources=new Set(),renderer={autoClear:true,render(scene){assert.equal(this.autoClear,false);scene.traverse(o=>{if(o.geometry)resources.add(o.geometry);if(o.material){resources.add(o.material);if(o.material.map)resources.add(o.material.map);}});}};
     room.renderOverlay(renderer,{banshee:{started:performance.now()-3000}});assert.equal(renderer.autoClear,true);
     let disposed=0;for(const r of resources)r.addEventListener('dispose',()=>disposed++);room.dispose();room.dispose();assert.equal(disposed,resources.size);
-  }finally{if(prior===undefined)delete globalThis.document;else globalThis.document=prior;}
+  }
 });
 test('Canvas defaults retain occupancy indicators',()=>{
   const count=options=>{let boxes=0;drawLavatory({face(){boxes++;},quad(){},box(){boxes++;},...options});return boxes;};
@@ -115,15 +114,43 @@ test('every lavatory and cubicle doorway has full coverage without overlapping w
   }
 });
 
-test('cubicle blackout renders a black overlay without a banshee and stops on exit',()=>{
-  const prior=globalThis.document;let fills=0,renders=0;
-  globalThis.document={createElement:()=>({getContext:()=>({clearRect(){},fillRect(){fills++;}})})};
-  const room=createThreeCubicleScene(),renderer={autoClear:true,render(){renders++;}};
+test('cubicle blackout uses an untextured black mesh without Canvas and stops on exit',()=>{
+  let renders=0;
+  const room=createThreeCubicleScene(),renderer={autoClear:true,render(scene){
+    renders++;
+    const black=scene.getObjectByName('cubicle-blackout');
+    assert.equal(black.visible,true);assert.equal(black.material.map,null);
+    assert.equal(black.material.color.getHex(),0);assert.equal(black.scale.x,640);assert.equal(black.scale.y,360);
+    assert.equal(scene.getObjectByName('cubicle-banshee').visible,false);
+  }};
   try{
     room.renderOverlay(renderer,{lavatoryLife:{cubicleBlackout:true}});
-    assert.equal(fills,1);assert.equal(renders,1);assert.equal(renderer.autoClear,true);
+    assert.equal(renders,1);assert.equal(renderer.autoClear,true);
     room.renderOverlay(renderer,{lavatoryLife:{cubicleBlackout:false}});assert.equal(renders,1);
-  }finally{room.dispose();if(prior===undefined)delete globalThis.document;else globalThis.document=prior;}
+  }finally{room.dispose();}
+});
+
+test('banshee directly textures a retained plane, preserving fade, proportions and movement without reuploads',()=>{
+  let seconds=0,scene;
+  const image={complete:true,naturalWidth:100,naturalHeight:200};
+  const room=createThreeCubicleScene({now:()=>seconds*1000,portraitFor:()=>image});
+  const renderer={autoClear:true,render(s){scene=s;}},state={banshee:{started:0}};
+  try{
+    room.renderOverlay(renderer,state);assert.equal(scene,undefined);
+    seconds=3;room.renderOverlay(renderer,state);
+    const spirit=scene.getObjectByName('cubicle-banshee'),texture=spirit.material.map,geometry=spirit.geometry;
+    assert.equal(spirit.visible,true);assert.equal(texture.isCanvasTexture,undefined);
+    assert.equal(texture.image,image);assert.equal(spirit.material.opacity,.25);
+    assert.equal(spirit.scale.y,360*.98);assert.equal(spirit.scale.x,360*.98/2);
+    assert.equal(spirit.position.y,180-Math.sin(6)*2);
+    const version=texture.version;
+    seconds=8;room.renderOverlay(renderer,state);
+    assert.equal(spirit.material.opacity,.125);assert.equal(texture.version,version);assert.equal(spirit.geometry,geometry);
+    room.renderOverlay(renderer,{lavatoryLife:{cubicleBlackout:true}});assert.equal(spirit.visible,false);
+    image.complete=false;seconds=3;room.renderOverlay(renderer,state);assert.equal(spirit.visible,false);
+    renderer.render=()=>{throw new Error('render failed');};
+    assert.throws(()=>room.renderOverlay(renderer,state),/render failed/);assert.equal(renderer.autoClear,true);
+  }finally{room.dispose();}
 });
 
 test('sink water reflects above the basin and hides other reflective surfaces during capture',()=>{

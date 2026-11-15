@@ -57,18 +57,3 @@ test('fourth visit is guaranteed after three misses, with random chances before 
   assert.equal(visit(()=>.1),true,'random event resets the miss streak');
   assert.equal(misses,0);
 });
-
-test('portrait draw applies 75 percent transparency and multiplies the fade',async()=>{
-  const previous=globalThis.Image;
-  globalThis.Image=class {complete=true;naturalWidth=100;naturalHeight=200;};
-  try{
-    const {drawBanshee}=await import('../neon-city/banshee.js?render-opacity-test');
-    const alphas=[];
-    const ctx={save(){},restore(){},drawImage(){alphas.push(this.globalAlpha);}};
-    drawBanshee(ctx,640,360,3,1);
-    drawBanshee(ctx,640,360,8,.5);
-    drawBanshee(ctx,640,360,3,2);
-    drawBanshee(ctx,640,360,9,0);
-    assert.deepEqual(alphas,[.25,.125,.25]);
-  }finally{if(previous===undefined)delete globalThis.Image;else globalThis.Image=previous;}
-});

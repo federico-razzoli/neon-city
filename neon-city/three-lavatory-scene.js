@@ -4,7 +4,7 @@ import {createThreeSinkWater} from './three-sink-water.js';
 import {Reflector} from './vendor/three/Reflector.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {LAVATORY,drawLavatory,drawCubicle,drawLavatoryIndicator,mirrorOf,playerSilhouetteContours} from './lavatory.js?v=staff-room-1';
-import {bansheeFrame,drawBanshee} from './banshee.js?v=6';
+import {bansheeFrame,bansheePortrait} from './banshee.js?v=6';
 import {NATIVE_VIEW} from './render-camera.js';
 
 export function createThreeLavatoryScene({imageFor,now=()=>performance.now()/1000}={}){
@@ -65,31 +65,42 @@ export function createThreeLavatoryScene({imageFor,now=()=>performance.now()/100
   });
 }
 
-export function createThreeCubicleScene(){
+export function createThreeCubicleScene({now=()=>performance.now(),portraitFor=bansheePortrait}={}){
   const room=createThreeInteriorScene({name:'cubicle',drawRoom:drawCubicle,actorsFor:()=>[]});
   let overlay;
   return {...room,
     renderOverlay(renderer,frame){
       const blackout=frame.lavatoryLife?.cubicleBlackout;
       if(!frame.banshee&&!blackout)return;
-      const seconds=frame.banshee?(performance.now()-frame.banshee.started)/1000:0,state=blackout?{dark:true,opacity:0}:bansheeFrame(seconds);
+      const seconds=frame.banshee?(now()-frame.banshee.started)/1000:0,state=blackout?{dark:true,opacity:0}:bansheeFrame(seconds);
       if(!state.dark&&!state.opacity)return;
       if(!overlay){
-        const canvas=document.createElement('canvas');canvas.width=NATIVE_VIEW.width;canvas.height=NATIVE_VIEW.height;
-        const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
-        texture.minFilter=THREE.NearestFilter;texture.magFilter=THREE.NearestFilter;texture.generateMipmaps=false;
+        const {width,height}=NATIVE_VIEW,scene=new THREE.Scene();
+        const geometry=new THREE.PlaneGeometry(1,1);
+        const blackMaterial=new THREE.MeshBasicMaterial({color:0x000000,depthTest:false,depthWrite:false,toneMapped:false});
+        const black=new THREE.Mesh(geometry,blackMaterial);black.name='cubicle-blackout';
+        black.position.set(width/2,height/2,0);black.scale.set(width,height,1);scene.add(black);
+        const texture=new THREE.Texture();texture.colorSpace=THREE.SRGBColorSpace;
+        texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;
         const material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false,toneMapped:false});
-        const geometry=new THREE.PlaneGeometry(2,2),scene=new THREE.Scene();scene.add(new THREE.Mesh(geometry,material));
-        overlay={canvas,texture,material,geometry,scene,camera:new THREE.OrthographicCamera(-1,1,1,-1,0,2)};
-        overlay.camera.position.z=1;
+        const spirit=new THREE.Mesh(geometry,material);spirit.name='cubicle-banshee';spirit.renderOrder=1;scene.add(spirit);
+        const camera=new THREE.OrthographicCamera(0,width,height,0,0,2);camera.position.z=1;
+        overlay={geometry,blackMaterial,texture,material,black,spirit,scene,camera};
       }
-      const ctx=overlay.canvas.getContext('2d');ctx.clearRect(0,0,overlay.canvas.width,overlay.canvas.height);
-      if(state.dark){ctx.fillStyle='#000';ctx.fillRect(0,0,overlay.canvas.width,overlay.canvas.height);}
-      if(state.opacity)drawBanshee(ctx,overlay.canvas.width,overlay.canvas.height,seconds,state.opacity);
-      overlay.texture.needsUpdate=true;
+      overlay.black.visible=!!state.dark;
+      const image=state.opacity>0?portraitFor():null;
+      overlay.spirit.visible=!!(image?.complete&&image.naturalWidth&&image.naturalHeight&&state.opacity>0);
+      if(overlay.spirit.visible){
+        // Upload the original PNG once; subsequent frames only update the mesh.
+        if(overlay.texture.image!==image){overlay.texture.image=image;overlay.texture.needsUpdate=true;}
+        const h=NATIVE_VIEW.height*.98,w=h*image.naturalWidth/image.naturalHeight;
+        overlay.spirit.scale.set(w,h,1);
+        overlay.spirit.position.set(NATIVE_VIEW.width/2,NATIVE_VIEW.height/2-Math.sin(seconds*2)*2,0);
+        overlay.material.opacity=.25*Math.max(0,Math.min(1,state.opacity));
+      }
       const autoClear=renderer.autoClear;renderer.autoClear=false;
       try{renderer.render(overlay.scene,overlay.camera);}finally{renderer.autoClear=autoClear;}
     },
-    dispose(){room.dispose();if(overlay){overlay.geometry.dispose();overlay.material.dispose();overlay.texture.dispose();overlay=null;}}
+    dispose(){room.dispose();if(overlay){overlay.geometry.dispose();overlay.blackMaterial.dispose();overlay.material.dispose();overlay.texture.dispose();overlay=null;}}
   };
 }
