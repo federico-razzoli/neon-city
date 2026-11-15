@@ -256,3 +256,39 @@ scratch buffer is large enough, document its array layout, choose the appropriat
 cache lifetime, and copy its output before another generator runs. If future code
 allows WASM memory to grow, existing typed-array views must be recreated after
 growth.
+
+## Retained Three.js pine cones, flowers and newspaper machines
+
+The street renderer uses instanced meshes for all three object types, including
+outdoor dropped cones and flowers. Geometry and materials are retained for the
+street scene, with instance batches grouped by chunk. Camera movement checks
+visibility but does not recreate vertices, recalculate placement matrices, or
+upload instance buffers. Pickups, drops and changes to object properties repack
+only the affected chunk's batches. Unloading chunks releases their instance
+buffers; leaving the scene releases the shared models, textures and materials.
+Bookshop window clipping and bounds also apply to these instances.
+
+Pine cones share one global unit WASM template. Instance matrices provide length,
+radius, rotation, position and floor height. Outward face winding lets the GPU
+cull back faces. A vertex shader transforms face normals using the instance's
+nonuniform scale and rotation, then reproduces the original five-color shading
+palette. The palette uses the original street coordinates, so composing the
+street behind a bookshop window does not rotate its baked light direction.
+The per-cone WASM cache remains available for inventory previews and other
+non-native callers; street rendering no longer populates it for individual cones.
+
+Flowers share separate petal and gold-center geometries. Instance colors supply
+petal variation, X/Z scaling supplies size, and Y scale stays at one to preserve
+the center's fixed 0.001 elevation. Compatible flowers share batches, omitting
+the center for park flowers. Dropped flowers retain their original depth bias.
+
+Newspaper machines use canonical south-facing templates keyed by width, depth
+and newspaper artwork. Instance rotation supplies the other three directions,
+so compatible machines facing different streets share a batch. Body faces use
+GPU back-face culling and original face colors; the front artwork retains its
+two-sided rendering and smooth mipmapped texture. Canvas artwork is cached by
+newspaper name, and GPU textures are shared within each street scene.
+
+Indoor dropped objects already use retained per-item meshes and keep that
+rendering path. Legacy geometry emitters remain available for other consumers
+and appearance tests.

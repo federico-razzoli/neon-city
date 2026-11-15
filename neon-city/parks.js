@@ -38,7 +38,7 @@ function ribbon(path,face,inner,outer,y,color){
   for(let i=1;i<side.length;i++)face([side[i-1][0],side[i][0],side[i][1],side[i-1][1]],color);
 }
 
-export function drawParkGround(chunk,{quad,face}){
+export function drawParkGround(chunk,{quad,face,nativeFlowers=false}){
   const {path}=chunk.park,x=chunk.x*BLOCK,z=chunk.z*BLOCK,half=PARK_PATH_WIDTH/2;
   quad(x+14,PARK_LAYERS.grass,z+14,36,36,'#345841');
   // A low kerb frames the lawn.
@@ -53,7 +53,7 @@ export function drawParkGround(chunk,{quad,face}){
     if(pathDistance(path,fx,fz)<half+.8)continue;
     if(i%3){quad(fx,PARK_LAYERS.decal,fz,.9,.3,i%2?'#2b4b37':'#3e6649');continue;}
   }
-  for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
+  if(!nativeFlowers)for(const flower of flowersFor(chunk))if(!flower.taken)drawFlower(flower,quad);
   ribbon(path,face,-half,half,PARK_LAYERS.path,'#93704f');
   for(const s of [-1,1])ribbon(path,face,s*(half-.18),s*half,PARK_LAYERS.pathEdge,'#634a38');
 }
@@ -164,8 +164,8 @@ export function drawFingerpost(s,boards,{face,signTexture,complete=false},viewer
   for(const b of boards)signBoard(s,b,face,viewer,signTexture,complete);
 }
 
-export function drawParkStructures(chunk,{face,signTexture,drawTrees,drawFingerpost:nativeFingerpost},viewer){
-  for(const c of chunk.park.cones)if(!c.taken)pineCone(c,face,viewer);
+export function drawParkStructures(chunk,{face,signTexture,drawTrees,drawFingerpost:nativeFingerpost,nativeCones=false},viewer){
+  if(!nativeCones)for(const c of chunk.park.cones)if(!c.taken)pineCone(c,face,viewer);
   for(const b of chunk.park.benches)bench(b,face,viewer);
   const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
   if(sign){

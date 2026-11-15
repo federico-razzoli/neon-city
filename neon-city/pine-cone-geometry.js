@@ -16,6 +16,11 @@ export function pineConeGeometry(cone){
   }
   return cached.geometry;
 }
+let unitTemplate;
+// The native renderer transforms this one model for every cone and scene.
+export function pineConeTemplate(){
+  return unitTemplate??=pineConeGeometry({length:1,radius:1,angle:0});
+}
 export function drawPineConeGeometry(cone,face,viewer){
   const geometry=pineConeGeometry(cone),ground=cone.ground??.085;
   for(let k=0;k<geometry.length;k+=23){
