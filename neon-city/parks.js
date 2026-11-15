@@ -123,29 +123,7 @@ const SIGN_BLUE={board:'#1f5bb5',edge:'#123a78',light:'#3d7fd6',dark:'#184a99'};
 const SIGN_GREEN={board:'#278344',edge:'#14502a',light:'#4aaa68',dark:'#1b6033'};
 const signPalette=text=>text==='PARK'?SIGN_GREEN:SIGN_BLUE;
 const SIGN_BOARD_COLORS=new Map([SIGN_BLUE,SIGN_GREEN].map(p=>[p,[p.board,p.board,...Array(5).fill(p.edge)]]));
-const SIGN_TEXT='#ffffff';
 export const SIGN_TEXTURE={width:300,height:72};
-// One face of a board: white on glossy enamel. The tip is on the right or the
-// left, so the words read forwards from either side of the sign.
-export function paintSign(g,text,tipRight){
-  const {width:w,height:h}=SIGN_TEXTURE,tip=w*RIVER_SIGN.tip/(RIVER_SIGN.reach-RIVER_SIGN.start);
-  // Enamel catches the moonlight near the top and darkens towards the bottom.
-  const palette=signPalette(text),enamel=g.createLinearGradient(0,0,0,h);
-  enamel.addColorStop(0,palette.light);enamel.addColorStop(.45,palette.board);enamel.addColorStop(1,palette.dark);
-  g.fillStyle=enamel;g.fillRect(0,0,w,h);
-  // A faint diagonal sheen crosses the board.
-  const sheen=g.createLinearGradient(w*.25,0,w*.45,h);
-  for(const [at,alpha] of [[0,0],[.45,.16],[.55,.16],[1,0]])sheen.addColorStop(at,`rgba(255,255,255,${alpha})`);
-  g.fillStyle=sheen;g.fillRect(0,0,w,h);
-  g.save();
-  if(!tipRight){g.translate(w,0);g.scale(-1,1);}
-  g.beginPath();g.moveTo(6,6);g.lineTo(w-tip,6);g.lineTo(w-9,h/2);g.lineTo(w-tip,h-6);g.lineTo(6,h-6);g.closePath();
-  g.strokeStyle=SIGN_TEXT;g.lineWidth=3;g.stroke();
-  g.restore();
-  g.font='bold 32px monospace';g.textAlign='center';g.textBaseline='middle';g.fillStyle=SIGN_TEXT;
-  g.fillText(text,tipRight?(w-tip)/2+3:tip+(w-tip)/2-3,h/2+1,w-tip-20);
-}
-
 // An arrow-shaped board hanging off a pole at s, pointing along the street
 // direction (dx,dz) between heights bottom and top.
 function signBoard(s,{text,dx,dz,bottom,top},face,viewer,texture,complete=false){

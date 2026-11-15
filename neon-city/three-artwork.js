@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {sharpenSignSampling} from './sign-texture-filter.js';
 
 // Scene-owned artwork materials. Mesh clones can share the resulting geometry
 // and materials; their owner releases these resources once on scene exit.
-export function createThreeArtwork(){
+export function createThreeArtwork({smooth=false}={}){
   const images=new Map(),geometries=new Set();
   function material(image){
     let entry=images.get(image);
     if(!entry){
-      const texture=new THREE.CanvasTexture(image);
-      texture.colorSpace=THREE.SRGBColorSpace;texture.magFilter=THREE.NearestFilter;
-      texture.minFilter=THREE.NearestFilter;texture.generateMipmaps=false;
+      const texture=new THREE.Texture(image);
+      texture.needsUpdate=true;
+      texture.colorSpace=THREE.SRGBColorSpace;
+      texture.magFilter=smooth?THREE.LinearFilter:THREE.NearestFilter;
+      texture.minFilter=smooth?THREE.LinearMipmapLinearFilter:THREE.NearestFilter;
+      texture.generateMipmaps=smooth;
+      // Preserve strokes when the board is foreshortened. WebGL caps this at
+      // the device's supported anisotropy when uploading the texture.
+      texture.anisotropy=smooth?8:1;
       const material=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false});
+      if(smooth)sharpenSignSampling(material);
       entry={texture,material};images.set(image,entry);
     }
     return entry.material;

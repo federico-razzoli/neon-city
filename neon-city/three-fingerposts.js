@@ -5,7 +5,7 @@ import {START_SIGN,RIVER_SIGN} from './world.js';
 import {createThreeArtwork} from './three-artwork.js';
 
 export function createThreeFingerposts(scene,{boundsVisible}={}){
-  const models=new Map(),signs=new Map(),artwork=createThreeArtwork();
+  const models=new Map(),signs=new Map(),artwork=createThreeArtwork({smooth:true});
   const material=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
   const id=s=>`${s.x}:${s.z}`;
   function model(s,boards,signTexture){

@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {signTexture,riveGaucheTexture} from './sign-artwork.js';
 import {profilePhase} from './render-profile.js';
 import {buildingGeometry} from './building-geometry.js';
 import {manholeGeometry} from './manhole-geometry.js';
@@ -34,8 +35,8 @@ import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {pedestrian,pedestrianShowsBack,mod,RIVER_VIEW_DISTANCE,groundHeight,characterHeight,characterGirth,START_SIGN,RIVE_GAUCHE_SIGNS} from './world.js?v=start-pub-1';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=visibility-reuse-1';
 import {drawStreetGround} from './street-ground.js';
-import {drawParkStructures,drawFingerpost,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
-import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gauche.js?v=5';
+import {drawParkStructures,drawFingerpost} from './parks.js?v=rive-gauche-6';
+import {drawRiveGaucheSign} from './rive-gauche.js?v=5';
 import {drawArcade,arcadeName} from './arcade.js?v=park-entrances-1';
 import {drawMidniteBooks} from './midnite-books.js?v=unique-labels-4';
 import {drawBlueNote} from './blue-note.js?v=unique-labels-4';
@@ -126,25 +127,6 @@ export function createWorldScene(renderer,{reduced=false}={}){
   function newspaperMachine(m){
     const paper=m.paper??'DAILY BUGLE',look=NEWSPAPER_LOOKS[paper]??NEWSPAPER_LOOKS['DAILY BUGLE'];
     renderer.withStyle({detail:true,textureSmooth:true},()=>drawNewspaperGeometry(m,newspaperGeometry(m),player,eye,look,newspaperTexture(paper),face));
-  }
-  // One texture per board text and direction the arrow can point on screen.
-  const signTextures=new Map();
-  function signTexture(text,tipRight){
-    const key=`${text}|${tipRight}`;
-    if(!signTextures.has(key)){
-      const c=document.createElement('canvas');c.width=SIGN_TEXTURE.width;c.height=SIGN_TEXTURE.height;
-      paintSign(c.getContext('2d'),text,tipRight);signTextures.set(key,c);
-    }
-    return signTextures.get(key);
-  }
-  let riveGaucheCanvas=null;
-  function riveGaucheTexture(){
-    if(!riveGaucheCanvas){
-      riveGaucheCanvas=document.createElement('canvas');
-      riveGaucheCanvas.width=RIVE_GAUCHE_TEXTURE.width;riveGaucheCanvas.height=RIVE_GAUCHE_TEXTURE.height;
-      paintRiveGauche(riveGaucheCanvas.getContext('2d'));
-    }
-    return riveGaucheCanvas;
   }
   function street(chunk){
     renderer.drawCollectibles?.(chunk);

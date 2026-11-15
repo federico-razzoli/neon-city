@@ -18,7 +18,7 @@ test('matching sign assemblies share geometry and textures without per-frame upl
     signs.beginFrame(state);signs.draw(a,boards,texture);assert.equal(scene.children[0],first);assert.deepEqual(first.children.map(m=>m.geometry.attributes.position.version),versions);
     assert.equal(first.position.x,20);assert.equal(first.position.z,-30);
     for(const mesh of first.children.filter(m=>m.material.map)){
-      assert.equal(mesh.material.map.magFilter,THREE.NearestFilter);assert.equal(mesh.material.map.minFilter,THREE.NearestFilter);assert.equal(mesh.material.map.generateMipmaps,false);
+      assert.equal(mesh.material.map.magFilter,THREE.LinearFilter);assert.equal(mesh.material.map.minFilter,THREE.LinearMipmapLinearFilter);assert.equal(mesh.material.map.generateMipmaps,true);assert.equal(mesh.material.map.anisotropy,8);
     }
   }finally{signs.dispose();}
 });

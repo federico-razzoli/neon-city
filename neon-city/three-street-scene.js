@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {isSignArtwork} from './sign-artwork.js';
+import {sharpenSignSampling} from './sign-texture-filter.js';
 import {createThreeMoneyNote} from './three-money-note.js';
 import {createThreeCharacterCards} from './three-character-cards.js';
 import {createThreeFingerposts} from './three-fingerposts.js';
@@ -42,9 +44,11 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
     const key=image??color;
     let value=batches.get(key);
     if(!value){
-      const texture=image?new THREE.CanvasTexture(image):null;
-      if(texture){texture.colorSpace=THREE.SRGBColorSpace;texture.magFilter=smooth?THREE.LinearFilter:THREE.NearestFilter;texture.minFilter=smooth?THREE.LinearMipmapLinearFilter:THREE.NearestFilter;texture.generateMipmaps=!!smooth;}
+      const texture=image?new THREE.Texture(image):null;
+      if(texture)texture.needsUpdate=true;
+      if(texture){texture.colorSpace=THREE.SRGBColorSpace;texture.magFilter=smooth?THREE.LinearFilter:THREE.NearestFilter;texture.minFilter=smooth?THREE.LinearMipmapLinearFilter:THREE.NearestFilter;texture.generateMipmaps=!!smooth;texture.anisotropy=smooth?8:1;}
       const material=new THREE.MeshBasicMaterial({color:image?'#ffffff':color,map:texture,side:THREE.DoubleSide,alphaTest:image?0.05:0,toneMapped:false,polygonOffset:!!style.detail,polygonOffsetFactor:style.detail?-1:0,polygonOffsetUnits:style.detail?-1:0});
+      if(image&&isSignArtwork(image))sharpenSignSampling(material);
       const geometry=new THREE.BufferGeometry(),mesh=new THREE.Mesh(geometry,material);
       mesh.frustumCulled=false;scene.add(mesh);
       value={geometry,material,texture,positions:[],uvs:[],mesh};batches.set(key,value);

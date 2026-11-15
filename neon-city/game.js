@@ -1,3 +1,4 @@
+import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
 /*
 Browser Games — standalone browser games, including Neon City.
@@ -499,7 +500,7 @@ async function prepareCabinetRenderer(){
 async function prepareThreeRenderer(){
   if(threeRenderer)return;
   threeRendererLoading??=(async()=>{
-    const [{createThreeHotelRenderer}]=await Promise.all([import('./three-hotel-renderer.js'),preloadMoneyNote()]);
+    const [{createThreeHotelRenderer}]=await Promise.all([import('./three-hotel-renderer.js'),preloadMoneyNote(),preloadSignArtwork()]);
     const surface=document.createElement('canvas');surface.id='three-view';surface.hidden=true;
     surface.setAttribute('aria-hidden','true');
     try{threeRenderer=createThreeHotelRenderer(surface);}
