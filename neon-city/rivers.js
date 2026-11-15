@@ -55,10 +55,10 @@ export function drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeWater=fals
 
 // Split the fascia at ground level so its buried ends draw before the banks.
 // The lower wall faces the water; from the deck side it is hidden by the deck.
-export function drawBridgeFascias(chunk,{face,boundsVisible},viewer,belowGround=false){
+export function drawBridgeFascias(chunk,{face,boundsVisible,faceNormals=false},viewer,belowGround=false){
   if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,8,chunk.z*BLOCK+64))return;
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
-  const clip=vertices=>{
+  const clip=(vertices,normal)=>{
     const out=[],sign=belowGround?-1:1;
     for(let i=0;i<vertices.length;i++){
       const a=vertices[i],b=vertices[(i+1)%vertices.length];
@@ -66,17 +66,17 @@ export function drawBridgeFascias(chunk,{face,boundsVisible},viewer,belowGround=
       if(ai)out.push(a);
       if(ai!==bi){const t=-a.y/(b.y-a.y);out.push({x:a.x+(b.x-a.x)*t,y:0,z:a.z+(b.z-a.z)*t});}
     }
-    if(out.length>=3)face(out,'#68758a');
+    if(out.length>=3){if(faceNormals)face(out,'#68758a',normal);else face(out,'#68758a');}
   };
   for(let a=Math.max(z,start+18);a<Math.min(z+64,start+110);a+=2){
     const b=Math.min(a+2,z+64,start+110),h0=bridgeHeight(a),h1=bridgeHeight(b);
     for(const edge of [14,50]){
       if(!hasBridge(chunk.x+(edge===50?1:0)))continue;
-      const wall=(bottom,top)=>clip([
+      const wall=(bottom,top,normal=null)=>clip([
         {x:x+edge,y:h0+bottom,z:a},{x:x+edge,y:h1+bottom,z:b},
         {x:x+edge,y:h1+top,z:b},{x:x+edge,y:h0+top,z:a}
-      ]);
-      if(!viewer||(edge===14?viewer.x>x+edge:viewer.x<x+edge))wall(-1.4,.075);
+      ],normal);
+      if(!viewer||(edge===14?viewer.x>x+edge:viewer.x<x+edge))wall(-1.4,.075,{x:edge===14?1:-1,y:0,z:0});
       if(!belowGround)wall(.075,.25);
     }
   }
@@ -92,9 +92,9 @@ export function drawRiverbankFaces(chunk,{face,boundsVisible,nativeWater=false},
   if(waterSide)drawCachedRiverbankFaces(chunk,face,nativeWater);
 }
 
-export function drawRiverStructures(chunk,{face,boundsVisible},viewer){
+export function drawRiverStructures(chunk,{face,boundsVisible,faceNormals=false},viewer){
   if(boundsVisible&&!boundsVisible(chunk.x*BLOCK,WATER_LEVEL,chunk.z*BLOCK,chunk.x*BLOCK+64,8,chunk.z*BLOCK+64))return;
-  drawBridgeFascias(chunk,{face,boundsVisible},viewer);
+  drawBridgeFascias(chunk,{face,boundsVisible,faceNormals},viewer);
   const x=chunk.x*BLOCK,z=chunk.z*BLOCK,start=chunk.riverStart*BLOCK;
   const low=Math.max(z,start+18),high=Math.min(z+64,start+110);
   // Short planar segments approximate a continuous arch; physics uses the same curve.

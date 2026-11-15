@@ -58,7 +58,7 @@ export function drawParkGround(chunk,{quad,face,nativeFlowers=false}){
   for(const s of [-1,1])ribbon(path,face,s*(half-.18),s*half,PARK_LAYERS.pathEdge,'#634a38');
 }
 
-const visible=(viewer,p,n)=>(viewer.x-p.x)*n.x+(viewer.y-p.y)*n.y+(viewer.z-p.z)*n.z>0;
+const visible=(viewer,p,n)=>!viewer||(viewer.x-p.x)*n.x+(viewer.y-p.y)*n.y+(viewer.z-p.z)*n.z>0;
 // Moonlight from above and the north-east; undersides stay dark.
 const LIGHT=(()=>{const l={x:.45,y:.75,z:-.5},n=Math.hypot(l.x,l.y,l.z);return {x:l.x/n,y:l.y/n,z:l.z/n};})();
 const shade=(n,colors)=>{
@@ -75,11 +75,15 @@ export function band(face,viewer,t,y0,r0,y1,r1,colors,{sides=8,bottom=true,top=t
     const p0=ring(y0,r0,a0),p1=ring(y0,r0,a1),p2=ring(y1,r1,a1),p3=ring(y1,r1,a0);
     const n={x:Math.cos(mid)*(y1-y0),y:(r0-r1)*Math.cos(Math.PI/sides),z:Math.sin(mid)*(y1-y0)},length=Math.hypot(n.x,n.y,n.z);
     if(!visible(viewer,p0,n))continue;
-    face(r1?[p0,p1,p2,p3]:[p0,p1,p2],shade({x:n.x/length,y:n.y/length,z:n.z/length},colors));
+    const points=r1?[p0,p1,p2,p3]:[p0,p1,p2],color=shade({x:n.x/length,y:n.y/length,z:n.z/length},colors);
+    if(viewer)face(points,color);else face(points,color,n);
   }
-  const cap=(y,r,color)=>face(Array.from({length:sides},(_,i)=>ring(y,r,i*2*Math.PI/sides)),color);
-  if(bottom&&viewer.y<y0)cap(y0,r0,colors[0]);
-  if(top&&r1&&viewer.y>y1)cap(y1,r1,colors.at(-1));
+  const cap=(y,r,color,ny)=>{
+    const points=Array.from({length:sides},(_,i)=>ring(y,r,i*2*Math.PI/sides));
+    if(viewer)face(points,color);else face(points,color,{x:0,y:ny,z:0});
+  };
+  if(bottom&&(!viewer||viewer.y<y0))cap(y0,r0,colors[0],-1);
+  if(top&&r1&&(!viewer||viewer.y>y1))cap(y1,r1,colors.at(-1),1);
 }
 
 const BARK=['#2a1f27','#35272c','#423133','#4d3a39'];
@@ -94,12 +98,16 @@ function benchBox(face,viewer,b,u0,u1,v0,v1,y0,y1,color,top=color){
   for(const [[ua,va],[ub,vb],n] of sides){
     const a=p(ua,va,y0);
     if(!visible(viewer,a,{x:n.x,y:0,z:n.z}))continue;
-    face([a,p(ub,vb,y0),p(ub,vb,y1),p(ua,va,y1)],color);
+    const points=[a,p(ub,vb,y0),p(ub,vb,y1),p(ua,va,y1)];
+    if(viewer)face(points,color);else face(points,color,{x:n.x,y:0,z:n.z});
   }
-  if(viewer.y>y1)face([p(u0,v0,y1),p(u1,v0,y1),p(u1,v1,y1),p(u0,v1,y1)],top);
+  if(!viewer||viewer.y>y1){
+    const points=[p(u0,v0,y1),p(u1,v0,y1),p(u1,v1,y1),p(u0,v1,y1)];
+    if(viewer)face(points,top);else face(points,top,{x:0,y:1,z:0});
+  }
 }
 
-function bench(b,face,viewer){
+export function drawParkBench(b,face,viewer=null){
   benchBox(face,viewer,b,-1,1,-.3,.3,.42,.5,'#6b4a3f','#80594a');
   benchBox(face,viewer,b,-1,1,.2,.3,.56,.98,'#6b4a3f','#80594a');
   for(const end of [-1.08,1]){
@@ -164,9 +172,10 @@ export function drawFingerpost(s,boards,{face,signTexture,complete=false},viewer
   for(const b of boards)signBoard(s,b,face,viewer,signTexture,complete);
 }
 
-export function drawParkStructures(chunk,{face,signTexture,drawTrees,drawFingerpost:nativeFingerpost,nativeCones=false},viewer){
+export function drawParkStructures(chunk,{face,signTexture,drawTrees,drawFingerpost:nativeFingerpost,nativeCones=false,drawParkScenery},viewer){
   if(!nativeCones)for(const c of chunk.park.cones)if(!c.taken)pineCone(c,face,viewer);
-  for(const b of chunk.park.benches)bench(b,face,viewer);
+  if(drawParkScenery)drawParkScenery(chunk);
+  else for(const b of chunk.park.benches)drawParkBench(b,face,viewer);
   const {sign}=chunk.park,{bottom,top}=RIVER_SIGN;
   if(sign){
     const boards=[{text:'NIGHT RIVER',dx:0,dz:sign.dz,bottom,top}];
@@ -175,7 +184,7 @@ export function drawParkStructures(chunk,{face,signTexture,drawTrees,drawFingerp
   }
   if(drawTrees)drawTrees(chunk);
   else for(const t of chunk.park.trees)drawTreeGeometry(t,face,viewer);
-  for(const b of chunk.park.bushes??[])drawBush(b,face,viewer);
+  if(!drawParkScenery)for(const b of chunk.park.bushes??[])drawParkBush(b,face,viewer);
 }
 
 // Each bench seats one person at either end. Seated, they face the path.
@@ -261,9 +270,11 @@ function bushMesh(b){
   }
   bushMeshes.set(b,mesh);return mesh;
 }
-function drawBush(b,face,viewer){
+export function drawParkBush(b,face,viewer=null){
   for(const dx of [-.24,0,.28])band(face,viewer,{x:b.x+dx,z:b.z},.085,.055,.48,.035,BARK,{sides:5});
-  for(const {v,n,color} of bushMesh(b))if(visible(viewer,v[0],n))face(v,color);
+  for(const {v,n,color} of bushMesh(b))if(visible(viewer,v[0],n)){
+    if(viewer)face(v,color);else face(v,color,n);
+  }
 }
 
 const BUSH_REPLIES=[

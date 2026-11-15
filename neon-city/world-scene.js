@@ -33,7 +33,8 @@ import {bansheeFrame} from './banshee.js?v=6';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {pedestrian,pedestrianShowsBack,mod,RIVER_VIEW_DISTANCE,groundHeight,characterHeight,characterGirth,START_SIGN,RIVE_GAUCHE_SIGNS} from './world.js?v=start-pub-1';
 import {drawRiverTerrain,drawRiverStructures,drawRiverbankFaces,drawBridgeFascias} from './rivers.js?v=visibility-reuse-1';
-import {drawParkGround,drawParkStructures,drawFingerpost,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
+import {drawStreetGround} from './street-ground.js';
+import {drawParkStructures,drawFingerpost,paintSign,SIGN_TEXTURE} from './parks.js?v=rive-gauche-6';
 import {drawRiveGaucheSign,paintRiveGauche,RIVE_GAUCHE_TEXTURE} from './rive-gauche.js?v=5';
 import {drawArcade,arcadeName} from './arcade.js?v=park-entrances-1';
 import {drawMidniteBooks} from './midnite-books.js?v=unique-labels-4';
@@ -147,14 +148,10 @@ export function createWorldScene(renderer,{reduced=false}={}){
   }
   function street(chunk){
     renderer.drawCollectibles?.(chunk);
-    const x=chunk.x*64,z=chunk.z*64;
     if(renderer.drawRoad)renderer.drawRoad(chunk);
     if(chunk.river){renderer.drawWater?.(chunk);drawRiverTerrain(chunk,{quad,face,boundsVisible,nativeWater:!!renderer.drawWater,nativeFlowers:!!renderer.drawCollectibles},time);return;}
-    quad(x+8,.04,z+8,48,48,'#414052');quad(x+8,.06,z+8,48,.25,'#777185');quad(x+8,.06,z+8,.25,48,'#777185');
-    // Pavement seams and a pool of neon light outside each storefront.
-    for(let i=10;i<56;i+=6){quad(x+i,.07,z+8,.06,6,'#272739');quad(x+8,.07,z+i,6,.06,'#272739');}
-    if(chunk.park){drawParkGround(chunk,{quad,face,nativeFlowers:!!renderer.drawCollectibles});return;}
-    quad(x+16,.08,z+9,12,3,'#57354f');quad(x+9,.08,z+35,3,10,'#294755');
+    if(renderer.drawStaticGround)renderer.drawStaticGround(chunk);
+    else drawStreetGround(chunk,{quad,face,nativeFlowers:!!renderer.drawCollectibles});
   }
   function manhole(m){
     // Flat circular iron covers, projected with the same camera as the pavement.
@@ -279,7 +276,8 @@ export function createWorldScene(renderer,{reduced=false}={}){
     for(const chunk of visible)if(chunk.river){
       if(renderer.drawRetainingWalls)renderer.drawRetainingWalls(chunk,player);
       else drawRiverbankFaces(chunk,{face,boundsVisible,nativeWater:!!renderer.drawWater},player);
-      drawBridgeFascias(chunk,{face,boundsVisible},player,true);
+      if(renderer.drawStaticBridges)renderer.drawStaticBridges(chunk);
+      else drawBridgeFascias(chunk,{face,boundsVisible},player,true);
     }
     renderer.drawPass(renderer.endPass('depth'));
     renderer.drawPass(terrain,{elevation:'above'});
@@ -294,14 +292,14 @@ export function createWorldScene(renderer,{reduced=false}={}){
     for(const chunk of visible){
       if(chunk.river){
         renderer.drawRailings?.(chunk);
-        drawRiverStructures(chunk,{face,boundsVisible},{x:player.x,y:eye,z:player.z});
+        if(!renderer.drawStaticBridges)drawRiverStructures(chunk,{face,boundsVisible},{x:player.x,y:eye,z:player.z});
       }
       for(const b of chunk.buildings)building(b);
       if(renderer.drawNewspaperMachines)renderer.drawNewspaperMachines(chunk);
       else for(const m of chunk.newspaperMachines??[])newspaperMachine(m);
       if(chunk.park){
         // Benches and trees are small, layered objects; order them at real overlaps.
-        renderer.withStyle({detail:true,textureSmooth:true},()=>drawParkStructures(chunk,{face,signTexture,drawTrees:renderer.drawTrees,drawFingerpost:renderer.drawFingerpost,nativeCones:!!renderer.drawCollectibles},{x:player.x,y:eye,z:player.z}));
+        renderer.withStyle({detail:true,textureSmooth:true},()=>drawParkStructures(chunk,{face,signTexture,drawTrees:renderer.drawTrees,drawFingerpost:renderer.drawFingerpost,nativeCones:!!renderer.drawCollectibles,drawParkScenery:renderer.drawParkScenery},{x:player.x,y:eye,z:player.z}));
       }
       for(const p of chunk.people)person(pedestrian(chunk,p,time));
     }

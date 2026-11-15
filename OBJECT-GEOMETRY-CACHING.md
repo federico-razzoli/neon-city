@@ -303,3 +303,29 @@ change visibility and artwork selection without rebuilding or uploading panels.
 Wall textures remain building-specific. Lit/dim hotel artwork switches between
 retained GPU textures. Building unloading releases artwork materials/textures;
 shared wall geometry releases on scene exit. See `BUILDING-CACHING.md`.
+
+## Retained static street scenery
+
+`three-static-scenery.js` retains park benches and bushes, park lawns/kerbs/paths
+and grass details, ordinary pavement seams/storefront patches, and bridge
+fascias/slab undersides. Each loaded chunk owns separate ground, park-structure
+and bridge meshes as needed. These meshes are built lazily, keep immutable
+position/color/visibility buffers, and release their geometry when the chunk
+unloads or the street scene closes. Matching materials are shared within the
+scene. Window bounds and Three.js frustum culling still apply.
+
+Bush faces have intentionally approximate visibility normals, including their
+pointed leaves; these do not always match the triangles' geometric normals.
+Complete geometry therefore records the original face point and visibility
+normal. A shader applies the original camera-facing test without CPU face
+emission or vertex uploads. The same metadata preserves bench faces and the
+water-facing rule for lower bridge fascias. Ground faces and bridge upper edges
+that were originally two-sided remain two-sided. Shading colors, elevations,
+path ribbons and bridge clipping at ground level retain their original formulas.
+Batched rendering can resolve equal-depth overlapping bush surfaces in a
+different order from the previous per-color batches.
+
+Flowers, cones, trees, signs, roads, railings and river walks keep their separate
+renderers. This change does not alter their offscreen resource-retention policy,
+add state-change counters, instance character cards, change indoor dropped-item
+models, or introduce texture atlases.
