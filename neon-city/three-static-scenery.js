@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createBushGeometries} from './three-bushes.js';
 import {drawStreetGround} from './street-ground.js';
-import {drawParkBench,drawParkBush} from './parks.js?v=rive-gauche-6';
+import {drawParkBench} from './parks.js?v=rive-gauche-6';
 import {drawBridgeFascias,drawRiverStructures} from './rivers.js?v=parks-4';
 
 // Static faces retain their exact colors and custom visibility normals. Some
@@ -33,7 +34,19 @@ export function createThreeStaticScenery(scene,{boundsVisible}={}){
       }
     };
     const quad=(x,y,z,w,d,color)=>face([{x,y,z},{x:x+w,y,z},{x:x+w,y,z:z+d},{x,y,z:z+d}],color);
-    draw({face,quad});
+    const bush=b=>{
+      for(const geometry of createBushGeometries(b)){
+        const p=geometry.attributes.position,c=geometry.attributes.color,index=geometry.index;
+        for(let i=0;i<(index?.count??p.count);i++){
+          const j=index?index.getX(i):i;
+          positions.push(p.getX(j),p.getY(j),p.getZ(j));
+          colors.push(c.getX(j),c.getY(j),c.getZ(j));
+          points.push(0,0,0);normals.push(0,0,0);
+        }
+        geometry.dispose();
+      }
+    };
+    draw({face,quad,bush});
     const geometry=new THREE.BufferGeometry();
     for(const [name,values] of [['position',positions],['color',colors],['sceneryPoint',points],['sceneryNormal',normals]])geometry.setAttribute(name,new THREE.Float32BufferAttribute(values,3));
     geometry.computeBoundingBox();geometry.computeBoundingSphere();
@@ -55,7 +68,7 @@ export function createThreeStaticScenery(scene,{boundsVisible}={}){
       for(const [key,entry] of chunks){if(!loaded.has(key)){release(entry);chunks.delete(key);}else for(const mesh of entry.meshes.values())mesh.visible=false;}
     },
     drawGround(chunk){draw(chunk,'ground',helpers=>drawStreetGround(chunk,{...helpers,nativeFlowers:true}));},
-    drawPark(chunk){draw(chunk,'park',({face})=>{for(const bench of chunk.park.benches)drawParkBench(bench,face);for(const bush of chunk.park.bushes??[])drawParkBush(bush,face);},true);},
+    drawPark(chunk){draw(chunk,'park',({face,bush:drawBush})=>{for(const bench of chunk.park.benches)drawParkBench(bench,face);for(const bush of chunk.park.bushes??[])drawBush(bush);},true);},
     drawBridges(chunk){draw(chunk,'bridge',({face})=>{const helpers={face,faceNormals:true};drawBridgeFascias(chunk,helpers,null,true);drawRiverStructures(chunk,helpers,null);});},
     dispose(){if(disposed)return;disposed=true;for(const entry of chunks.values())release(entry);chunks.clear();groundMaterial.dispose();detailMaterial.dispose();}
   };

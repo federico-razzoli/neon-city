@@ -35,8 +35,9 @@ function same(actual,expected){
   });
 }
 
-test('retained park benches and bushes reproduce custom face visibility, colors and vertices from all sides',()=>{
+test('retained park benches reproduce custom face visibility, colors and vertices from all sides',()=>{
   for(const c of [park(),park(-2,1)]){
+    c.park.bushes=[];
     const scene=new THREE.Scene(),scenery=createThreeStaticScenery(scene);
     try{
       scenery.beginFrame(frame([c]));scenery.drawPark(c);const mesh=scene.children[0];
@@ -101,4 +102,29 @@ test('park delegation skips legacy bench and bush emission while leaving other n
   const c=park();let calls=0,faces=0;
   drawParkStructures(c,{face(){faces++;},drawParkScenery(received){assert.equal(received,c);calls++;},drawTrees(){},nativeCones:true},{x:0,y:1.65,z:0});
   assert.equal(calls,1);assert.equal(faces,0);
+});
+
+test('park bushes use Three.js sphere and cylinder geometry with stable retained buffers',async()=>{
+  const {createBushGeometries}=await import('../neon-city/three-bushes.js');
+  const c=park(-2,1);c.park.benches=[];
+  const bush=c.park.bushes[0],parts=createBushGeometries(bush);
+  const scene=new THREE.Scene(),scenery=createThreeStaticScenery(scene);
+  try{
+    assert.equal(parts.length,9);
+    assert.equal(parts.filter(p=>p.type==='CylinderGeometry').length,3);
+    scenery.beginFrame(frame([c]));scenery.drawPark(c);
+    const mesh=scene.getObjectByName('static-park:-2,1');
+    const position=mesh.geometry.attributes.position;
+    assert.equal(position.count,parts.reduce((sum,p)=>sum+(p.index?.count??p.attributes.position.count),0));
+    assert.ok(mesh.geometry.boundingBox.min.x<bush.x-1);
+    assert.ok(mesh.geometry.boundingBox.max.x>bush.x+1);
+    assert.ok(mesh.geometry.boundingBox.min.z<-bush.z-1);
+    assert.ok(mesh.geometry.boundingBox.max.y>1.6);
+    for(const name of ['position','color'])assert.ok([...mesh.geometry.attributes[name].array].every(Number.isFinite));
+    const geometry=mesh.geometry;
+    scenery.beginFrame(frame([c]));scenery.drawPark(c);
+    assert.equal(mesh.geometry,geometry);
+    let released=0;geometry.addEventListener('dispose',()=>released++);
+    scenery.beginFrame(frame([]));assert.equal(released,1);assert.equal(scene.children.length,0);
+  }finally{parts.forEach(p=>p.dispose());scenery.dispose();}
 });
