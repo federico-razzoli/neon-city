@@ -16,12 +16,16 @@ import {createThreeHallScene} from './three-hall-scene.js';
 
 import {createThreeStreetScene} from './three-street-scene.js';
 
-function createScene(destination,hotel,floor){
+// Venues opt into one-way street ownership by registering their scene factory.
+const streetWindowVenues=new Map([['bookshop',createThreeBookshopScene]]);
+
+function createScene(destination,hotel,floor,streetScene){
+  const windowVenue=streetWindowVenues.get(destination);
+  if(windowVenue)return windowVenue({streetScene});
   if(destination==='street')return createThreeStreetScene();
   if(destination==='lavatory')return createThreeLavatoryScene();
   if(destination==='cubicle')return createThreeCubicleScene();
   if(destination==='pub')return createThreePubScene();
-  if(destination==='bookshop')return createThreeBookshopScene();
   if(destination==='arcade')return createThreeArcadeScene();
   if(destination==='hotel')return createThreeHallScene(hotel);
   if(destination==='corridor')return createThreeCorridorScene(hotel,floor);
@@ -29,8 +33,8 @@ function createScene(destination,hotel,floor){
   return createThreeStairwellScene(hotel);
 }
 
-export function createThreeHotelRenderer(canvas){
-  const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false});
+export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THREE.WebGLRenderer(options),sceneFor=createScene}={}){
+  const renderer=createRenderer({canvas,antialias:false,alpha:false});
   renderer.localClippingEnabled=true;
   renderer.setPixelRatio(1);renderer.setSize(NATIVE_VIEW.width,NATIVE_VIEW.height,false);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NoToneMapping;
@@ -54,9 +58,14 @@ export function createThreeHotelRenderer(canvas){
       const nextHotel=nextDestination==='street'?null:['arcade','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
       const nextFloor=nextDestination==='corridor'?frame.hotelStairs.floor:null;
       if(!room||hotel!==nextHotel||destination!==nextDestination||floor!==nextFloor){
+        // Registered window venues inherit outdoor resources. Their extras
+        // dispose them with the interior on departure; nothing flows back.
+        const streetScene=destination==='street'&&streetWindowVenues.has(nextDestination)?room:null;
+        if(streetScene)room=null;
         leave();
-        room=profilePhase('neon:three:geometry',()=>createScene(nextDestination,nextHotel,nextFloor));
+        room=profilePhase('neon:three:geometry',()=>sceneFor(nextDestination,nextHotel,nextFloor,streetScene));
         hotel=nextHotel;destination=nextDestination;floor=nextFloor;
+        room.prepare?.(renderer,frame);
       }
       profilePhase('neon:three:update',()=>room.update(frame));
       profilePhase('neon:three:render',()=>{

@@ -26,6 +26,8 @@ import {createRenderCamera} from './render-camera.js';
 // The shared street traversal submits world coordinates directly to WebGL.
 // Batch faces by artwork/color and retain GPU buffers across frames.
 export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
+  let exteriorFilter=exteriorVisible;
+  exteriorVisible=(...bounds)=>!exteriorFilter||exteriorFilter(...bounds);
   const scene=new THREE.Scene(),camera=createInteriorCamera(),culling=createRenderCamera();
   scene.fog=new THREE.Fog('#0f0a1e',22,170);
   const sky=createCorridorSky(scene),roads=createThreeRoads(scene),railings=createThreeRailings(scene),traffic=createThreeTraffic(scene),batches=new Map();
@@ -116,7 +118,7 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     }
     attribute.array.set(values);attribute.needsUpdate=true;
   }
-  return {scene,camera,update(frame){
+  return {scene,camera,setBoundsVisible(filter){exteriorFilter=filter;},update(frame){
     if(cash)cash.mesh.visible=false;
     scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);

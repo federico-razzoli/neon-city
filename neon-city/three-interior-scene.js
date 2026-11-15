@@ -145,5 +145,5 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
     for(const {texture,material} of artwork.values()){texture.dispose();material.dispose();}
     artwork.clear();cards.dispose();artworkMeshes.dispose();material.dispose();builder.dispose();scene.clear();
   }
-  return {scene,camera,update,dispose};
+  return {scene,camera,update,dispose,prepare:extras?.prepare?.bind(extras)};
 }

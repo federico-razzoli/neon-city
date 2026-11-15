@@ -135,3 +135,65 @@ test('turning away skips street updates and rendering while retaining it for the
   frame.player.angle=Math.PI;street.update(frame);assert.equal(updates,2);assert.equal(created,1);assert.equal(exterior.visible,true);
   street.dispose();
 });
+
+test('bookshop reuses an outdoor scene before the first window view and releases it on exit',async()=>{
+  const THREE=await import('../neon-city/vendor/three/three.module.js');
+  const {createBookshopStreet,bookshopStreetView}=await import('../neon-city/three-bookshop-street.js');
+  const scene=new THREE.Scene(),exterior=new THREE.Scene();let updates=0,disposed=0,filter;
+  const geometry=new THREE.BoxGeometry(),material=new THREE.MeshBasicMaterial();
+  const mesh=new THREE.Mesh(geometry,material);exterior.add(mesh);
+  const retained={scene:exterior,setBoundsVisible(f){filter=f;},update(){updates++;},dispose(){disposed++;geometry.dispose();material.dispose();exterior.clear();}};
+  const street=createBookshopStreet(scene,{streetScene:retained,createStreet(){assert.fail('must reuse outdoor scene');}});
+  const chunk={x:0,z:0,buildings:[]};
+  const frame={player:{x:9,z:6,angle:0},eye:1.65,currentVenue:{x:0,z:0,w:18,d:18},skyView:{},city:{chunks:new Map([['0,0',chunk]])}};
+  assert.equal(bookshopStreetView(frame,()=>false).frame.city.chunks.size,1,'window culling must not evict cached chunks');
+  street.update(frame);assert.equal(updates,0);assert.equal(exterior.visible,false);assert.equal(typeof filter,'function');
+  frame.player.angle=Math.PI;street.update(frame);assert.equal(updates,1);assert.equal(exterior.parent,scene);
+  assert.equal(mesh.geometry,geometry);assert.equal(mesh.material,material);assert.ok(material.clippingPlanes.length);
+  frame.player.angle=0;street.update(frame);assert.equal(updates,1);
+  street.dispose();street.dispose();assert.equal(disposed,1);assert.equal(exterior.parent,null);
+});
+
+test('only entering the bookshop transfers street ownership, and returning outdoors releases the bookshop',async()=>{
+  const {createThreeHotelRenderer}=await import('../neon-city/three-hotel-renderer.js');
+  for(const target of ['bookshop','pub','hotel','arcade','lavatory','cubicle','stairs','corridor','storage']){
+    const rooms=[];
+    const renderer=createThreeHotelRenderer(null,{
+      createRenderer:()=>({setPixelRatio(){},setSize(){},render(){},renderLists:{dispose(){}},dispose(){}}),
+      sceneFor(destination,hotel,floor,streetScene){
+        const room={destination,streetScene,scene:{},camera:{},disposed:0,update(){},dispose(){this.disposed++;streetScene?.dispose();}};
+        rooms.push(room);return room;
+      }
+    });
+    renderer.render({indoors:false});const outdoor=rooms[0];
+    const flags={bookshop:{insideBookshop:true},pub:{insidePub:true},hotel:{},arcade:{insideArcade:true},lavatory:{insideLavatory:true},cubicle:{insideCubicle:{}},stairs:{hotelStairs:{floor:1}},corridor:{hotelCorridor:true,hotelStairs:{floor:1}},storage:{hotelStorage:true}};
+    renderer.render({indoors:true,currentVenue:{},currentHotel:{},...flags[target]});const interior=rooms[1];
+    assert.equal(interior.destination,target);
+    assert.equal(interior.streetScene,target==='bookshop'?outdoor:null);
+    assert.equal(outdoor.disposed,target==='bookshop'?0:1);
+    renderer.render({indoors:false});
+    assert.equal(interior.disposed,1);assert.equal(outdoor.disposed,1);
+    assert.equal(rooms[2].streetScene,null,'new outdoor scene receives no interior resources');
+    renderer.dispose();assert.equal(rooms[2].disposed,1);
+  }
+});
+
+test('entry preparation draws clipped window views before the first visible window and restores the room view',async()=>{
+  const THREE=await import('../neon-city/vendor/three/three.module.js');
+  const {createBookshopStreet}=await import('../neon-city/three-bookshop-street.js');
+  const scene=new THREE.Scene(),exterior=new THREE.Scene();
+  const geometry=new THREE.BoxGeometry(),material=new THREE.MeshBasicMaterial();
+  exterior.add(new THREE.Mesh(geometry,material));
+  let updates=0,draws=0;
+  const street=createBookshopStreet(scene,{streetScene:{scene:exterior,setBoundsVisible(){},update(){updates++;},dispose(){geometry.dispose();material.dispose();}}});
+  const frame={player:{x:9,z:1.8,angle:0},eye:1.65,currentVenue:{x:0,z:0,w:18,d:18},skyView:{},city:{chunks:new Map()}};
+  const renderer={autoClear:false,render(renderScene,camera){
+    draws++;assert.equal(renderScene,scene);assert.equal(exterior.visible,true);
+    assert.equal(renderer.autoClear,true);assert.equal(material.clippingPlanes.length,1);
+    assert.equal(camera.position.y,frame.eye);
+  }};
+  street.prepare(renderer,frame);
+  assert.equal(draws,3);assert.equal(updates,3);assert.equal(renderer.autoClear,false);
+  assert.equal(exterior.visible,false);assert.deepEqual(frame.player,{x:9,z:1.8,angle:0});
+  street.dispose();
+});
