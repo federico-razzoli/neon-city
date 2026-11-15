@@ -1,3 +1,4 @@
+import {ageCarriedIceCreams} from './river-ice-cream.js';
 import {iceCreamVanSolid} from './ice-cream-vans.js';
 /*
 Browser Games — standalone browser games, including Neon City.
@@ -207,10 +208,11 @@ export function riverBenches(chunk){
   const margin=(length-4)/2.5;
   return [left+margin+1,left+length/2,left+length-margin-1].map(x=>({x,z:bank+dir*.3,tx:1,tz:0,nx:0,nz:-dir,riverWalk:true}));
 }
-// Bridges are three blocks apart; the middle chunk owns the van in alternate gaps.
+// Bridges are three blocks apart. Opposite banks occupy opposite alternate gaps.
 export function riverIceCreamVan(chunk){
-  if(!chunk.river||mod(chunk.x,6)!==1)return null;
+  if(!chunk.river)return null;
   const first=chunk.z===chunk.riverStart;
+  if(mod(chunk.x,6)!==(first?1:4))return null;
   return chunk.iceCreamVan??={x:chunk.x*BLOCK+32,z:chunk.riverStart*BLOCK+(first?16:112),first,w:5.8,d:3};
 }
 export function riverWalkHeight(x,z){
@@ -566,6 +568,7 @@ export class City {
   // Returns {walker, place} for each walker on the promenade or a footpath
   // that the player is standing in the way of.
   advancePedestrians(dt,player,time,speaker=null,traffic=null) {
+    ageCarriedIceCreams(this,dt);
     const crossingWalkers=traffic?this.advanceCrossings(dt,player,time,traffic):new Set();
     const crossingPositions=this.pedestrians(time).filter(person=>crossingWalkers.has(person.walker));
     const heldInPlace=advanceRiverPeople(this,dt,player,time,speaker);

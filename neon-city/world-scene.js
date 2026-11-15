@@ -111,7 +111,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
   }
   function person(p){
     if(renderer.drawCharacterCard){
-      renderer.drawCharacterCard({position:{x:p.x,y:(p.ground??groundHeight(p.x,p.z))+.075,z:p.z},
+      renderer.drawCharacterCard({iceCreamStage:p.iceCreamStage,iceCreamFlavour:p.iceCreamFlavour,position:{x:p.x,y:(p.ground??groundHeight(p.x,p.z))+.075,z:p.z},
         type:p.type,frame:p.frame,back:pedestrianShowsBack(p,player),variant:p.variant,
         height:characterHeight(p.type),width:characterHeight(p.type)*characterGirth(p.type)/2});
       return;

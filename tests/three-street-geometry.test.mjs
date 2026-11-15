@@ -112,7 +112,7 @@ test('ice cream vans occupy alternate bridge gaps on both banks, stay solid and 
   const city=new City(42),start=RIVER_ROWS[0],chunks=[];
   for(let gap=-4;gap<=4;gap++)for(const first of [true,false]){
     const chunk={x:gap*3+1,z:start+(first?0:1),river:true,riverStart:start};
-    const van=riverIceCreamVan(chunk);assert.equal(!!van,((gap%2)+2)%2===0);
+    const van=riverIceCreamVan(chunk);assert.equal(!!van,((gap%2)+2)%2===(first?0:1));
     if(!van)continue;
     assert.equal(riverIceCreamVan(chunk),van);assert.equal(van.x,(gap*3+1.5)*BLOCK);
     assert.equal(city.solid(van.x,van.z+(van.first?1:-1)),true);assert.equal(city.solid(van.x+4,van.z),false);
@@ -125,12 +125,16 @@ test('ice cream vans occupy alternate bridge gaps on both banks, stay solid and 
   try{
     const frame={city:{chunks:new Map(chunks.map(c=>[`${c.x},${c.z}`,c]))}};
     vans.beginFrame(frame);for(const chunk of chunks)vans.draw(chunk);
-    assert.equal(scene.children.length,chunks.length*4);
+    assert.equal(scene.children.length,chunks.length*6);
     const geometry=scene.children[0].geometry;
     geometry.computeBoundingBox();assert.ok(Math.abs(geometry.boundingBox.max.y-3.7*1.2)<1e-5);
     const sign=scene.children.find(m=>m.material.map).geometry;sign.computeBoundingBox();
     assert.ok(Math.abs(sign.boundingBox.min.y-2.39)<1e-5);assert.ok(Math.abs(sign.boundingBox.max.y-2.91)<1e-5);
     assert.ok(scene.children.filter(m=>m.geometry===geometry).length===chunks.length);
+    const vendor=scene.children.find(m=>m.name.startsWith('ice-cream-vendor:'));
+    vendor.geometry.computeBoundingBox();assert.equal(vendor.geometry.boundingBox.min.z,0);assert.equal(vendor.geometry.boundingBox.max.z,0);
+    const skin=new THREE.Color('#6e412c'),rgb=vendor.geometry.attributes.color;
+    assert.ok(Array.from({length:rgb.count},(_,i)=>i).some(i=>Math.abs(rgb.getX(i)-skin.r)<1e-6&&Math.abs(rgb.getY(i)-skin.g)<1e-6&&Math.abs(rgb.getZ(i)-skin.b)<1e-6));
     const resources=new Set(scene.children.flatMap(m=>[m.geometry,m.material,m.material.map].filter(Boolean)));
     let disposed=0;for(const r of resources)r.addEventListener('dispose',()=>disposed++);
     vans.beginFrame({city:{chunks:new Map()}});assert.equal(scene.children.length,0);
@@ -142,13 +146,13 @@ test('rear doors open into a walkable street van on either bank without allowing
   const {City,riverIceCreamVan,RIVER_ROWS}=await import('../neon-city/world.js');
   const {interactIceCreamVanDoor,iceCreamVanLocal,iceCreamVanFloor,ICE_CREAM_VAN}=await import('../neon-city/ice-cream-vans.js');
   for(const first of [true,false]){
-    const city=new City(42),chunk={x:1,z:RIVER_ROWS[0]+(first?0:1),river:true,riverStart:RIVER_ROWS[0]};
+    const city=new City(42),chunk={x:first?1:4,z:RIVER_ROWS[0]+(first?0:1),river:true,riverStart:RIVER_ROWS[0]};
     city.chunks.set(`${chunk.x},${chunk.z}`,chunk);
     const van=riverIceCreamVan(chunk),sign=first?1:-1;
     const player={x:van.x-4.2*sign,z:van.z,angle:sign*Math.PI/2};
     city.move(player,2*sign,0);assert.ok(iceCreamVanLocal(van,player).x<ICE_CREAM_VAN.rear);
     player.angle=-sign*Math.PI/2;assert.equal(interactIceCreamVanDoor(player,van),null);
-    player.angle=sign*Math.PI/2;assert.equal(interactIceCreamVanDoor(player,van),'THE VAN DOOR IS OPEN.');
+    player.angle=sign*Math.PI/2;assert.equal(interactIceCreamVanDoor(player,van),'');
     city.move(player,3.2*sign,0);
     assert.ok(iceCreamVanLocal(van,player).x>ICE_CREAM_VAN.rear+1);
     assert.equal(player.riverWalk,undefined);assert.equal(iceCreamVanFloor(van,player),ICE_CREAM_VAN.floor);
@@ -158,6 +162,68 @@ test('rear doors open into a walkable street van on either bank without allowing
     player.z=van.z;city.move(player,-4.1*sign,0);
     assert.ok(iceCreamVanLocal(van,player).x<ICE_CREAM_VAN.rear-1);
     assert.equal(iceCreamVanFloor(van,player),0);
-    assert.equal(interactIceCreamVanDoor(player,van),'THE VAN DOOR IS CLOSED.');
+    assert.equal(interactIceCreamVanDoor(player,van),'');
   }
+});
+
+test('ice cream vendor redirects players inside the van on both banks, only when facing him',async()=>{
+  const {riverIceCreamVan,RIVER_ROWS}=await import('../neon-city/world.js');
+  const {interactIceCreamVendor,ICE_CREAM_VENDOR}=await import('../neon-city/ice-cream-vans.js');
+  for(const first of [true,false]){
+    const van=riverIceCreamVan({x:first?1:4,z:RIVER_ROWS[0]+(first?0:1),riverStart:RIVER_ROWS[0],river:true}),s=first?1:-1;
+    const p={x:van.x-.8*s,z:van.z,angle:Math.atan2(s,-ICE_CREAM_VENDOR.z*s)};
+    assert.equal(interactIceCreamVendor(p,van),'CLIENTS ON THE OTHER SIDE, PLEASE.');
+    p.angle+=Math.PI;assert.equal(interactIceCreamVendor(p,van),null);
+    p.angle-=Math.PI;p.riverWalk=true;assert.equal(interactIceCreamVendor(p,van),null);
+    delete p.riverWalk;p.z=van.z-2*s;assert.equal(interactIceCreamVendor(p,van),null);
+    p.z=van.z;p.x=van.x-3.8*s;assert.equal(interactIceCreamVendor(p,van),null);
+  }
+});
+
+test('van door can close and reopen from the nearest walkable inside position on either bank',async()=>{
+  const {City,riverIceCreamVan,RIVER_ROWS}=await import('../neon-city/world.js');
+  const {interactIceCreamVan,iceCreamVanFloor,ICE_CREAM_VAN}=await import('../neon-city/ice-cream-vans.js');
+  for(const first of [true,false]){
+    const city=new City(42),chunk={x:first?1:4,z:RIVER_ROWS[0]+(first?0:1),river:true,riverStart:RIVER_ROWS[0]};
+    city.chunks.set(`${chunk.x},${chunk.z}`,chunk);
+    const van=riverIceCreamVan(chunk),s=first?1:-1;van.doorOpen=true;
+    const p={x:van.x-.8*s,z:van.z,angle:-s*Math.PI/2};
+    // Move exactly to the closed door's collision clearance, as normal walking does.
+    city.move(p,(-2.2+.8)*s,0);
+    assert.equal(interactIceCreamVan(p,van),'');assert.equal(van.doorOpen,false);
+    assert.equal(iceCreamVanFloor(van,p),ICE_CREAM_VAN.floor);
+    assert.equal(interactIceCreamVan(p,van),'');assert.equal(van.doorOpen,true);
+  }
+});
+
+test('aiming at van trays, cones and freezer returns the warning while the vendor keeps his own reply',async()=>{
+  const {riverIceCreamVan,RIVER_ROWS}=await import('../neon-city/world.js');
+  const {interactIceCreamVan}=await import('../neon-city/ice-cream-vans.js');
+  for(const first of [true,false]){
+    const van=riverIceCreamVan({x:first?1:4,z:RIVER_ROWS[0]+(first?0:1),riverStart:RIVER_ROWS[0],river:true}),s=first?1:-1;
+    const aim=(x,z,tx,tz)=>({x:van.x+x*s,z:van.z-z*s,angle:Math.atan2((tx-x)*s,-(tz-z)*s)});
+    for(const tray of [-1.65,-1.05,-.45])assert.equal(interactIceCreamVan(aim(-1.1,0,tray,1.02),van),'DO NOT TOUCH, PLEASE.');
+    assert.equal(interactIceCreamVan(aim(.55,2.2,.55,1.18),van),null);
+    for(const tray of [-1.65,-1.05,-.45])assert.equal(interactIceCreamVan(aim(tray,2.2,tray,1.02),van),null);
+    assert.equal(interactIceCreamVan(aim(-1.6,0,-1.6,-.75),van),'DO NOT TOUCH, PLEASE.');
+    assert.equal(interactIceCreamVan(aim(-.8,0,.2,.65),van),'CLIENTS ON THE OTHER SIDE, PLEASE.');
+    assert.equal(interactIceCreamVan({...aim(-1.6,0,-1.6,-.75),riverWalk:true},van),null);
+    assert.equal(interactIceCreamVan(aim(-.5,0,-.5,-3),van),null);
+  }
+});
+
+test('carried ice creams show a full scoop, a cut-down scoop, then a bare cone and release resources',async()=>{
+  const {createThreeCarriedIceCreams}=await import('../neon-city/three-carried-ice-creams.js');
+  const scene=new THREE.Scene(),iceCreams=createThreeCarriedIceCreams(scene),geometries=[];
+  for(const stage of ['full','bitten','cone']){
+    iceCreams.beginFrame();iceCreams.draw({position:{x:10,y:.075,z:20},height:1.85,width:.925,stage,flavour:0,angle:0});iceCreams.endFrame();
+    const mesh=scene.children[0];mesh.geometry.computeBoundingBox();geometries.push(mesh.geometry);
+    assert.equal(mesh.visible,true);assert.ok(mesh.position.x>10);assert.ok(mesh.position.y>0);
+  }
+  assert.ok(geometries[0].boundingBox.max.y>geometries[1].boundingBox.max.y);
+  assert.ok(geometries[1].boundingBox.max.y>geometries[2].boundingBox.max.y);
+  iceCreams.beginFrame();iceCreams.draw({position:{x:10,y:.075,z:20},height:1.85,width:.925,stage:'full',flavour:0,angle:0,back:true});iceCreams.endFrame();assert.equal(scene.children[0].visible,false);
+  iceCreams.beginFrame();iceCreams.endFrame();assert.equal(scene.children[0].visible,false);
+  let disposed=0;for(const g of geometries)g.addEventListener('dispose',()=>disposed++);
+  iceCreams.dispose();assert.equal(disposed,3);assert.equal(scene.children.length,0);
 });

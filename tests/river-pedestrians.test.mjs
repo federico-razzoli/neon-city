@@ -121,3 +121,68 @@ test('walkers use stairs at the bridge they actually reach, preserving direction
     assert.ok(Math.abs(pedestrian(chunk,p,0).facingX-heading)<1e-9);
   }
 });
+
+test('ice cream stops roll once per pass at one third and reserve no more than one waiting place',async()=>{
+  const {startIceCreamVisit,ICE_CREAM_STOP_CHANCE}=await import('../neon-city/river-ice-cream.js');
+  assert.equal(ICE_CREAM_STOP_CHANCE,1/3);
+  for(const roll of [1/3-1e-6,1/3,.9]){
+    const city=new City(1),vanChunk=city.generate(1,row);city.chunks.set(`1,${row}`,vanChunk);
+    const p={riverMotion:{mode:'upper',s:76}},before={x:93.5,z:row*BLOCK+10.45,facingX:1},after={...before,x:93.7};
+    let draws=0;city.rng=()=>{draws++;return roll;};
+    assert.equal(!!startIceCreamVisit(city,p,before,after,{mode:'upper',s:76.7},[]),roll<1/3);
+    startIceCreamVisit(city,p,before,after,{mode:'upper',s:76.7},[]);assert.equal(draws,1);
+  }
+  const city=new City(1),vanChunk=city.generate(1,row);city.chunks.set(`1,${row}`,vanChunk);city.rng=()=>0;
+  const before={x:93.5,z:row*BLOCK+10.45,facingX:1},after={...before,x:93.7},actors=[];
+  for(let i=0;i<3;i++){
+    const p={riverMotion:{mode:'upper',s:76}};
+    const visit=startIceCreamVisit(city,p,before,after,{mode:'upper',s:76.7},actors);
+    if(i<2){assert.equal(visit.slot,i);p.riverMotion=visit;actors.push({p});}
+    else assert.equal(visit,null);
+  }
+});
+
+test('ice cream service lasts five seconds and eating advances every ten seconds even while stopped',async()=>{
+  const {advanceIceCreamVisit,carriedIceCreamStage,ageCarriedIceCreams}=await import('../neon-city/river-ice-cream.js');
+  const p={riverMotion:{mode:'ice-cream',slot:0,stage:'talk',elapsed:0,at:{x:0,z:0}}};
+  p.riverMotion=advanceIceCreamVisit(p,4.95,[]);assert.equal(p.riverMotion.stage,'talk');
+  p.riverMotion=advanceIceCreamVisit(p,.05,[]);assert.equal(p.riverMotion.stage,'leave');assert.equal(p.riverMotion.grantIceCream,true);
+  p.iceCream={age:0};const city={chunks:new Map([['test',{people:[p]}]])};
+  assert.equal(carriedIceCreamStage(p.iceCream),'full');
+  ageCarriedIceCreams(city,10);assert.equal(carriedIceCreamStage(p.iceCream),'bitten');
+  ageCarriedIceCreams(city,10);assert.equal(carriedIceCreamStage(p.iceCream),'cone');
+  ageCarriedIceCreams(city,10);assert.equal(p.iceCream,undefined);assert.equal(carriedIceCreamStage(p.iceCream),null);
+});
+
+test('river customers step clear of both through lanes, queue safely, and resume their routes with ice creams',()=>{
+  for(const bank of [0,1]){
+    const {city}=fixture(),owner=bank?3:0,chunk=city.generate(owner,row),vanChunk=city.generate(owner+1,row+bank);
+    chunk.people=[];vanChunk.people=[];city.chunks.clear();city.chunks.set(`${owner},${row}`,chunk);city.chunks.set(`${owner+1},${row+bank}`,vanChunk);
+    const people=[];
+    for(let i=0;i<3;i++){
+      const p=walker(chunk);p.reverse=false;
+      seedRiverPeople(chunk,[p],()=>0);
+      const route=chunk.riverRoutes.forward.upper,target=owner*BLOCK+(bank?98.5+i*1.5:93.5-i*1.5);
+      const segment=route.points.findIndex((a,j)=>j<route.points.length-1&&a.z===route.points[j+1].z&&Math.abs(a.z-(row*BLOCK+(bank?117.55:10.45)))<.01&&Math.min(a.x,route.points[j+1].x)<=target&&Math.max(a.x,route.points[j+1].x)>=target);
+      assert.ok(segment>=0);
+      p.riverMotion={mode:'upper',s:route.lengths[segment]+Math.abs(target-route.points[segment].x),lastDecision:-Infinity};people.push(p);
+    }
+    chunk.people=people;let queued=false,served=new Set(),resumed=new Set();
+    for(let i=0;i<900;i++){
+      city.advancePedestrians(.05,far,i*.05);
+      const visiting=people.filter(p=>p.riverMotion.mode==='ice-cream'&&p.riverMotion.stage!=='leave');
+      assert.ok(visiting.length<=2);assert.ok(visiting.filter(p=>p.riverMotion.slot===1).length<=1);
+      for(const p of visiting)if(['talk','wait'].includes(p.riverMotion.stage)){
+        const at=pedestrian(chunk,p,0),laneA=row*BLOCK+(bank?116.45:10.45),laneB=laneA+1.1;
+        assert.ok(Math.abs(at.z-laneA)>PERSON_CLEARANCE&&Math.abs(at.z-laneB)>PERSON_CLEARANCE);
+        if(p.riverMotion.stage==='wait')queued=true;
+      }
+      for(const p of people){if(p.iceCream)served.add(p);if(served.has(p)&&p.riverMotion.mode==='upper')resumed.add(p);}
+      for(let a=0;a<people.length;a++)for(let b=a+1;b<people.length;b++){
+        const pa=pedestrian(chunk,people[a],0),pb=pedestrian(chunk,people[b],0);
+        assert.ok(Math.hypot(pa.x-pb.x,pa.z-pb.z)>=PERSON_CLEARANCE-1e-7);
+      }
+    }
+    assert.ok(queued);assert.equal(served.size,2);assert.equal(resumed.size,2);
+  }
+});

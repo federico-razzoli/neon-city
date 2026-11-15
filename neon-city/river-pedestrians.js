@@ -1,3 +1,4 @@
+import {carriedIceCreamStage,startIceCreamVisit,iceCreamVisitPerson,advanceIceCreamVisit} from './river-ice-cream.js';
 // SPDX-License-Identifier: AGPL-3.0-only
 import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,PERSON_CLEARANCE,groundHeight,riverWalkHeight,mod} from './world.js';
 
@@ -44,6 +45,7 @@ export function seedRiverPeople(chunk,people,random){
   return people;
 }
 export function riverPerson(chunk,p){
+  if(p.riverMotion.mode==='ice-cream')return iceCreamVisitPerson(p);
   const m=p.riverMotion,route=m.mode==='stairs'?m.route:m.mode==='lower'?routes(chunk,p.reverse).lower[m.bank]:routes(chunk,p.reverse).upper;
   const at=sample(route,m.s,m.mode!=='stairs');
   if(m.mode!=='stairs'){
@@ -56,7 +58,7 @@ export function riverPerson(chunk,p){
     const wall=chunk.riverStart*BLOCK+(m.bank?110:18),d=(at.z-wall)*(m.bank?-1:1);
     ground=d<0?0:riverWalkHeight(at.x,at.z);
   }
-  return {...at,ground,riverWalk:m.mode!=='upper',type:p.type,variant:p.variant,frame:Math.floor((p.walkTime??0)*p.speed*5+p.phase)%4};
+  return {...at,iceCreamStage:carriedIceCreamStage(p.iceCream),iceCreamFlavour:p.iceCream?.flavour??0,ground,riverWalk:m.mode!=='upper',type:p.type,variant:p.variant,frame:Math.floor((p.walkTime??0)*p.speed*5+p.phase)%4};
 }
 function nextEvent(route,m){
   let best=null;
@@ -115,7 +117,8 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
     for(const {chunk,p} of actors){
       p.walkTime??=0;
       let m=p.riverMotion,before=positions.get(p),next=m;
-      if(m.mode!=='stairs'){
+      if(m.mode==='ice-cream')next=advanceIceCreamVisit(p,step,actors);
+      else if(m.mode!=='stairs'){
         const route=m.mode==='upper'?routes(chunk,p.reverse).upper:routes(chunk,p.reverse).lower[m.bank];
         const event=m.pending??nextEvent(route,m),budget=p.speed*step;
         if(m.pending||event.s-m.s<=budget+1e-7){
@@ -135,6 +138,11 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
       }else next={...m,s:Math.min(m.route.total,m.s+p.speed*step)};
       p.riverMotion=next;
       let after=riverPerson(chunk,p);
+      if(m.mode==='upper'&&next.mode==='upper'){
+        const visit=startIceCreamVisit(city,p,before,after,next,actors);
+        if(next.lastIceCreamPass)m.lastIceCreamPass=next.lastIceCreamPass;
+        if(visit){next=visit;p.riverMotion=next;after=riverPerson(chunk,p);}
+      }
       const blockedByPlayer=sweptNear(before,after,playerPosition,PERSON_CLEARANCE*1.5)||p===speaker&&Math.abs(before.ground-playerPosition.ground)<1.5&&Math.hypot(before.x-player.x,before.z-player.z)<2.8;
       let blocked=blockedByPlayer;
       for(let cx=Math.floor((Math.min(before.x,after.x)-PERSON_CLEARANCE)/2);!blocked&&cx<=Math.floor((Math.max(before.x,after.x)+PERSON_CLEARANCE)/2);cx++)
@@ -148,7 +156,9 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
         if(!stillOccupied)locks.delete(next.key);
         after=riverPerson(chunk,p);
       }
-      cells.get(cellKey(before))?.delete(p);insert(p,after);p.walkTime+=step;
+      if(next.grantIceCream){p.iceCream={age:0,flavour:Math.abs(Math.floor(p.phase??0))%3};next.grantIceCream=false;}
+      cells.get(cellKey(before))?.delete(p);insert(p,after);
+      if(next.mode!=='ice-cream'||next.stage==='approach'||next.stage==='leave')p.walkTime+=step;
     }
   }
   return [...held].map(walker=>({walker,place:'river'}));

@@ -1,4 +1,4 @@
-import {iceCreamVanFloor,interactIceCreamVanDoor} from './ice-cream-vans.js';
+import {iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
@@ -724,8 +724,8 @@ function interactTouchGround(){
 function handleWorldInput(k,e){
   if(k===' '&&!e.repeat&&!indoors()){
     for(const chunk of city.chunks.values()){
-      const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVanDoor(player,van);
-      if(reply){notice=2.5;noticeText=reply;return;}
+      const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVan(player,van);
+      if(reply!==null){if(reply){notice=2.5;noticeText=reply;}return;}
     }
     const line=walkerTalk.interact(player,city.pedestrians(time));
     if(startFollowup())return;

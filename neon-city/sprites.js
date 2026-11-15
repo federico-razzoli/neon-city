@@ -41,6 +41,28 @@ export function sprite(type,frame,back=false,variant=0){
 export function drawCharacter(type,frame,back=false,variant=0,rect){
   const look=outfit(type,variant);
   const stride=[-2,0,2,0][frame],skin=type===2?'#94624e':'#e2a282';
+  if(type===17){
+    // Ice cream vendor: Black man in a turquoise shirt, white apron and paper cap.
+    const skin='#6e412c',shirt='#62bcb4',apron='#fff1d8',hair='#19151c';
+    rect('#344451',7,31,6,14+stride);rect('#344451',14,31,6,14-stride);
+    rect('#252331',5,44+stride,8,3);rect('#252331',14,44-stride,8,3);
+    rect(shirt,5,16,16,16);rect(shirt,3,17,4,6);rect(shirt,20,17,3,6);
+    rect(skin,3,23,3,9);rect(skin,20,23,3,9);
+    rect(skin,9,5,9,10);rect(skin,11,14,5,3);
+    rect(hair,8,4,11,3);rect(skin,8,9,1,3);rect(skin,18,9,1,3);
+    rect(apron,7,1,13,4);rect('#e3d3ba',6,5,15,1);
+    if(back){
+      rect(hair,9,6,9,6);rect('#e8ddcb',5,25,16,2);
+      rect(apron,11,25,3,8);rect('#d3c5b0',14,26,3,2);
+    }else{
+      rect('#251711',10,9,2,1);rect('#251711',15,9,2,1);
+      rect('#d7a789',12,12,4,1);rect('#452619',11,14,6,1);
+      rect(apron,9,17,9,18);rect(apron,8,15,2,6);rect(apron,17,15,2,6);
+      rect('#d8c9b4',10,26,7,1);rect('#d8c9b4',10,27,1,4);
+      rect('#df7192',12,20,4,3);
+    }
+    return;
+  }
   if(type===16){
     // Pale boy: bowl-cut hair, collared school shirt, shorts and long socks.
     rect('#302c29',7,2,11,12);rect('#d9c5b0',7,7,11,9);
