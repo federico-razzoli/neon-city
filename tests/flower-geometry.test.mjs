@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {drawFlower} from '../neon-city/flowers.js';
+import {drawFlower,flowersFor} from '../neon-city/flowers.js';
+import {BLOCK,RIVER_ROWS,RIVER_STAIRS,hasBridge} from '../neon-city/world.js';
 import {flowerGeometry} from '../neon-city/flower-geometry.js';
 import {geometryWasm} from '../neon-city/geometry-wasm.js';
 
@@ -29,4 +30,18 @@ test('all flowers share one template across scratch reuse and collectible state'
   drawFlower({x:10,z:20,size:.36,color:'#aaa0d1',centre:false,taken:true},()=>{});
   assert.strictEqual(flowerGeometry(),geometry);
   assert.deepEqual(geometry,snapshot);
+});
+
+test('riverside flower petals remain on grass beside bridge access pavement on both banks',()=>{
+  for(let x=-60;x<=60;x++)for(const riverStart of RIVER_ROWS)for(const first of [true,false]){
+    const chunk={x,z:riverStart+(first?0:1),river:true,riverStart};
+    const left=x*BLOCK+(hasBridge(x)?RIVER_STAIRS.start:0);
+    const right=x*BLOCK+(hasBridge(x+1)?50:BLOCK);
+    const near=riverStart*BLOCK+(first?14:110),far=near+4;
+    const flowers=flowersFor(chunk);assert.equal(flowers.length,12);
+    for(const flower of flowers)drawFlower(flower,(px,y,pz,w,d)=>{
+      assert.ok(px>=left&&px+w<=right,`petals overlap bridge pavement in chunk ${x}`);
+      assert.ok(pz>=near&&pz+d<=far,'petals stay between pavement and river edge');
+    });
+  }
 });
