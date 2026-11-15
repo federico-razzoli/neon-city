@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {BLOCK,PARK_PATH_WIDTH,RIVER_STAIRS,hasBridge,mod,pathDistance} from './world.js';
+import {BLOCK,PARK_PATH_WIDTH,RIVER_STAIRS,hasBridge,riverIceCreamVan,mod,pathDistance} from './world.js';
 
 // Keep collectible state on the chunk so it disappears when the block unloads.
 export function flowersFor(chunk){
@@ -28,12 +28,14 @@ export function flowersFor(chunk){
   const petals=['#d38aa9','#d9c47b','#aaa0d1','#d9d3c5'];
   const first=chunk.z===chunk.riverStart,bank=chunk.riverStart*BLOCK+(first?8:110);
   // Bridge access pavement extends to the stair start; leave room for petals.
+  const van=riverIceCreamVan(chunk);
   const left=!chunk.park&&hasBridge(chunk.x)?RIVER_STAIRS.start+.5:15.5;
   for(let i=0;i<(chunk.park?40:12);i++){
     if(chunk.park&&i%3)continue;
     const x=chunk.x*BLOCK+left+scatter(i*3)*(chunk.park?33:48-left);
     const z=chunk.park?chunk.z*BLOCK+15.5+scatter(i*3+1)*33:bank+(first?6.5:.5)+scatter(i*3+1)*2.6;
     if(chunk.park&&pathDistance(chunk.park.path,x,z)<PARK_PATH_WIDTH/2+.8)continue;
+    if(van&&Math.abs(x-van.x)<van.w/2+1.6&&Math.abs(z-van.z)<van.d/2+.4)continue;
     flowers.push({x,z,size:.24+scatter(i*3+2)*.12,color:petals[i%petals.length],ground:chunk.park ? .09 : .065,centre:!chunk.park});
   }
   return chunk.flowers=flowers;

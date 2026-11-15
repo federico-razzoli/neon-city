@@ -1,3 +1,4 @@
+import {iceCreamVanFloor,interactIceCreamVanDoor} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
@@ -44,7 +45,7 @@ import {rollBanshee,bansheeFrame,playBansheeScream} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {groundHeight,pubLines,START} from './world.js?v=start-pub-1';
+import {groundHeight,pubLines,START,riverIceCreamVan} from './world.js?v=start-pub-1';
 import {Traffic} from './traffic.js?v=junction-priority-2';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=rive-gauche-6';
@@ -294,7 +295,7 @@ function itemRoom(){
 }
 // Where something dropped here comes to rest, and the height it rests at.
 function dropSpot(){
-  if(!indoors())return {x:player.x,z:player.z,ground:groundHeight(player.x,player.z,player.riverWalk)+.085};
+  if(!indoors())return {x:player.x,z:player.z,ground:Math.max(groundHeight(player.x,player.z,player.riverWalk),vanFloor())+.085};
   if(hotelCorridor)return {x:player.x,z:player.z,ground:.015};
   if(insideHotel&&!hotelStorage)return hotelStairs?stairwellDropSpot(player,hotelStairs):hotelDropSpot(player);
   return {x:player.x,z:player.z,ground:0};
@@ -530,11 +531,16 @@ function selectRenderSurface(useThree){
   canvas.classList.toggle('webgl-active',useThree);
   if(!useThree)threeRenderer?.leave();
 }
+function vanFloor(){
+  if(player.riverWalk)return 0;
+  for(const chunk of city.chunks.values()){const van=riverIceCreamVan(chunk);if(van){const height=iceCreamVanFloor(van,player);if(height)return height;}}
+  return 0;
+}
 function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
-  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??groundHeight(player.x,player.z,player.riverWalk));
+  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??Math.max(groundHeight(player.x,player.z,player.riverWalk),vanFloor()));
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
@@ -717,6 +723,10 @@ function interactTouchGround(){
 }
 function handleWorldInput(k,e){
   if(k===' '&&!e.repeat&&!indoors()){
+    for(const chunk of city.chunks.values()){
+      const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVanDoor(player,van);
+      if(reply){notice=2.5;noticeText=reply;return;}
+    }
     const line=walkerTalk.interact(player,city.pedestrians(time));
     if(startFollowup())return;
     if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;return;}

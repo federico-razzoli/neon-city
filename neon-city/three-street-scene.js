@@ -9,6 +9,7 @@ import {createThreeRetainingWalls} from './three-retaining-walls.js';
 import {createThreeManholes} from './three-manholes.js';
 import {createThreePineCones} from './three-pine-cones.js';
 import {createThreeFlowers} from './three-flowers.js';
+import {createThreeIceCreamVans} from './three-ice-cream-vans.js';
 import {createThreeNewspaperMachines} from './three-newspaper-machines.js';
 import {createThreeStaticScenery} from './three-static-scenery.js';
 import {createThreeBuildings} from './three-buildings.js';
@@ -37,6 +38,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const scenery=createThreeStaticScenery(scene,{boundsVisible:exteriorVisible});
   const buildings=createThreeBuildings(scene,{boundsVisible:exteriorVisible});
   const cones=createThreePineCones(scene,{boundsVisible:exteriorVisible}),flowers=createThreeFlowers(scene,{boundsVisible:exteriorVisible}),newspapers=createThreeNewspaperMachines(scene,{boundsVisible:exteriorVisible});
+  const iceCreamVans=createThreeIceCreamVans(scene,{boundsVisible:exteriorVisible});
   const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene);
   const cards=createThreeCharacterCards(),cardMeshes=[];
   let cash,cashNote;
@@ -81,7 +83,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
       }
       cash.mesh.visible=true;
     },drawStaticGround:chunk=>scenery.drawGround(chunk),drawParkScenery:chunk=>scenery.drawPark(chunk),drawStaticBridges:chunk=>scenery.drawBridges(chunk),drawBuilding:(building,imageFor,viewer)=>buildings.draw(building,imageFor,viewer),
-    drawCollectibles(chunk){cones.draw(chunk);flowers.draw(chunk);},
+    drawCollectibles(chunk){cones.draw(chunk);flowers.draw(chunk);iceCreamVans.draw(chunk);},
     drawNewspaperMachines:chunk=>newspapers.draw(chunk),
     nativeDroppedCollectibles:true,
 drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetainingWalls:(chunk,viewer)=>retainingWalls.draw(chunk,viewer),drawManholes:chunk=>manholes.draw(chunk),drawTrees:chunk=>trees.draw(chunk),drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>{
@@ -120,7 +122,7 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
   }
   return {scene,camera,setBoundsVisible(filter){exteriorFilter=filter;},update(frame){
     if(cash)cash.mesh.visible=false;
-    scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
+    iceCreamVans.beginFrame(frame);scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);
     for(let i=cardCount;i<cardMeshes.length;i++)cardMeshes[i].visible=false;
     roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
@@ -129,5 +131,5 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){cash?.dispose();cash=null;cashNote=null;scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){cash?.dispose();cash=null;cashNote=null;iceCreamVans.dispose();scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }

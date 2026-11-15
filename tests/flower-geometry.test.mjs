@@ -38,7 +38,7 @@ test('riverside flower petals remain on grass beside bridge access pavement on b
     const left=x*BLOCK+(hasBridge(x)?RIVER_STAIRS.start:0);
     const right=x*BLOCK+(hasBridge(x+1)?50:BLOCK);
     const near=riverStart*BLOCK+(first?14:110),far=near+4;
-    const flowers=flowersFor(chunk);assert.equal(flowers.length,12);
+    const flowers=flowersFor(chunk);assert.ok(flowers.length>0&&flowers.length<=12);
     for(const flower of flowers)drawFlower(flower,(px,y,pz,w,d)=>{
       assert.ok(px>=left&&px+w<=right,`petals overlap bridge pavement in chunk ${x}`);
       assert.ok(pz>=near&&pz+d<=far,'petals stay between pavement and river edge');

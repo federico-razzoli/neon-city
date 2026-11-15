@@ -104,3 +104,60 @@ test('river-facing bridge sidewalk corners and kerbs share a rounded outline on 
     assert.ok(kerbs.every(mesh=>mesh.geometry.attributes.position.count>12));
   }finally{roads.dispose();}
 });
+
+test('ice cream vans occupy alternate bridge gaps on both banks, stay solid and release scene resources',async()=>{
+  const {riverIceCreamVan,RIVER_ROWS,BLOCK,City}=await import('../neon-city/world.js');
+  const {flowersFor}=await import('../neon-city/flowers.js');
+  const {createThreeIceCreamVans}=await import('../neon-city/three-ice-cream-vans.js');
+  const city=new City(42),start=RIVER_ROWS[0],chunks=[];
+  for(let gap=-4;gap<=4;gap++)for(const first of [true,false]){
+    const chunk={x:gap*3+1,z:start+(first?0:1),river:true,riverStart:start};
+    const van=riverIceCreamVan(chunk);assert.equal(!!van,((gap%2)+2)%2===0);
+    if(!van)continue;
+    assert.equal(riverIceCreamVan(chunk),van);assert.equal(van.x,(gap*3+1.5)*BLOCK);
+    assert.equal(city.solid(van.x,van.z+(van.first?1:-1)),true);assert.equal(city.solid(van.x+4,van.z),false);
+    for(const flower of flowersFor(chunk))assert.ok(Math.abs(flower.x-van.x)>=van.w/2+.4||Math.abs(flower.z-van.z)>=van.d/2+.4);
+    chunks.push(chunk);
+  }
+  const previous=globalThis.document;
+  globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>({fillRect(){},fillText(){}})})};
+  const scene=new THREE.Scene(),vans=createThreeIceCreamVans(scene);
+  try{
+    const frame={city:{chunks:new Map(chunks.map(c=>[`${c.x},${c.z}`,c]))}};
+    vans.beginFrame(frame);for(const chunk of chunks)vans.draw(chunk);
+    assert.equal(scene.children.length,chunks.length*4);
+    const geometry=scene.children[0].geometry;
+    geometry.computeBoundingBox();assert.ok(Math.abs(geometry.boundingBox.max.y-3.7*1.2)<1e-5);
+    const sign=scene.children.find(m=>m.material.map).geometry;sign.computeBoundingBox();
+    assert.ok(Math.abs(sign.boundingBox.min.y-2.39)<1e-5);assert.ok(Math.abs(sign.boundingBox.max.y-2.91)<1e-5);
+    assert.ok(scene.children.filter(m=>m.geometry===geometry).length===chunks.length);
+    const resources=new Set(scene.children.flatMap(m=>[m.geometry,m.material,m.material.map].filter(Boolean)));
+    let disposed=0;for(const r of resources)r.addEventListener('dispose',()=>disposed++);
+    vans.beginFrame({city:{chunks:new Map()}});assert.equal(scene.children.length,0);
+    vans.dispose();vans.dispose();assert.equal(disposed,resources.size);
+  }finally{vans.dispose();globalThis.document=previous;}
+});
+
+test('rear doors open into a walkable street van on either bank without allowing passage through its walls',async()=>{
+  const {City,riverIceCreamVan,RIVER_ROWS}=await import('../neon-city/world.js');
+  const {interactIceCreamVanDoor,iceCreamVanLocal,iceCreamVanFloor,ICE_CREAM_VAN}=await import('../neon-city/ice-cream-vans.js');
+  for(const first of [true,false]){
+    const city=new City(42),chunk={x:1,z:RIVER_ROWS[0]+(first?0:1),river:true,riverStart:RIVER_ROWS[0]};
+    city.chunks.set(`${chunk.x},${chunk.z}`,chunk);
+    const van=riverIceCreamVan(chunk),sign=first?1:-1;
+    const player={x:van.x-4.2*sign,z:van.z,angle:sign*Math.PI/2};
+    city.move(player,2*sign,0);assert.ok(iceCreamVanLocal(van,player).x<ICE_CREAM_VAN.rear);
+    player.angle=-sign*Math.PI/2;assert.equal(interactIceCreamVanDoor(player,van),null);
+    player.angle=sign*Math.PI/2;assert.equal(interactIceCreamVanDoor(player,van),'THE VAN DOOR IS OPEN.');
+    city.move(player,3.2*sign,0);
+    assert.ok(iceCreamVanLocal(van,player).x>ICE_CREAM_VAN.rear+1);
+    assert.equal(player.riverWalk,undefined);assert.equal(iceCreamVanFloor(van,player),ICE_CREAM_VAN.floor);
+    const x=player.x;city.move(player,0,3*sign);
+    assert.ok(Math.abs(iceCreamVanLocal(van,player).z)<ICE_CREAM_VAN.halfWidth);
+    assert.equal(player.x,x);
+    player.z=van.z;city.move(player,-4.1*sign,0);
+    assert.ok(iceCreamVanLocal(van,player).x<ICE_CREAM_VAN.rear-1);
+    assert.equal(iceCreamVanFloor(van,player),0);
+    assert.equal(interactIceCreamVanDoor(player,van),'THE VAN DOOR IS CLOSED.');
+  }
+});

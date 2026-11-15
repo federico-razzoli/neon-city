@@ -1,3 +1,4 @@
+import {iceCreamVanSolid} from './ice-cream-vans.js';
 /*
 Browser Games — standalone browser games, including Neon City.
 Copyright (C) 2026 Federico Razzoli <federico.razzoli@vettabase.com>
@@ -205,6 +206,12 @@ export function riverBenches(chunk){
   const left=(chunk.x-1)*BLOCK+14,length=3*BLOCK-28;
   const margin=(length-4)/2.5;
   return [left+margin+1,left+length/2,left+length-margin-1].map(x=>({x,z:bank+dir*.3,tx:1,tz:0,nx:0,nz:-dir,riverWalk:true}));
+}
+// Bridges are three blocks apart; the middle chunk owns the van in alternate gaps.
+export function riverIceCreamVan(chunk){
+  if(!chunk.river||mod(chunk.x,6)!==1)return null;
+  const first=chunk.z===chunk.riverStart;
+  return chunk.iceCreamVan??={x:chunk.x*BLOCK+32,z:chunk.riverStart*BLOCK+(first?16:112),first,w:5.8,d:3};
 }
 export function riverWalkHeight(x,z){
   const at=riverWalkPosition(x,z);
@@ -456,6 +463,9 @@ export class City {
     const lx=mod(x,BLOCK),lz=mod(z,BLOCK);
     const start=riverStart(Math.floor(z/BLOCK));
     if(start!==undefined){
+      const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
+      const van=riverIceCreamVan(chunk??{x:Math.floor(x/BLOCK),z:Math.floor(z/BLOCK),river:true,riverStart:start});
+      if(van&&iceCreamVanSolid(van,x,z,radius))return true;
       const street=Math.round(x/BLOCK);
       if(RIVE_GAUCHE_SIGNS.some(s=>Math.hypot(x-s.x,z-s.z)<RIVE_GAUCHE_SIGN.post+radius))return true;
       const onBridge=hasBridge(street)&&Math.abs(x-street*BLOCK)<=14-radius;
