@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {Mesh,PlaneGeometry,MeshBasicMaterial,DoubleSide} from './vendor/three/three.module.js';
+import {createThreeSeatedCharacters} from './three-seated-characters.js';
+import {characterGirth} from './world.js?v=start-pub-1';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {BOOKSHOP,BOOKSHOP_BOOKS} from './midnite-interior.js';
 import {bookshopVisitorShowsBack} from './midnite-life.js';
@@ -12,7 +14,7 @@ export function createThreeBookshopScene({imageFor}={}){
     actorsFor:frame=>frame.bookshopLife?.people,
     actorView:(person,frame)=>({seated:person.state==='reading',back:bookshopVisitorShowsBack(person,frame.player)}),
     createExtras({scene,material}){
-      const street=createBookshopStreet(scene);
+      const street=createBookshopStreet(scene),seated=createThreeSeatedCharacters(),legs=new Map();
       const glassGeometry=new PlaneGeometry(1,1),glassMaterial=new MeshBasicMaterial({color:'#8bb9ae',transparent:true,opacity:.22,depthWrite:false,side:DoubleSide,toneMapped:false});
       for(const [i,b] of BOOKSHOP.windowShelves.entries()){
         const glass=new Mesh(glassGeometry,glassMaterial);glass.name=`bookshop-window-${i}`;
@@ -45,6 +47,17 @@ export function createThreeBookshopScene({imageFor}={}){
           for(const book of [...(life?.books??[]),...(life?.visitorBooks??[])])if(book.state==='reading'){
             const table=BOOKSHOP.readingTables[book.seat];place(book,book,table.x,table.z,.68);
           }
+          const presentLegs=new Set();
+          for(const visitor of life?.people??[])if(visitor.state==='reading'){
+            const key=visitor.id??visitor;presentLegs.add(key);
+            let mesh=legs.get(key);
+            const geometry=seated.geometry(visitor.type,visitor.variant,-1,.5);
+            if(!mesh){mesh=new Mesh(geometry,seated.material);mesh.name='bookshop-seated-legs';mesh.userData.actorId=visitor.id;legs.set(key,mesh);scene.add(mesh);}
+            mesh.geometry=geometry;mesh.position.set(visitor.x,0,-visitor.z);
+            mesh.rotation.y=-(visitor.angle??BOOKSHOP.chairs[visitor.seat]?.angle??0);
+            mesh.scale.x=characterGirth(visitor.type);
+          }
+          for(const [key,mesh] of legs)if(!presentLegs.has(key)){scene.remove(mesh);legs.delete(key);}
           for(const visitor of life?.people??[])if(visitor.book){
             const book=visitor.book;
             if(visitor.state==='reading'){
@@ -62,7 +75,7 @@ export function createThreeBookshopScene({imageFor}={}){
             scene.remove(mesh);books.delete(key);
           }
         },
-        dispose(){street.dispose();glassGeometry.dispose();glassMaterial.dispose();seller.geometry.dispose();backpack.geometry.dispose();for(const geometry of geometries.values())geometry.dispose();geometries.clear();books.clear();}
+        dispose(){for(const mesh of legs.values())scene.remove(mesh);legs.clear();seated.dispose();street.dispose();glassGeometry.dispose();glassMaterial.dispose();seller.geometry.dispose();backpack.geometry.dispose();for(const geometry of geometries.values())geometry.dispose();geometries.clear();books.clear();}
       };
     }
   });

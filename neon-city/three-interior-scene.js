@@ -4,7 +4,7 @@ import {createThreeArtwork} from './three-artwork.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {drawDroppedObject} from './dropped-object.js';
 import {createBackpackGeometry} from './three-bookshop-models.js';
-import {sprite} from './sprites.js?v=bumps-1';
+import {createThreeCharacterCards} from './three-character-cards.js';
 import {characterHeight,characterGirth,pedestrianShowsBack} from './world.js?v=start-pub-1';
 
 // Reflect world Z to convert the game's left-handed +Z view to Three.js -Z.
@@ -56,7 +56,7 @@ export function createInteriorGeometryBuilder(){
   return {build,dispose(){cube.dispose();colors.clear();}};
 }
 
-export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,createExtras,imageFor=sprite,actorsFor=frame=>frame.hotelGuests,actorView=()=>({}),background='#3a2d36',createMaterial}){
+export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,createExtras,imageFor,actorsFor=frame=>frame.hotelGuests,actorView=()=>({}),background='#3a2d36',createMaterial}){
   const scene=new THREE.Scene(),camera=createInteriorCamera();
   scene.background=new THREE.Color(background);
   const builder=createInteriorGeometryBuilder();
@@ -65,7 +65,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
   const room=createRoomGeometry?new THREE.Mesh(createRoomGeometry(),material):drawRoom?new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material):new THREE.Group();
   room.name=`${name}-room`;scene.add(room);
   const extras=createExtras?.({scene,room,builder,material,artwork:artworkMeshes});
-  const dropped=new Map(),actors=new Map(),artwork=new Map();
+  const dropped=new Map(),actors=new Map(),artwork=new Map(),cards=createThreeCharacterCards();
   const actorGeometry=new THREE.PlaneGeometry(1,1),seatedGeometry=new THREE.PlaneGeometry(1,1);
   const seatedUV=seatedGeometry.attributes.uv;
   for(let i=0;i<seatedUV.count;i++)seatedUV.setY(i,1-(1-seatedUV.getY(i))*32/48);
@@ -106,10 +106,17 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
       let mesh=actors.get(key);
       if(!mesh){mesh=new THREE.Mesh(actorGeometry,material);mesh.name=`${name}-guest`;mesh.userData.actorId=typeof key==='string'?key:null;actors.set(key,mesh);scene.add(mesh);}
       const view=actorView(guest,frame),seated=!!view.seated;
-      mesh.geometry=seated?seatedGeometry:actorGeometry;
       mesh.layers.set(view.reflectionOnly?1:0);
-      const image=imageFor(guest.type,seated?1:Math.floor(guest.walkTime*6)%4,view.back??pedestrianShowsBack(guest,frame.player),guest.variant);
-      mesh.material=actorMaterial(image);
+      const frameIndex=seated?1:Math.floor(guest.walkTime*6)%4;
+      const back=view.back??pedestrianShowsBack(guest,frame.player);
+      if(imageFor){
+        // Retain support for callers supplying custom character artwork.
+        mesh.geometry=seated?seatedGeometry:actorGeometry;
+        mesh.material=actorMaterial(imageFor(guest.type,frameIndex,back,guest.variant));
+      }else{
+        mesh.geometry=cards.geometry(guest.type,frameIndex,back,guest.variant,seated);
+        mesh.material=cards.material;
+      }
       const height=view.height??characterHeight(guest.type);
       const drawnHeight=seated?32*.0375:height;
       mesh.scale.set((seated?24*.0375:height/2)*characterGirth(guest.type),drawnHeight,1);
@@ -123,7 +130,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
     for(const mesh of dropped.values())mesh.geometry.dispose();
     dropped.clear();actors.clear();actorGeometry.dispose();seatedGeometry.dispose();
     for(const {texture,material} of artwork.values()){texture.dispose();material.dispose();}
-    artwork.clear();artworkMeshes.dispose();material.dispose();builder.dispose();scene.clear();
+    artwork.clear();cards.dispose();artworkMeshes.dispose();material.dispose();builder.dispose();scene.clear();
   }
   return {scene,camera,update,dispose};
 }

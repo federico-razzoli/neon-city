@@ -1,0 +1,102 @@
+[
+  {
+    "type": 0,
+    "variant": 0,
+    "sha256": "5c65f72212b4e7806a6d3b1c39f12eb952faa3aea9c73814b1a680bc74543f12"
+  },
+  {
+    "type": 1,
+    "variant": 0,
+    "sha256": "33b0622e723aedfe25cec19e857bc9849a3a2f6df866cb03027baff8d2c98544"
+  },
+  {
+    "type": 2,
+    "variant": 0,
+    "sha256": "3a5d6f8634b0fe7f65ce0a210f18bff8ded6008e6b54067af4aebf97e19975c3"
+  },
+  {
+    "type": 3,
+    "variant": 0,
+    "sha256": "080b0231d35e3aa7fd127f784be6aa4c552ebd134d6caadd5d9ff01bf9bbe907"
+  },
+  {
+    "type": 4,
+    "variant": 0,
+    "sha256": "24c337b7188459aa8d6ff43f1579de319dc1d82b7c52cf72b71b2c3176505d6c"
+  },
+  {
+    "type": 4,
+    "variant": 0.4,
+    "sha256": "9bc10a685bf444a1587486358fb6e0a5d6c319a0c867a02b536d2a2baf3171df"
+  },
+  {
+    "type": 4,
+    "variant": 0.8,
+    "sha256": "ff8a6ce03db0e58943dde25ad9618d21a1aa6bf606d03742abf788178fc4d86b"
+  },
+  {
+    "type": 5,
+    "variant": 0,
+    "sha256": "c714820286715a9654515a8640e6e4348a19744215af2b6abb1fc702cdebd57f"
+  },
+  {
+    "type": 6,
+    "variant": 0,
+    "sha256": "38f831366f6dea6f50dd8e51e6254864338e8b5ebcb2faa8385d4d2bd4f66c02"
+  },
+  {
+    "type": 7,
+    "variant": 0,
+    "sha256": "26bbc49e006fdd70d788b9872c0d4cf8729f296024f26f04cd8e5767a9c3944f"
+  },
+  {
+    "type": 8,
+    "variant": 0,
+    "sha256": "2efdf7d8ec95506fcdee06986075f1f75f57a2c8a09c983b217b9b88e7331f35"
+  },
+  {
+    "type": 9,
+    "variant": 0,
+    "sha256": "3a599a3e22e4168301302e8ef8f479b9fcd50c4f43d801e746fbfade7c9da1ea"
+  },
+  {
+    "type": 10,
+    "variant": 0,
+    "sha256": "f847940238f45f7bdbe66cd9c70bee32f50b5d7299e028db9f268207d8ea485c"
+  },
+  {
+    "type": 11,
+    "variant": 0,
+    "sha256": "98cb33f598ca3a420f0167ec1b0f5ae1a24ec8c1b08a392e752d2e53414c86fb"
+  },
+  {
+    "type": 12,
+    "variant": 0,
+    "sha256": "1fb3cea81c13d8f53e3e600ddc7b8c6deedac0ccd1122fbc171ce5f375bb95d4"
+  },
+  {
+    "type": 13,
+    "variant": 0,
+    "sha256": "f5264803626475c8d16bb4b90c2a2f845096037255c12ae4e682212b5147f8f9"
+  },
+  {
+    "type": 14,
+    "variant": 0,
+    "sha256": "7416d6218f219a0778225bf821d46ba1440b72ab58e089e544a44d80de51be35"
+  },
+  {
+    "type": 14,
+    "variant": 0.8,
+    "sha256": "3fdfe592a0030e0d94ef9a120fa7237d50d169fd54ef61e3e24e3883a48f5f75"
+  },
+  {
+    "type": 15,
+    "variant": 0,
+    "sha256": "378033cdbfaae78af5370d66b08afce5a94b2dd3fe8a636f29b587f73bee8afe"
+  },
+  {
+    "type": 16,
+    "variant": 0,
+    "sha256": "a2b92c4b0f9213f2671bb14e59f93157cce637689581d6deb5c0011c8c3d6caf"
+  }
+]

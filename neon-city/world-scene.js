@@ -106,6 +106,12 @@ export function createWorldScene(renderer,{reduced=false}={}){
     if(player.x>x+w)wall(3);
   }
   function person(p){
+    if(renderer.drawCharacterCard){
+      renderer.drawCharacterCard({position:{x:p.x,y:(p.ground??groundHeight(p.x,p.z))+.075,z:p.z},
+        type:p.type,frame:p.frame,back:pedestrianShowsBack(p,player),variant:p.variant,
+        height:characterHeight(p.type),width:characterHeight(p.type)*characterGirth(p.type)/2});
+      return;
+    }
     renderer.billboard({position:{x:p.x,y:(p.ground??groundHeight(p.x,p.z))+.075,z:p.z},
       height:characterHeight(p.type),width:characterHeight(p.type)*characterGirth(p.type)/2,
       getImage:()=>sprite(p.type,p.frame,pedestrianShowsBack(p,player),p.variant)});
@@ -193,6 +199,12 @@ export function createWorldScene(renderer,{reduced=false}={}){
   function seatedPatron(p,walking=false,height=48*.05,backView=null){
     const back=backView??(walking?pedestrianShowsBack(p,player):(player.z-p.z)*p.side>0);
     const frame=walking?Math.floor(p.walkTime*6)%4:1,rows=walking?48:32,key=`${p.type}:${outfit(p.type,p.variant)}:${back}:${frame}:${rows}`;
+    if(renderer.drawCharacterCard){
+      renderer.drawCharacterCard({position:{x:p.x,y:walking?(p.y??0):1.87-32*.0375,z:p.z},
+        type:p.type,frame,back,variant:p.variant,seated:!walking,
+        height:walking?height:32*.0375,width:(walking?height/2:24*.0375)*characterGirth(p.type)});
+      return;
+    }
     if(!seatedPixels.has(key)){
       // Reuse the pedestrians' actual heads, hair, clothing and accessories.
       const data=sprite(p.type,frame,back,p.variant).getContext('2d').getImageData(0,0,24,rows).data,runs=[];

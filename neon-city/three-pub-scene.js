@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {Mesh} from './vendor/three/three.module.js';
+import {createThreeSeatedCharacters} from './three-seated-characters.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createThreePubObjects} from './three-pub-objects.js';
-import {PUB,pubChairs,drawPubPatron,drawStaff} from './pub-interior.js?v=bar-taps-1';
+import {PUB,pubChairs,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
 export function createThreePubScene({imageFor}={}){
   return createThreeInteriorScene({name:'pub',imageFor,
     actorsFor:frame=>frame.pubLife?.walker?[frame.pubLife.walker]:[],
     actorView:(person,frame)=>person.seated?{seated:true,back:(frame.player.z-person.z)*person.side>0}:{height:2.4},
     createExtras({scene,room,builder,material}){
+      const seated=createThreeSeatedCharacters();
       const objects=createThreePubObjects();room.add(objects.group);
       const chairs=pubChairs(),seats=new Map(),drinks=new Map();let actors=[],bartenderType;
       const bartender=new Mesh(undefined,material),beer=objects.createPint('pub-bar-beer');
@@ -28,7 +30,7 @@ export function createThreePubScene({imageFor}={}){
             drink.group.visible=type!=null;
             let entry=seats.get(key);
             if(type==null){
-              if(entry){scene.remove(entry.mesh);entry.mesh.geometry.dispose();seats.delete(key);}
+              if(entry){scene.remove(entry.mesh);seats.delete(key);}
               continue;
             }
             patrons.beerSides??=[Math.random()<.5?-1:1,Math.random()<.5?-1:1];
@@ -37,15 +39,16 @@ export function createThreePubScene({imageFor}={}){
             drink.set(table.x+side*.65,1.102,table.z+(seat===0?-1:1)*(table.radius-.45),dark);
             const signature=JSON.stringify([type,variant]);
             if(entry?.signature!==signature){
-              if(entry){scene.remove(entry.mesh);entry.mesh.geometry.dispose();}
-              let actor;
-              const mesh=new Mesh(builder.build(helpers=>drawPubPatron({...helpers,seatedPatron:person=>{actor={...person,id:`pub-seat-${key}`,seated:true};}},chair,type,variant)),material);
+              if(entry){scene.remove(entry.mesh);}
+              const actor={x:chair.x+chair.w/2,z:chair.z+chair.d/2,type,variant,side:chair.side,id:`pub-seat-${key}`,seated:true};
+              const mesh=new Mesh(seated.geometry(type,variant,chair.side),seated.material);
+              mesh.position.set(actor.x,0,-actor.z);
               mesh.name=`pub-seat-${key}`;scene.add(mesh);entry={mesh,actor,signature};seats.set(key,entry);
             }
             actors.push(entry.actor);
           }
         },
-        dispose(){bartender.geometry.dispose();for(const {mesh} of seats.values())mesh.geometry.dispose();seats.clear();actors=[];objects.dispose();drinks.clear();}
+        dispose(){bartender.geometry.dispose();seated.dispose();seats.clear();actors=[];objects.dispose();drinks.clear();}
       };
     }
   });

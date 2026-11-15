@@ -29,9 +29,9 @@ test('seated patrons retain legs and drinks, use cropped sprites and leave clean
   room.update(frame);assert.equal(seat.geometry,geometry);
   let disposed=0;geometry.addEventListener('dispose',()=>disposed++);
   frame.pubPatrons[0][0]=null;room.update(frame);
-  assert.equal(room.scene.getObjectByName('pub-seat-0:0'),undefined);assert.ok(!room.scene.children.includes(actor));assert.equal(disposed,1);
+  assert.equal(room.scene.getObjectByName('pub-seat-0:0'),undefined);assert.ok(!room.scene.children.includes(actor));assert.equal(disposed,0);
   frame.pubPatrons[0][0]=8;frame.pubPatrons[0].variants[0]=.9;room.update(frame);
-  assert.ok(room.scene.getObjectByName('pub-seat-0:0'));room.dispose();
+  assert.ok(room.scene.getObjectByName('pub-seat-0:0'));room.dispose();assert.equal(disposed,1);
 });
 test('bartender changes retain the native bar pint geometry and update its liquid material',()=>{
   const {room,frame}=fixture(),bartender=room.scene.getObjectByName('pub-bartender'),beer=room.scene.getObjectByName('pub-bar-beer');

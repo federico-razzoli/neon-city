@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createThreeCharacterCards} from './three-character-cards.js';
 import {createThreeFingerposts} from './three-fingerposts.js';
 import {createThreeRetainingWalls} from './three-retaining-walls.js';
 import {createThreeManholes} from './three-manholes.js';
@@ -24,6 +25,8 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const retainingWalls=createThreeRetainingWalls(scene,{boundsVisible:exteriorVisible});
   const trees=createThreeTrees(scene,{boundsVisible:exteriorVisible}),manholes=createThreeManholes(scene,{boundsVisible:exteriorVisible});
   const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene);
+  const cards=createThreeCharacterCards(),cardMeshes=[];
+  let cardCount=0;
   let style={},view;
   function batch(color,image,smooth){
     const key=image??color;
@@ -56,9 +59,18 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const backend={face,quad,box,drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetainingWalls:(chunk,viewer)=>retainingWalls.draw(chunk,viewer),drawManholes:chunk=>manholes.draw(chunk),drawTrees:chunk=>trees.draw(chunk),drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>{
     if(!exteriorVisible||exteriorVisible(car.x-4,surface.base-2,car.z-4,car.x+4,surface.base+4,car.z+4))traffic.draw(car,surface);
   },drawRoad:chunk=>roads.draw(chunk),drawRailings:chunk=>railings.draw(chunk),boundsVisible:(...args)=>culling.boundsVisible(...args)&&(!exteriorVisible||exteriorVisible(...args)),
-    beginFrame(next){view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
+    beginFrame(next){cardCount=0;view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
     withStyle(next,draw){const old=style;style={...style,...next};try{return draw();}finally{style=old;}},
     beginPass(){},endPass(){return [];},drawPass(){},drawSky(){},finishStreet(){},
+    drawCharacterCard({position:p,height,width,type,frame,back,variant,seated=false}){
+      if(exteriorVisible&&!exteriorVisible(p.x-width/2,p.y,p.z-width/2,p.x+width/2,p.y+height,p.z+width/2))return;
+      const v=culling.transform(p);if(v.z<.3||v.z>105)return;
+      let mesh=cardMeshes[cardCount];
+      const geometry=cards.geometry(type,frame,back,variant,seated);
+      if(!mesh){mesh=new THREE.Mesh(geometry,cards.material);mesh.name='street-character-card';cardMeshes.push(mesh);scene.add(mesh);}
+      cardCount++;mesh.visible=true;mesh.geometry=geometry;
+      mesh.position.set(p.x,p.y+height/2,-p.z);mesh.scale.set(width,height,1);mesh.rotation.y=-view.position.angle;
+    },
     billboard({position:p,height,width,image,getImage}){
       if(exteriorVisible&&!exteriorVisible(p.x-width/2,p.y,p.z-width/2,p.x+width/2,p.y+height,p.z+width/2))return;
       const v=culling.transform(p);if(v.z<.3||v.z>105)return;
@@ -79,11 +91,13 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
     attribute.array.set(values);attribute.needsUpdate=true;
   }
   return {scene,camera,update(frame){
-    fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
+    fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);
+    for(let i=cardCount;i<cardMeshes.length;i++)cardMeshes[i].visible=false;
+    roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
     for(const [key,b] of batches){
       if(!b.positions.length){scene.remove(b.mesh);b.geometry.dispose();b.material.dispose();b.texture?.dispose();batches.delete(key);continue;}
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }

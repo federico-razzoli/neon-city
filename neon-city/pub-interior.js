@@ -349,31 +349,37 @@ export function drawPubPint({face,box},x,y,z,dark=false){
   box(x-.08,y+.03,z-.1,.025,.19,.02,dark?'#a68b68':'#e7cca0');
 }
 
-export function drawPubPatron({box,seatedPatron=()=>{}},chair,type,variant=0){
-  const {x,z,w,d,side}=chair;
+// Extra reach extends the thighs and moves knees/feet beyond deep seat cushions.
+export function drawSeatedCharacterLegs({box},chair,type,variant=0,reach=0){
+  const {x,z,side}=chair;
+  const forward=side<0?reach:-reach;
   const shoes=type===4?TEEN_OUTFITS[outfit(type,variant)].shoes:SHOE_COLORS[type];
   const trousers=['#21283f','#ec849a','#21283f','#e2a282','#394866','#303344','#f4eff2','#3a3d4c','#d39c80','#5a3d5c','#2f3e5e','#9aa0a8','#d8ccb0','#c7b07a','#6a5040','#3d5f9e'][type];
   // Shorts leave the shins bare.
   const shins={13:'#e9b08f'}[type]??trousers;
   // Her pencil skirt wraps both thighs and stops just short of the knees.
-  if(type===8)box(x+.13,.51,z+(side<0?.2:.33),.54,.2,.42,'#2a2638');
+  if(type===8)box(x+.13,.51,z+(side<0?.2:.33)-(side>0?reach:0),.54,.2,.42+reach,'#2a2638');
   for(const dx of [.15,.48]){
-    if(type===8)box(x+dx,.52,z+(side<0?.62:.2),.17,.17,.13,trousers);
-    else box(x+dx,.52,z+.2,.17,.17,.55,trousers);
-    box(x+dx,.12,z+(side<0?.57:.06),.17,.46,.17,shins);
+    if(type===8)box(x+dx,.52,z+(side<0?.62:.2)+forward,.17,.17,.13,trousers);
+    else box(x+dx,.52,z+.2-(side>0?reach:0),.17,.17,.55+reach,trousers);
+    box(x+dx,.12,z+(side<0?.57:.06)+forward,.17,.46,.17,shins);
     if(type===3){
       // The punk's street outfit has tall black shafts and chunky soles.
-      const bootZ=z+(side<0?.57:.06);
+      const bootZ=z+(side<0?.57:.06)+forward;
       box(x+dx-.01,.12,bootZ-.01,.19,.27,.19,SHOE_COLORS[type]);
-      box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,SHOE_COLORS[type]);
+      box(x+dx-.025,.04,z+(side<0?.55:-.06)+forward,.22,.12,.3,SHOE_COLORS[type]);
       box(x+dx+.035,.17,bootZ-.016,.035,.16,.012,'#363340');
     }else if(type===1||type===8){
       // Match the street outfit's raised sole and narrow heel at the rear.
-      const shoeZ=z+(side<0?.55:-.06);
+      const shoeZ=z+(side<0?.55:-.06)+forward;
       box(x+dx-.025,.10,shoeZ,.22,.06,.3,shoes);
       box(x+dx+.015,.04,shoeZ+(side<0?0:.25),.04,.06,.05,shoes);
-    }else box(x+dx-.025,.04,z+(side<0?.55:-.06),.22,.12,.3,shoes);
+    }else box(x+dx-.025,.04,z+(side<0?.55:-.06)+forward,.22,.12,.3,shoes);
   }
+}
+export function drawPubPatron({box,seatedPatron=()=>{}},chair,type,variant=0){
+  drawSeatedCharacterLegs({box},chair,type,variant);
+  const {x,z,w,d,side}=chair;
   seatedPatron({x:x+w/2,z:z+d/2,type,variant,side});
 }
 

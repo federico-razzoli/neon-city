@@ -33,7 +33,13 @@ const sprites=[];
 export function sprite(type,frame,back=false,variant=0){
   const look=outfit(type,variant),key=`${type}:${frame}:${back}:${look}`;if(sprites[key])return sprites[key];
   const c=document.createElement('canvas');c.width=24;c.height=48;const g=c.getContext('2d');
-  const rect=(color,x,y,w,h)=>{g.fillStyle=color;g.fillRect(x,y,w,h);};
+  drawCharacter(type,frame,back,variant,(color,x,y,w,h)=>{g.fillStyle=color;g.fillRect(x,y,w,h);});
+  sprites[key]=c;return c;
+}
+
+// One design source for the legacy canvas renderer and native Three.js cards.
+export function drawCharacter(type,frame,back=false,variant=0,rect){
+  const look=outfit(type,variant);
   const stride=[-2,0,2,0][frame],skin=type===2?'#94624e':'#e2a282';
   if(type===16){
     // Pale boy: bowl-cut hair, collared school shirt, shorts and long socks.
@@ -56,7 +62,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#697976',12,20,1,10);
       for(let y=22;y<30;y+=3)rect('#d9d9cd',13,y,1,1);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===6){
     // Gay man with pink hair and shirt, white trousers and a right-ear hoop.
@@ -80,7 +86,7 @@ export function sprite(type,frame,back=false,variant=0){
     const earX=back?18:6;
     rect(skin,earX,10,2,2);
     rect('#f2d477',earX,12,2,3);rect('#765b38',earX+1,13,1,1);
-    sprites[key]=c;return c;
+    return;
   }
   if(type===3||type===4){
     // Teen outfits share the same four-frame walk cycle.
@@ -117,7 +123,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect(dark?clothes.print:'#ec91c9',11,20,4,4);
       if(!dark)rect(hair,8,6,6,3);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===5){
     // Shirtless adult, ink on both arms and torso, beer held at his side.
@@ -138,7 +144,7 @@ export function sprite(type,frame,back=false,variant=0){
     const bottleX=back?1:21;
     rect('#6e914d',bottleX+1,28,1,4);rect('#345b38',bottleX,31,3,8);
     rect('#e5cf8a',bottleX,34,3,3);rect('#c8b887',bottleX+1,28,1,1);
-    sprites[key]=c;return c;
+    return;
   }
   if(type===7){
     // Businessman: charcoal suit, white shirt, red tie and polished shoes.
@@ -161,7 +167,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect(seam,10,18,1,3);rect(seam,15,18,1,3);rect(seam,11,21,1,3);rect(seam,14,21,1,3);
       rect('#1e2029',12,26,1,1);rect('#1e2029',12,29,1,1);rect(shirt,17,19,2,1);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===8){
     // Businesswoman: burgundy blazer, charcoal pencil skirt, sheer tights and black heels.
@@ -184,7 +190,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect(lapel,10,17,1,3);rect(lapel,15,17,1,3);rect(lapel,11,20,1,2);rect(lapel,14,20,1,2);
       rect('#d8b45a',12,24,2,1);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===9){
     // Muslim woman: teal hijab framing the face and a long, loose plum abaya.
@@ -207,7 +213,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#2a1a22',11,9,1,1);rect('#2a1a22',14,9,1,1);rect('#9c5a50',12,11,2,1);
       rect(trim,12,19,2,25);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===10){
     // Sikh man: saffron turban, full beard, steel kara, bomber jacket, jeans and white sneakers.
@@ -236,7 +242,7 @@ export function sprite(type,frame,back=false,variant=0){
     }
     // The kara stays on his right wrist: viewer's left from the front, right from behind.
     rect('#c9ccd4',back?20:3,30,3,1);
-    sprites[key]=c;return c;
+    return;
   }
   if(type===11){
     // Old-style tin robot: boxy head, antenna, accordion arms, pincers and a wind-up key.
@@ -265,7 +271,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect(dark,8,19,10,7);rect('#ff5a4a',9,20,2,2);rect('#5aff8a',12,20,2,2);rect('#ffcf4a',15,20,2,2);
       rect(light,9,23,8,1);rect('#ff5a4a',13,23,1,1);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===12){
     // Egyptian mummy: wrapped head to foot in worn linen, with glowing eyes.
@@ -287,7 +293,7 @@ export function sprite(type,frame,back=false,variant=0){
     }else{
       rect(gap,9,8,8,2);rect(glow,10,8,2,1);rect(glow,14,8,2,1);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===13){
     // Short, fat bald man: wide-open eyes, a teal Hawaiian shirt over his belly, khaki shorts and sandals.
@@ -316,7 +322,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect(hem,12,18,1,14);
       for(const [x,y] of [[6,20],[16,20],[8,25],[17,26],[5,29],[15,30],[2,17],[21,17]])flower(x,y);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===14){
     // Teen nerd: messy hair, thick-rimmed glasses, short-sleeved shirt with a pocket protector, high-water cords.
@@ -350,7 +356,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#f4f2ee',14,19,4,3);rect('#d8414a',15,18,1,2);rect('#3f62c8',16,17,1,3);
       rect('#c9b46a',12,30,2,1);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===15){
     // Tall, beautiful Black woman: waist-length black hair, fitted pink shirt, blue jeans and pink sneakers.
@@ -377,7 +383,7 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#5a3322',12,10,2,1);rect('#c2456e',11,12,4,1);
       rect(fold,12,16,2,2);rect('#e8c35a',12,18,2,1);
     }
-    sprites[key]=c;return c;
+    return;
   }
   if(type===1){ // Adult clubgoer: big hair, magenta minidress, solid-colour tights and heels.
     rect('#b96d40',7,1,11,16);rect(skin,9,5,7,8);rect('#f7bd5b',7,1,11,5);rect('#ef4c99',8,15,10,15);rect(skin,5,16,3,15);rect(skin,18,16,3,15);rect('#ec849a',8,30,4,13+stride);rect('#ec849a',14,30,4,13-stride);
@@ -402,5 +408,5 @@ export function sprite(type,frame,back=false,variant=0){
       rect('#655e70',5,44+stride,8,3);rect('#655e70',15,44-stride,8,3);
     }
   }
-  sprites[key]=c;return c;
+  return;
 }
