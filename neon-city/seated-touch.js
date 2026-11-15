@@ -23,6 +23,7 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
     if(gesture.id!==e.pointerId){
       gesture.fingers.delete(e.pointerId);
       gesture.strafe=0;
+      gesture.backward=0;
       for(const finger of gesture.fingers.values()){finger.startX=finger.x;finger.startY=finger.y;}
       if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);
       return;
@@ -48,7 +49,7 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
       canvas.setPointerCapture(e.pointerId);
       return;
     }
-    gesture={id:e.pointerId,fingers:new Map([[e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY}]]),strafe:0,multiple:false,seat:getSeat(),x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,started:now(),held:false,dragged:!e.isPrimary};
+    gesture={id:e.pointerId,fingers:new Map([[e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY}]]),strafe:0,backward:0,multiple:false,seat:getSeat(),x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,started:now(),held:false,dragged:!e.isPrimary};
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove',e=>{
@@ -63,8 +64,20 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
       let displacement=0;
       for(const point of gesture.fingers.values())displacement+=point.x-point.startX;
       displacement/=gesture.fingers.size;
-      gesture.strafe=Math.abs(displacement)>8?Math.max(-1,Math.min(1,-displacement/40)):0;
-      if(gesture.strafe){gesture.dragged=true;gesture.mode='strafe';}
+      const [a,b]=gesture.fingers.values();
+      const contraction=Math.hypot(a.startX-b.startX,a.startY-b.startY)-Math.hypot(a.x-b.x,a.y-b.y);
+      // Recognise a pinch before choosing sideways movement. Once chosen,
+      // retain that gesture until release, just as with forward movement.
+      if(!gesture.mode&&contraction>12&&contraction>Math.abs(displacement)*1.5){
+        gesture.mode='backward';gesture.dragged=true;
+      }
+      if(gesture.mode==='backward'){
+        gesture.backward=contraction>12?Math.min(1,contraction/40):0;
+        gesture.strafe=0;
+      }else{
+        gesture.strafe=Math.abs(displacement)>8?Math.max(-1,Math.min(1,-displacement/40)):0;
+        if(gesture.strafe){gesture.dragged=true;gesture.mode='strafe';}
+      }
       if(gesture.id===e.pointerId){gesture.x=e.clientX;gesture.y=e.clientY;}
       return;
     }
@@ -82,6 +95,7 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
   return {
     get running(){return Boolean(gesture&&!gesture.seat&&(gesture.held||gesture.strafe)&&gesture.fingers.size>=2);},
     get strafe(){return gesture&&!gesture.seat?gesture.strafe:0;},
+    get backward(){return gesture&&!gesture.seat?gesture.backward:0;},
     update(){
       if(!gesture)return false;
       if(!canUse()||getSeat()!==gesture.seat){finish({pointerId:gesture.id},true);return false;}

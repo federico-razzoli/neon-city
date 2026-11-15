@@ -152,3 +152,23 @@ test('a two-finger strafe stays sideways after the hold threshold',()=>{
   assert.equal(s.controls.update(),false);assert.ok(s.controls.strafe<0);
   s.send('pointermove',20,100);assert.ok(s.controls.strafe>0);assert.deepEqual(s.moves,[]);
 });
+
+test('pinching inward walks backward without rotating or strafing',()=>{
+  for(const vertical of [false,true]){
+    const s=setup(null);s.send('pointerdown',100,60);
+    s.send('pointerdown',vertical?100:220,vertical?180:60,{pointerId:2,isPrimary:false});
+    s.send('pointermove',vertical?100:180,vertical?140:60,{pointerId:2,isPrimary:false});
+    assert.equal(s.controls.backward,1);assert.equal(s.controls.strafe,0);
+    assert.equal(s.controls.running,false);assert.equal(s.controls.update(),false);assert.deepEqual(s.moves,[]);
+    s.advance(1000);assert.equal(s.controls.update(),false);assert.equal(s.controls.backward,1);
+    s.send('pointerup',180,60,{pointerId:2,isPrimary:false});assert.equal(s.controls.backward,0);
+    s.send('pointerup');assert.deepEqual(s.taps,[]);
+  }
+});
+test('pinch backward movement clears on cancellation and UI changes',()=>{
+  for(const cancel of [s=>s.disable(),s=>s.changeSeat(),s=>s.send('pointercancel')]){
+    const s=setup(null);s.send('pointerdown',100,100);s.send('pointerdown',220,100,{pointerId:2,isPrimary:false});
+    s.send('pointermove',180,100,{pointerId:2,isPrimary:false});assert.equal(s.controls.backward,1);
+    cancel(s);s.controls.update();assert.equal(s.controls.backward,0);
+  }
+});
