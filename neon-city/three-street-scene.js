@@ -7,6 +7,7 @@ import {createThreeManholes} from './three-manholes.js';
 import {createThreePineCones} from './three-pine-cones.js';
 import {createThreeFlowers} from './three-flowers.js';
 import {createThreeNewspaperMachines} from './three-newspaper-machines.js';
+import {createThreeBuildings} from './three-buildings.js';
 import {createThreeTrees} from './three-trees.js';
 import {createThreeTraffic} from './three-cars.js';
 import {createThreeRailings} from './three-railings.js';
@@ -27,6 +28,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const fingerposts=createThreeFingerposts(scene,{boundsVisible:exteriorVisible});
   const retainingWalls=createThreeRetainingWalls(scene,{boundsVisible:exteriorVisible});
   const trees=createThreeTrees(scene,{boundsVisible:exteriorVisible}),manholes=createThreeManholes(scene,{boundsVisible:exteriorVisible});
+  const buildings=createThreeBuildings(scene,{boundsVisible:exteriorVisible});
   const cones=createThreePineCones(scene,{boundsVisible:exteriorVisible}),flowers=createThreeFlowers(scene,{boundsVisible:exteriorVisible}),newspapers=createThreeNewspaperMachines(scene,{boundsVisible:exteriorVisible});
   const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene);
   const cards=createThreeCharacterCards(),cardMeshes=[];
@@ -60,7 +62,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
     face([e,a,up(a),up(e)],color);face([b,c,up(c),up(b)],color);
     face([up(a),up(b),up(c),up(e)],roof);face([e,c,b,a],color);
   }
-  const backend={face,quad,box,
+  const backend={face,quad,box,drawBuilding:(building,imageFor,viewer)=>buildings.draw(building,imageFor,viewer),
     drawCollectibles(chunk){cones.draw(chunk);flowers.draw(chunk);},
     drawNewspaperMachines:chunk=>newspapers.draw(chunk),
     nativeDroppedCollectibles:true,
@@ -99,7 +101,7 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     attribute.array.set(values);attribute.needsUpdate=true;
   }
   return {scene,camera,update(frame){
-    cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
+    buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);
     for(let i=cardCount;i<cardMeshes.length;i++)cardMeshes[i].visible=false;
     roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
@@ -108,5 +110,5 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){cones.dispose();flowers.dispose();newspapers.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }

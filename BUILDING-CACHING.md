@@ -1,8 +1,31 @@
 # Building generation, caching and memory lifetime
 
-Buildings have three distinct cached resources: wall geometry, canvas artwork and
-pixel readbacks used by rendering. Their lifetime follows the building and its
-textures, rather than a permanent shared building template.
+Buildings retain native Three.js wall geometry and GPU textures in the street
+renderer. Canvas artwork stays attached to each building. Legacy consumers also
+have per-building WASM arrays and pixel readbacks, as described below.
+
+## Retained Three.js street walls
+
+The default street renderer uses `createThreeBuildings()` in
+[`three-buildings.js`](neon-city/three-buildings.js). `buildingTemplate()` generates
+one unit building through WASM and caches that CPU array globally. Each street
+scene lazily converts the template into four GPU wall geometries, preserving the
+eight panels per wall and their UVs. All building positions and dimensions use
+these same four geometries through cached group transforms.
+
+Wall meshes and artwork textures are created only when a side is first visible.
+Camera movement updates side visibility and selects artwork without rebuilding
+panels or uploading their position/UV buffers. GPU back-face culling also applies
+to the retained triangles. Each building's canvases can differ by seed, venue
+and wall side, so meshes keep separate artwork materials rather than forcing
+unrelated textures into an instance batch. Hotel sign dimming switches between
+cached lit/dim textures, with no geometry changes.
+
+Unloading a building releases its meshes, GPU textures and materials. The four
+shared wall geometries survive until street-scene disposal. Offscreen and
+bookshop-window bounds are checked before requesting geometry or artwork.
+Legacy per-building `buildingGeometry()` arrays are not populated by native
+street rendering.
 
 ## Generating and retaining buildings
 
@@ -29,9 +52,9 @@ the old buildings or their caches from an address-based persistent store. Some
 venue details use address-based rules, but the building layout/appearance should
 not be assumed to regenerate identically.
 
-## Wall sides: generated in WASM, cached in a typed array
+## Legacy wall sides: generated in WASM, cached in a typed array
 
-[`building()` in game.js](neon-city/game.js) first checks the building's world
+[`building()` in world-scene.js](neon-city/world-scene.js) first checks the building's world
 bounds against the camera. An offscreen building normally returns before creating
 geometry or artwork. Seated texture prewarming is an exception for artwork,
 described below.
@@ -57,7 +80,7 @@ reuse the same array. Different building objects have separate arrays, including
 buildings with identical dimensions. Building position and dimensions are assumed
 to remain unchanged after caching; this cache has no mutation-based invalidation.
 
-Each frame still selects the sides facing the player, transforms their vertices
+Legacy rendering still selects the sides facing the player each frame, transforms their vertices
 into camera space, scales vertical texture coordinates by the canvas height,
 clips, projects, sorts and draws. Keeping eight panels per side preserves finer
 depth ordering against pedestrians and vehicles. Neither the projected polygons
@@ -65,7 +88,7 @@ nor the final screen image are permanently cached.
 
 ## Artwork: painted in JavaScript, cached per side
 
-`wallTexture(building, side)` in [`game.js`](neon-city/game.js) creates artwork
+`wallTexture(building, side)` in [`world-scene.js`](neon-city/world-scene.js) creates artwork
 lazily. The first request for a side paints a canvas and stores it in
 `building.textures[side]`. Further requests return that canvas. Four wall sides
 can therefore have four canvases, even when some of their artwork is identical.

@@ -289,6 +289,17 @@ GPU back-face culling and original face colors; the front artwork retains its
 two-sided rendering and smooth mipmapped texture. Canvas artwork is cached by
 newspaper name, and GPU textures are shared within each street scene.
 
-Indoor dropped objects already use retained per-item meshes and keep that
-rendering path. Legacy geometry emitters remain available for other consumers
-and appearance tests.
+Indoor pine-cone and flower drops use the same instanced renderers with
+natural outdoor objects disabled and room-specific filtering. They inherit the
+room's material type and omit the street depth bias, preserving indoor lighting
+and floor placement. Other indoor dropped items keep their retained per-item
+meshes. Legacy geometry emitters remain for other consumers and appearance tests.
+
+## Retained Three.js building walls
+
+Native building walls use one global WASM unit template and four GPU geometries
+per street scene. Position and dimensions are cached transforms; camera frames
+change visibility and artwork selection without rebuilding or uploading panels.
+Wall textures remain building-specific. Lit/dim hotel artwork switches between
+retained GPU textures. Building unloading releases artwork materials/textures;
+shared wall geometry releases on scene exit. See `BUILDING-CACHING.md`.

@@ -4,6 +4,8 @@ import {createThreeArtwork} from './three-artwork.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {drawDroppedObject} from './dropped-object.js';
 import {createBackpackGeometry} from './three-bookshop-models.js';
+import {createThreePineCones} from './three-pine-cones.js';
+import {createThreeFlowers} from './three-flowers.js';
 import {createThreeCharacterCards} from './three-character-cards.js';
 import {characterHeight,characterGirth,pedestrianShowsBack} from './world.js?v=start-pub-1';
 
@@ -69,7 +71,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
   const actorGeometry=new THREE.PlaneGeometry(1,1),seatedGeometry=new THREE.PlaneGeometry(1,1);
   const seatedUV=seatedGeometry.attributes.uv;
   for(let i=0;i<seatedUV.count;i++)seatedUV.setY(i,1-(1-seatedUV.getY(i))*32/48);
-  let disposed=false;
+  let disposed=false,cones,flowers;
   function actorMaterial(image){
     let entry=artwork.get(image);
     if(!entry){
@@ -85,9 +87,20 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
     if(disposed)throw new Error('Interior scene has been disposed.');
     updateInteriorCamera(camera,{position:frame.player,eye:frame.eye,pitch:frame.windowView?.pitch??frame.playerSeat?.pitch??0});
     extras?.update(frame);
+    // Native collectible renderers are created lazily and share templates and
+    // instance buffers across matching drops. Natural outdoor objects stay out
+    // of the room even though the city chunks also contain parks and rivers.
+    for(const chunk of frame.city.chunks.values())for(const item of chunk.droppedItems??[]){
+      if(item.room!==frame.itemRoom)continue;
+      if(item.item.id==='pine-cone')cones??=createThreePineCones(scene,{natural:false,polygonOffset:false,materialTemplate:material});
+      if(item.item.id==='flower')flowers??=createThreeFlowers(scene,{natural:false,polygonOffset:false,materialTemplate:material});
+    }
+    cones?.beginFrame(frame);flowers?.beginFrame(frame);
+    for(const chunk of frame.city.chunks.values()){cones?.draw(chunk,frame.itemRoom);flowers?.draw(chunk,frame.itemRoom);}
     const present=new Set();
     for(const chunk of frame.city.chunks.values())for(const item of chunk.droppedItems??[]){
       if(item.room!==frame.itemRoom)continue;
+      if(item.item.id==='pine-cone'||item.item.id==='flower')continue;
       present.add(item);
       if(!dropped.has(item)){
         const nativeBackpack=item.item.id==='backpack';
@@ -126,7 +139,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
   }
   function dispose(){
     if(disposed)return;disposed=true;
-    room.geometry?.dispose();extras?.dispose();
+    room.geometry?.dispose();extras?.dispose();cones?.dispose();flowers?.dispose();
     for(const mesh of dropped.values())mesh.geometry.dispose();
     dropped.clear();actors.clear();actorGeometry.dispose();seatedGeometry.dispose();
     for(const {texture,material} of artwork.values()){texture.dispose();material.dispose();}

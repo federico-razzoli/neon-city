@@ -94,3 +94,28 @@ test('pickups, drops, edits, culling and chunk unloading update only instance bu
     cones.dispose();assert.equal(freed,1);
   }finally{cones.dispose();}
 });
+
+test('indoor drops use shared instances with room filtering, no outdoor objects, and independent buffer lifetime',async()=>{
+  const {createThreeInteriorScene}=await import('../neon-city/three-interior-scene.js');
+  const room=createThreeInteriorScene({name:'test',actorsFor:()=>[]});
+  const c=chunk();c.park.cones=[{x:0,z:0,length:1,radius:1,angle:0}];c.flowers=[{x:0,z:0,size:1}];
+  const drops=[
+    {item:{id:'pine-cone'},room:'room-a',x:1,z:2,length:.22,radius:.07,angle:.2,ground:3},
+    {item:{id:'pine-cone'},room:'room-a',x:2,z:2,length:.16,radius:.055,angle:1.5,ground:3},
+    {item:{id:'flower',color:'#aaa0d1',size:.24},room:'room-a',x:3,z:2,ground:3},
+    {item:{id:'flower',color:'#d38aa9',size:.36},room:'room-a',x:4,z:2,ground:3},
+    {item:{id:'pine-cone'},room:'room-b',x:9,z:9,length:1,radius:1,angle:0}
+  ];c.droppedItems=drops;
+  const f={...frame([c]),player:{x:1,z:0,angle:0},eye:4.65,itemRoom:'room-a'};
+  try{
+    room.update(f);const meshes=room.scene.children.filter(m=>m.isInstancedMesh);
+    assert.equal(meshes.length,3);assert.ok(meshes.every(m=>m.count===2));assert.ok(meshes.every(m=>!m.material.polygonOffset));
+    const versions=meshes.map(m=>m.instanceMatrix.version);f.player.angle=2;room.update(f);assert.deepEqual(meshes.map(m=>m.instanceMatrix.version),versions);
+    const flower=meshes.find(m=>m.instanceColor),color=new THREE.Color();flower.getColorAt(0,color);assert.equal(color.getHexString(),'aaa0d1');
+    const center=meshes.find(m=>m.name.startsWith('flowers:')&&!m.instanceColor);close(point(center,0,0).y,3.001,'indoor flower height');
+    let released=0;for(const m of meshes)m.geometry.addEventListener('dispose',()=>released++);
+    c.droppedItems=drops.slice(1);room.update(f);assert.equal(meshes.find(m=>m.name.startsWith('pine-cones:')).count,1);assert.equal(released,0);
+    f.itemRoom='room-b';room.update(f);assert.equal(room.scene.children.filter(m=>m.isInstancedMesh).length,1);assert.equal(released,0);
+    room.dispose();assert.equal(released,3);
+  }finally{room.dispose();}
+});

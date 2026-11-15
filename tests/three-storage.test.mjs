@@ -61,16 +61,20 @@ test('all collectible dropped-object models are retained, room filtered, removed
   for(const [index,id] of ids.entries())chunk.droppedItems.push({item:{id},room:frame.itemRoom,x:1.2,z:1+index*.1,ground:0,angle:.2,length:.22,radius:.07});
   chunk.droppedItems.push({...chunk.droppedItems[0],room:'another room'});
   room.update(frame);
-  assert.equal(room.scene.children.length,2+ids.length);
-  const meshes=ids.map(id=>room.scene.getObjectByName(`dropped-${id}`));
+  const retainedIds=ids.filter(id=>!['pine-cone','flower'].includes(id));
+  const meshes=retainedIds.map(id=>room.scene.getObjectByName(`dropped-${id}`));
   for(const mesh of meshes)assert.ok(mesh.geometry.attributes.position.count>0);
-  assert.ok(meshes.every(mesh=>mesh.material===meshes[0].material),'compatible meshes share their unlit material');
+  assert.ok(meshes.every(mesh=>mesh.material===meshes[0].material),'compatible retained meshes share their unlit material');
+  const instances=room.scene.children.filter(mesh=>mesh.isInstancedMesh);
+  assert.equal(instances.length,3,'cone, petals and flower center have shared instance batches');
+  assert.ok(instances.every(mesh=>mesh.count===1));
   frame.player.angle=Math.PI;room.update(frame);
-  assert.ok(meshes.every(mesh=>room.scene.children.includes(mesh)),'turning reuses complete object geometry');
-  let disposed=0;for(const mesh of meshes)mesh.geometry.addEventListener('dispose',()=>disposed++);
+  assert.ok([...meshes,...instances].every(mesh=>room.scene.children.includes(mesh)),'turning retains all objects');
+  let disposed=0;const resources=new Set([...meshes,...instances].map(mesh=>mesh.geometry));
+  for(const geometry of resources)geometry.addEventListener('dispose',()=>disposed++);
   chunk.droppedItems.splice(0,1);room.update(frame);
-  assert.equal(room.scene.getObjectByName('dropped-pine-cone'),undefined);assert.equal(disposed,1);
-  room.dispose();assert.equal(disposed,ids.length);
+  assert.ok(!room.scene.children.some(mesh=>mesh.name.startsWith('pine-cones:')));assert.equal(disposed,0,'shared cone geometry survives pickup');
+  room.dispose();assert.equal(disposed,resources.size);
 });
 
 test('renderer support enables the converted hotel scenes in the debug menu',()=>{

@@ -88,6 +88,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
   function building(b){
     const x=b.x,z=b.z,w=b.w,d=b.d,h=b.h;
     if(!boundsVisible(x,0,z,x+w,h,z+d))return;
+    if(renderer.drawBuilding){renderer.drawBuilding(b,side=>wallTexture(b,side),player);return;}
     const panels=buildingGeometry(b);
     function wall(side){
       const tex=wallTexture(b,side);

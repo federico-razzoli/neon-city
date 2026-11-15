@@ -3,7 +3,7 @@ import * as THREE from './vendor/three/three.module.js';
 import {pineConeTemplate} from './pine-cone-geometry.js';
 import {createStaticInstances} from './three-static-instances.js';
 
-export function createThreePineCones(scene,{boundsVisible}={}){
+export function createThreePineCones(scene,{boundsVisible,natural=true,polygonOffset=true,materialTemplate}={}){
   let disposed=false;
   // One unit WASM template. Nonuniform instance scales supply length/radius;
   // the shader shades transformed face normals with the original five colors.
@@ -22,7 +22,8 @@ export function createThreePineCones(scene,{boundsVisible}={}){
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geometry.setAttribute('coneNormal',new THREE.Float32BufferAttribute(normals,3));
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(positions.length).fill(1),3));geometry.computeBoundingSphere();
-  const material=new THREE.MeshBasicMaterial({vertexColors:true,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+  const material=materialTemplate?materialTemplate.clone():new THREE.MeshBasicMaterial();
+  Object.assign(material,{vertexColors:true,toneMapped:false,side:THREE.FrontSide,polygonOffset,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
   const palette=['#2b1d17','#3b291e','#4f3626','#654530','#7a5739'].map(c=>new THREE.Color(c));
   material.onBeforeCompile=shader=>{
     shader.uniforms.conePalette={value:palette};
@@ -43,7 +44,7 @@ export function createThreePineCones(scene,{boundsVisible}={}){
   return {
     beginFrame:frame=>batches.beginFrame(frame),
     draw(chunk,itemRoom='street'){
-      const cones=(chunk.park?.cones??[]).filter(c=>!c.taken);
+      const cones=natural?(chunk.park?.cones??[]).filter(c=>!c.taken):[];
       for(const item of chunk.droppedItems??[])if(item.room===itemRoom&&item.item.id==='pine-cone')cones.push(item);
       batches.draw(chunk,cones);
     },

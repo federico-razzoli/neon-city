@@ -13,3 +13,10 @@ export function buildingGeometry(building){
   }
   return panels;
 }
+
+let template;
+// Native walls transform one unit model instead of caching world-space panels
+// separately for every building. Other consumers retain the original cache.
+export function buildingTemplate(){
+  return template??=buildingGeometry({x:0,z:0,w:1,d:1,h:1});
+}
