@@ -52,23 +52,24 @@ test('dropped items retain their tread height and are filtered by room, not curr
   room.dispose();
 });
 
-test('banknote preserves world position and source texture orientation, corrects hotel tint, and releases resources',()=>{
-  const previous=globalThis.document;
-  globalThis.document={createElement(){
-    const canvas={width:0,height:0,pixels:null};
-    const context={fillRect(){},strokeRect(){},beginPath(){},ellipse(){},fill(){},fillText(){},drawImage(){},
-      getImageData(){const data=new Uint8ClampedArray(canvas.width*canvas.height*4);for(let i=0;i<data.length;i+=4)data.set([120,140,160,255],i);return {data};},
-      putImageData(pixels){canvas.pixels=pixels.data;}};
-    canvas.getContext=()=>context;return canvas;
-  }};
-  try{
-    const cash=createThreeMoneyNote({x:6.5,z:14.5,ground:0,taken:false});
+test('banknotes load static PNG textures with matching geometry, orientation, filtering and cleanup',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {MONEY_NOTE_TEXTURE}=await import('../neon-city/money.js');
+  for(const hotelTint of [false,true]){
+    let requested;
+    const cash=createThreeMoneyNote({x:6.5,z:14.5,ground:0,taken:false},{hotelTint,textureFor(url){requested=url;return new THREE.Texture();}});
     const geometry=cash.mesh.geometry,material=cash.mesh.material,texture=material.map;
+    assert.equal(requested,MONEY_NOTE_TEXTURE);
+    const png=await readFile(new URL(requested));
+    assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+    assert.equal(png.readUInt32BE(16),160);assert.equal(png.readUInt32BE(20),80);
     assert.deepEqual(Array.from(geometry.attributes.uv.array),[0,1,1,1,1,0,0,0]);
     assert.ok(Math.abs(geometry.attributes.position.getY(0)-.012)<1e-8);
     assert.ok(geometry.attributes.position.getZ(0)<-14);
-    assert.deepEqual(Array.from(texture.image.pixels.slice(0,4)),[148,173,195,255]);
+    assert.equal(texture.isCanvasTexture,undefined);assert.equal(texture.colorSpace,THREE.SRGBColorSpace);
+    assert.equal(texture.minFilter,THREE.LinearFilter);assert.equal(texture.generateMipmaps,false);
+    assert.equal(material.polygonOffset,!hotelTint);
     let disposed=0;for(const resource of [geometry,material,texture])resource.addEventListener('dispose',()=>disposed++);
-    cash.dispose();assert.equal(disposed,3);
-  }finally{if(previous===undefined)delete globalThis.document;else globalThis.document=previous;}
+    cash.dispose();cash.dispose();assert.equal(disposed,3);
+  }
 });

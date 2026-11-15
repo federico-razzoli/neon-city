@@ -35,21 +35,33 @@ export class Wallet{
   }
 }
 
-let texture;
+export const MONEY_NOTE_TEXTURE=new URL('./assets/five-pound-note.png',import.meta.url).href;
+export const MONEY_NOTE_WIDTH=160,MONEY_NOTE_HEIGHT=80;
+let artwork,artworkReady;
+export function moneyNoteImage(){
+  if(!artwork&&typeof Image!=='undefined'){
+    artwork=new Image(MONEY_NOTE_WIDTH,MONEY_NOTE_HEIGHT);artwork.src=MONEY_NOTE_TEXTURE;
+  }
+  return artwork;
+}
+
+export function preloadMoneyNote(){
+  artworkReady??=moneyNoteImage().decode().catch(error=>{
+    artworkReady=null;
+    throw new Error(`Banknote image could not load: ${error.message}`);
+  });
+  return artworkReady;
+}
+
 export function drawMoneyNote(note,face){
   if(note.taken)return;
-  if(!texture){
-    texture=document.createElement('canvas');texture.width=160;texture.height=80;
-    const g=texture.getContext('2d');
-    g.fillStyle='#58665a';g.fillRect(0,0,160,80);
-    g.strokeStyle='#343e36';g.lineWidth=3;g.strokeRect(5,5,150,70);
-    g.fillStyle='#424e44';g.beginPath();g.ellipse(119,40,20,27,0,0,Math.PI*2);g.fill();
-    g.fillStyle='#252e28';g.font='bold 32px serif';g.fillText('£5',15,47);
-    g.font='9px serif';g.fillText('FIVE POUNDS',15,65);
-  }
+  face(moneyNoteVertices(note),'#58665a',moneyNoteImage());
+}
+
+export function moneyNoteVertices(note){
   const {x,z}=note,y=(note.ground??groundHeight(x,z))+.012;
   const angle=.28,c=Math.cos(angle),s=Math.sin(angle);
   const corner=(dx,dz,u,v)=>({x:x+dx*c-dz*s,y,z:z+dx*s+dz*c,u,v});
-  face([corner(-.32,-.16,0,0),corner(.32,-.16,160,0),
-    corner(.32,.16,160,80),corner(-.32,.16,0,80)],'#58665a',texture);
+  return [corner(-.32,-.16,0,0),corner(.32,-.16,160,0),
+    corner(.32,.16,160,80),corner(-.32,.16,0,80)];
 }

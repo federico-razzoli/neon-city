@@ -304,7 +304,8 @@ export function createWorldScene(renderer,{reduced=false}={}){
       for(const p of chunk.people)person(pedestrian(chunk,p,time));
     }
     drawDroppedItems(visible);
-    renderer.withStyle({detail:true,textureSmooth:true,groundTexture:true},()=>drawMoneyNote(wallet.note,face));
+    if(renderer.drawMoneyNote)renderer.drawMoneyNote(wallet.note);
+    else renderer.withStyle({detail:true,textureSmooth:true,groundTexture:true},()=>drawMoneyNote(wallet.note,face));
     if(renderer.drawFingerpost)renderer.drawFingerpost(START_SIGN,city.startSignBoards,signTexture);
     else renderer.withStyle({detail:true,textureSmooth:true},()=>drawFingerpost(START_SIGN,city.startSignBoards,{face,signTexture},{x:player.x,y:eye,z:player.z}));
     renderer.withStyle({detail:true,textureSmooth:true},()=>{

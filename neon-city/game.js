@@ -28,7 +28,7 @@ import {entranceWall} from './entrances.js';
 import {loadCabinetGame} from './cabinet-loader.js?v=pinball-9';
 import {loadCabinetDisplay} from './cabinet-display-loader.js';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
-import {Wallet} from './money.js?v=hotel-cash-1';
+import {Wallet,preloadMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
 import {Inventory,inventoryImage,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=backpack-reward-1';
@@ -499,7 +499,7 @@ async function prepareCabinetRenderer(){
 async function prepareThreeRenderer(){
   if(threeRenderer)return;
   threeRendererLoading??=(async()=>{
-    const {createThreeHotelRenderer}=await import('./three-hotel-renderer.js');
+    const [{createThreeHotelRenderer}]=await Promise.all([import('./three-hotel-renderer.js'),preloadMoneyNote()]);
     const surface=document.createElement('canvas');surface.id='three-view';surface.hidden=true;
     surface.setAttribute('aria-hidden','true');
     try{threeRenderer=createThreeHotelRenderer(surface);}

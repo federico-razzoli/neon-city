@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {createThreeMoneyNote} from './three-money-note.js';
 import {createThreeCharacterCards} from './three-character-cards.js';
 import {createThreeFingerposts} from './three-fingerposts.js';
 import {createThreeRetainingWalls} from './three-retaining-walls.js';
@@ -34,6 +35,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const cones=createThreePineCones(scene,{boundsVisible:exteriorVisible}),flowers=createThreeFlowers(scene,{boundsVisible:exteriorVisible}),newspapers=createThreeNewspaperMachines(scene,{boundsVisible:exteriorVisible});
   const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene);
   const cards=createThreeCharacterCards(),cardMeshes=[];
+  let cash,cashNote;
   let cardCount=0;
   let style={},view;
   function batch(color,image,smooth){
@@ -64,7 +66,15 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
     face([e,a,up(a),up(e)],color);face([b,c,up(c),up(b)],color);
     face([up(a),up(b),up(c),up(e)],roof);face([e,c,b,a],color);
   }
-  const backend={face,quad,box,drawStaticGround:chunk=>scenery.drawGround(chunk),drawParkScenery:chunk=>scenery.drawPark(chunk),drawStaticBridges:chunk=>scenery.drawBridges(chunk),drawBuilding:(building,imageFor,viewer)=>buildings.draw(building,imageFor,viewer),
+  const backend={face,quad,box,
+    drawMoneyNote(note){
+      if(note.taken){if(cash)cash.mesh.visible=false;return;}
+      if(cashNote!==note){
+        if(cash){scene.remove(cash.mesh);cash.dispose();}
+        cash=createThreeMoneyNote(note,{hotelTint:false});cashNote=note;scene.add(cash.mesh);
+      }
+      cash.mesh.visible=true;
+    },drawStaticGround:chunk=>scenery.drawGround(chunk),drawParkScenery:chunk=>scenery.drawPark(chunk),drawStaticBridges:chunk=>scenery.drawBridges(chunk),drawBuilding:(building,imageFor,viewer)=>buildings.draw(building,imageFor,viewer),
     drawCollectibles(chunk){cones.draw(chunk);flowers.draw(chunk);},
     drawNewspaperMachines:chunk=>newspapers.draw(chunk),
     nativeDroppedCollectibles:true,
@@ -103,6 +113,7 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     attribute.array.set(values);attribute.needsUpdate=true;
   }
   return {scene,camera,update(frame){
+    if(cash)cash.mesh.visible=false;
     scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);
     for(let i=cardCount;i<cardMeshes.length;i++)cardMeshes[i].visible=false;
@@ -112,5 +123,5 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){cash?.dispose();cash=null;cashNote=null;scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }
