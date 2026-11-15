@@ -5,9 +5,9 @@ import {runInNewContext} from 'node:vm';
 
 const game=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
 const startup=game.slice(game.indexOf('async function prepareRendererAtStartup(){'),game.indexOf('async function selectDebugDestination('));
-function fixture(prepareThreeRenderer){
+function fixture(prepareThreeRenderer,prepareChunks=async()=>{}){
   const start={disabled:true,innerHTML:'LOADING THE NIGHT',busy:true,removeAttribute(name){assert.equal(name,'aria-busy');this.busy=false;}},description={textContent:'Welcome'};
-  const state={start,prepareThreeRenderer,document:{querySelector:()=>description},fallback:0,useCanvasFallback(){state.fallback++;}};
+  const state={start,prepareThreeRenderer,city:{update:prepareChunks},player:{x:0,z:0},document:{querySelector:()=>description},fallback:0,useCanvasFallback(){state.fallback++;}};
   const ready=runInNewContext(startup+'\nprepareRendererAtStartup();',state);return {state,start,description,ready};
 }
 test('title remains gated until shared renderer preparation finishes',async()=>{
@@ -37,4 +37,17 @@ test('world rendering uses Three.js exclusively and arcade drawing has its own r
   assert.match(render,/if\(threeRenderer\)/);
   assert.doesNotMatch(game,/canvasRenderer|createCanvasRenderer|useCanvasFallback|wall-columns|texture-pixels/);
   assert.doesNotMatch(render,/worldScene|rendererChoice/);
+});
+
+
+test('title waits for worker chunks as well as the renderer',async()=>{
+  let resolve;const pending=new Promise(r=>{resolve=r;});
+  const {start,ready}=fixture(async()=>{},()=>pending);
+  await Promise.resolve();assert.equal(start.disabled,true);
+  resolve();await ready;assert.equal(start.disabled,false);
+});
+
+test('worker failure keeps the title gated and reports the failure',async()=>{
+  const {start,description,ready}=fixture(async()=>{},async()=>{throw new Error('Worker unavailable');});
+  await ready;assert.equal(start.disabled,true);assert.match(description.textContent,/Worker unavailable/);
 });

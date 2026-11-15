@@ -1,3 +1,4 @@
+import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
 /*
@@ -43,7 +44,7 @@ import {rollBanshee,bansheeFrame,playBansheeScream} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {City,groundHeight,pubLines,START} from './world.js?v=start-pub-1';
+import {groundHeight,pubLines,START} from './world.js?v=start-pub-1';
 import {Traffic} from './traffic.js?v=junction-priority-2';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=rive-gauche-6';
@@ -428,7 +429,7 @@ talkBox.addEventListener('click',e=>{
   canvas.focus();
   answerStaff(button?.dataset.choice==null?undefined:Number(button.dataset.choice));
 });
-const city=new City(),player={...START},keys=new Set(),shiftKeys=new Set();
+const city=new WorkerCity(),player={...START},keys=new Set(),shiftKeys=new Set();
 const roadTraffic=new Traffic();
 const {width:W,focal:F,horizon}=NATIVE_VIEW;
 let eye=1.65;
@@ -511,7 +512,7 @@ async function prepareThreeRenderer(){
 }
 async function prepareRendererAtStartup(){
   try{
-    await prepareThreeRenderer();
+    await Promise.all([prepareThreeRenderer(),city.update(player.x,player.z)]);
     start.innerHTML='STEP INTO THE NIGHT <span>→</span>';
     start.disabled=false;
   }catch(error){
@@ -522,7 +523,7 @@ async function prepareRendererAtStartup(){
 async function selectDebugDestination(id,park,renderer='three'){
   if(!supportsRenderer(id,renderer))throw new Error('This renderer is not available for that destination.');
   await prepareThreeRenderer();
-  debugTravel(id,park);painted=false;
+  await debugTravel(id,park);painted=false;
 }
 function selectRenderSurface(useThree){
   if(threeCanvas)threeCanvas.hidden=!useThree;
@@ -550,7 +551,7 @@ function render(){
 }
 // Debug travel shares venue initialization with ordinary door entry.
 function debugScene(){return insideBookshop?'bookshop':insideArcade?'arcade':insideHotel?(hotelStorage?'storage':hotelCorridor?'corridor':hotelStairs?'stairs':'hotel'):insideCubicle?'cubicle':insideLavatory?'lavatory':insidePub?'pub':'street';}
-function debugTravel(id,park){
+async function debugTravel(id,park){
   if(id===debugScene()||id==='initial'&&!indoors()&&player.x===START.x&&player.z===START.z)return;
   ladiesDoorEvent?.cancel();
   cubicleKnock?.dispose();cubicleKnock=null;
@@ -558,7 +559,7 @@ function debugTravel(id,park){
   const signs={pub:'NEON PUB',lavatory:'NEON PUB',cubicle:'NEON PUB',hotel:'HOTEL',stairs:'HOTEL',storage:'HOTEL',corridor:'HOTEL',arcade:'ARCADE',bookshop:'MIDNITE BOOKS'};
   let venue;
   if(signs[id]){
-    city.update(origin.x,origin.z);
+    await city.update(origin.x,origin.z);
     venue=[...city.chunks.values()].flatMap(c=>c.buildings).filter(b=>b.sign===signs[id]).sort((a,b)=>Math.hypot(a.x-origin.x,a.z-origin.z)-Math.hypot(b.x-origin.x,b.z-origin.z))[0];
     if(!venue)throw new Error('No matching venue nearby. Explore more streets and try again.');
   }
@@ -581,7 +582,7 @@ function debugTravel(id,park){
     }
   }else{
     Object.assign(player,id==='initial'?START:id==='river'?DEBUG_RIVERSIDE_SPAWN:park);
-    city.update(player.x,player.z);
+    await city.update(player.x,player.z);
   }
   notice=shake=steps=0;painted=false;
 }
@@ -839,6 +840,11 @@ canvas.addEventListener('contextmenu',e=>{if(ping?.kind==='amigos'){e.preventDef
 canvas.addEventListener('pointerdown',e=>{if(amigosPointer(e,'down'))return;if(!running)return;if(ping?.crossed){ping.continueCrossing();keys.clear();}else if(ping?.kind==='kong')keys.add(' ');});
 for(const event of ['pointerup','pointercancel','pointerleave'])canvas.addEventListener(event,()=>keys.delete(' '));
 function tick(now){
+  if(city.failure&&running){
+    pause();
+    document.querySelector('#description').textContent=city.failure.message;
+    start.disabled=true;
+  }
   const touchWalking=touchControls.update();
   startPhase('neon:simulation');
   // Camera input follows elapsed time through ordinary slow frames. Bound long
