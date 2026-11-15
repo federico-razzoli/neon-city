@@ -89,3 +89,66 @@ test('a hold before the first drag is recognised even between simulation updates
   const s=setup(null);s.send('pointerdown');s.advance(250);s.send('pointermove',140,120);
   assert.equal(s.controls.update(),true);s.send('pointerup');assert.deepEqual(s.taps,[]);
 });
+
+test('two-finger holds run, steer, return to walking and stop on release',()=>{
+  const s=setup(null);s.send('pointerdown');
+  s.send('pointerdown',140,100,{pointerId:2,isPrimary:false});
+  assert.equal(s.controls.running,false);
+  s.advance(220);assert.equal(s.controls.update(),true);assert.equal(s.controls.running,true);
+  s.send('pointermove',130,100);assert.ok(s.moves[0][0]<0);assert.equal(s.controls.strafe,0);assert.equal(s.controls.running,true);
+  s.send('pointerup',140,100,{pointerId:2,isPrimary:false});
+  assert.equal(s.controls.running,false);assert.equal(s.controls.update(),true);
+  s.send('pointerup');assert.equal(s.controls.update(),false);assert.deepEqual(s.taps,[]);
+});
+test('adding a second finger to walking runs; ending the first touch stops both',()=>{
+  const s=setup(null);s.send('pointerdown');s.advance(250);s.controls.update();
+  s.send('pointerdown',140,100,{pointerId:2,isPrimary:false});assert.equal(s.controls.running,true);
+  s.send('pointerup');assert.equal(s.controls.running,false);assert.equal(s.controls.update(),false);
+  s.send('pointerup',140,100,{pointerId:2,isPrimary:false});assert.deepEqual(s.taps,[]);
+});
+test('quick two-finger taps never interact and interrupted running clears',()=>{
+  const quick=setup(null);quick.send('pointerdown');quick.send('pointerdown',140,100,{pointerId:2,isPrimary:false});
+  quick.send('pointerup',140,100,{pointerId:2,isPrimary:false});quick.send('pointerup');assert.deepEqual(quick.taps,[]);
+  for(const cancel of [s=>s.disable(),s=>s.changeSeat(),s=>s.send('pointercancel'),s=>s.send('lostpointercapture')]){
+    const s=setup(null);s.send('pointerdown');s.send('pointerdown',140,100,{pointerId:2,isPrimary:false});
+    s.advance(250);s.controls.update();assert.equal(s.controls.running,true);
+    cancel(s);assert.equal(s.controls.update(),false);assert.equal(s.controls.running,false);
+  }
+});
+
+test('two-finger drags strafe in either direction without rotating, even before a hold',()=>{
+  const s=setup(null);s.send('pointerdown');
+  s.send('pointerdown',140,100,{pointerId:2,isPrimary:false});
+  s.send('pointermove',200,100,{pointerId:2,isPrimary:false});
+  assert.ok(s.controls.strafe<0);assert.equal(s.controls.running,true);
+  assert.equal(s.controls.update(),false);assert.deepEqual(s.moves,[]);
+  s.send('pointermove',40,100,{pointerId:2,isPrimary:false});
+  assert.ok(s.controls.strafe>0);assert.deepEqual(s.moves,[]);
+  s.send('pointermove',140,100,{pointerId:2,isPrimary:false});assert.equal(s.controls.strafe,0);
+  s.send('pointerup',140,100,{pointerId:2,isPrimary:false});assert.equal(s.controls.strafe,0);
+  s.send('pointermove',130,100);assert.ok(s.moves[0][0]<0);
+  s.send('pointerup');assert.equal(s.controls.strafe,0);assert.deepEqual(s.taps,[]);
+});
+test('cancelling a two-finger strafe clears sideways movement',()=>{
+  const s=setup(null);s.send('pointerdown');s.send('pointerdown',140,100,{pointerId:2,isPrimary:false});
+  s.send('pointermove',180,100);assert.ok(s.controls.strafe<0);
+  s.disable();s.controls.update();assert.equal(s.controls.strafe,0);assert.equal(s.controls.running,false);
+});
+
+test('adding a second finger after forward movement keeps camera rotation',()=>{
+  for(const updateFirst of [true,false]){
+    const s=setup(null);s.send('pointerdown');s.advance(250);
+    if(updateFirst)assert.equal(s.controls.update(),true);
+    s.send('pointerdown',140,100,{pointerId:2,isPrimary:false});
+    s.send('pointermove',180,100);
+    assert.equal(s.controls.update(),true);assert.equal(s.controls.running,true);
+    assert.equal(s.controls.strafe,0);assert.ok(s.moves[0][0]<0);
+    s.send('pointermove',40,100);assert.ok(s.moves[1][0]>0);assert.equal(s.controls.strafe,0);
+  }
+});
+test('a two-finger strafe stays sideways after the hold threshold',()=>{
+  const s=setup(null);s.send('pointerdown');s.send('pointerdown',140,100,{pointerId:2,isPrimary:false});
+  s.send('pointermove',180,100);s.advance(1000);
+  assert.equal(s.controls.update(),false);assert.ok(s.controls.strafe<0);
+  s.send('pointermove',20,100);assert.ok(s.controls.strafe>0);assert.deepEqual(s.moves,[]);
+});

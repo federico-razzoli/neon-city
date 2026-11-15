@@ -865,7 +865,7 @@ function tick(now){
       windowView=corridorWindowView(player,corridorWindowState(currentHotel,hotelStairs.floor));
       if(windowView){Object.assign(player,{x:windowView.x,z:windowView.z,angle:windowView.angle});keys.clear();shiftKeys.clear();coverPressed=false;notice=0;shake=0;steps=0;}
     }
-    const pace=!windowView&&!playerSeat&&keys.has('Shift')?3:1;
+    const pace=!windowView&&!playerSeat&&(keys.has('Shift')||touchControls.running)?3:1;
     document.querySelector('#pace').hidden=pace===1;
     player.angle+=(Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')))*cameraDt*1.65*pace;
     if(windowView){
@@ -878,7 +878,7 @@ function tick(now){
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
       playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
     }
-    const forward=Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
+    const forward=Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s')),side=Math.max(-1,Math.min(1,Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe)),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(indoors())hornWarning.update(dt,null,[]);
     if(insidePub){
       pubLife?.update(dt,pubPatrons,playerSeat,player);
