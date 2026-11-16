@@ -7,6 +7,7 @@ export function iceCreamVanLocal(van,point){
 }
 export function iceCreamVanSolid(van,x,z,radius){
   const p=iceCreamVanLocal(van,{x,z}),v=ICE_CREAM_VAN;
+  for(const side of [-1,1])if(van.cabDoorOpen?.[side]&&Math.abs(p.x-2.6)<.05+radius&&p.z*side>1.025-radius&&p.z*side<2.225+radius)return true;
   // The cab stays solid. The open rear doorway leads directly into the street model.
   if(p.x>=v.front-radius&&p.x<2.9+radius&&Math.abs(p.z)<1.15+radius)return true;
   if(van.doorOpen&&p.x>=v.rear-v.doorHalf*2-radius&&p.x<=v.rear+radius&&Math.abs(p.z+v.doorHalf)<.04+radius)return true;
@@ -63,6 +64,10 @@ export function interactIceCreamVan(player,van){
   if(player.riverWalk)return null;
   const v=ICE_CREAM_VAN,p=iceCreamVanLocal(van,player),targets=[];
   const add=(kind,...bounds)=>{const distance=vanTargetDistance(player,van,...bounds);if(Number.isFinite(distance))targets.push({kind,distance});};
+  for(const side of [-1,1])if(p.z*side>=1.05){
+    add(`cab:${side}`,1.38,side*1.025-.08,2.66,side*1.025+.08);
+    if(van.cabDoorOpen?.[side])add(`cab:${side}`,2.56,Math.min(side*1.025,side*2.225),2.7,Math.max(side*1.025,side*2.225));
+  }
   add('door',v.rear-.08,-v.doorHalf,v.rear+.08,v.doorHalf);
   if(van.doorOpen)add('door',v.rear-v.doorHalf*2,-v.doorHalf-.04,v.rear,-v.doorHalf+.04);
   // Trays and cones are interactive only from inside the van.
@@ -76,6 +81,9 @@ export function interactIceCreamVan(player,van){
     add('vendor',ICE_CREAM_VENDOR.x-.35,ICE_CREAM_VENDOR.z-.2,ICE_CREAM_VENDOR.x+.35,ICE_CREAM_VENDOR.z+.2);
   targets.sort((a,b)=>a.distance-b.distance);
   for(const target of targets){
+    if(target.kind.startsWith('cab:')){
+      const side=Number(target.kind.slice(4));van.cabDoorOpen??={};van.cabDoorOpen[side]=!van.cabDoorOpen[side];return '';
+    }
     if(target.kind==='food')return 'DO NOT TOUCH, PLEASE.';
     const reply=target.kind==='door'?interactIceCreamVanDoor(player,van):interactIceCreamVendor(player,van);
     if(reply!==null)return reply;

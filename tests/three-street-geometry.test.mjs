@@ -125,7 +125,7 @@ test('ice cream vans occupy alternate bridge gaps on both banks, stay solid and 
   try{
     const frame={city:{chunks:new Map(chunks.map(c=>[`${c.x},${c.z}`,c]))}};
     vans.beginFrame(frame);for(const chunk of chunks)vans.draw(chunk);
-    assert.equal(scene.children.length,chunks.length*6);
+    assert.equal(scene.children.length,chunks.length*8);
     const geometry=scene.children[0].geometry;
     geometry.computeBoundingBox();assert.ok(Math.abs(geometry.boundingBox.max.y-3.7*1.2)<1e-5);
     const sign=scene.children.find(m=>m.material.map).geometry;sign.computeBoundingBox();
@@ -226,4 +226,36 @@ test('carried ice creams show a full scoop, a cut-down scoop, then a bare cone a
   iceCreams.beginFrame();iceCreams.endFrame();assert.equal(scene.children[0].visible,false);
   let disposed=0;for(const g of geometries)g.addEventListener('dispose',()=>disposed++);
   iceCreams.dispose();assert.equal(disposed,3);assert.equal(scene.children.length,0);
+});
+
+test('cab doors toggle silently on both banks and both sides while the cab stays inaccessible',async()=>{
+  const {City,riverIceCreamVan,RIVER_ROWS}=await import('../neon-city/world.js');
+  const {interactIceCreamVan,iceCreamVanLocal}=await import('../neon-city/ice-cream-vans.js');
+  for(const first of [true,false])for(const side of [-1,1]){
+    const city=new City(42),chunk={x:first?1:4,z:RIVER_ROWS[0]+(first?0:1),river:true,riverStart:RIVER_ROWS[0]};
+    city.chunks.set(`${chunk.x},${chunk.z}`,chunk);const van=riverIceCreamVan(chunk),s=first?1:-1;
+    const p={x:van.x+2*s,z:van.z-2.6*side*s,angle:side*s>0?0:Math.PI};
+    assert.equal(interactIceCreamVan(p,van),'');assert.equal(van.cabDoorOpen[side],true);
+    assert.equal(van.doorOpen,undefined);assert.equal(van.cabDoorOpen[-side],undefined);
+    city.move(p,0,2.6*side*s);assert.ok(Math.abs(iceCreamVanLocal(van,p).z)>=1.6-1e-7);
+    assert.equal(interactIceCreamVan(p,van),'');assert.equal(van.cabDoorOpen[side],false);
+  }
+});
+
+test('opening a cab door exposes a real opening without rebuilding the van model',async()=>{
+  const {createThreeIceCreamVans}=await import('../neon-city/three-ice-cream-vans.js');
+  const {riverIceCreamVan,RIVER_ROWS}=await import('../neon-city/world.js');
+  const previous=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
+  const scene=new THREE.Scene(),vans=createThreeIceCreamVans(scene),chunk={x:1,z:RIVER_ROWS[0],river:true,riverStart:RIVER_ROWS[0]},van=riverIceCreamVan(chunk);
+  const frame={city:{chunks:new Map([['van',chunk]])}};
+  try{
+    vans.beginFrame(frame);vans.draw(chunk);scene.updateMatrixWorld(true);
+    const door=scene.children.find(m=>m.name.startsWith('ice-cream-cab-door-1:'));
+    const body=scene.children.find(m=>m.name.startsWith('ice-cream-van:')),geometry=body.geometry;
+    const ray=new THREE.Raycaster(new THREE.Vector3(van.x+2.4,1.35*1.2+.04,-van.z+3),new THREE.Vector3(0,0,-1),0,3);
+    assert.ok(ray.intersectObject(door).length>0);
+    van.cabDoorOpen={1:true};vans.beginFrame(frame);vans.draw(chunk);scene.updateMatrixWorld(true);
+    assert.equal(ray.intersectObject(door).length,0);assert.equal(body.geometry,geometry);
+    assert.ok(ray.intersectObject(body).length>0,'seats or dashboard are visible through the doorway');
+  }finally{vans.dispose();globalThis.document=previous;}
 });
