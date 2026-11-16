@@ -1,4 +1,4 @@
-import {iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
+import {iceCreamVanCabSeat,iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
@@ -547,7 +547,7 @@ function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
-  if(!indoors())eye=playerSeat?.cabVan?playerSeat.eye:(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??outdoorGroundHeight());
+  if(!indoors())eye=playerSeat?.cabVan?playerSeat.eye+(playerSeat.slide?.lift??0):(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??outdoorGroundHeight());
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
@@ -902,6 +902,21 @@ function tick(now){
       player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
       playerSeat.pitch=Math.max(playerSeat.cabVan?-Math.PI/6:0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
+      // Sideways keys slide across the van cab bench to the other seat.
+      const across=Number(keys.has('d'))-Number(keys.has('a'));
+      if(playerSeat.cabVan&&across&&across!==playerSeat.seat&&!playerSeat.slide){
+        playerSeat.seat=across;
+        playerSeat.slide={from:{x:player.x,z:player.z},t:0};
+        Object.assign(playerSeat,iceCreamVanCabSeat(playerSeat.cabVan,across));
+      }
+      if(playerSeat.slide){
+        // Ease across over about a second, rising slightly mid-way as the player half-stands.
+        const slide=playerSeat.slide;slide.t=Math.min(1,slide.t+cameraDt/.9);
+        const k=slide.t*slide.t*(3-2*slide.t);
+        player.x=slide.from.x+(playerSeat.x-slide.from.x)*k;player.z=slide.from.z+(playerSeat.z-slide.from.z)*k;
+        slide.lift=.08*Math.sin(Math.PI*slide.t);
+        if(slide.t>=1)playerSeat.slide=null;
+      }
     }
     const forward=Math.max(-1,Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s'))-touchControls.backward),side=Math.max(-1,Math.min(1,Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe)),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(indoors())hornWarning.update(dt,null,[]);

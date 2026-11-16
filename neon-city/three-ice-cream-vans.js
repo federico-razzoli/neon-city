@@ -100,6 +100,22 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     box(2.05,.49,0,.19,.07,.2,'#364e57');
     box(2.05,.7,0,.045,.4,.045,'#b4c6c3');
     add(new THREE.SphereGeometry(.065,10,8),2.05,.92,0,'#e4c99c');
+    // A switched-off dome light between the seats: cream bezel, dull grey lens and a rocker switch.
+    box(2.05,2.145,0,.3,.02,.18,'#e8dcbc');
+    box(2.05,2.128,0,.24,.016,.13,'#a9aca4');
+    for(const dz of [-.035,.035])box(2.05,2.12,dz,.2,.003,.006,'#8d918b');
+    box(2.215,2.14,0,.03,.03,.045,'#3a4f58');
+    // Rear-view mirror on a short ceiling stalk, with a plain cardboard tree freshener hanging below.
+    box(2.59,2.11,0,.02,.09,.02,'#2b3b43');
+    box(2.56,2.06,0,.04,.065,.24,'#2b3b43');
+    box(2.538,2.06,0,.004,.05,.22,'#9fb6bb');
+    box(2.56,2.004,0,.003,.047,.003,'#f1ece0');
+    const half=[[0,0],[.013,-.022],[.007,-.023],[.023,-.047],[.013,-.049],[.035,-.08],[.006,-.08],[.006,-.095]];
+    const outline=[...half,...half.slice(1).reverse().map(([u,v])=>[-u,v])];
+    const tree=new THREE.ShapeGeometry(new THREE.Shape(outline.map(([u,v])=>new THREE.Vector2(u,v))));
+    // Undo the van's vertical stretch, and turn the card slightly as if it has swung.
+    tree.scale(1,1/ICE_CREAM_VAN.heightScale,1);tree.rotateY(Math.PI/2+.3);
+    add(tree,2.56,1.98,0,'#3f9a4c');
     cabShading=false;
     box(-.65,1.12,1.1,3.05,.13,.85,'#fff4d8');
     // Striped projecting awning, supported at its outside corners.

@@ -60,6 +60,11 @@ function vanTargetDistance(player,van,minX,minZ,maxX,maxZ){
   }
   return near;
 }
+// The cab has two seats: -1 is the driver's, on the left; 1 is the passenger's.
+export function iceCreamVanCabSeat(van,seat){
+  const sign=van.first?1:-1;
+  return {x:van.x+1.93*sign,z:van.z-.52*seat*sign};
+}
 export function interactIceCreamVan(player,van){
   if(player.riverWalk)return null;
   const v=ICE_CREAM_VAN,p=iceCreamVanLocal(van,player),targets=[];
@@ -84,7 +89,7 @@ export function interactIceCreamVan(player,van){
   for(const target of targets){
     if(target.kind.startsWith('seat:')){
       const side=Number(target.kind.slice(5)),sign=van.first?1:-1;
-      return {cabVan:van,side,x:van.x+1.93*sign,z:van.z+.52*sign,angle:sign*Math.PI/2,eye:.04+1.9*ICE_CREAM_VAN.heightScale};
+      return {cabVan:van,side,seat:-1,...iceCreamVanCabSeat(van,-1),angle:sign*Math.PI/2,eye:.04+1.9*ICE_CREAM_VAN.heightScale};
     }
     if(target.kind.startsWith('cab:')){
       const side=Number(target.kind.slice(4));van.cabDoorOpen??={};van.cabDoorOpen[side]=!van.cabDoorOpen[side];return '';
