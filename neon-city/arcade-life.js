@@ -1,4 +1,4 @@
-import {ARCADE} from './arcade-interior.js?v=arcade-visitors-1';
+import {ARCADE} from './arcade-interior.js?v=bricks-2';
 
 export const ARCADE_VISITOR_TYPES=[14,15,4,0];
 const entrance={x:ARCADE.door.x,z:.5};

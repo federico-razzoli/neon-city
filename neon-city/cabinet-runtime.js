@@ -11,6 +11,7 @@ window.createCabinetGame=async name=>{
     case 'PING':{const {Ping}=await import('./ping.js?v=game-over-2');return new Ping();}
     case 'GROG':{const {Frog}=await import('./frog.js?v=grog-forward-1');return new Frog();}
     case 'KONGY KONG':{const {KongyKong}=await import('./kongy-kong.js?v=monkey-stomp-6');return new KongyKong();}
+    case 'BRICKS':{const {Bricks}=await import('./bricks.js?v=11');return new Bricks();}
     default:throw new Error('Unknown cabinet game');
   }
 };

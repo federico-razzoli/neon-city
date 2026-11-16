@@ -29,7 +29,7 @@ import {drawMoneyNote} from './money.js?v=hotel-cash-1';
 import {drawDroppedObject} from './dropped-object.js';
 import {stairwellNote,drawHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {drawHotelStorage} from './hotel-storage.js?v=hotel-note-3';
-import {drawArcadeInterior} from './arcade-interior.js?v=pinball-9';
+import {drawArcadeInterior} from './arcade-interior.js?v=bricks-2';
 import {bansheeFrame} from './banshee.js?v=6';
 import {sprite,outfit} from './sprites.js?v=bumps-1';
 import {pedestrian,pedestrianShowsBack,mod,RIVER_VIEW_DISTANCE,groundHeight,characterHeight,characterGirth,START_SIGN,RIVE_GAUCHE_SIGNS} from './world.js?v=start-pub-1';
