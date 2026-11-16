@@ -262,3 +262,26 @@ test('each repeat interval is freshly randomized between five and eight seconds'
   clang.update(.01,p,context);assert.equal(played,3);assert.equal(clang.remaining,8);
   clang.reset();assert.equal(clang.remaining,3);
 });
+
+test('camera and dropped items follow stair heights below street level while van floors remain raised',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {iceCreamVanFloor,ICE_CREAM_VAN}=await import('../neon-city/ice-cream-vans.js');
+  const {riverIceCreamVan}=await import('../neon-city/world.js');
+  const source=await readFile(new URL('../neon-city/game.js',import.meta.url),'utf8');
+  const body=source.match(/function outdoorGroundHeight\(\)\{([\s\S]*?)\n\}/)[1];
+  const city=new City(1),player={x:15,z:RIVER_ROWS[0]*BLOCK+19.5,riverWalk:true};
+  const floor=Function('player','city','groundHeight','riverIceCreamVan','iceCreamVanFloor',body)
+    .bind(null,player,city,groundHeight,riverIceCreamVan,iceCreamVanFloor);
+  for(let i=0;i<140;i++){
+    city.move(player,.1,0);
+    assert.equal(floor(),groundHeight(player.x,player.z,true));
+  }
+  assert.equal(floor(),RIVER_WALK_HEIGHT);
+  const chunk={x:1,z:RIVER_ROWS[0],river:true,riverStart:RIVER_ROWS[0]};
+  city.chunks.set('1,4',chunk);
+  const van=riverIceCreamVan(chunk);
+  Object.assign(player,{x:van.x,z:van.z});delete player.riverWalk;
+  assert.equal(floor(),ICE_CREAM_VAN.floor);
+  assert.match(source,/ground:outdoorGroundHeight\(\)\+\.085/);
+  assert.match(source,/player\.riverFall\?\.height\?\?outdoorGroundHeight\(\)/);
+});

@@ -295,7 +295,7 @@ function itemRoom(){
 }
 // Where something dropped here comes to rest, and the height it rests at.
 function dropSpot(){
-  if(!indoors())return {x:player.x,z:player.z,ground:Math.max(groundHeight(player.x,player.z,player.riverWalk),vanFloor())+.085};
+  if(!indoors())return {x:player.x,z:player.z,ground:outdoorGroundHeight()+.085};
   if(hotelCorridor)return {x:player.x,z:player.z,ground:.015};
   if(insideHotel&&!hotelStorage)return hotelStairs?stairwellDropSpot(player,hotelStairs):hotelDropSpot(player);
   return {x:player.x,z:player.z,ground:0};
@@ -531,16 +531,17 @@ function selectRenderSurface(useThree){
   canvas.classList.toggle('webgl-active',useThree);
   if(!useThree)threeRenderer?.leave();
 }
-function vanFloor(){
-  if(player.riverWalk)return 0;
-  for(const chunk of city.chunks.values()){const van=riverIceCreamVan(chunk);if(van){const height=iceCreamVanFloor(van,player);if(height)return height;}}
-  return 0;
+function outdoorGroundHeight(){
+  const ground=groundHeight(player.x,player.z,player.riverWalk);
+  if(player.riverWalk)return ground;
+  for(const chunk of city.chunks.values()){const van=riverIceCreamVan(chunk);if(van){const height=iceCreamVanFloor(van,player);if(height)return Math.max(ground,height);}}
+  return ground;
 }
 function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
-  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??Math.max(groundHeight(player.x,player.z,player.riverWalk),vanFloor()));
+  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??outdoorGroundHeight());
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
