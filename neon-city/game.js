@@ -224,16 +224,22 @@ function enterVenue(venue){
 // position, limited turning, and looking up or down, until Space returns the
 // player to their feet. Getting up from the toilet flushes it.
 const SEATED_EYE=1.5;
-function useSeat(){
+function useSeat(cabSeat=null){
   if(hotelStairs)return false;
   let greet=false,seatReply=null;
   if(playerSeat){
 
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
+    if(playerSeat.cabVan){playerSeat.cabVan.cabDoorOpen[playerSeat.side]=true;}
     if(playerSeat.toilet)playFlush(audioContext);
     if(playerSeat.bookshopChair)bookshopLife.stand(playerSeat.bookshopChair,inventory);
     playerSeat=null;eye=1.65;pubTalk=null;
+  }else if(cabSeat){
+    playerSeat={...cabSeat,standing:{x:player.x,z:player.z},pitch:0};
+    Object.assign(player,{x:cabSeat.x,z:cabSeat.z,angle:cabSeat.angle});
+    cabSeat.cabVan.cabDoorOpen[cabSeat.side]=false;
+    eye=cabSeat.eye;
   }else if(insideCubicle){
     if(lavatoryLife?.cubicleBlackout)return false;
     const target=washroomSpatial()?washroomTarget():null;
@@ -541,7 +547,7 @@ function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
-  if(!indoors())eye=(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??outdoorGroundHeight());
+  if(!indoors())eye=playerSeat?.cabVan?playerSeat.eye:(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??outdoorGroundHeight());
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
@@ -723,10 +729,11 @@ function interactTouchGround(){
   if(!indoors()){coverPressed=true;enableSound();}
 }
 function handleWorldInput(k,e){
+  if(k===' '&&!e.repeat&&playerSeat){useSeat();return;}
   if(k===' '&&!e.repeat&&!indoors()){
     for(const chunk of city.chunks.values()){
       const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVan(player,van);
-      if(reply!==null){if(reply){notice=2.5;noticeText=reply;}return;}
+      if(reply!==null){if(reply?.cabVan){useSeat(reply);return;}if(reply){notice=2.5;noticeText=reply;}return;}
     }
     const line=walkerTalk.interact(player,city.pedestrians(time));
     if(startFollowup())return;

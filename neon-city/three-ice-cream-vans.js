@@ -8,17 +8,19 @@ import {createStaticInstances} from './three-static-instances.js';
 // One shared model and sign per street scene; chunk instances own only transforms.
 export function createThreeIceCreamVans(scene,{boundsVisible}={}){
   let parts=null,doorParts=null,cabParts=null,disposed=false;
+  const cabGlass=new THREE.MeshBasicMaterial({color:'#729fa9',side:THREE.DoubleSide,toneMapped:false});
   const characters=createThreeCharacterCards();
   let viewer={x:0,z:0,angle:0};
   function assets(){
     if(parts)return parts;
-    const positions=[],colors=[],transform=new THREE.Matrix4(),point=new THREE.Vector3();
-    let cabShading=false;
+    const positions=[],colors=[],glassPositions=[],transform=new THREE.Matrix4(),point=new THREE.Vector3();
+    let cabShading=false,glass=false;
     function add(geometry,x,y,z,color,rotation=0){
       transform.makeRotationX(rotation);transform.setPosition(x,y,z);
       const p=geometry.attributes.position,index=geometry.index,tint=new THREE.Color(color);
       for(let i=0;i<(index?.count??p.count);i++){
         const j=index?index.getX(i):i;point.fromBufferAttribute(p,j).applyMatrix4(transform);
+        if(glass){glassPositions.push(point.x,point.y,point.z);continue;}
         positions.push(point.x,point.y,point.z);const normal=geometry.attributes.normal;
         const shade=cabShading&&normal? .78+.18*Math.max(0,normal.getY(j))+.08*Math.abs(normal.getZ(j)):1;
         colors.push(tint.r*shade,tint.g*shade,tint.b*shade);
@@ -48,7 +50,7 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     box(2,.405,0,1.3,.12,2.05,'#647779');
     box(2,2.19,0,1.3,.07,2.05,'#fff1cd');
     box(2.64,1.05,0,.12,1.3,2.05,'#64c8c5');
-    box(2.66,1.88,0,.025,.5,1.67,'#274958');
+    glass=true;box(2.66,1.88,0,.025,.5,1.67,'#274958');glass=false;
     for(const z of [-.96,.96])box(2.63,1.89,z,.09,.68,.12,'#fff1cd');
     for(const z of [-.52,.52]){
       // Cream edging, warm seat inserts, separate headrests and visible metal runners.
@@ -70,8 +72,8 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     // A pale dashboard fascia separates instruments and controls from the footwell.
     box(2.4,1.35,0,.25,.2,1.84,'#cbd4bf');
     box(2.4,1.46,0,.29,.035,1.88,'#405c65');
-    box(2.255,1.36,.52,.025,.16,.43,'#263c49');
-    for(const [z,radius] of [[.41,.055],[.59,.055]]){
+    box(2.255,1.36,-.52,.025,.16,.43,'#263c49');
+    for(const [z,radius] of [[-.41,.055],[-.59,.055]]){
       const dial=new THREE.CylinderGeometry(radius,radius,.014,16);dial.rotateZ(Math.PI/2);
       add(dial,2.232,1.37,z,'#f3eacb');
       box(2.222,1.385,z,.008,.042,.009,'#bf604e');
@@ -83,18 +85,18 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
       add(knob,2.23,1.32,z,'#e6d9b8');
     }
     for(const z of [-.7,.78])for(let i=0;i<3;i++)box(2.252,1.34+i*.025,z,.012,.01,.1,'#344b54');
-    box(2.252,1.29,-.43,.012,.012,.35,'#708a8b');
-    box(2.23,1.32,-.43,.04,.025,.09,'#eee0b9');
+    box(2.252,1.29,.43,.012,.012,.35,'#708a8b');
+    box(2.23,1.32,.43,.04,.025,.09,'#eee0b9');
     // A thicker rim, three silver spokes and a horn distinguish the steering wheel.
     const column=new THREE.CylinderGeometry(.035,.035,.24,8);column.rotateZ(Math.PI/2);
-    add(column,2.22,1.3,.52,'#788f92');
+    add(column,2.22,1.3,-.52,'#788f92');
     const wheel=new THREE.TorusGeometry(.19,.027,8,20);wheel.rotateY(Math.PI/2);
-    add(wheel,2.08,1.35,.52,'#263b46');
+    add(wheel,2.08,1.35,-.52,'#263b46');
     for(const rotation of [0,Math.PI*2/3,Math.PI*4/3])
-      add(new THREE.BoxGeometry(.025,.18,.025),2.08,1.35+Math.cos(rotation)*.085,.52+Math.sin(rotation)*.085,'#c7d5d0',rotation);
+      add(new THREE.BoxGeometry(.025,.18,.025),2.08,1.35+Math.cos(rotation)*.085,-.52+Math.sin(rotation)*.085,'#c7d5d0',rotation);
     const horn=new THREE.CylinderGeometry(.055,.055,.035,12);horn.rotateZ(Math.PI/2);
-    add(horn,2.06,1.35,.52,'#e7d8ae');
-    for(const z of [.43,.63])box(2.43,.65,z,.045,.06,.1,'#202e37');
+    add(horn,2.06,1.35,-.52,'#e7d8ae');
+    for(const z of [-.43,-.63])box(2.43,.65,z,.045,.06,.1,'#202e37');
     box(2.05,.49,0,.19,.07,.2,'#364e57');
     box(2.05,.7,0,.045,.4,.045,'#b4c6c3');
     add(new THREE.SphereGeometry(.065,10,8),2.05,.92,0,'#e4c99c');
@@ -159,7 +161,9 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
     const sign=new THREE.PlaneGeometry(3.3,.52);sign.translate(-.55,2.65,1.68);
     const lettering=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false});
-    parts=[{geometry,material:body},{geometry:sign,material:lettering}];return parts;
+    for(let i=1;i<glassPositions.length;i+=3)glassPositions[i]*=ICE_CREAM_VAN.heightScale;
+    const windows=new THREE.BufferGeometry();windows.setAttribute('position',new THREE.Float32BufferAttribute(glassPositions,3));windows.computeBoundingSphere();
+    parts=[{geometry,material:body},{geometry:sign,material:lettering},{geometry:windows,material:cabGlass}];return parts;
   }
   function doorAssets(){
     if(doorParts)return doorParts;
@@ -175,22 +179,24 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
   }
   function cabDoorAssets(){
     if(cabParts)return cabParts;
-    const positions=[],colors=[];
+    const positions=[],colors=[],glassPositions=[];
+    let glass=false;
     function box(x,y,z,w,h,d,tint){
       const g=new THREE.BoxGeometry(w,h,d),p=g.attributes.position,index=g.index,color=new THREE.Color(tint);
       for(let i=0;i<index.count;i++){
-        const j=index.getX(i);positions.push(p.getX(j)+x,(p.getY(j)+y)*ICE_CREAM_VAN.heightScale,p.getZ(j)+z);colors.push(color.r,color.g,color.b);
+        const j=index.getX(i);(glass?glassPositions:positions).push(p.getX(j)+x,(p.getY(j)+y)*ICE_CREAM_VAN.heightScale,p.getZ(j)+z);if(!glass)colors.push(color.r,color.g,color.b);
       }
       g.dispose();
     }
     box(-.6,1.05,0,1.2,1.3,.065,'#64c8c5');
-    box(-.6,1.89,0,.98,.48,.035,'#274958');
+    glass=true;box(-.6,1.89,0,.98,.48,.035,'#274958');glass=false;
     for(const x of [-1.17,-.03])box(x,1.89,0,.06,.63,.065,'#fff1cd');
     box(-.6,2.19,0,1.2,.07,.065,'#fff1cd');
     box(-.6,1.62,0,1.2,.07,.065,'#fff1cd');
     for(const z of [-.065,.065])box(-.93,1.19,z,.23,.08,.06,'#40545e');
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeBoundingSphere();
-    cabParts=[{geometry,material:new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false})}];return cabParts;
+    const windows=new THREE.BufferGeometry();windows.setAttribute('position',new THREE.Float32BufferAttribute(glassPositions,3));windows.computeBoundingSphere();
+    cabParts=[{geometry,material:new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false})},{geometry:windows,material:cabGlass}];return cabParts;
   }
   const cabHinge=new THREE.Matrix4();
   const cabDoors=[-1,1].map(side=>createStaticInstances(scene,{name:`ice-cream-cab-door-${side}`,boundsVisible,
@@ -224,7 +230,10 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     stateFor:v=>[v.x,v.z,v.first],keyFor:()=> 'van',assetFor:assets,
     matrixFor(v,matrix){matrix.makeRotationY(v.first?0:Math.PI);matrix.setPosition(v.x,.04,-v.z);}
   });
-  return {beginFrame(frame){viewer=frame.player??viewer;batches.beginFrame(frame);doors.beginFrame(frame);vendors.beginFrame(frame);for(const door of cabDoors)door.beginFrame(frame);},draw(chunk){const van=riverIceCreamVan(chunk),items=van?[van]:[];batches.draw(chunk,items);doors.draw(chunk,items);vendors.draw(chunk,items);for(const door of cabDoors)door.draw(chunk,items);},dispose(){
+  return {beginFrame(frame){
+    const seated=Boolean(frame.playerSeat?.cabVan);
+    if(cabGlass.transparent!==seated){cabGlass.transparent=seated;cabGlass.opacity=seated ? .22 : 1;cabGlass.depthWrite=!seated;cabGlass.needsUpdate=true;}
+    viewer=frame.player??viewer;batches.beginFrame(frame);doors.beginFrame(frame);vendors.beginFrame(frame);for(const door of cabDoors)door.beginFrame(frame);},draw(chunk){const van=riverIceCreamVan(chunk),items=van?[van]:[];batches.draw(chunk,items);doors.draw(chunk,items);vendors.draw(chunk,items);for(const door of cabDoors)door.draw(chunk,items);},dispose(){
     if(disposed)return;disposed=true;batches.dispose();doors.dispose();vendors.dispose();characters.dispose();for(const door of cabDoors)door.dispose();
     const owned=[...(parts??[]),...(doorParts??[]),...(cabParts??[])];
     for(const part of owned)part.geometry.dispose();
