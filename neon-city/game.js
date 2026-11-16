@@ -823,7 +823,7 @@ const touchControls=installSeatedTouch(canvas,{
   look:(yaw,pitch)=>{
     if(!playerSeat){player.angle+=yaw;return;}
     player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle+yaw));
-    playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+pitch));
+    playerSeat.pitch=Math.max(playerSeat.cabVan?-Math.PI/6:0,Math.min(Math.PI/2,playerSeat.pitch+pitch));
   },
   stand:()=>useSeat(),
   tap:ground=>{
@@ -901,7 +901,7 @@ function tick(now){
     if(playerSeat){
       player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
-      playerSeat.pitch=Math.max(0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
+      playerSeat.pitch=Math.max(playerSeat.cabVan?-Math.PI/6:0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
     }
     const forward=Math.max(-1,Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s'))-touchControls.backward),side=Math.max(-1,Math.min(1,Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe)),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(indoors())hornWarning.update(dt,null,[]);

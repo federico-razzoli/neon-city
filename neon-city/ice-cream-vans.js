@@ -84,7 +84,7 @@ export function interactIceCreamVan(player,van){
   for(const target of targets){
     if(target.kind.startsWith('seat:')){
       const side=Number(target.kind.slice(5)),sign=van.first?1:-1;
-      return {cabVan:van,side,x:van.x+1.93*sign,z:van.z+.52*sign,angle:sign*Math.PI/2,eye:.04+1.8*ICE_CREAM_VAN.heightScale};
+      return {cabVan:van,side,x:van.x+1.93*sign,z:van.z+.52*sign,angle:sign*Math.PI/2,eye:.04+1.9*ICE_CREAM_VAN.heightScale};
     }
     if(target.kind.startsWith('cab:')){
       const side=Number(target.kind.slice(4));van.cabDoorOpen??={};van.cabDoorOpen[side]=!van.cabDoorOpen[side];return '';
