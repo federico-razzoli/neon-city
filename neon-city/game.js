@@ -28,7 +28,7 @@ import {supportsRenderer} from './renderer-support.js';
 import {startPhase,endPhase,profilePhase} from './render-profile.js';
 import {createDebugMenu,DEBUG_MODE,DEBUG_RIVERSIDE_SPAWN} from './debug-menu.js';
 import {entranceWall} from './entrances.js';
-import {loadCabinetGame} from './cabinet-loader.js?v=bricks-11';
+import {loadCabinetGame} from './cabinet-loader.js?v=kong-ladders-6';
 import {loadCabinetDisplay} from './cabinet-display-loader.js';
 import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWindow,advanceCorridorWindow,facingCorridorExit,corridorReply,moveInHotelCorridor} from './hotel-corridor.js?v=businessman-door-1';
 import {Wallet,preloadMoneyNote} from './money.js?v=hotel-cash-1';

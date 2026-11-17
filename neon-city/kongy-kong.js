@@ -1,10 +1,15 @@
 // Kongy Kong, level one: sloping girders, ladders, rolling barrels and hammers.
 const LEFT=32,RIGHT=608;
+const LADDER_DROP_CHANCE=.2; // chance a barrel takes a ladder it rolls over
+// Middle girders stop short of the wall at their downhill end, leaving an edge to fall from.
+const EDGE_GAP=40;
+export const floorSpan=floor=>floor===6?[460,590]:floor===0?[LEFT,RIGHT]:floor%2?[LEFT,RIGHT-EDGE_GAP]:[LEFT+EDGE_GAP,RIGHT];
+const onGirder=(floor,x)=>{const [start,end]=floorSpan(floor);return x>=start&&x<=end;};
 export const girderY=(floor,x)=>floor===6?62:320-floor*42+(floor%2?1:-1)*(x-320)*.025;
 export const KONG_LADDERS=[
   {floor:0,x:540},{floor:0,x:240},{floor:1,x:100},{floor:1,x:390},
   {floor:2,x:530},{floor:2,x:270},{floor:3,x:110},{floor:3,x:410},
-  {floor:4,x:535},{floor:4,x:240},{floor:5,x:520}
+  {floor:4,x:320},{floor:4,x:200},{floor:5,x:520}
 ];
 const SPRITES={
   player:['..rrrrrr....','..rrrrrrrr..','..hhsshs....','.hshssshss..','.hshhssshss.','..hsssshhh..','...ssssss...','..bbrrbb....','.bbbrrbbb...','bbbbrrbbbb..','ssbrrrrbss..','ssrrrrrrss..','..rr..rr....','.hhh..hhh...'],
@@ -19,7 +24,7 @@ function drawCharacter(ctx,name,x,y,scale=1,facing=1){
   }));
 }
 export class KongyKong{
-  kind='kong';lives=3;score=0;over=false;won=false;victoryTime=0;time=90;barrels=[];spawnIn=1.8;clock=0;stomp=0;hammer=0;delay=0;jumpHeld=false;
+  kind='kong';lives=3;score=0;over=false;won=false;victoryTime=0;time=90;barrels=[];spawnIn=0;clock=0;stomp=0;hammer=0;delay=0;jumpHeld=false;
   hammers=[{floor:1,x:185,taken:false},{floor:3,x:335,taken:false}];
   constructor(){this.resetPlayer();}
   resetPlayer(){this.player={x:58,y:girderY(0,58),floor:0,vy:0,air:false,climb:null,facing:1};this.hammer=0;}
@@ -38,11 +43,11 @@ export class KongyKong{
   die(){
     if(this.over||this.won||this.delay>0)return;
     if(--this.lives===0){this.over=true;return;}
-    this.resetPlayer();this.barrels=[];this.spawnIn=2;this.time=90;this.delay=1;
+    this.resetPlayer();this.barrels=[];this.spawnIn=0;this.time=90;this.delay=1;
     for(const hammer of this.hammers)hammer.taken=false;
   }
   restartLevel(){
-    this.won=false;this.victoryTime=0;this.time=90;this.barrels=[];this.spawnIn=1.8;this.delay=.6;
+    this.won=false;this.victoryTime=0;this.time=90;this.barrels=[];this.spawnIn=0;this.delay=.6;
     this.resetPlayer();this.jumpHeld=false;
     for(const hammer of this.hammers)hammer.taken=false;
   }
@@ -86,30 +91,49 @@ export class KongyKong{
         if(p.y===target){p.floor=floor;p.climb=null;}
       }
     }else{
-      if(!p.air&&!this.hammer&&vertical){
-        const ladder=KONG_LADDERS.find(l=>Math.abs(l.x-p.x)<12&&(vertical<0?l.floor===p.floor:l.floor+1===p.floor));
-        if(ladder){p.x=ladder.x;p.climb={x:ladder.x,floor:ladder.floor};return;}
+      // Mid-jump, an up/down press is remembered until she lands, so it still
+      // catches a ladder she reaches later in the jump.
+      if(p.air&&vertical)p.ladderWish=vertical;
+      const want=vertical||(p.air?p.ladderWish??0:0);
+      if(!this.hammer&&want&&!p.dropped){
+        // Mid-jump she can only catch the ladder she is crossing (the one rising from her girder),
+        // then climb it up or back down from where she caught it.
+        const ladder=KONG_LADDERS.find(l=>Math.abs(l.x-p.x)<12&&(p.air||want<0?l.floor===p.floor:l.floor+1===p.floor));
+        if(ladder){
+          p.x=ladder.x;p.air=false;p.vy=0;p.ladderWish=0;p.climb={x:ladder.x,floor:ladder.floor};return;
+        }
       }
       const movement=p.air?(p.jumpDirection??0):horizontal;
       if(movement){if(!p.air)p.facing=Math.sign(movement);p.x=Math.max(p.floor===6?460:LEFT+6,Math.min(p.floor===6?590:RIGHT-6,p.x+movement*84*dt));}
-      if(jump&&!this.jumpHeld&&!p.air&&!this.hammer){p.air=true;p.jumpDirection=horizontal;p.vy=-155;this.jumpHeld=true;for(const b of this.barrels)b.jumped=false;}
-      if(p.air){p.vy+=500*dt;p.y+=p.vy*dt;if(p.vy>0&&p.y>=girderY(p.floor,p.x)){p.y=girderY(p.floor,p.x);p.air=false;p.vy=0;}}
-      else p.y=girderY(p.floor,p.x);
+      if(jump&&!this.jumpHeld&&!p.air&&!this.hammer){p.air=true;p.jumpDirection=horizontal;p.ladderWish=0;p.vy=-155;this.jumpHeld=true;for(const b of this.barrels)b.jumped=false;}
+      if(!p.air&&!onGirder(p.floor,p.x)){p.air=true;p.vy=0;p.jumpDirection=Math.sign(movement);p.floor--;p.dropped=true;}
+      if(p.air){
+        p.vy+=500*dt;p.y+=p.vy*dt;
+        if(p.vy>0&&p.y>=girderY(p.floor,p.x)){
+          // Jumping past an edge carries her down to the next girder; any drop of a whole floor is fatal.
+          if(!onGirder(p.floor,p.x)){p.floor--;p.dropped=true;}
+          else{p.y=girderY(p.floor,p.x);p.air=false;p.vy=0;p.ladderWish=0;if(p.dropped){this.die();return;}}
+        }
+      }else p.y=girderY(p.floor,p.x);
     }
     if(p.x>=48&&p.x<=134&&p.floor===5&&p.y<=girderY(5,p.x)+8){
       this.stomp=dt;return;
     }
-    for(const item of this.hammers)if(!item.taken&&!p.air&&!p.climb&&item.floor===p.floor&&Math.abs(item.x-p.x)<14){item.taken=true;this.hammer=8;}
+    for(const item of this.hammers)if(!item.taken&&!p.climb&&!p.dropped&&item.floor===p.floor&&Math.abs(item.x-p.x)<14){item.taken=true;this.hammer=8;}
     if(p.floor===6&&p.x>=500){this.won=true;this.victoryTime=0;this.score+=1000+Math.ceil(this.time)*10;return;}
     this.spawnIn-=dt;
     if(this.spawnIn<=0){this.barrels.push({x:100,y:girderY(5,100),floor:5,falling:false,jumped:false});this.spawnIn=2.5;}
     for(const b of this.barrels){
       if(b.falling){
-        b.y+=110*dt;
-        if(b.y>=girderY(b.floor,b.x)){b.y=girderY(b.floor,b.x);b.falling=false;}
+        b.y+=(b.onLadder?60:110)*dt;
+        if(b.y>=girderY(b.floor,b.x)){b.y=girderY(b.floor,b.x);b.falling=false;b.onLadder=false;}
       }else{
+        const from=b.x;
         b.x+=(b.floor%2?1:-1)*70*dt;b.y=girderY(b.floor,b.x);
-        if(b.x>RIGHT||b.x<LEFT){b.x=Math.max(LEFT,Math.min(RIGHT,b.x));b.floor--;b.falling=true;}
+        // Occasionally a barrel rolling over a ladder top drops down it instead.
+        const ladder=KONG_LADDERS.find(l=>l.floor+1===b.floor&&l.x>=Math.min(from,b.x)&&l.x<=Math.max(from,b.x));
+        if(ladder&&Math.random()<LADDER_DROP_CHANCE){b.x=ladder.x;b.floor--;b.falling=true;b.onLadder=true;}
+        else if(!onGirder(b.floor,b.x)){const [start,end]=floorSpan(b.floor);b.x=Math.max(start,Math.min(end,b.x));b.floor--;b.falling=true;}
       }
       if(b.floor<0){b.gone=true;continue;}
       if(this.hammerHits(b)){b.gone=true;this.score+=300;continue;}
@@ -141,7 +165,7 @@ export class KongyKong{
     const sprite=(name,x,y,scale=1)=>drawCharacter(ctx,name,x,y,scale);
     // Red girders and cyan ladders against the original black arcade backdrop.
     for(let floor=0;floor<7;floor++){
-      const start=floor===6?460:LEFT,end=floor===6?590:RIGHT;
+      const [start,end]=floorSpan(floor);
       for(let x=start;x<end;x+=8)rect(x,girderY(floor,x),8,3,'#ff3058');
       for(let x=start;x<end;x+=16){const y=girderY(floor,x);rect(x,y+7,16,2,'#ff3058');rect(x+4,y+3,3,4,'#ff3058');}
     }
