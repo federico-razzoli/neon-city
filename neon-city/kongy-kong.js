@@ -104,7 +104,7 @@ export class KongyKong{
         }
       }
       const movement=p.air?(p.jumpDirection??0):horizontal;
-      if(movement){if(!p.air)p.facing=Math.sign(movement);p.x=Math.max(p.floor===6?460:LEFT+6,Math.min(p.floor===6?590:RIGHT-6,p.x+movement*84*dt));}
+      if(movement){if(!p.air)p.facing=Math.sign(movement);p.x=Math.max(p.floor===6?460:LEFT+6,Math.min(p.floor===6?590:RIGHT-6,p.x+movement*75.6*dt));}
       if(jump&&!this.jumpHeld&&!p.air&&!this.hammer){p.air=true;p.jumpDirection=horizontal;p.ladderWish=0;p.vy=-155;this.jumpHeld=true;for(const b of this.barrels)b.jumped=false;}
       if(!p.air&&!onGirder(p.floor,p.x)){p.air=true;p.vy=0;p.jumpDirection=Math.sign(movement);p.floor--;p.dropped=true;}
       if(p.air){
