@@ -59,7 +59,8 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
     updateHold();
     const finger=gesture.fingers.get(e.pointerId);
     finger.x=e.clientX;finger.y=e.clientY;
-    if(!gesture.seat&&gesture.fingers.size>=2&&gesture.mode!=='rotate'){
+    // Two fingers move sideways on foot, and slide across a van cab's bench.
+    if((!gesture.seat||gesture.seat.cabVan)&&gesture.fingers.size>=2&&gesture.mode!=='rotate'){
       // Use the fingers' average displacement so either finger can steer.
       let displacement=0;
       for(const point of gesture.fingers.values())displacement+=point.x-point.startX;
@@ -68,7 +69,7 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
       const contraction=Math.hypot(a.startX-b.startX,a.startY-b.startY)-Math.hypot(a.x-b.x,a.y-b.y);
       // Recognise a pinch before choosing sideways movement. Once chosen,
       // retain that gesture until release, just as with forward movement.
-      if(!gesture.mode&&contraction>12&&contraction>Math.abs(displacement)*1.5){
+      if(!gesture.seat&&!gesture.mode&&contraction>12&&contraction>Math.abs(displacement)*1.5){
         gesture.mode='backward';gesture.dragged=true;
       }
       if(gesture.mode==='backward'){
@@ -94,7 +95,7 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
   for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>finish(e,true));
   return {
     get running(){return Boolean(gesture&&!gesture.seat&&(gesture.held||gesture.strafe)&&gesture.fingers.size>=2);},
-    get strafe(){return gesture&&!gesture.seat?gesture.strafe:0;},
+    get strafe(){return gesture&&(!gesture.seat||gesture.seat.cabVan)?gesture.strafe:0;},
     get backward(){return gesture&&!gesture.seat?gesture.backward:0;},
     update(){
       if(!gesture)return false;

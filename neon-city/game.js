@@ -905,8 +905,8 @@ function tick(now){
       player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
       playerSeat.pitch=Math.max(playerSeat.cabVan?-Math.PI/6:0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
-      // Sideways keys slide across the van cab bench to the other seat.
-      const across=Number(keys.has('d'))-Number(keys.has('a'));
+      // Sideways keys or a two-finger sideways drag slide across the van cab bench to the other seat.
+      const across=Math.sign(Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe);
       if(playerSeat.cabVan&&across&&across!==playerSeat.seat&&!playerSeat.slide){
         playerSeat.seat=across;
         playerSeat.slide={from:{x:player.x,z:player.z},t:0};
