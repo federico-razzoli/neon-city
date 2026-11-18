@@ -268,6 +268,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     for(const chunk of visible){
       if(renderer.drawManholes)renderer.drawManholes(chunk);
       else for(const m of chunk.manholes)manhole(m);
+      renderer.drawHotelDoormats?.(chunk);
     }
     renderer.drawPass(renderer.endPass());
     renderer.beginPass();
