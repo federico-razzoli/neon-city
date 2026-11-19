@@ -65,11 +65,46 @@ export function iceCreamVanCabSeat(van,seat){
   const sign=van.first?1:-1;
   return {x:van.x+1.93*sign,z:van.z-.52*seat*sign};
 }
-// Seated in the cab, Space works only the right-hand (passenger, side 1) door,
-// whether the player looks at its closed doorway or at the opened leaf.
-export function facingIceCreamVanRightDoor(player,van){
-  if(Number.isFinite(vanTargetDistance(player,van,1.38,1.025-.08,2.66,1.025+.08)))return true;
-  return Boolean(van.cabDoorOpen?.[1])&&Number.isFinite(vanTargetDistance(player,van,2.56,1.025,2.7,2.225));
+// The dome light's lens, in van-local metres (y is world height, including the van's .04 lift).
+export const ICE_CREAM_VAN_CAB_LIGHT={x:2.05,y:.04+2.128*ICE_CREAM_VAN.heightScale,z:0};
+// The knot of the arbre magique under the mirror, in the same coordinates.
+export const ARBRE_MAGIQUE_TREE={x:2.56,y:.04+1.98*ICE_CREAM_VAN.heightScale,z:0};
+// The railing beside the driver's side keeps the left-hand cab door shut, inside and out.
+export const LEFT_CAB_DOOR_REPLY="CAN'T OPEN THIS DOOR. THE RAILING IS TOO CLOSE.";
+// The steering wheel's hub, in front of the driver's (left) seat.
+const STEERING_WHEEL={x:2.08,y:.04+1.35*ICE_CREAM_VAN.heightScale,z:-.52};
+// The angle in radians between the seated player's gaze and a point in the van.
+function gazeAngle(player,van,pitch,eye,target){
+  const p=iceCreamVanLocal(van,player),sign=van.first?1:-1;
+  const dx=target.x-p.x,dy=target.y-eye,dz=target.z-p.z,distance=Math.hypot(dx,dy,dz);
+  if(distance>1.5||distance<.01)return Infinity;
+  const look=[Math.cos(pitch)*Math.sin(player.angle)*sign,Math.sin(pitch),-Math.cos(pitch)*Math.cos(player.angle)*sign];
+  return Math.acos(Math.max(-1,Math.min(1,(look[0]*dx+look[1]*dy+look[2]*dz)/distance)));
+}
+// What a seated player looks at in the cab: 'tree', 'light', 'wheel', 'right-door', 'left-door' or null.
+// Each small object accepts gazes within its own tolerance: 15 degrees for the hanging card
+// (about 5cm below its knot), 30 for the lens beside and above each seat, near the turning
+// limit, and 36 for the wheel, which lies below the 45-degree downward limit. Where
+// tolerances overlap, the object looked at most directly, relative to its tolerance, wins.
+// Doors, being large, are checked in plan only when no object is in view.
+export function iceCreamVanCabTarget(player,van,pitch,eye){
+  const objects=[
+    ['tree',{...ARBRE_MAGIQUE_TREE,y:ARBRE_MAGIQUE_TREE.y-.05},Math.PI/12,!van.arbreMagiqueTaken],
+    ['light',ICE_CREAM_VAN_CAB_LIGHT,Math.PI/6,true],
+    // Only the driver, on the left seat (negative local z), can reach the wheel.
+    ['wheel',STEERING_WHEEL,Math.PI/5,iceCreamVanLocal(van,player).z<0]
+  ];
+  let best=null,ratio=1;
+  for(const [kind,target,tolerance,present] of objects){
+    const r=present?gazeAngle(player,van,pitch,eye,target)/tolerance:Infinity;
+    if(r<ratio){best=kind;ratio=r;}
+  }
+  if(best)return best;
+  // The right-hand door: its closed doorway, or its opened leaf.
+  if(Number.isFinite(vanTargetDistance(player,van,1.38,1.025-.08,2.66,1.025+.08)))return 'right-door';
+  if(van.cabDoorOpen?.[1]&&Number.isFinite(vanTargetDistance(player,van,2.56,1.025,2.7,2.225)))return 'right-door';
+  if(Number.isFinite(vanTargetDistance(player,van,1.38,-1.025-.08,2.66,-1.025+.08)))return 'left-door';
+  return null;
 }
 // A clear spot on the road beside the open right-hand door, behind its leaf and
 // outside the cab's collision footprint for the player's .45 radius.
@@ -104,7 +139,8 @@ export function interactIceCreamVan(player,van){
       return {cabVan:van,side,seat:-1,...iceCreamVanCabSeat(van,-1),angle:sign*Math.PI/2,eye:.04+1.9*ICE_CREAM_VAN.heightScale};
     }
     if(target.kind.startsWith('cab:')){
-      const side=Number(target.kind.slice(4));van.cabDoorOpen??={};van.cabDoorOpen[side]=!van.cabDoorOpen[side];return '';
+      const side=Number(target.kind.slice(4));
+      if(side===-1)return LEFT_CAB_DOOR_REPLY;van.cabDoorOpen??={};van.cabDoorOpen[side]=!van.cabDoorOpen[side];return '';
     }
     if(target.kind==='food')return 'DO NOT TOUCH, PLEASE.';
     const reply=target.kind==='door'?interactIceCreamVanDoor(player,van):interactIceCreamVendor(player,van);

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
 import {riverIceCreamVan} from './world.js';
-import {ICE_CREAM_VAN,ICE_CREAM_VENDOR,iceCreamVanLocal} from './ice-cream-vans.js';
+import {ARBRE_MAGIQUE_TREE,ICE_CREAM_VAN,ICE_CREAM_VAN_CAB_LIGHT,ICE_CREAM_VENDOR,iceCreamVanLocal} from './ice-cream-vans.js';
 import {createThreeCharacterCards} from './three-character-cards.js';
 import {createStaticInstances} from './three-static-instances.js';
+import {ARBRE_MAGIQUE_COLOR,ARBRE_MAGIQUE_STRING,arbreMagiqueShape} from './arbre-magique.js';
 
 // One shared model and sign per street scene; chunk instances own only transforms.
 export function createThreeIceCreamVans(scene,{boundsVisible}={}){
@@ -100,22 +101,16 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     box(2.05,.49,0,.19,.07,.2,'#364e57');
     box(2.05,.7,0,.045,.4,.045,'#b4c6c3');
     add(new THREE.SphereGeometry(.065,10,8),2.05,.92,0,'#e4c99c');
-    // A switched-off dome light between the seats: cream bezel, dull grey lens and a rocker switch.
+    // A dome light between the seats: cream bezel and a rocker switch. Its lens is a separate
+    // instance group, so it can glow when switched on.
     box(2.05,2.145,0,.3,.02,.18,'#e8dcbc');
-    box(2.05,2.128,0,.24,.016,.13,'#a9aca4');
     for(const dz of [-.035,.035])box(2.05,2.12,dz,.2,.003,.006,'#8d918b');
     box(2.215,2.14,0,.03,.03,.045,'#3a4f58');
-    // Rear-view mirror on a short ceiling stalk, with a plain cardboard tree freshener hanging below.
+    // Rear-view mirror on a short ceiling stalk. The arbre magique below it is a separate
+    // instance group, so the player can take it.
     box(2.59,2.11,0,.02,.09,.02,'#2b3b43');
     box(2.56,2.06,0,.04,.065,.24,'#2b3b43');
     box(2.538,2.06,0,.004,.05,.22,'#9fb6bb');
-    box(2.56,2.004,0,.003,.047,.003,'#f1ece0');
-    const half=[[0,0],[.013,-.022],[.007,-.023],[.023,-.047],[.013,-.049],[.035,-.08],[.006,-.08],[.006,-.095]];
-    const outline=[...half,...half.slice(1).reverse().map(([u,v])=>[-u,v])];
-    const tree=new THREE.ShapeGeometry(new THREE.Shape(outline.map(([u,v])=>new THREE.Vector2(u,v))));
-    // Undo the van's vertical stretch, and turn the card slightly as if it has swung.
-    tree.scale(1,1/ICE_CREAM_VAN.heightScale,1);tree.rotateY(Math.PI/2+.3);
-    add(tree,2.56,1.98,0,'#3f9a4c');
     cabShading=false;
     box(-.65,1.12,1.1,3.05,.13,.85,'#fff4d8');
     // Striped projecting awning, supported at its outside corners.
@@ -169,8 +164,9 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     for(let i=1;i<positions.length;i+=3)positions[i]*=ICE_CREAM_VAN.heightScale;
     const geometry=new THREE.BufferGeometry();
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-    geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeBoundingSphere();
-    const body=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();
+    // Lambert, so the cab's dome light can illuminate the van; the ambient light keeps its painted colours.
+    const body=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
     const canvas=document.createElement('canvas');canvas.width=512;canvas.height=80;
     const ctx=canvas.getContext('2d');ctx.fillStyle='#fff1cd';ctx.fillRect(0,0,512,80);
     ctx.fillStyle='#c74779';ctx.font='bold 48px sans-serif';ctx.textAlign='center';ctx.fillText('ICE CREAM',256,58);
@@ -214,6 +210,46 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     const windows=new THREE.BufferGeometry();windows.setAttribute('position',new THREE.Float32BufferAttribute(glassPositions,3));windows.computeBoundingSphere();
     cabParts=[{geometry,material:new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false})},{geometry:windows,material:cabGlass}];return cabParts;
   }
+  // Lambert diffuse divides irradiance by PI, so this ambient light reproduces the
+  // full painted colours; unlit (basic) materials in the street ignore it.
+  const ambient=new THREE.AmbientLight(0xffffff,Math.PI);ambient.name='ice-cream-van-ambient';scene.add(ambient);
+  const lensGeometry=new THREE.BoxGeometry(.24,.016*ICE_CREAM_VAN.heightScale,.13);
+  lensGeometry.translate(ICE_CREAM_VAN_CAB_LIGHT.x,ICE_CREAM_VAN_CAB_LIGHT.y-.04,ICE_CREAM_VAN_CAB_LIGHT.z);
+  const lensParts={
+    off:[{geometry:lensGeometry,material:new THREE.MeshBasicMaterial({color:'#a9aca4',toneMapped:false})}],
+    on:[{geometry:lensGeometry,material:new THREE.MeshBasicMaterial({color:'#fff4cf',toneMapped:false})}]
+  };
+  const vanMatrix=v=>new THREE.Matrix4().makeRotationY(v.first?0:Math.PI).setPosition(v.x,.04,-v.z);
+  const lenses=createStaticInstances(scene,{name:'ice-cream-cab-light',boundsVisible,
+    stateFor:v=>[v.x,v.z,v.first,!!v.cabLightOn],keyFor:v=>v.cabLightOn?'on':'off',assetFor:v=>lensParts[v.cabLightOn?'on':'off'],
+    matrixFor(v,matrix){matrix.copy(vanMatrix(v));}
+  });
+  // A warm point light just below each switched-on lens; it fades out within the cab.
+  const cabLights=new Map();
+  // The arbre magique keeps its true size; only its knot follows the van's vertical stretch.
+  const treeGeometry=new THREE.ShapeGeometry(arbreMagiqueShape());
+  treeGeometry.rotateY(Math.PI/2+.3);treeGeometry.translate(ARBRE_MAGIQUE_TREE.x,ARBRE_MAGIQUE_TREE.y-.04,ARBRE_MAGIQUE_TREE.z);
+  const {length,width,color}=ARBRE_MAGIQUE_STRING;
+  const stringGeometry=new THREE.BoxGeometry(width,length,width);
+  stringGeometry.translate(ARBRE_MAGIQUE_TREE.x,ARBRE_MAGIQUE_TREE.y-.04+length/2,ARBRE_MAGIQUE_TREE.z);
+  const treeParts=[
+    {geometry:treeGeometry,material:new THREE.MeshLambertMaterial({color:ARBRE_MAGIQUE_COLOR,side:THREE.DoubleSide,toneMapped:false})},
+    {geometry:stringGeometry,material:new THREE.MeshLambertMaterial({color,toneMapped:false})}
+  ];
+  const trees=createStaticInstances(scene,{name:'ice-cream-arbre-magique',boundsVisible,
+    stateFor:v=>[v.x,v.z,v.first],keyFor:()=> 'tree',assetFor:()=>treeParts,
+    matrixFor(v,matrix){matrix.copy(vanMatrix(v));}
+  });
+  function drawCabLight(van){
+    let light=cabLights.get(van);
+    if(!van.cabLightOn){if(light){scene.remove(light);light.dispose();cabLights.delete(van);}return;}
+    if(!light){
+      light=new THREE.PointLight(0xffe2a8,1.5,2.4,2);light.name='ice-cream-cab-light';
+      light.position.set(ICE_CREAM_VAN_CAB_LIGHT.x,ICE_CREAM_VAN_CAB_LIGHT.y-.04-.1,ICE_CREAM_VAN_CAB_LIGHT.z).applyMatrix4(vanMatrix(van));
+      cabLights.set(van,light);scene.add(light);
+    }
+    light.visible=true;
+  }
   const cabHinge=new THREE.Matrix4();
   const cabDoors=[-1,1].map(side=>createStaticInstances(scene,{name:`ice-cream-cab-door-${side}`,boundsVisible,
     stateFor:v=>[v.x,v.z,v.first,!!v.cabDoorOpen?.[side]],keyFor:()=> 'cab-door',assetFor:cabDoorAssets,
@@ -249,8 +285,11 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
   return {beginFrame(frame){
     const seated=Boolean(frame.playerSeat?.cabVan);
     if(cabGlass.transparent!==seated){cabGlass.transparent=seated;cabGlass.opacity=seated ? .22 : 1;cabGlass.depthWrite=!seated;cabGlass.needsUpdate=true;}
-    viewer=frame.player??viewer;batches.beginFrame(frame);doors.beginFrame(frame);vendors.beginFrame(frame);for(const door of cabDoors)door.beginFrame(frame);},draw(chunk){const van=riverIceCreamVan(chunk),items=van?[van]:[];batches.draw(chunk,items);doors.draw(chunk,items);vendors.draw(chunk,items);for(const door of cabDoors)door.draw(chunk,items);},dispose(){
-    if(disposed)return;disposed=true;batches.dispose();doors.dispose();vendors.dispose();characters.dispose();for(const door of cabDoors)door.dispose();
+    // Lights not drawn last frame belong to unloaded vans; this frame shows only those drawn again.
+    for(const [van,light] of cabLights){if(!light.visible){scene.remove(light);light.dispose();cabLights.delete(van);}else light.visible=false;}
+    viewer=frame.player??viewer;batches.beginFrame(frame);lenses.beginFrame(frame);trees.beginFrame(frame);doors.beginFrame(frame);vendors.beginFrame(frame);for(const door of cabDoors)door.beginFrame(frame);},draw(chunk){const van=riverIceCreamVan(chunk),items=van?[van]:[];batches.draw(chunk,items);lenses.draw(chunk,items);trees.draw(chunk,items.filter(v=>!v.arbreMagiqueTaken));if(van)drawCabLight(van);doors.draw(chunk,items);vendors.draw(chunk,items);for(const door of cabDoors)door.draw(chunk,items);},dispose(){
+    if(disposed)return;disposed=true;batches.dispose();lenses.dispose();trees.dispose();for(const part of treeParts){part.geometry.dispose();part.material.dispose();}doors.dispose();
+    for(const light of cabLights.values()){scene.remove(light);light.dispose();}cabLights.clear();scene.remove(ambient);lensGeometry.dispose();for(const [part] of Object.values(lensParts))part.material.dispose();vendors.dispose();characters.dispose();for(const door of cabDoors)door.dispose();
     const owned=[...(parts??[]),...(doorParts??[]),...(cabParts??[])];
     for(const part of owned)part.geometry.dispose();
     for(const material of new Set(owned.map(part=>part.material))){material.map?.dispose();material.dispose();}

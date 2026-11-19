@@ -1,4 +1,4 @@
-import {facingIceCreamVanRightDoor,iceCreamVanCabExit,iceCreamVanCabSeat,iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
+import {LEFT_CAB_DOOR_REPLY,iceCreamVanCabTarget,iceCreamVanCabExit,iceCreamVanCabSeat,iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
@@ -34,7 +34,8 @@ import {HOTEL_CORRIDOR,corridorWindowView,corridorWindowState,interactCorridorWi
 import {Wallet,preloadMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
-import {Inventory,inventoryImage,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=backpack-reward-1';
+import {Inventory,TAKEN,inventoryImage,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=backpack-reward-1';
+import {ARBRE_MAGIQUE,drawArbreMagique} from './arbre-magique.js';
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade} from './arcade-interior.js?v=bricks-2';
@@ -234,9 +235,18 @@ function useSeat(cabSeat=null){
   if(hotelStairs)return false;
   let greet=false,seatReply=null;
   if(playerSeat?.cabVan){
-    // Space never leaves the van: it opens or closes the right-hand door when the player looks at it.
+    // Space never leaves the van: it works whatever in the cab the player looks at.
     const van=playerSeat.cabVan;
-    if(!playerSeat.slide&&facingIceCreamVanRightDoor(player,van)){van.cabDoorOpen??={};van.cabDoorOpen[1]=!van.cabDoorOpen[1];}
+    if(playerSeat.slide)return true;
+    const target=iceCreamVanCabTarget(player,van,playerSeat.pitch,playerSeat.eye);
+    if(target==='tree'){
+      const reply=inventory.take({...ARBRE_MAGIQUE});
+      if(reply===TAKEN)van.arbreMagiqueTaken=true;
+      notice=2.5;noticeText=reply;
+    }else if(target==='light')van.cabLightOn=!van.cabLightOn;
+    else if(target==='right-door'){van.cabDoorOpen??={};van.cabDoorOpen[1]=!van.cabDoorOpen[1];}
+    else if(target==='wheel'){notice=3;noticeText="IF I TRY TO STEAL THIS VAN, IT WON'T END WELL.";}
+    else if(target==='left-door'){notice=3;noticeText=LEFT_CAB_DOOR_REPLY;}
     return true;
   }else if(playerSeat){
     // Return to the clear position from which the player sat down.
@@ -319,6 +329,14 @@ function dropSpot(){
 const itemGround=()=>dropSpot().ground;
 function dropSelectedItem(){
   if(insideBookshop&&inventory.current?.id==='backpack')return 'NOT HERE!';
+  // In a van cab whose mirror has lost its arbre magique, dropping one hangs it back there.
+  if(playerSeat?.cabVan&&playerSeat.cabVan.arbreMagiqueTaken&&inventory.current?.id===ARBRE_MAGIQUE.id){
+    inventory.items.splice(inventory.selected,1);
+    inventory.selected=Math.max(0,Math.min(inventory.selected,inventory.items.length-1));
+    inventory.description=false;
+    playerSeat.cabVan.arbreMagiqueTaken=false;
+    return 'PUT BACK.';
+  }
   if(playerSeat)return "I NEED TO STAND UP FIRST.";
   if(inventory.current?.bookshopLoan)return 'I SHOULD LEAVE THIS BOOK ON A READING TABLE.';
   const position=indoors()?currentVenue:player;
@@ -345,6 +363,7 @@ function drawInventoryObject(item,{face,quad,box}){
   else if(item.id==='backpack')previewBackpack(position,face);
   else if(item.id==='pastis-bottle')drawPastisBottle(position,box,face);
   else if(item.id==='marijuana-plant')drawMarijuanaPlant(position,box,face);
+  else if(item.id==='arbre-magique')drawArbreMagique(position,face,{upright:true});
   else if(item.bookshopLoan)previewBook(item,face);
   else if(item.id==='pine-cone')pineCone(inventoryConePreview,face,{x:2,y:3,z:-4});
 }

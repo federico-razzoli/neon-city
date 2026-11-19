@@ -2,6 +2,7 @@
 import {PINE_CONE,LADYBUG,FLOWER,LAMP,PASTIS_BOTTLE,MARIJUANA_PLANT,TICKET,HOTEL_NOTE,arcadeTokens} from './inventory.js';
 import {supportsRenderer} from './renderer-support.js';
 import {BACKPACK} from './backpack.js';
+import {ARBRE_MAGIQUE} from './arbre-magique.js';
 import {BLOCK,RIVER_ROWS} from './world.js?v=start-pub-1';
 
 export const DEBUG_MODE=true;
@@ -89,7 +90,7 @@ export function createDebugMenu(api){
     });cell.append(button);row.append(cell);
     dialog.querySelector('tbody').append(row);
   }
-  const objects=[PINE_CONE,LADYBUG,FLOWER,LAMP,PASTIS_BOTTLE,MARIJUANA_PLANT,TICKET,HOTEL_NOTE,BACKPACK];
+  const objects=[PINE_CONE,LADYBUG,FLOWER,LAMP,PASTIS_BOTTLE,MARIJUANA_PLANT,TICKET,HOTEL_NOTE,BACKPACK,ARBRE_MAGIQUE];
   for(const item of [...objects,{id:'arcade-token',name:'ARCADE TOKEN'}]){
     const option=document.createElement('option');option.value=item.id;option.textContent=item.name;find('object').append(option);
   }
