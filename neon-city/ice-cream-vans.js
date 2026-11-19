@@ -65,6 +65,18 @@ export function iceCreamVanCabSeat(van,seat){
   const sign=van.first?1:-1;
   return {x:van.x+1.93*sign,z:van.z-.52*seat*sign};
 }
+// Seated in the cab, Space works only the right-hand (passenger, side 1) door,
+// whether the player looks at its closed doorway or at the opened leaf.
+export function facingIceCreamVanRightDoor(player,van){
+  if(Number.isFinite(vanTargetDistance(player,van,1.38,1.025-.08,2.66,1.025+.08)))return true;
+  return Boolean(van.cabDoorOpen?.[1])&&Number.isFinite(vanTargetDistance(player,van,2.56,1.025,2.7,2.225));
+}
+// A clear spot on the road beside the open right-hand door, behind its leaf and
+// outside the cab's collision footprint for the player's .45 radius.
+export function iceCreamVanCabExit(van){
+  const sign=van.first?1:-1;
+  return {x:van.x+2.05*sign,z:van.z-1.75*sign};
+}
 export function interactIceCreamVan(player,van){
   if(player.riverWalk)return null;
   const v=ICE_CREAM_VAN,p=iceCreamVanLocal(van,player),targets=[];

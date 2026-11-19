@@ -1,4 +1,4 @@
-import {iceCreamVanCabSeat,iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
+import {facingIceCreamVanRightDoor,iceCreamVanCabExit,iceCreamVanCabSeat,iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
@@ -227,14 +227,20 @@ function enterVenue(venue){
 // position, limited turning, and looking up or down, until Space returns the
 // player to their feet. Getting up from the toilet flushes it.
 const SEATED_EYE=1.5;
+// How far a seated player may turn either side of the seat's heading, and look down.
+// Only the van cab allows a wider view; looking up already reaches straight overhead.
+const seatLook=seat=>seat.cabVan?{yaw:Math.PI/3,down:-Math.PI/4}:{yaw:Math.PI/4,down:0};
 function useSeat(cabSeat=null){
   if(hotelStairs)return false;
   let greet=false,seatReply=null;
-  if(playerSeat){
-
+  if(playerSeat?.cabVan){
+    // Space never leaves the van: it opens or closes the right-hand door when the player looks at it.
+    const van=playerSeat.cabVan;
+    if(!playerSeat.slide&&facingIceCreamVanRightDoor(player,van)){van.cabDoorOpen??={};van.cabDoorOpen[1]=!van.cabDoorOpen[1];}
+    return true;
+  }else if(playerSeat){
     // Return to the clear position from which the player sat down.
     player.x=playerSeat.standing.x;player.z=playerSeat.standing.z;
-    if(playerSeat.cabVan){playerSeat.cabVan.cabDoorOpen[playerSeat.side]=true;}
     if(playerSeat.toilet)playFlush(audioContext);
     if(playerSeat.bookshopChair)bookshopLife.stand(playerSeat.bookshopChair,inventory);
     playerSeat=null;eye=1.65;pubTalk=null;
@@ -243,6 +249,7 @@ function useSeat(cabSeat=null){
     Object.assign(player,{x:cabSeat.x,z:cabSeat.z,angle:cabSeat.angle});
     cabSeat.cabVan.cabDoorOpen[cabSeat.side]=false;
     eye=cabSeat.eye;
+    seatReply='USE A AND D TO MOVE AND SPACE TO INTERACT.';
   }else if(insideCubicle){
     if(lavatoryLife?.cubicleBlackout)return false;
     const target=washroomSpatial()?washroomTarget():null;
@@ -825,10 +832,11 @@ const touchControls=installSeatedTouch(canvas,{
   canUse:()=>running&&!windowView&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk&&!debugMenu?.open,
   look:(yaw,pitch)=>{
     if(!playerSeat){player.angle+=yaw;return;}
-    player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle+yaw));
-    playerSeat.pitch=Math.max(playerSeat.cabVan?-Math.PI/6:0,Math.min(Math.PI/2,playerSeat.pitch+pitch));
+    const look=seatLook(playerSeat);
+    player.angle=Math.max(playerSeat.angle-look.yaw,Math.min(playerSeat.angle+look.yaw,player.angle+yaw));
+    playerSeat.pitch=Math.max(look.down,Math.min(Math.PI/2,playerSeat.pitch+pitch));
   },
-  stand:()=>useSeat(),
+  stand:()=>{if(!playerSeat?.cabVan)useSeat();},
   tap:ground=>{
     if(ground){interactTouchGround();return;}
     handleWorldInput(' ',{key:' ',repeat:false,touch:true});
@@ -887,7 +895,7 @@ function tick(now){
   if(running&&ping)ping.update(ping.kind==='amigos'?elapsed:cameraDt,(ping.kind==='pinball'?(keys.has('ArrowDown')?1:0):(keys.has('ArrowDown')||keys.has('s')?1:0)-(keys.has('ArrowUp')||keys.has('w')?1:0)),(ping.kind==='punch'||ping.kind==='frog'||ping.kind==='kong'||ping.kind==='meteors'||ping.kind==='byker'||ping.kind==='bricks')?(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0):0,ping.kind==='punch'?false:keys.has(' '),keys.has('ArrowLeft')||keys.has('a'),keys.has('ArrowRight')||keys.has('d'));
   if(ping?.crossed||ping?.won)keys.clear();
   if(running&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk){
-    shootingStars.update(cameraDt,Boolean(hotelCorridor&&windowView)||!indoors()&&onRiverWalk(player),skyView());
+    shootingStars.update(cameraDt,Boolean(hotelCorridor&&windowView)||!indoors()&&(onRiverWalk(player)||Boolean(playerSeat?.cabVan)),skyView());
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     if(hotelCorridor&&!windowView&&keys.has('ArrowUp')){
       windowView=corridorWindowView(player,corridorWindowState(currentHotel,hotelStairs.floor));
@@ -902,17 +910,26 @@ function tick(now){
       windowView.pitch=Math.max(-Math.PI/2,Math.min(Math.PI/2,windowView.pitch+tilt*cameraDt*1.65));
     }
     if(playerSeat){
-      player.angle=Math.max(playerSeat.angle-Math.PI/4,Math.min(playerSeat.angle+Math.PI/4,player.angle));
+      const look=seatLook(playerSeat);
+      player.angle=Math.max(playerSeat.angle-look.yaw,Math.min(playerSeat.angle+look.yaw,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
-      playerSeat.pitch=Math.max(playerSeat.cabVan?-Math.PI/6:0,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
+      playerSeat.pitch=Math.max(look.down,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
       // Sideways keys or a two-finger sideways drag slide across the van cab bench to the other seat.
       const across=Math.sign(Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe);
-      if(playerSeat.cabVan&&across&&across!==playerSeat.seat&&!playerSeat.slide){
+      // From the passenger seat, a fresh move right through the open right-hand door leaves the van.
+      const exitVan=playerSeat.cabVan;
+      if(exitVan&&across===1&&playerSeat.across!==1&&playerSeat.seat===1&&!playerSeat.slide&&exitVan.cabDoorOpen?.[1]){
+        const exit=iceCreamVanCabExit(exitVan);
+        Object.assign(player,city.solid(exit.x,exit.z)?playerSeat.standing:exit);
+        playerSeat=null;eye=1.65;keys.clear();shiftKeys.clear();notice=0;steps=0;
+      }
+      if(playerSeat)playerSeat.across=across;
+      if(playerSeat?.cabVan&&across&&across!==playerSeat.seat&&!playerSeat.slide){
         playerSeat.seat=across;
         playerSeat.slide={from:{x:player.x,z:player.z},t:0};
         Object.assign(playerSeat,iceCreamVanCabSeat(playerSeat.cabVan,across));
       }
-      if(playerSeat.slide){
+      if(playerSeat?.slide){
         // Ease across over about a second, rising slightly mid-way as the player half-stands.
         const slide=playerSeat.slide;slide.t=Math.min(1,slide.t+cameraDt/.9);
         const k=slide.t*slide.t*(3-2*slide.t);
