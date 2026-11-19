@@ -551,6 +551,7 @@ async function prepareRendererAtStartup(){
     await Promise.all([prepareThreeRenderer(),city.update(player.x,player.z)]);
     start.innerHTML='STEP INTO THE NIGHT <span>→</span>';
     start.disabled=false;
+    painted=false; // Show the dimmed starting scene behind the title, as when paused.
   }catch(error){
     document.querySelector('#description').textContent=error.message;
     start.innerHTML='3D RENDERING UNAVAILABLE';
