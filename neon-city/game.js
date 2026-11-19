@@ -479,7 +479,7 @@ const starfield=[...stars,...URSA_MAJOR].map(skyDirection);
 const moon={bearing:.33,elevation:.31};
 const shootingStars=new ShootingStars();
 const skyView=()=>({angle:player.angle,width:W,focal:F,horizon,pitch:windowView?.pitch??playerSeat?.pitch??0});
-let running=false,time=0,last=0,shake=0,hitCooldown=0,notice=0,steps=0,painted=false;
+let running=false,time=0,last=0,shake=0,hitCooldown=0,notice=0,steps=0,painted=false,paintedDim=false;
 let noticeText='',coverPressed=false,startSpaceHeld=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -575,7 +575,7 @@ function outdoorGroundHeight(){
 function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
-  if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running);}return;}
+  if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running,!overlay.hidden);}return;}
   if(!indoors())eye=playerSeat?.cabVan?playerSeat.eye+(playerSeat.slide?.lift??0):(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??outdoorGroundHeight());
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
@@ -586,7 +586,8 @@ function render(){
     insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
     pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
-    banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors()
+    banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors(),
+    dimmed:!overlay.hidden
   };
   selectRenderSurface(true);
   if(threeRenderer)profilePhase('neon:three:frame',()=>threeRenderer.render(frame));
@@ -1071,7 +1072,8 @@ function tick(now){
     pubMusic.update(audioContext,pubHeard.volume,pubHeard.lowpass);
   }
   endPhase('neon:simulation');
-  if(running||!painted){render();painted=true;}
+  // Paused frames stay frozen; repaint once when the title/pause dim toggles.
+  if(running||!painted||paintedDim!==!overlay.hidden){render();painted=true;paintedDim=!overlay.hidden;}
   requestAnimationFrame(tick);
 }
 // The initially disabled start button keeps click/Space input on the title

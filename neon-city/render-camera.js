@@ -19,6 +19,8 @@ If not, see <https://www.gnu.org/licenses/>.
 
 // Camera coordinates face +Z; texture coordinates remain in source pixel units.
 export const NATIVE_VIEW={width:640,height:360,focal:355,horizon:164,near:.15,far:260};
+// Title/pause dim: #090715 fading from 92% opacity (left) to 31% (right).
+export const OVERLAY_DIM={color:0x090715,left:235/255,right:80/255};
 export function createRenderCamera({width:W=640,height:H=360,focal:F=355,horizon=164,near=.15}={}){
   let player={x:0,z:0,angle:0},eye=1.65,pitch=0;
   let cameraCos=1,cameraSin=0,pitchCos=1,pitchSin=0;

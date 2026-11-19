@@ -4,7 +4,7 @@ import {createThreeLavatorySpatial} from './three-lavatory-spatial.js';
 import {createThreeBookshopSpatial} from './three-bookshop-spatial.js';
 import {createThreePubSpatial} from './three-pub-spatial.js';
 import {profilePhase} from './render-profile.js';
-import {NATIVE_VIEW} from './render-camera.js';
+import {NATIVE_VIEW,OVERLAY_DIM} from './render-camera.js';
 import {createThreeStorageScene} from './three-storage-scene.js';
 import {createThreeStairwellScene} from './three-stairwell-scene.js';
 import {createThreeCorridorScene} from './three-corridor-scene.js';
@@ -45,6 +45,18 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
   const shadeMaterial=new THREE.MeshBasicMaterial({color:0x090715,opacity:.2,transparent:true,
     depthTest:false,depthWrite:false,toneMapped:false});
   const shade=new THREE.Mesh(shadeGeometry,shadeMaterial);shade.name='hotel-shade';shadeScene.add(shade);
+  // Title and pause screens dim the frozen view with a left-to-right fade.
+  const dimScene=new THREE.Scene();
+  const dimGeometry=new THREE.PlaneGeometry(2,2);
+  const edges=dimGeometry.attributes.position.array;
+  dimGeometry.setAttribute('color',new THREE.Float32BufferAttribute(Array.from({length:edges.length/3},(_,i)=>[1,1,1,edges[i*3]<0?OVERLAY_DIM.left:OVERLAY_DIM.right]).flat(),4));
+  const dimMaterial=new THREE.MeshBasicMaterial({color:OVERLAY_DIM.color,vertexColors:true,transparent:true,
+    depthTest:false,depthWrite:false,toneMapped:false});
+  const dim=new THREE.Mesh(dimGeometry,dimMaterial);dim.name='overlay-dim';dimScene.add(dim);
+  function composite(scene){
+    const autoClear=renderer.autoClear;renderer.autoClear=false;
+    try{renderer.render(scene,shadeCamera);}finally{renderer.autoClear=autoClear;}
+  }
   let bookshopSpatial=null,pubSpatial=null,lavatorySpatial=null,cubicleSpatial=null;
   let room=null,hotel=null,destination=null,floor=null;
   function leave(){bookshopSpatial?.dispose();bookshopSpatial=null;pubSpatial?.dispose();lavatorySpatial?.dispose();cubicleSpatial?.dispose();pubSpatial=lavatorySpatial=cubicleSpatial=null;if(!room)return;room.dispose();room=null;hotel=null;destination=null;floor=null;renderer.renderLists.dispose();}
@@ -70,14 +82,12 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
       profilePhase('neon:three:update',()=>room.update(frame));
       profilePhase('neon:three:render',()=>{
         renderer.render(room.scene,room.camera);room.renderOverlay?.(renderer,frame);
-        if(['hotel','stairs','corridor','storage'].includes(destination)){
-          const autoClear=renderer.autoClear;renderer.autoClear=false;
-          try{renderer.render(shadeScene,shadeCamera);}finally{renderer.autoClear=autoClear;}
-        }
+        if(['hotel','stairs','corridor','storage'].includes(destination))composite(shadeScene);
+        if(frame.dimmed)composite(dimScene);
       });
     },
     leave,
-    dispose(){leave();shadeGeometry.dispose();shadeMaterial.dispose();renderer.dispose();},
+    dispose(){leave();shadeGeometry.dispose();shadeMaterial.dispose();dimGeometry.dispose();dimMaterial.dispose();renderer.dispose();},
     get info(){return renderer.info;}
   };
 }
