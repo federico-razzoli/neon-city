@@ -643,9 +643,12 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
     return path?{...path[0],angle:Math.atan2(path[1].x-path[0].x,path[1].z-path[0].z)}:{x:x*64+12,z:z*64+32,angle:Math.PI/2};
   },travel:selectDebugDestination,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
 }):null;
-function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;started=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
-start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
+// The header button shows what it will do: pause while playing, play otherwise.
+const pauseButton=document.querySelector('#pause');
+function syncPauseButton(){pauseButton.textContent=running?'Ⅱ':'▶\uFE0E';pauseButton.setAttribute('aria-label',running?'Pause game':'Resume game');}
+function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';syncPauseButton();start.focus();}
+function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;started=true;overlay.hidden=true;syncPauseButton();keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+start.addEventListener('click',play);pauseButton.addEventListener('click',()=>running?pause():play());syncPauseButton();
 let hotelEventPresses=0,hotelEventKey=null;
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
 window.addEventListener('keydown',e=>{if(debugMenu?.open||e.target?.closest?.('input,textarea,select,[contenteditable]'))return;if(debugMenu?.handleKey(e))return;if(banshee){e.preventDefault();return;}const k=e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key;
