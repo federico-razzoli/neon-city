@@ -29,6 +29,28 @@ export function riverGrateTarget(player){
 
 export function facingRiverGrate(player){return riverGrateTarget(player)!==null;}
 
+// Gazing through one gate for five seconds summons four will-o'-the-wisps that
+// dance for three seconds. They return only after the gaze is broken, by
+// looking away or leaving, and then held on a gate for five seconds again.
+export const RIVER_WISPS={gaze:5,dance:3,count:4};
+export class RiverWisps{
+  constructor(){this.target=null;this.gazed=0;this.dancing=null;this.spent=false;}
+  update(dt,player){
+    const target=riverGrateTarget(player);
+    if(target!==this.target){this.target=target;this.gazed=0;this.dancing=null;this.spent=false;}
+    if(!target||this.spent)return;
+    if(this.dancing===null){this.gazed+=Math.max(0,dt);if(this.gazed>=RIVER_WISPS.gaze)this.dancing=0;return;}
+    this.dancing+=Math.max(0,dt);
+    if(this.dancing>=RIVER_WISPS.dance){this.dancing=null;this.spent=true;}
+  }
+  // The gate's wall position and the seconds the wisps have danced, or null.
+  get view(){
+    if(this.dancing===null)return null;
+    const [street,row,dir]=this.target.split(',').map(Number);
+    return {x:street*BLOCK,bank:row*BLOCK+(dir===1?18:110),dir,t:this.dancing};
+  }
+}
+
 // Inharmonic, independently decaying modes give an iron impact its clang.
 export function playRiverGrateClang(context,random=Math.random){
   if(context?.state!=='running')return null;

@@ -21,7 +21,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {facingRiverGrate,RIVER_GRATE_MESSAGE,RiverGrateClang} from './river-grates.js';
+import {facingRiverGrate,RIVER_GRATE_MESSAGE,RiverGrateClang,RiverWisps} from './river-grates.js';
 import {advanceRiverFall} from './river-fall.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {supportsRenderer} from './renderer-support.js';
@@ -488,6 +488,7 @@ let riverGrateClang=null;
 const hornWarning=new HornWarning();
 const coverAttempt=new CoverAttempt();
 const riverLook=new RiverLook();
+const riverWisps=new RiverWisps();
 const walkerTalk=new WalkerTalk(),lavatoryTalk=new WalkerTalk();
 const arcadeAmbience=new ArcadeAmbience();
 const parkBirds=new ParkBirds();
@@ -588,6 +589,7 @@ function render(){
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
     pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors(),
+    riverWisps:indoors()?null:riverWisps.view,
     dimmed:!overlay.hidden
   };
   selectRenderSurface(true);
@@ -1049,6 +1051,7 @@ function tick(now){
         break collision;
       }
     }
+    riverWisps.update(dt,player);
     if(player.riverWalk&&coverPressed&&facingRiverGrate(player)){
       notice=4.5;noticeText=RIVER_GRATE_MESSAGE;
     }else if(riverLook.try(player,coverPressed||keys.has(' '),coverPressed)){

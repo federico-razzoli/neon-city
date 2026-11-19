@@ -21,6 +21,7 @@ import {createThreeRailings} from './three-railings.js';
 import {createThreeRoads} from './three-roads.js';
 import {createThreeRiverWater} from './three-river-water.js';
 import {createThreeRiverWalks} from './three-river-walks.js';
+import {createThreeRiverWisps} from './three-river-wisps.js';
 import {createWorldScene} from './world-scene.js';
 import {createInteriorCamera,updateInteriorCamera} from './three-interior-scene.js';
 import {createCorridorSky} from './three-corridor-sky.js';
@@ -42,7 +43,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const buildings=createThreeBuildings(scene,{boundsVisible:exteriorVisible});
   const cones=createThreePineCones(scene,{boundsVisible:exteriorVisible}),flowers=createThreeFlowers(scene,{boundsVisible:exteriorVisible}),newspapers=createThreeNewspaperMachines(scene,{boundsVisible:exteriorVisible});
   const iceCreamVans=createThreeIceCreamVans(scene,{boundsVisible:exteriorVisible});
-  const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene);
+  const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene),riverWisps=createThreeRiverWisps(scene);
   const cards=createThreeCharacterCards(),cardMeshes=[],carriedIceCreams=createThreeCarriedIceCreams(scene);
   let cash,cashNote;
   let cardCount=0;
@@ -131,10 +132,11 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     carriedIceCreams.endFrame();
     for(let i=cardCount;i<cardMeshes.length;i++)cardMeshes[i].visible=false;
     roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
+    riverWisps.update(frame.riverWisps);
     for(const [key,b] of batches){
       if(!b.positions.length){scene.remove(b.mesh);b.geometry.dispose();b.material.dispose();b.texture?.dispose();batches.delete(key);continue;}
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){cash?.dispose();cash=null;cashNote=null;iceCreamVans.dispose();scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();carriedIceCreams.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();doormats.dispose();trees.dispose();riverWalks.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){cash?.dispose();cash=null;cashNote=null;iceCreamVans.dispose();scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();carriedIceCreams.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();doormats.dispose();trees.dispose();riverWalks.dispose();riverWisps.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }
