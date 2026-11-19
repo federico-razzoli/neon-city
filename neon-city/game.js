@@ -479,7 +479,7 @@ const starfield=[...stars,...URSA_MAJOR].map(skyDirection);
 const moon={bearing:.33,elevation:.31};
 const shootingStars=new ShootingStars();
 const skyView=()=>({angle:player.angle,width:W,focal:F,horizon,pitch:windowView?.pitch??playerSeat?.pitch??0});
-let running=false,time=0,last=0,shake=0,hitCooldown=0,notice=0,steps=0,painted=false,paintedDim=false;
+let running=false,started=false,time=0,last=0,shake=0,hitCooldown=0,notice=0,steps=0,painted=false,paintedDim=false;
 let noticeText='',coverPressed=false,startSpaceHeld=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -644,7 +644,7 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
   },travel:selectDebugDestination,wallet,inventory,register,updateMoney:()=>{moneyDisplay.textContent=wallet.balance;}
 }):null;
 function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';start.focus();}
-function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;started=true;overlay.hidden=true;keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);document.querySelector('#pause').addEventListener('click',()=>running?pause():play());
 let hotelEventPresses=0,hotelEventKey=null;
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
@@ -1062,6 +1062,15 @@ function tick(now){
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
     }
   }
+  // Before the first start the title shows the street living on behind the
+  // dim: traffic and pedestrians advance; the player, input and sound do not.
+  // A later pause is never ambient, because started stays true.
+  const ambient=!running&&!started&&!start.disabled&&!indoors();
+  if(ambient){
+    time+=dt;
+    roadTraffic.update(city.chunks.values(),time,dt,player,city.crossingPeople?.()??[]);
+    city.advancePedestrians(dt,player,time,null,roadTraffic);
+  }
   if(running&&!ping&&!staffTalk&&!inventoryBox.open&&!pubMenu.open&&!banshee)startFollowup();
   // Running taps are heard only in the lavatory, louder nearer the sinks.
   if(running&&!pubMenu.open&&!inventoryBox.open)tapWater.update(audioContext,insideLavatory?tapVolume(player,lavatoryTaps):0);
@@ -1074,7 +1083,8 @@ function tick(now){
   }
   endPhase('neon:simulation');
   // Paused frames stay frozen; repaint once when the title/pause dim toggles.
-  if(running||!painted||paintedDim!==!overlay.hidden){render();painted=true;paintedDim=!overlay.hidden;}
+  // Only the ambient title screen redraws every frame while not running.
+  if(running||ambient||!painted||paintedDim!==!overlay.hidden){render();painted=true;paintedDim=!overlay.hidden;}
   requestAnimationFrame(tick);
 }
 // The initially disabled start button keeps click/Space input on the title
