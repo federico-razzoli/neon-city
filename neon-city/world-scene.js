@@ -82,7 +82,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     if(b.sign==='BLUE NOTE')drawBlueNote(g,c.height,b,side);
     if(b.sign==='MIDNITE BOOKS')drawMidniteBooks(g,c.height,b,side);
     if(b.sign==='HOTEL')drawHotel(g,c.height,b,side);
-    g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign==='NEON PUB'?pubName(b):b.sign,80,c.height-48,146);g.shadowBlur=0;
+    g.fillStyle='#100a20';g.fillRect(3,c.height-65,154,23);g.strokeStyle=b.neon;g.lineWidth=1;g.strokeRect(3,c.height-65,154,23);g.font='bold 16px monospace';g.textAlign='center';g.shadowColor=b.neon;g.shadowBlur=5;g.fillStyle=b.neon;g.fillText(b.sign==='ARCADE'?arcadeName(b):b.sign==='NEON PUB'?pubName(b):b.sign==='HOTEL'?hotelLook(b).sign:b.sign,80,c.height-48,146);g.shadowBlur=0;
     // The vertical hotel sign must fit entirely below the roofline.
     if(b.sign==='HOTEL'&&c.height>=137){g.fillStyle='#160c24';g.fillRect(132,c.height-137,24,72);g.fillStyle=b.neon;g.font='bold 12px monospace';for(let i=0;i<5;i++)g.fillText('HOTEL'[i],144,c.height-124+i*13);}
     textures[side]=c;return c;

@@ -44,13 +44,13 @@ export function dimHotelH(ctx,height){
   ctx.restore();
 }
 
-// Lobby colour schemes; each hotel keeps one for all its walls.
+// Lobby colour schemes; each hotel keeps one for all its walls, and its name for the street sign.
 export const HOTEL_LOOKS=[
-  {name:'plum',wall:'#33202e',panel:'#4a2a33',inset:'#3d2229',metal:'#8a7047',floor:['#a39780','#6b6056'],column:['#a89d89','#8b8170'],carpet:'#6e2030',velvet:['#5e2236','#72304a'],wood:['#4e2a21','#3b1f19']},
-  {name:'emerald',wall:'#1f2e27',panel:'#3a2a22',inset:'#2e211b',metal:'#8a7047',floor:['#999483','#4a544b'],column:['#9b998a','#7f7d70'],carpet:'#24493a',velvet:['#2f5244','#3b6253'],wood:['#4a2e22','#37211a']},
-  {name:'navy',wall:'#1e2438',panel:'#2c3046',inset:'#242839',metal:'#7c8189',floor:['#96989c','#3a3e4c'],column:['#a0a2a6','#83868a'],carpet:'#2b3a6a',velvet:['#344272','#425186'],wood:['#33303a','#26232c']},
-  {name:'oxblood',wall:'#3a1c1f',panel:'#2a1b1a',inset:'#211514',metal:'#927648',floor:['#a59f92','#2c2a2e'],column:['#a39a8b','#877e70'],carpet:'#5a1f2b',velvet:['#4f2a2a','#633535'],wood:['#3e231d','#2d1914']},
-  {name:'teal',wall:'#1d3233',panel:'#3b2b26',inset:'#2e211d',metal:'#8a5f44',floor:['#9f9480','#6e4b3d'],column:['#a29883','#867c69'],carpet:'#7a3b2c',velvet:['#2e5254','#3a6466'],wood:['#4b2d22','#38211a']}
+  {name:'plum',sign:'HOTEL PLUM',wall:'#33202e',panel:'#4a2a33',inset:'#3d2229',metal:'#8a7047',floor:['#a39780','#6b6056'],column:['#a89d89','#8b8170'],carpet:'#6e2030',velvet:['#5e2236','#72304a'],wood:['#4e2a21','#3b1f19']},
+  {name:'emerald',sign:'HOTEL EMERALD',wall:'#1f2e27',panel:'#3a2a22',inset:'#2e211b',metal:'#8a7047',floor:['#999483','#4a544b'],column:['#9b998a','#7f7d70'],carpet:'#24493a',velvet:['#2f5244','#3b6253'],wood:['#4a2e22','#37211a']},
+  {name:'navy',sign:'HOTEL NAVY',wall:'#1e2438',panel:'#2c3046',inset:'#242839',metal:'#7c8189',floor:['#96989c','#3a3e4c'],column:['#a0a2a6','#83868a'],carpet:'#2b3a6a',velvet:['#344272','#425186'],wood:['#33303a','#26232c']},
+  {name:'oxblood',sign:'HOTEL WOOD',wall:'#3a1c1f',panel:'#2a1b1a',inset:'#211514',metal:'#927648',floor:['#a59f92','#2c2a2e'],column:['#a39a8b','#877e70'],carpet:'#5a1f2b',velvet:['#4f2a2a','#633535'],wood:['#3e231d','#2d1914']},
+  {name:'teal',sign:'HOTEL TURQUOISE',wall:'#1d3233',panel:'#3b2b26',inset:'#2e211d',metal:'#8a5f44',floor:['#9f9480','#6e4b3d'],column:['#a29883','#867c69'],carpet:'#7a3b2c',velvet:['#2e5254','#3a6466'],wood:['#4b2d22','#38211a']}
 ];
 const hash=text=>{
   let h=2166136261;
