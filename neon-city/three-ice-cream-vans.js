@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
 import {riverIceCreamVan} from './world.js';
-import {ARBRE_MAGIQUE_TREE,ICE_CREAM_VAN,ICE_CREAM_VAN_CAB_LIGHT,ICE_CREAM_VENDOR,iceCreamVanLocal} from './ice-cream-vans.js';
+import {ARBRE_MAGIQUE_TREE,ICE_CREAM_CONE_RACK_X,ICE_CREAM_TRAYS,ICE_CREAM_VAN,ICE_CREAM_VAN_CAB_LIGHT,ICE_CREAM_VENDOR,iceCreamVanLocal} from './ice-cream-vans.js';
 import {createThreeCharacterCards} from './three-character-cards.js';
 import {createStaticInstances} from './three-static-instances.js';
 import {ARBRE_MAGIQUE_COLOR,ARBRE_MAGIQUE_STRING,arbreMagiqueShape} from './arbre-magique.js';
@@ -127,18 +127,19 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     box(2.73,.5,0,.12,.16,1.95,'#bbc7cc');
     for(const z of [-.94,.94])box(-2.7,.5,z,.1,.16,.2,'#bbc7cc');
     // Open metal tubs and scoops sit in the hatch, visible from both sides.
-    for(const [x,tint] of [[-1.65,'#ef9fb8'],[-1.05,'#fff0c9'],[-.45,'#76503e']]){
+    for(const {x,tint} of ICE_CREAM_TRAYS){
       box(x,1.23,1.02,.51,.1,.54,'#a5b5bc');
       box(x,1.287,1.02,.43,.025,.46,tint);
       for(const dx of [-.12,.1])for(const dz of [-.12,.1])add(new THREE.SphereGeometry(.105,10,6),x+dx,1.29,1.02+dz,tint);
       for(const side of [-1,1])box(x,1.305,1.02+side*.27,.53,.035,.025,'#d8e3df');
     }
     // Cone rack, nested waffle cones, and two ready-to-serve ice creams.
-    box(.55,1.22,1.18,.72,.08,.35,'#8b9fa6');
-    for(const [x,tint] of [[.3,'#ef9fb8'],[.55,'#fff0c9'],[.8,null]]){
-      add(new THREE.ConeGeometry(.105,.32,10),x,1.42,1.18,'#d0a167',Math.PI);
-      for(let i=0;i<3;i++)add(new THREE.CylinderGeometry(.11,.11,.018,10),x,1.55-i*.045,1.18,'#e4bc80');
-      if(tint)add(new THREE.SphereGeometry(.14,10,8),x,1.66,1.18,tint);
+    box(ICE_CREAM_CONE_RACK_X,1.22,1.18,.72,.08,.35,'#8b9fa6');
+    for(const [offset,tint] of [[-.24,'#ef9fb8'],[0,'#64e5ef'],[.24,null]]){
+      const x=ICE_CREAM_CONE_RACK_X+offset;
+      add(new THREE.ConeGeometry(.105,.24,10),x,1.38,1.18,'#d0a167',Math.PI);
+      for(let i=0;i<3;i++)add(new THREE.CylinderGeometry(.11,.11,.018,10),x,1.48-i*.04,1.18,'#e4bc80');
+      if(tint)add(new THREE.SphereGeometry(.12,10,8),x,1.57,1.18,tint);
     }
     // Freezer, cupboard doors, utensils, shelving, tubs and a tiled splashback.
     box(-1.6,.76,-.75,1.4,.71,.4,'#e4e6d7');
@@ -152,9 +153,37 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     }
     add(new THREE.CylinderGeometry(.09,.08,.2,12),1.06,1.36,.77,'#bbc9cc');
     for(const x of [1.02,1.08])box(x,1.57,.77,.025,.27,.025,'#657e87');
-    // Giant roof cone.
-    add(new THREE.ConeGeometry(.27,.65,12),-1.45,2.9,0,'#cf995d',Math.PI);
-    add(new THREE.SphereGeometry(.34,12,8),-1.45,3.36,0,'#f4a2bb');
+    // Three matching ice cream outlines across the roof.
+    const scoop=new THREE.Path();
+    scoop.moveTo(-.31,3.36);
+    scoop.bezierCurveTo(-.31,3.53,-.17,3.67,0,3.67);
+    scoop.bezierCurveTo(.17,3.67,.31,3.53,.31,3.36);
+    scoop.bezierCurveTo(.31,3.27,.19,3.23,.11,3.29);
+    scoop.bezierCurveTo(.06,3.23,-.06,3.23,-.11,3.29);
+    scoop.bezierCurveTo(-.19,3.23,-.31,3.27,-.31,3.36);
+    const cone=new THREE.Path();
+    cone.moveTo(-.23,3.23);
+    cone.lineTo(-.04,2.64);
+    cone.quadraticCurveTo(0,2.57,.04,2.64);
+    cone.lineTo(.23,3.23);
+    const roofNeon=[];
+    for(const [path,color,core,closed] of [[scoop,'#ff269d','#ff9dd5',true],[cone,'#ff931c','#ffda8d',false]]){
+      const points=path.getSpacedPoints(48).map(({x,y})=>new THREE.Vector3(x,y,0));
+      if(closed)points.pop();
+      const curve=new THREE.CatmullRomCurve3(points,closed);
+      for(const [radius,material] of [
+        [.014,new THREE.MeshBasicMaterial({color:core,toneMapped:false})],
+        [.03,new THREE.MeshBasicMaterial({color,transparent:true,opacity:.28,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false})]
+      ]){
+        const tube=new THREE.TubeGeometry(curve,64,radius,8,closed);
+        tube.translate(-.45,0,0).scale(1,ICE_CREAM_VAN.heightScale,1);
+        roofNeon.push(
+          {geometry:tube.clone().translate(-.8,0,0),material},
+          {geometry:tube,material},
+          {geometry:tube.clone().translate(.8,0,0),material}
+        );
+      }
+    }
     const ramp=new THREE.BufferGeometry();
     ramp.setAttribute('position',new THREE.Float32BufferAttribute([
       -3.85,0,-.82,-2.65,.405,.82,-2.65,.405,-.82,
@@ -175,7 +204,7 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     const lettering=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false});
     for(let i=1;i<glassPositions.length;i+=3)glassPositions[i]*=ICE_CREAM_VAN.heightScale;
     const windows=new THREE.BufferGeometry();windows.setAttribute('position',new THREE.Float32BufferAttribute(glassPositions,3));windows.computeBoundingSphere();
-    parts=[{geometry,material:body},{geometry:sign,material:lettering},{geometry:windows,material:cabGlass}];return parts;
+    parts=[{geometry,material:body},{geometry:sign,material:lettering},{geometry:windows,material:cabGlass},...roofNeon];return parts;
   }
   function doorAssets(){
     if(doorParts)return doorParts;

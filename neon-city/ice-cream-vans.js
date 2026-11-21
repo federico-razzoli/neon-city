@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 export const ICE_CREAM_VAN={heightScale:1.2,rear:-2.65,front:1.55,halfWidth:1.05,doorHalf:.82,floor:.526};
 export const ICE_CREAM_VENDOR={type:17,x:.2,z:.65,height:1.85};
+export const ICE_CREAM_TRAYS=[{x:-1.85,tint:'#ef9fb8'},{x:-1.25,tint:'#fff0c9'},{x:.65,tint:'#76503e'}];
+export const ICE_CREAM_CONE_RACK_X=-.65;
 export function iceCreamVanLocal(van,point){
   const sign=van.first?1:-1;
   return {x:(point.x-van.x)*sign,z:-(point.z-van.z)*sign};
@@ -125,8 +127,8 @@ export function interactIceCreamVan(player,van){
   if(van.doorOpen)add('door',v.rear-v.doorHalf*2,-v.doorHalf-.04,v.rear,-v.doorHalf+.04);
   // Trays and cones are interactive only from inside the van.
   if(p.x>=v.rear+.1&&p.x<=v.front-.1&&p.z>-.55&&p.z<v.halfWidth){
-    for(const x of [-1.65,-1.05,-.45])add('food',x-.27,.75,x+.27,1.3);
-    add('food',.18,1,.95,1.4);
+    for(const {x} of ICE_CREAM_TRAYS)add('food',x-.27,.75,x+.27,1.3);
+    add('food',ICE_CREAM_CONE_RACK_X-.36,1,ICE_CREAM_CONE_RACK_X+.36,1.4);
   }
   if(p.x>=v.rear+.1&&p.x<=v.front-.1&&Math.abs(p.z)<v.halfWidth)
     add('food',-2.3,-.95,-.9,-.55);
