@@ -795,23 +795,41 @@ export class City {
     let bumpedPedestrian=false;
     const reach=Math.hypot(dx,dz)+STREET_BUMP_RADIUS;
     const nearby=people.filter(person=>Math.abs((person.ground??groundHeight(person.x,person.z))-groundHeight(p.x,p.z,p.riverWalk))<1.5&&Math.hypot(person.x-p.x,person.z-p.z)<=reach);
+    const approachesFace=(x,face,radius)=>{
+      const from=p.x-face,to=x-face;
+      return Math.abs(to)<radius&&(Math.abs(to)<Math.abs(from)||from*to<0);
+    };
     const blocked=(x,z)=>{
       const at=riverWalkPosition(x,z),gate=at&&hasRiverStairs(x)&&at.lx>=RIVER_STAIRS.landing+.45&&at.lx<=RIVER_STAIRS.start-.45&&at.d>=-.5&&at.d<=RIVER_STAIRS.width;
+      const before=groundHeight(p.x,p.z,p.riverWalk);
       if(p.riverWalk){
         if(!at||(!gate&&(at.d<.45||at.d>RIVER_WALK_WIDTH-.45)))return true;
         const chunk=this.chunks.get(`${Math.floor(x/BLOCK)},${Math.floor(z/BLOCK)}`);
         const benches=chunk?.riverBenches??riverBenches({x:Math.floor(x/BLOCK),z:Math.floor(z/BLOCK),riverStart:riverStart(Math.floor(z/BLOCK))});
         if(benches.some(b=>Math.abs(x-b.x)<1.45&&Math.abs(z-b.z)<.75))return true;
-        if(riverWalkHeight(x,z)-groundHeight(p.x,p.z,true)>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
+        if(hasRiverStairs(x)&&at.d>=0&&at.d<=RIVER_STAIRS.width+.45){
+          const rear=x-at.lx+RIVER_STAIRS.landing;
+          if(approachesFace(x,rear,.45))return true;
+          const edge=at.bank+at.dir*RIVER_STAIRS.width;
+          const feet=p.riverFall?.height??before;
+          if((p.z-edge)*at.dir>=0&&(z-p.z)*at.dir<=0&&at.d<RIVER_STAIRS.width+.45&&
+            riverWalkHeight(x,edge)>feet+Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
+        }
+        if(riverWalkHeight(x,z)-before>Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps+.01)return true;
       }else if(!gate&&this.solid(x,z))return true;
       const height=groundHeight(x,z,p.riverWalk||gate&&at.d>=0);
       if(at){
         const street=Math.round(x/BLOCK),start=riverStart(Math.floor(z/BLOCK))*BLOCK;
         // Include the player's radius around the bridge fascia and railing.
         // Lower-path walkers can still pass beneath the entire structure.
-        if(hasBridge(street)&&Math.abs(Math.abs(x-street*BLOCK)-14)<.55&&z>=start+18-.45&&z<=start+110+.45){
+        const side=street*BLOCK+(x<street*BLOCK?-14:14);
+        if(hasBridge(street)&&Math.abs(x-side)<.55&&z>=start+18-.45&&z<=start+110+.45){
           const deck=bridgeHeight(Math.max(start+18,Math.min(start+110,z)));
-          if(height<deck+1.2&&height+1.65>deck-1.4)return true;
+          // Test lateral steps at the player's current height. The destination
+          // may already be off the deck, where groundHeight returns zero.
+          const feet=x===p.x?height:p.riverFall?.height??before;
+          if(feet<deck+1.2&&feet+1.65>deck-1.4&&
+            (x===p.x||approachesFace(x,side,.55)))return true;
         }
       }
       const car=cars.find(car=>car.waiting&&Math.abs(groundHeight(car.x,car.z)-height)<1.5&&Math.abs(x-car.x)<(car.axis?2.8:1.5)&&Math.abs(z-car.z)<(car.axis?1.5:2.8));
