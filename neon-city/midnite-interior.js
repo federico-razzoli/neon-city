@@ -62,11 +62,11 @@ export const booksellerTalk=({seen,taken,returned})=>[[
     ?"I THINK I'VE LOST IT. IF YOU FIND IT, PLEASE, TAKE IT TO ME."
     :returned?"I'M SO HAPPY YOU'VE FOUND IT. THANK YOU, SIR!":"MY BACKPACK IS NOT FOR SALE, SIR."]}]:[]),
   {ask:'BYE!',answer:['SEE YOU LATER, SIR!'],ends:true}
-],[
+],Object.assign([
   {ask:'WOULD YOU SELL IT TO ME?',answer:[{say: "I WOULDN'T SELL IT FOR A MILLION COWS. SORRY PAL.",sets:'BOOKSELLER_TICKET_REFUSED'}],unless:'BOOKSELLER_TICKET_REFUSED'},
-  {ask:'I REALLY NEED THAT TICKET...',answer:[{say:'I NEED IT, TOO. SORRY PAL.',sets:'BOOKSELLER_TICKET_NEEDED'}],needs:'BOOKSELLER_TICKET_REFUSED'},
+  {ask:'I REALLY NEED THAT TICKET...',answer:[{say:'I NEED IT, TOO. SORRY PAL.',sets:'BOOKSELLER_TICKET_NEEDED'}],needs:'BOOKSELLER_TICKET_REFUSED',next:0},
   {ask:'NEVER MIND.',answer:[],next:0}
-]];
+],{giveAfter:'BOOKSELLER_TICKET_NEEDED'})];
 export function bookshopReply(player,life=null){
   // A clear aim at the bookseller opens his conversation, even though the
   // register is closer to the customer on the counter in front of him.

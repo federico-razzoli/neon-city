@@ -145,7 +145,7 @@ const CHARACTER_TRAITS={
     'MY SKIN, MY OPINION, MY... SEXUAL ORIENTATION.',
     "I KNOW THEY'RE JUST WANKERS, BUT...",
     'SOMETIMES IT HURTS.',
-    "WHEN I'M SAD, I GO TO THE NIGHT RIVER.",
+    "WHEN I'M SAD, I GO TO NIGHT RIVER.",
     {say:"I THINK I'VE HEARD STRANGE NOISES FROM THE STAFF ROOM...",sets:'PUB_STAFF_ROOM_NOISES'}
   ],riverLines:[
     "I COME HERE WHEN I'M SAD.",
@@ -173,6 +173,8 @@ export const placeLines=(type,place)=>CHARACTER_TRAITS[type]?.[PLACE_LINES[place
 // The riverside promenade, a park footpath, or null for an ordinary sidewalk.
 const walkerPlace=(chunk,p)=>chunk.river?'river':p.detour?'footpath':null;
 export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
+export const PUNK_GIRL_TYPE=3;
+export const OTHER_PUB_TYPES=PUB_TYPES.filter(type=>type!==PUNK_GIRL_TYPE);
 // Relative chance of meeting each character on the street; pubs ignore it.
 export const streetWeight=type=>CHARACTER_TRAITS[type]?.weight??1;
 const STREET_WEIGHT_TOTAL=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>streetWeight(type)).reduce((a,b)=>a+b);

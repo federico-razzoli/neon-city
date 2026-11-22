@@ -17,6 +17,8 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {MAGIC_BOOT} from './magic-boot.js';
+
 const TATTOOED_MAN={
   label:'Talk to the tattooed man',
   script:[
@@ -25,14 +27,24 @@ const TATTOOED_MAN={
     {ask:'BYE!',answer:['IT WAS GREAT TALKING TO YOU!'],ends:true},
   ],
   gifts:{
+    'pastis-bottle':["PASTIS SUCKS. BUT I'D BE HAPPY TO ACCEPT SOME BEER."],
     flower:['THIS FLOWER SUCKS.','IT REALLY DOES.'],
     'pine-cone':['THIS PINE CONE SUCKS.','IT REALLY DOES.'],
   },
 };
-// The punk girl turns down whatever she is offered, in every place.
-const PUNK_GIRL_GIFTS={any:record=>'RADIOACTIVE_COWS_TICKET_MENTIONED' in record
-  ?['THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!','FIND ME ONE, IF YOU WANT TO MARRY ME.']
-  :['THANKS BUT NO THANKS.']};
+const PROMISE={
+  ask:'DO YOU REMEMBER YOUR PROMISE?',needs:'PUNK_GIRL_HAS_TICKET',unless:'MAGIC_BOOT_RECEIVED',
+  answer:[{say:'WELL... YES... BUT...',gives:MAGIC_BOOT,sets:'MAGIC_BOOT_RECEIVED'}, "LISTEN, I'M TOO YOUNG TO MARRY YOU.",
+    'COME BACK IN TEN YEARS, OK?',
+    'IN THE MEANWHILE, I CAN GIVE YOU THIS.'],
+};
+const PUNK_GIRL_GIFTS={
+  ticket:{accept:true,answer:[{say:"IS THIS... IS THIS... OH SH*T, I CAN'T BELIEVE IT!",sets:'PUNK_GIRL_HAS_TICKET'},
+    "I'LL GO TO THE RADIOACTIVE COWS SHOW TOMORROW!",'THANK YOU, THANK YOU, THANK YOU!']},
+  any:record=>'RADIOACTIVE_COWS_TICKET_MENTIONED' in record&&!record.PUNK_GIRL_HAS_TICKET
+    ?['THIS IS NOT A TICKET FOR THE RADIOACTIVE COWS SHOW!','FIND ME ONE, IF YOU WANT TO MARRY ME.']
+    :['THANKS BUT NO THANKS.'],
+};
 const PUNK_GIRL={
   pub:{
     label:'Talk to the punk girl',
@@ -40,6 +52,7 @@ const PUNK_GIRL={
       {ask:"WHAT'S YOUR FAVOURITE GENRE?",answer:['POLKA METAL!','BUT I ALSO LIKE TRIBAL TANGO.','AND PROGRESSIVE LOUNGE.']},
       {ask:"WHAT'S YOUR FAVOURITE ALBUM?",answer:['"CONTAMINATING THE FARM", BY THE RADIOACTIVE COWS.']},
       {ask:"WHAT'S YOUR FAVOURITE SONG?",answer:['THE PURPLE COW.']},
+      PROMISE,
       {ask:'BYE!',answer:['MOO-BYE!'],ends:true},
     ],
     gifts:PUNK_GIRL_GIFTS,
@@ -49,7 +62,8 @@ const PUNK_GIRL={
     script:[
       [{ask:'I LOVE BLACK RIVER.',answer:['I LOVE IT, TOO.',"I WONDER IF IT'S RADIOACTIVE?"],next:1},
         {ask:'DO YOU COME HERE OFTEN?',answer:['YEAH. THIS PLACE IS SPECIAL.']},
-        {ask:'BYE!',answer:['MOO-MOO-BYE!'],ends:true}],
+        PROMISE,
+      {ask:'BYE!',answer:['MOO-MOO-BYE!'],ends:true}],
       [{ask:"I DON'T THINK SO.",answer:["OH, WELL. IT'S STILL BEAUTIFUL."],next:0}],
     ],
     gifts:PUNK_GIRL_GIFTS,
@@ -58,6 +72,7 @@ const PUNK_GIRL={
     label:'Talk to the punk girl',
     script:[
       {ask:'DO YOU LIKE THIS PARK?',answer:["YEAH. IT'S A BIT SMALL, THOUGH."]},
+      PROMISE,
       {ask:'BYE!',answer:['MOO-MOO-BYE!'],ends:true},
     ],
     gifts:PUNK_GIRL_GIFTS,

@@ -18,8 +18,9 @@ If not, see <https://www.gnu.org/licenses/>.
 */
 
 import {facesEntrance} from './entrances.js';
+import {drawMagicBoot} from './magic-boot.js';
 import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=bumps-1';
-import {PUB_TYPES} from './world.js?v=bumps-1';
+import {OTHER_PUB_TYPES,PUNK_GIRL_TYPE} from './world.js?v=bumps-1';
 import {register} from './register.js';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
@@ -64,11 +65,13 @@ export function facingPubChair(player,patrons=[],reserved){
   return nearest;
 }
 export function createPubPatrons(random=Math.random){
-  return PUB.tables.map(()=>{
+  const punkTable=Math.floor(random()*PUB.tables.length);
+  return PUB.tables.map((_,index)=>{
     // 10% empty, 45% solo, 45% paired.
     const roll=random(),count=roll<.1?0:roll<.55?1:2,seats=[null,null];
     const first=random()<.5?0:1;
-    for(let i=0;i<count;i++)seats[(first+i)%2]=PUB_TYPES[Math.floor(random()*PUB_TYPES.length)];
+    for(let i=0;i<count;i++)seats[(first+i)%2]=OTHER_PUB_TYPES[Math.floor(random()*OTHER_PUB_TYPES.length)];
+    if(index===punkTable)seats[first]=PUNK_GIRL_TYPE;
     seats.beerSides=[random()<.5?-1:1,random()<.5?-1:1];
     // Outfit variants follow patrons between the street sprite and their seat.
     seats.variants=[random(),random()];
@@ -156,6 +159,7 @@ export function pubTapReply(player){
 // A line that needs a register key is offered only once the player has it; an
 // answer given as {say,sets} adds its key to the register as it is said.
 // Offered items are answered by item id, or by an `any` gift for every item.
+export const BARTENDER_GIFTS={'pastis-bottle':['I TRADE DRINKS FOR MONEY, NOT FOR OTHER DRINKS.']};
 export const BARTENDER_TALK=[
   {ask:'HEY!',answer:['HELLO THERE!']},
   {ask:'ABOUT THE TOILET...',answer:['THIS PUB IS NOT RESPONSIBLE FOR ANY PARANORMAL ACTIVITY IN THE TOILETS.'],needs:'PUB_PARANORMAL_ACTIVITIES'},
@@ -171,7 +175,8 @@ export class StaffTalk{
       return {ask:item.name,...(Array.isArray(response)?{answer:response}:response)};
     }),{ask:'BACK',action:'back'}];
     const options=this.blocks[this.block].filter(option=>(option.needs==null||option.needs in this.record)&&(option.unless==null||!(option.unless in this.record)));
-    return this.inventory?[...options,{ask:'GIVE',action:'give',separator:true}]:options;
+    const giveRule=this.blocks[this.block].giveAfter;
+    return this.inventory&&(!giveRule||this.record[giveRule])?[...options,{ask:'GIVE',action:'give',separator:true}]:options;
   }
   get line(){const said=this.answer[0];return said?.say??said??null;}
   move(step){if(!this.line)this.selected=(this.selected+step+this.script.length)%this.script.length;}
@@ -182,9 +187,17 @@ export class StaffTalk{
       if(!option)return;
       if(option.action==='give'){this.returnSelection=choice;this.giving=true;this.selected=0;return;}
       if(option.action==='back'){this.giving=false;this.selected=this.returnSelection;return;}
+      if(this.giving&&option.accept){
+        this.inventory.items.splice(choice,1);
+        this.inventory.selected=Math.max(0,Math.min(this.inventory.selected,this.inventory.items.length-1));
+        this.giving=false;
+        choice=0;
+      }
       this.selected=choice;this.chosen=option;this.answer=[...(typeof option.answer==='function'?option.answer():option.answer)];
     }
-    if(this.answer[0]?.sets)this.record[this.answer[0].sets]=true;
+    const line=this.answer[0];
+    if(line?.gives&&!this.record[line.sets])this.inventory.take(line.gives);
+    if(line?.sets)this.record[line.sets]=true;
     if(this.line)return;
     this.over=!!this.chosen.ends;
     if(this.chosen.next!=null){this.block=this.chosen.next;this.selected=0;}
@@ -364,11 +377,7 @@ export function drawSeatedCharacterLegs({box},chair,type,variant=0,reach=0){
     else box(x+dx,.52,z+.2-(side>0?reach:0),.17,.17,.55+reach,trousers);
     box(x+dx,.12,z+(side<0?.57:.06)+forward,.17,.46,.17,shins);
     if(type===3){
-      // The punk's street outfit has tall black shafts and chunky soles.
-      const bootZ=z+(side<0?.57:.06)+forward;
-      box(x+dx-.01,.12,bootZ-.01,.19,.27,.19,SHOE_COLORS[type]);
-      box(x+dx-.025,.04,z+(side<0?.55:-.06)+forward,.22,.12,.3,SHOE_COLORS[type]);
-      box(x+dx+.035,.17,bootZ-.016,.035,.16,.012,'#363340');
+      drawMagicBoot({x:x+dx+.085,z:z+(side<0?.70:.09)+forward,ground:.04},box,side);
     }else if(type===1||type===8){
       // Match the street outfit's raised sole and narrow heel at the rear.
       const shoeZ=z+(side<0?.55:-.06)+forward;

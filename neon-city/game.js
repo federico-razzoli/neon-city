@@ -35,6 +35,7 @@ import {Wallet,preloadMoneyNote} from './money.js?v=hotel-cash-1';
 import {followupFor} from './npc-dialogue.js?v=punk-girl-1';
 import {drawFlower} from './flowers.js';
 import {Inventory,TAKEN,inventoryImage,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=backpack-reward-1';
+import {drawMagicBoot} from "./magic-boot.js";
 import {ARBRE_MAGIQUE,drawArbreMagique} from './arbre-magique.js';
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
@@ -58,7 +59,7 @@ import {BookshopLife} from './midnite-life.js';
 import {previewBackpack,previewBook} from './bookshop-preview.js';
 import {drawPastisBottle,drawMarijuanaPlant} from './backpack-contents.js';
 import {pubName} from './pub.js?v=park-entrances-1';
-import {PUB,BOTTLES_REPLY,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
+import {PUB,BOTTLES_REPLY,BARTENDER_GIFTS,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
 import {LAVATORY,CUBICLE,CUBICLE_REPLIES,MIRROR_CHILD_BLACKOUT_TEXT,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
@@ -363,6 +364,7 @@ function drawInventoryObject(item,{face,quad,box}){
   else if(item.id==='backpack')previewBackpack(position,face);
   else if(item.id==='pastis-bottle')drawPastisBottle(position,box,face);
   else if(item.id==='marijuana-plant')drawMarijuanaPlant(position,box,face);
+  else if(item.id==='magic-boot')drawMagicBoot(position,box);
   else if(item.id==='arbre-magique')drawArbreMagique(position,face,{upright:true});
   else if(item.bookshopLoan)previewBook(item,face);
   else if(item.id==='pine-cone')pineCone(inventoryConePreview,face,{x:2,y:3,z:-4});
@@ -765,6 +767,15 @@ function interactTouchGround(){
   if(!indoors()){coverPressed=true;enableSound();}
 }
 function handleWorldInput(k,e){
+  const conversation=e.key==='Enter'&&passiveConversation();
+  if(conversation?.lines?.length&&!conversation.ready){
+    if(!e.repeat){
+      const line=conversation.advance();
+      if(startFollowup())return;
+      if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;}
+    }
+    return;
+  }
   if(k===' '&&!e.repeat&&playerSeat){useSeat();return;}
   if(k===' '&&!e.repeat&&!indoors()){
     for(const chunk of city.chunks.values()){
@@ -805,15 +816,6 @@ function handleWorldInput(k,e){
     if(lightReply){notice=4.5;noticeText=lightReply;document.querySelector('#message').textContent=lightReply;}
     return;
   }
-  const conversation=passiveConversation();
-  if(e.key==='Enter'&&conversation?.lines.length){
-    if(!e.repeat){
-      const line=conversation.advance();
-      if(startFollowup())return;
-      if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;}
-    }
-    return;
-  }
   if(k===' '&&!e.repeat&&insideCubicle&&lavatoryLife?.cubicleBlackout){useDoor();return;}
   if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){bookshopLife?.resetBookInteraction();notice=2.5;noticeText=pickedUp;return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){if(arcadeLife?.occupied(machine)){notice=2.5;noticeText='SOMEONE IS ALREADY PLAYING THIS CABINET.';return;}const reply=tryArcadeGame(machine,inventory,false);if(reply==='PINBALL'||reply==='BYKER'||reply==='GHOST'||reply==='PUNCH'||reply==='PING'||reply==='GROG'||reply==='KONGY KONG'||reply==='AMIGOS'||reply==='METEORS'||reply==='BRICKS'||reply==='SUPER'){playCabinet(reply,machine);}else{notice=3.5;noticeText=reply;}return;}}if(useSeat()){bookshopLife?.resetBookInteraction();return;}if(useDoor()){bookshopLife?.resetBookInteraction();return;}if(insideBookshop){const target=bookshopSpatial()?bookshopTarget():undefined;const reply=bookshopLife.interact(player,inventory,target)??(target===undefined?bookshopReply(player,bookshopLife):target?.type==='reply'?target.data:null);if(reply){notice=4;noticeText=reply;}else if(bookshopLife.atDesk&&(target===undefined?facingBookseller(player):target?.type==='seller'))talkToStaff(booksellerTalk(bookshopLife.backpack),'Talk to the bookseller',bookshopLife.booksellerGifts(inventory));return;}if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(!arcadeLife?.deskBusy&&facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(facingHotelLamp(player,currentHotel)){const complaint=switchHotelLamp(currentHotel,inventory);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player,hotelLife.guest()?.receptionWait>0,currentHotel);if(reply){notice=2.5;noticeText=reply;}else if(!(hotelLife.guest()?.receptionWait>0)&&facingReceptionistAcrossDesk(player,currentHotel))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){if(washroomSpatial()){
       const target=washroomTarget();
@@ -824,12 +826,12 @@ function handleWorldInput(k,e){
       const target=pubTarget();
       if(target?.type==='bartender'){
         if(player.z>PUB.bar.z+PUB.bar.d){notice=2.5;noticeText=BARTENDER_REPLY;}
-        else talkToStaff(BARTENDER_TALK,'Talk to the bartender');
+        else talkToStaff(BARTENDER_TALK,'Talk to the bartender',BARTENDER_GIFTS);
       }else{
         const reply=target?.type==='staff'?"IT'S LOCKED...":target?.type==='beer'?BAR_BEER_REPLY:target?.type==='bottles'?BOTTLES_REPLY:target?.type==='tap'?(player.z<PUB.bar.z?"I CAN'T REACH IT.":"HEY! YOU CAN'T SERVE YOURSELF!"):null;
         if(reply){notice=2.5;noticeText=reply;}
       }return;
-    }const tapReply=pubTapReply(player);if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingCounterObject(player,currentVenue.barBeer??PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(tapReply){notice=2.5;noticeText=tapReply;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender');else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
+    }const tapReply=pubTapReply(player);if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingCounterObject(player,currentVenue.barBeer??PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(tapReply){notice=2.5;noticeText=tapReply;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender',BARTENDER_GIFTS);else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
   if(!e.touch){keys.add(k);syncShift(e);}
 }
 function syncShift(e){
