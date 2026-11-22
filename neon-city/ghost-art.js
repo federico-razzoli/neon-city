@@ -47,10 +47,21 @@ export function drawGhost(c,g){
   }
   for(const id of g.dots){const x=id%28,y=Math.floor(id/28);rect(BX+(x+.5)*T-1,BY+(y+.5)*T-1,2,2,'#e8c99d');}
   for(const id of g.skulls){const x=id%28,y=Math.floor(id/28);skull(BX+(x+.5)*T,BY+(y+.5)*T,1,Math.sin(g.clock*5)>-.5?'#87f9a6':'#409c75');}
+  for(const [id,item] of g.bonuses){
+    const x=BX+(id%28+.5)*T,y=BY+(Math.floor(id/28)+.5)*T;
+    if(item==='cherry'){
+      line(x-2,y+1,x+1,y-4,MINT);line(x+2,y,x+1,y-4,MINT);
+      circle(x-2,y+2,2.2,'#ff506a');circle(x+2,y+1,2.2,'#ff7884');
+    }else if(item==='wand'){
+      line(x-3,y+3,x+2,y-2,'#cb91ff',2);text('✦',x+2,y,8,'#fff49d','center');
+    }else if(item==='arrow')text('↔',x,y+3,12,'#85eaff','center');
+    else {rect(x-1,y-4,2,4,CREAM);circle(x,y+1,3.4,'#40e948');rect(x-2,y-4,4,1,'#dc9860');}
+  }
   // The cage gate is solid to the player, passable only to departing/returning pursuers.
   line(BX+13*T,BY+12.5*T,BX+15*T,BY+12.5*T,'#fa9dcb',2);
   text('CAGE',BX+14*T,BY+16*T-1,5,'#827391','center');
   for(const e of g.enemies){
+    if(e.state==='hidden')continue;
     const p=g.position(e),x=BX+(p.x+.5)*T,y=BY+(p.y+.5)*T;
     const inCage=['caged','reviving','waiting'].includes(e.state);
     let colour=e.frightened&&g.power>0?(g.power<2&&Math.floor(g.clock*7)%2?'#e7eddc':'#647cfa'):e.colour;
@@ -74,7 +85,7 @@ export function drawGhost(c,g){
   const rules=['Targets your tile','Four tiles ahead','Uses you + red','Retreats when close'];
   g.enemies.forEach((e,i)=>{
     const y=68+i*45;pac(481,y+3,7,e.colour,3);text(names[i],495,y,9,e.colour);text(rules[i],475,y+16,8,'#9cacc2');
-    text(e.state==='caged'?'IN THE CAGE':e.state==='eyes'?'RETURNING':e.state==='reviving'||e.state==='waiting'?'RECOVERING':e.frightened?'VULNERABLE':e.state==='exiting'?'RELEASED':g.mode==='scatter'?'SCATTER':'CHASING',475,y+28,6,e.frightened?MINT:'#657992');
+    text(e.state==='hidden'?`AWAY ${Math.ceil(e.revive)}s`:e.state==='caged'?'IN THE CAGE':e.state==='eyes'?'RETURNING':e.state==='reviving'||e.state==='waiting'?'RECOVERING':e.frightened?'VULNERABLE':e.state==='exiting'?'RELEASED':g.mode==='scatter'?'SCATTER':'CHASING',475,y+28,6,e.frightened?MINT:'#657992');
   });
   panel(469,250,151,68);skull(483,265,1.25);
   text(g.power>0?'SKULL POWER':'GREEN SKULLS',499,267,9,MINT);

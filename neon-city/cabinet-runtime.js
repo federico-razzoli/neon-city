@@ -3,7 +3,7 @@ window.createCabinetGame=async name=>{
   switch(name){
     case 'PINBALL':{const {Pinball}=await import('./pinball.js?v=9');return new Pinball();}
     case 'BYKER':{const {Byker}=await import('./byker.js?v=9');return new Byker();}
-    case 'GHOST':{const {Ghost}=await import('./ghost.js?v=4');return new Ghost();}
+    case 'GHOST':{const {Ghost}=await import('./ghost.js?v=6');return new Ghost();}
     case 'PUNCH':{const {Punch}=await import('./punch.js?v=2');return new Punch();}
     case 'SUPER':{const {Super}=await import('./super.js?v=1');return new Super();}
     case 'METEORS':{const {Meteors}=await import('./meteors.js?v=3');return new Meteors();}

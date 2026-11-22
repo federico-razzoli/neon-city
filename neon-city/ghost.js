@@ -1,4 +1,4 @@
-import {drawGhost} from './ghost-art.js?v=2';
+import {drawGhost} from './ghost-art.js?v=3';
 
 // Targeting and mode rules follow Jamey Pittman's ROM-verified Pac-Man Dossier:
 // https://www.gamedeveloper.com/design/the-pac-man-dossier
@@ -36,6 +36,25 @@ export const GHOST_MAZE=[
   '#..........................#',
   '############################'
 ];
+// The three boards share the central cage and wraparound tunnel.
+function mazeWithWings(top,bottom){
+  const mirror=half=>half+[...half].reverse().join('');
+  return [GHOST_MAZE[0],...top.map(mirror),...GHOST_MAZE.slice(9,24),
+    ...bottom.map(mirror),GHOST_MAZE[30]];
+}
+const MAZES=[GHOST_MAZE,mazeWithWings([
+  '#......#......','#.............','#o#..........#','#.#.##.#####.#',
+  '#............#','###.##.##.##.#','#...##.##....#','#.............'
+],[
+  '#.#.##.##.####','#...##.......#','#.............','#......#.....#',
+  '#.............','#............#'
+]),mazeWithWings([
+  '#............#','#.............','#o##......##.#','#....####....#',
+  '####.#..#.##.#','#....#..#....#','#.............','#.............'
+],[
+  '#.#.##.##.##.#','#.#....##....#','#...##....##.#','###.##.#####.#',
+  '#......#.....#','#.............'
+])];
 export const GHOST_DIRS=[{x:0,y:-1},{x:-1,y:0},{x:0,y:1},{x:1,y:0}]; // tie order: up, left, down, right
 export const GHOST_COLOURS=['#ff5669','#ff9fce','#58e4ed','#ffb45c'];
 const OPPOSITE=[2,3,0,1],COLS=28,ROWS=31,EXIT={x:13,y:11},HOME={x:13,y:14};
@@ -55,11 +74,29 @@ export class Ghost{
   constructor(){this.loadLevel();this.phase='title';}
   loadLevel(){
     this.difficulty=ghostDifficulty(this.level);this.dots=new Set();this.skulls=new Set();
-    GHOST_MAZE.forEach((row,y)=>[...row].forEach((cell,x)=>{if(cell==='.')this.dots.add(key(x,y));if(cell==='o')this.skulls.add(key(x,y));}));
+    this.maze=MAZES[(this.level-1)%MAZES.length];
+    this.maze.forEach((row,y)=>[...row].forEach((cell,x)=>{if(cell==='.')this.dots.add(key(x,y));if(cell==='o')this.skulls.add(key(x,y));}));
+    this.floorTiles=[...this.dots];
+    this.bonuses=new Map();
+    const items=['cherry','cherry','wand'];
+    if(this.level>=2)items.push('arrow');
+    if(this.level>=3)items.push('potion');
+    for(const item of items){
+      let candidates=this.floorTiles;
+      if(this.bonuses.size){
+        // Pick from well-separated tiles without always choosing the extreme corners.
+        const distances=this.floorTiles.map(tile=>Math.min(...Array.from(this.bonuses.keys(),other=>
+          (tile%COLS-other%COLS)**2+(Math.floor(tile/COLS)-Math.floor(other/COLS))**2)));
+        const threshold=Math.max(...distances)*.8;
+        candidates=this.floorTiles.filter((_,i)=>distances[i]>=threshold);
+      }
+      const tile=candidates[Math.floor(this.random()*candidates.length)];
+      this.bonuses.set(tile,item);this.dots.delete(tile);
+    }
     this.total=this.dots.size+this.skulls.size;this.resetActors();
   }
   resetActors(){
-    this.player=actor(13,23,1);this.wanted=1;this.touchDirection=null;
+    this.pendingSwap=false;this.player=actor(13,23,1);this.wanted=1;this.touchDirection=null;
     this.enemies=GHOST_COLOURS.map((colour,i)=>({...actor(12+i,14,i%2?0:2),colour,index:i,state:'caged',frightened:false,revive:0}));
     this.power=0;this.chain=0;this.elapsed=0;this.wave=0;this.mode='scatter';this.modeTime=this.difficulty.scatter;
     this.freeze=0;this.popups=[];this.seed=0x51a7;this.phase='ready';this.timer=2;
@@ -71,7 +108,7 @@ export class Ghost{
     if(d!==undefined)this.wanted=d;
     if(this.phase==='title'&&(d!==undefined||k===' '||k==='Enter')){this.phase='ready';this.timer=2;this.sound('start');}
   }
-  cell(x,y){return GHOST_MAZE[y]?.[x]??'#';}
+  cell(x,y){return this.maze[y]?.[x]??'#';}
   canWalk(x,y,house=false){const c=this.cell(x,y);return c!=='#'&&(house||c!=='H'&&c!=='-');}
   neighbour(a,dir,house=false){
     const d=GHOST_DIRS[dir];let x=a.x+d.x,y=a.y+d.y;
@@ -135,12 +172,12 @@ export class Ghost{
     if(this.neighbour(this.player,this.wanted))return this.wanted;
     return this.neighbour(this.player,this.player.dir)?this.player.dir:null;
   }
-  move(a,distance,choose,onArrival=()=>{}){
+  move(a,distance,choose){
     let left=distance;
     while(left>1e-8){
       if(!a.next){const dir=choose();if(dir==null)return;a.dir=dir;a.next=this.neighbour(a,dir,a!==this.player);if(!a.next)return;a.progress=0;}
       const step=Math.min(left,1-a.progress);a.progress+=step;left-=step;
-      if(a.progress>=1-1e-8){a.x=a.next.x;a.y=a.next.y;a.next=null;a.progress=0;onArrival();if(this.phase!=='playing')return;}
+      if(a.progress>=1-1e-8){a.x=a.next.x;a.y=a.next.y;a.next=null;a.progress=0;}
     }
   }
   energize(){
@@ -153,18 +190,50 @@ export class Ghost{
     if(!this.extraLife&&this.score>=10000){this.extraLife=true;this.lives++;this.sound('extra');}
   }
   collect(){
-    const tile=key(this.player.x,this.player.y);
-    if(this.dots.delete(tile)){this.addScore(10);if(this.score%30===0)this.sound('dot');}
-    this.collectSkull(tile);this.checkClear();
+    const p=this.position(this.player);
+    // The board uses 9px tiles and the ghost has a 5.3px radius.
+    pickupRows: for(let y=Math.ceil(p.y-1.1);y<=p.y+1.1;y++)for(let x=Math.ceil(p.x-1.1);x<=p.x+1.1;x++){
+      if(y<0||y>=ROWS)continue;
+      const tile=key((x+COLS)%COLS,y),distance=Math.hypot(x-p.x,y-p.y)*9;
+      if(distance<=6.3&&this.dots.delete(tile)){
+        this.addScore(10);if(this.score%30===0)this.sound('dot');
+      }
+      if(distance<=9.8)this.collectSkull(tile);
+      const item=this.bonuses.get(tile);
+      if(item&&distance<=5.3+(item==='potion'?3.4:4.5)){
+        this.collectBonus(tile);
+        if(this.phase!=='playing'||item==='arrow')break pickupRows;
+      }
+    }
+    if(this.phase==='playing')this.checkClear();
+  }
+  collectBonus(tile){
+    const item=this.bonuses.get(tile);
+    if(!item)return;
+    const pick=list=>list[Math.floor(this.random()*list.length)];
+    if(item==='cherry'){
+      this.addScore(100);this.popups.push({x:this.player.x,y:this.player.y,text:'100',time:1.2});
+    }else if(item==='potion')this.loseLife();
+    else if(item==='wand'){
+      const hunter=pick(this.enemies);
+      Object.assign(hunter,{state:'hidden',next:null,progress:0,revive:5});
+    }else this.pendingSwap=true;
+    this.bonuses.delete(tile);
+  }
+  swapWithHunter(){
+    const active=this.enemies.filter(e=>e.state==='active');
+    if(!active.length)return;
+    const hunter=active[Math.floor(this.random()*active.length)];
+    const {x,y,next,progress,dir}=hunter;
+    const p=this.player;
+    Object.assign(hunter,{x:p.x,y:p.y,next:p.next,progress:p.progress,dir:p.dir});
+    Object.assign(p,{x,y,next,progress,dir});
+    this.pendingSwap=false;
+  }
+  loseLife(){
+    this.lives--;this.phase='caught';this.timer=1.5;this.power=0;this.sound('death');
   }
   collectSkull(tile){if(this.skulls.delete(tile)){this.addScore(50);this.energize();}}
-  collectNearbySkull(){
-    const p=this.position(this.player);
-    for(const tile of this.skulls){
-      const x=tile%COLS,y=Math.floor(tile/COLS);let dx=Math.abs(p.x-x);dx=Math.min(dx,COLS-dx);
-      if(dx*dx+(p.y-y)**2<=.65**2){this.collectSkull(tile);this.checkClear();break;}
-    }
-  }
   checkClear(){
     if(!this.remaining){this.phase='clear';this.timer=2.5;this.addScore(500*this.level);this.sound('clear');}
   }
@@ -178,10 +247,18 @@ export class Ghost{
       if(e.frightened&&this.power>0){
         const points=200*2**Math.min(3,this.chain++);this.addScore(points);e.state='eyes';e.frightened=false;
         this.popups.push({...q,text:`${points}`,time:1.2});this.freeze=.5;this.sound('eat');
-      }else {this.lives--;this.phase='caught';this.timer=1.5;this.power=0;this.sound('death');return;}
+      }else {this.loseLife();return;}
     }
   }
   release(dt){
+    for(const e of this.enemies)if(e.state==='hidden'){
+      e.revive-=dt;
+      if(e.revive<=0){
+        const places=this.floorTiles.filter(id=>sq({x:id%COLS,y:Math.floor(id/COLS)},this.player)>4);
+        const id=places[Math.floor(this.random()*places.length)];
+        Object.assign(e,actor(id%COLS,Math.floor(id/COLS),e.dir),{state:'active',frightened:this.power>0});
+      }
+    }
     for(const e of this.enemies)if(e.state==='reviving'){e.revive-=dt;if(e.revive<=0)e.state='waiting';}
     if(this.enemies.some(e=>e.state==='exiting'))return;
     const next=this.enemies.find(e=>e.state==='waiting'||e.state==='caged'&&this.elapsed>=this.difficulty.release[e.index]);
@@ -218,8 +295,9 @@ export class Ghost{
       }
     }
     if(this.player.next&&this.wanted===OPPOSITE[this.player.dir])this.reverseActor(this.player);
-    this.move(this.player,dt*(this.difficulty.playerSpeed+(this.power>0?.25:0)),()=>this.choosePlayer(),()=>this.collect());
-    if(this.phase==='playing')this.collectNearbySkull();
+    this.move(this.player,dt*(this.difficulty.playerSpeed+(this.power>0?.25:0)),()=>this.choosePlayer());
+    this.collect();
+    if(this.pendingSwap&&this.phase==='playing')this.swapWithHunter();
     if(this.phase!=='playing')return;
     for(const e of this.enemies){
       let speed=e.state==='eyes'?11:e.state==='exiting'?3:e.frightened?this.difficulty.enemySpeed*.56:this.difficulty.enemySpeed;
