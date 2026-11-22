@@ -93,6 +93,7 @@ export function facingHotelDoor(player,buildings){
   });
 }
 export const facingHotelExit=player=>player.z>HOTEL.door.z&&facingDoorway(player,HOTEL.door,HOTEL.door.halfWidth);
+export const HOTEL_PLANT_REPLY="IT'S JUST A PLANT.";
 export const facingHotelPlant=player=>facingNearest(player,HOTEL.palms);
 // The vase of roses on the reception desk, reached across the counter.
 export const VASE_REPLY='A ROSE, IS A ROSE, IS A ROSE';
@@ -353,11 +354,23 @@ export function hotelReply(player,receptionBusy=false,hotel={}){
   if(!receptionBusy&&facingReceptionist(player,hotel))return BARTENDER_REPLY;
   if(facingKeys(player))return KEYS_REPLY;
   if(facingHotelVase(player))return VASE_REPLY;
-  if(facingHotelPlant(player))return "IT'S JUST A PLANT.";
+  if(facingHotelPlant(player))return HOTEL_PLANT_REPLY;
   return null;
 }
 
 export const hotelInteriorLook=facade=>({...facade,wall:brighter(facade.wall,1.6),panel:brighter(facade.panel,1.35),wood:facade.wood.map(color=>brighter(color,1.25))});
+
+export function drawHotelPalm(face,p,y,look){
+  drawCylinder(face,p.x,y,p.z,.32,.9,look.metal,'#2a1c16',.4);
+  drawCylinder(face,p.x,y+.9,p.z,.06,1.65,'#5b4430');
+  for(let i=0;i<7;i++){
+    const angle=i*2*Math.PI/7,c=Math.cos(angle),s=Math.sin(angle);
+    const tip={x:p.x+c*.95,y:y+1.875,z:p.z+s*.95},mid={x:p.x+c*.5,y:y+2.775,z:p.z+s*.5};
+    const base={x:p.x,y:y+2.55,z:p.z},w={x:-s*.13,z:c*.13};
+    const color=i%2?'#2a5a3c':'#356f4b';
+    face([base,{x:mid.x+w.x,y:mid.y,z:mid.z+w.z},tip,{x:mid.x-w.x,y:mid.y,z:mid.z-w.z}],color);
+  }
+}
 
 // Matching panelled double doors, with separate leaves and brass handles.
 export function drawHotelDoubleDoor(box,x,y,z,look,facing=-1){
@@ -493,18 +506,7 @@ export function drawHotelInterior({face,quad,box,look:facade,receptionist=NURSE_
   for(let i=0;i<3;i++)box(sofa.x+.28,.45,sofa.z+.3+i*.95,.68,.12,.9,look.velvet[1]);
   for(const z of [sofa.z+.05,sofa.z+sofa.d-.15])for(const x of [sofa.x+.05,sofa.x+sofa.w-.15])box(x,0,z,.1,.12,.1,look.wood[1]);
 
-  // Potted palms about 2.8 m tall either side of the sofa.
-  for(const p of HOTEL.palms){
-    cylinder(p.x,0,p.z,.32,.9,look.metal,'#2a1c16',.4);
-    cylinder(p.x,.9,p.z,.06,1.65,'#5b4430');
-    for(let i=0;i<7;i++){
-      const angle=i*2*Math.PI/7,c=Math.cos(angle),s=Math.sin(angle);
-      const tip={x:p.x+c*.95,y:1.875,z:p.z+s*.95},mid={x:p.x+c*.5,y:2.775,z:p.z+s*.5};
-      const base={x:p.x,y:2.55,z:p.z},w={x:-s*.13,z:c*.13};
-      const color=i%2?'#2a5a3c':'#356f4b';
-      face([base,{x:mid.x+w.x,y:mid.y,z:mid.z+w.z},tip,{x:mid.x-w.x,y:mid.y,z:mid.z-w.z}],color);
-    }
-  }
+  for(const palm of HOTEL.palms)drawHotelPalm(face,palm,0,look);
 
   // The staircase: marble steps under a red carpet with brass stair rods,
   // and a banister along its open side, climbing to the landing.

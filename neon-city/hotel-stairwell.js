@@ -19,7 +19,7 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import {register} from './register.js';
 import {facingDoorway,facingNearest,drawRod,pubPersonBlocks} from './pub-interior.js?v=taps-turned-1';
-import {hotelInteriorLook,drawHotelDoubleDoor,STAIR_CARPET} from './hotel-interior.js?v=street-lights-1';
+import {hotelInteriorLook,drawHotelPalm,HOTEL_PLANT_REPLY,drawHotelDoubleDoor,STAIR_CARPET} from './hotel-interior.js?v=street-lights-1';
 
 // Door frames are 2.65m tall: the former 1.35m gap above them is now 2.025m.
 import {HOTEL_STAIRWELL} from './hotel-layout.js';
@@ -45,6 +45,10 @@ export function stairwellDropSpot(player,state){
 export const facingStairwellExit=(player,state)=>state.floor===1&&state.flight===null&&facingDoorway(player,{x:4,z:0},1.2);
 export const facingHotelCorridor=(player,state)=>state.flight===null&&facingDoorway(player,{x:4,z:D},1.2);
 
+const landingPalm={x:7,z:1,radius:.45};
+const onStorageLanding=state=>state.floor===2&&state.flight===null;
+export const stairwellPlantReply=(player,state)=>onStorageLanding(state)&&facingNearest(player,[landingPalm])?HOTEL_PLANT_REPLY:null;
+
 // The storage door stands on the west wall, so swap axes to reuse the doorway test.
 const STORAGE_DOOR={z:1.5,halfWidth:.5};
 // Leaving the storeroom puts the player back before its door, facing east.
@@ -65,6 +69,7 @@ export function interactStairwellLight(player,state,record=register){
 export function moveInHotelStairwell(player,dx,dz,state,guest){
   const step=(x,z)=>{
     if([guest].flat().some(g=>g&&Math.abs(stairwellHeight(player,state)-g.y)<1.5&&pubPersonBlocks(player,{x,z},g)))return;
+    if(onStorageLanding(state)&&Math.hypot(x-landingPalm.x,z-landingPalm.z)<landingPalm.radius+.3)return;
     if(x<.3||x>7.7||z<.3||z>D-.3)return;
     if(state.flight!==null){
       if(state.flight===1&&x<5.3||state.flight===2&&x>2.7)return;
@@ -126,6 +131,7 @@ export function drawHotelStairwell({face,quad,box,look:facade}){
   for(let x=0;x<8;x++)for(let z=0;z<D;z++)quad(x,3*R,z,1,1,look.panel);
   drawHotelDoubleDoor(box,4,0,.06,look,1);
   // A plain service door on the west wall of the recess beyond the upward flight on floor 2.
+  drawHotelPalm(face,landingPalm,R,look);
   const storageZ=STORAGE_DOOR.z;
   box(.015,R,storageZ-.57,.1,2.4,1.14,'#514d46');
   box(.12,R+.025,storageZ-.5,.045,2.3,1,'#777568');

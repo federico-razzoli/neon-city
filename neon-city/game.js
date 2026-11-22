@@ -37,7 +37,7 @@ import {drawFlower} from './flowers.js';
 import {Inventory,TAKEN,inventoryImage,takeOutdoorItem,dropItem,takeDroppedItem,drawDroppedToken} from './inventory.js?v=backpack-reward-1';
 import {drawMagicBoot} from "./magic-boot.js";
 import {ARBRE_MAGIQUE,drawArbreMagique} from './arbre-magique.js';
-import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,interactStairwellLight,moveInHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
+import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,stairwellPlantReply,interactStairwellLight,moveInHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade} from './arcade-interior.js?v=bricks-2';
 import {ArcadeLife} from './arcade-life.js?v=bricks-2';
@@ -812,6 +812,8 @@ function handleWorldInput(k,e){
       if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}
     }
     if(useDoor())return;
+    const plantReply=stairwellPlantReply(player,hotelStairs);
+    if(plantReply){notice=2.5;noticeText=plantReply;return;}
     const lightReply=interactStairwellLight(player,hotelStairs);
     if(lightReply){notice=4.5;noticeText=lightReply;document.querySelector('#message').textContent=lightReply;}
     return;
