@@ -111,6 +111,13 @@ export function drawCharacter(type,frame,back=false,variant=0,rect){
       rect(skin,2,27,20,5);rect(skin,4,32,16,1);
       if(!back)rect('#bd8a78',12,30,2,1);
     }else if(punk){
+      // Calf-high black boots with chunky soles and silver buckles.
+      for(const [x,step,toe] of [[7,stride,6],[13,-stride,13]]){
+        rect('#211e28',x,38+step,5,7);
+        rect('#141219',toe,44+step,6,3);
+        rect('#655666',x,38+step,5,1);
+        if(!back)rect('#cabec8',x+1,41+step,2,1);
+      }
       rect('#322637',8,5,9,back?8:2);
       rect('#db4691',10,2,5,back?11:5);rect('#fe75b6',12,0,2,4);
       rect('#211e28',left,28,right-left,2);
