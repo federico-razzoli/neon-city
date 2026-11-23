@@ -301,10 +301,20 @@ export const RIVER_LOAD_RADIUS = 4;
 export const PEDESTRIAN_MIN_SPEED = .9;
 export const PEDESTRIAN_MAX_SPEED = PEDESTRIAN_MIN_SPEED * 2;
 export const PERSON_CLEARANCE = .85; // Player radius plus pedestrian radius.
+export const PEDESTRIAN_RETRY_INTERVAL=1.5;
+export function retryBlockedWalker(p,dt){
+  p.stuckTime=(p.stuckTime??0)+dt;
+  if(p.stuckTime<PEDESTRIAN_RETRY_INTERVAL)return false;
+  p.stuckTime=0;
+  return true;
+}
 const STREET_BUMP_RADIUS = PERSON_CLEARANCE * 1.5; // 50% larger player–NPC collision radius.
 export const mod = (n, d) => ((n % d) + d) % d;
 function crossesPerson(a,b,person,clearance=PERSON_CLEARANCE) {
   const dx=b.x-a.x,dz=b.z-a.z,length=dx*dx+dz*dz;
+  // Walkers already inside clearance can separate along a swept step.
+  if(length&&(a.x-person.x)**2+(a.z-person.z)**2<clearance*clearance&&
+    (a.x-person.x)*dx+(a.z-person.z)*dz>=0)return false;
   const t=length?Math.max(0,Math.min(1,((person.x-a.x)*dx+(person.z-a.z)*dz)/length)):0;
   return Math.hypot(a.x+dx*t-person.x,a.z+dz*t-person.z)<clearance;
 }
@@ -501,7 +511,7 @@ export class City {
     const crossingPeople=people.filter(p=>p.walker.crossing?.started);
     for(let i=0;i<crossingPeople.length;i++)for(let j=i+1;j<crossingPeople.length;j++){
       const a=crossingPeople[i],b=crossingPeople[j],ca=a.walker.crossing,cb=b.walker.crossing;
-      if(ca.yielding||cb.yielding||ca.dx*cb.dx+ca.dz*cb.dz!==-1)continue;
+      if(ca.returning||cb.returning||ca.yielding||cb.yielding||ca.dx*cb.dx+ca.dz*cb.dz!==-1)continue;
       if(ca.request.x!==cb.request.x||ca.request.z!==cb.request.z)continue;
       if(Math.hypot(a.x-b.x,a.z-b.z)>1.5||(b.x-a.x)*ca.dx+(b.z-a.z)*ca.dz<=0)continue;
       // Choose the same walker regardless of chunk iteration order. Hold its
@@ -534,33 +544,48 @@ export class City {
         }
         const c=p.crossing;
         if(!c)continue;
-        handled.add(p);p.stuckTime=0;
+        handled.add(p);
         if(!c.started){
-          if(!traffic.canCross(c.request))continue;
+          if(!traffic.canCross(c.request)){p.stuckTime=0;continue;}
           c.started=true;
         }
         const before=pedestrian(chunk,p,time),y=c.yielding;
+        const blocked=after=>crossesPlayer(before,after,player)||positions.blocked(p,before,after);
+        const point=(distance,offset)=>({x:c.x+c.dx*distance-c.dz*offset,z:c.z+c.dz*distance-c.dx*offset});
+        const direction=c.returning?-1:1,offset=c.offset??0;
+        let nextOffset=offset,distance=c.distance;
         if(y){
           const partner=crossingPeople.find(q=>q.walker===y.partner);
+          if(y.stage==='wait'&&partner?.walker.crossing?.distance!==y.partnerDistance){
+            y.partnerDistance=partner?.walker.crossing?.distance;p.stuckTime=0;
+          }
           if(y.stage==='wait'&&(!partner||(partner.x-before.x)*c.dx+(partner.z-before.z)*c.dz < -1.3))y.stage='back';
-          const offset=y.stage==='out'?Math.min(1.3,(c.offset??0)+dt*1.8):y.stage==='back'?Math.max(0,(c.offset??0)-dt*1.8):(c.offset??0);
-          const after={x:c.x+c.dx*c.distance-c.dz*offset,z:c.z+c.dz*c.distance-c.dx*offset};
-          if(crossesPlayer(before,after,player)||positions.blocked(p,before,after))continue;
-          c.offset=offset;
-          if(y.stage==='out'&&offset===1.3)y.stage='wait';
-          if(y.stage==='back'&&offset===0)delete c.yielding;
-          continue;
+          if(y.stage==='out')nextOffset=Math.min(1.3,offset+dt*1.8);
+          if(y.stage==='back')nextOffset=Math.max(0,offset-dt*1.8);
+        }else{
+          distance=Math.max(0,Math.min(22,c.distance+direction*p.speed*dt));
+          if(distance===c.distance)nextOffset=Math.max(0,offset-dt*1.8);
         }
-        const distance=Math.min(22,c.distance+p.speed*dt);
-        const after={x:c.x+c.dx*distance,z:c.z+c.dz*distance};
-        if(crossesPlayer(before,after,player)||positions.blocked(p,before,after))continue;
-        c.distance=distance;p.walkTime+=dt;
-        if(distance===22)transfers.push({chunk,p,c});
+        if(blocked(point(distance,nextOffset))||y?.stage==='wait'){
+          if(!retryBlockedWalker(p,dt))continue;
+          distance=Math.max(0,Math.min(22,c.distance-direction*p.speed*dt));
+          nextOffset=offset;
+          if(blocked(point(distance,offset)))continue;
+          c.returning=!c.returning;
+          delete c.yielding;
+        }else p.stuckTime=0;
+        c.distance=distance;c.offset=nextOffset;p.walkTime+=dt;
+        if(c.yielding){
+          if(y.stage==='out'&&nextOffset===1.3)y.stage='wait';
+          if(y.stage==='back'&&nextOffset===0)delete c.yielding;
+        }
+        if(!nextOffset&&!c.yielding&&(c.returning?distance===0:distance===22))transfers.push({chunk,p,c});
       }finally{positions.set(p,pedestrian(chunk,p,time));}
     }
     for(const {chunk,p,c} of transfers){
-      chunk.people.splice(chunk.people.indexOf(p),1);c.target.people.push(p);
-      const x=c.x+c.dx*22-c.target.x*BLOCK,z=c.z+c.dz*22-c.target.z*BLOCK;
+      const destination=c.returning?chunk:c.target;
+      if(destination!==chunk){chunk.people.splice(chunk.people.indexOf(p),1);destination.people.push(p);}
+      const x=c.x+c.dx*c.distance-destination.x*BLOCK,z=c.z+c.dz*c.distance-destination.z*BLOCK;
       const corner=x===11?(z===11?0:3):(z===11?1:2);
       p.reverse=!p.reverse;
       p.phase=mod(corner*42-p.walkTime*p.speed*(p.reverse?-1:1),168);
@@ -656,9 +681,12 @@ export class City {
       for(const p of people){
         const y=p.yielding;
         if(!y||waiters.has(p))continue;
-        if((p.stuckTime??0)>=1.5){
+        if(y.stage==='wait'&&y.lastPartnerTime!==y.partner?.walkTime){
+          y.lastPartnerTime=y.partner?.walkTime;p.stuckTime=0;
+        }
+        if((p.stuckTime??0)>=PEDESTRIAN_RETRY_INTERVAL){
           if(y.stage==='out')y.stage='back';
-          else if(y.stage==='wait'&&(!people.includes(y.partner)||y.partner.reverse===p.reverse||(y.partner.stuckTime??0)>=1.5))y.stage='back';
+          else if(y.stage==='wait')y.stage='back';
           else if(y.stage==='back')y.stage='escape';
         }
         if(y.stage==='escape'){
@@ -736,31 +764,20 @@ export class City {
       }
       positions.clear();
       const turnAround=p=>{
-        if(crossingWalkers.has(p)||waiters.has(p)||(p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<1.5||talking.has(p))return false;
+        if(crossingWalkers.has(p)||waiters.has(p)||(p.yielding&&p.yielding.stage!=='escape')||p.turnCooldown||p.stuckTime<PEDESTRIAN_RETRY_INTERVAL||talking.has(p))return false;
         // On the footpath, walk back the way they came.
         const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=at(p);
         const next=pedestrian(chunk,{...p,...turned,walkTime:p.walkTime+.2},time);
-        if(this.solid(next.x,next.z)||crossesPlayer(origin,next,player)||people.some(q=>q!==p&&crossesPerson(origin,next,at(q))))return false;
+        if(this.solid(next.x,next.z)||riverBlocked(origin,next)||crossingPositions.some(q=>crossesPerson(origin,next,q))||crossesPlayer(origin,next,player)||people.some(q=>q!==p&&crossesPerson(origin,next,at(q))))return false;
         Object.assign(p,turned);positions.delete(p);p.stuckTime=0;p.turnCooldown=3;delete p.footpathChoice;
         return true;
       };
-      for(const [i,j] of stationaryPairs(2.6)){
-        const a=people[i],b=people[j];
-        if(a.detour||b.detour||a.reverse===b.reverse||a.stuckTime<1.5||b.stuckTime<1.5||a.turnCooldown||b.turnCooldown)continue;
-        const pa=at(a),pb=at(b);
-        if(Math.hypot(pa.x-pb.x,pa.z-pb.z)>2.6)continue;
-        // Prefer the forward walker; never teleport someone out of a sidestep.
-        const candidates=a.reverse?[b,a]:[a,b];
-        for(const p of candidates){
-          if(!turnAround(p))continue;
-          a.stuckTime=b.stuckTime=0;a.turnCooldown=b.turnCooldown=3;
-          break;
-        }
+      // Retry each blocked walker independently. When the rear is occupied,
+      // only the free end can turn until it has walked far enough away.
+      for(const {p} of moves)if(p.stuckTime>=PEDESTRIAN_RETRY_INTERVAL&&!p.turnCooldown){
+        if(!turnAround(p)&&(!p.yielding||p.yielding.stage==='escape'))p.stuckTime=0;
       }
-      // A player or a queue can block a single walker too; no opposing pair
-      // is required. The clearance check lets a queue unwind from its free end.
-      for(const move of moves)if(move.p.stuckTime>=1.5)turnAround(move.p);
     }
     scratch.positions.clear();
     for(const move of scratch.stationaryPool)move.before=move.after=null;
@@ -1002,7 +1019,7 @@ export function pedestrian(chunk,p,time) {
   if(p.riverMotion)return riverPerson(chunk,p);
   if(p.crossing){
     const c=p.crossing;
-    return {x:c.x+c.dx*c.distance-c.dz*(c.offset??0),z:c.z+c.dz*c.distance-c.dx*(c.offset??0),facingX:c.dx,facingZ:c.dz,type:p.type,frame:c.started?Math.floor(time*p.speed*5+p.phase)%4:0,variant:p.variant};
+    return {x:c.x+c.dx*c.distance-c.dz*(c.offset??0),z:c.z+c.dz*c.distance-c.dx*(c.offset??0),facingX:c.dx*(c.returning?-1:1),facingZ:c.dz*(c.returning?-1:1),type:p.type,frame:c.started?Math.floor(time*p.speed*5+p.phase)%4:0,variant:p.variant};
   }
   if(p.detour){
     const at=detourPosition(p.detour,(time-p.detour.start)*p.speed);

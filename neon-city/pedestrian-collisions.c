@@ -71,6 +71,7 @@ int resolve(int count, double clearance) {
         double end_x = a[blocked[i] ? 0 : 2] - b[blocked[j] ? 0 : 2];
         double end_z = a[blocked[i] ? 1 : 3] - b[blocked[j] ? 1 : 3];
         double dx = end_x - x, dz = end_z - z, length = dx * dx + dz * dz;
+        if (length && x*x + z*z < clearance*clearance && x*dx + z*dz >= 0) continue;
         double t = length ? max(0, min(1, ((-x) * dx + (-z) * dz) / length)) : 0;
         double near_x = x + dx * t, near_z = z + dz * t;
         double distance2 = near_x * near_x + near_z * near_z, limit2 = clearance * clearance;

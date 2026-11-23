@@ -1,6 +1,6 @@
-import {carriedIceCreamStage,startIceCreamVisit,iceCreamVisitPerson,advanceIceCreamVisit} from './river-ice-cream.js';
+import {carriedIceCreamStage,startIceCreamVisit,iceCreamVisitPerson,advanceIceCreamVisit,reverseIceCreamVisit} from './river-ice-cream.js';
 // SPDX-License-Identifier: AGPL-3.0-only
-import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,PERSON_CLEARANCE,groundHeight,riverWalkHeight,mod} from './world.js';
+import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,PERSON_CLEARANCE,groundHeight,riverWalkHeight,mod,retryBlockedWalker} from './world.js';
 
 export const RIVER_STAIR_CHANCE=.25;
 const STAGING=1.5;
@@ -15,10 +15,10 @@ function sample(route,s,loop=true){
   const a=route.points[i-1],b=route.points[i],length=route.lengths[i]-route.lengths[i-1],t=length?(s-route.lengths[i-1])/length:0;
   return {x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,facingX:(b.x-a.x)/(length||1),facingZ:(b.z-a.z)/(length||1)};
 }
-function routes(chunk,reverse=false){
-  const key=reverse?'reverse':'forward';chunk.riverRoutes??={};
+function routes(chunk,reverse=false,lane=reverse){
+  const key=Number(reverse)*2+Number(lane);chunk.riverRoutes??={};
   if(chunk.riverRoutes[key])return chunk.riverRoutes[key];
-  const x=chunk.x*BLOCK,z=chunk.riverStart*BLOCK,o=reverse?-.55:.55;
+  const x=chunk.x*BLOCK,z=chunk.riverStart*BLOCK,o=lane?-.55:.55;
   const north=z+11-o,south=z+117+o,left=x+11-o,right=x+181+o,gate=x+RIVER_STAIRS.landing+1;
   const upper=path(reverse?[
     {x:gate,z:north},{x:left,z:north},{x:left,z:south},{x:gate,z:south},{x:right,z:south},{x:right,z:north},{x:gate,z:north}
@@ -27,9 +27,9 @@ function routes(chunk,reverse=false){
   ],[[0,0,reverse?-1:1],[3,1,reverse?1:-1]]);
   const lower=[0,1].map(bank=>{
     const wall=z+(bank?110:18),dir=bank?-1:1,bottom=x+RIVER_STAIRS.end+1;
-    const heading=bank?(reverse?1:-1):(reverse?-1:1),lane=heading>0?4:5;
+    const heading=bank?(reverse?1:-1):(reverse?-1:1),distance=(bank?lane:!lane)?4:5;
     // Repeat the straight segment by translation, never by turning around.
-    return path([{x:bottom,z:wall+dir*lane},{x:bottom+heading*3*BLOCK,z:wall+dir*lane}],[[0,bank,heading]]);
+    return path([{x:bottom,z:wall+dir*distance},{x:bottom+heading*3*BLOCK,z:wall+dir*distance}],[[0,bank,heading]]);
   });
   return chunk.riverRoutes[key]={upper,lower};
 }
@@ -46,7 +46,7 @@ export function seedRiverPeople(chunk,people,random){
 }
 export function riverPerson(chunk,p){
   if(p.riverMotion.mode==='ice-cream')return iceCreamVisitPerson(p);
-  const m=p.riverMotion,route=m.mode==='stairs'?m.route:m.mode==='lower'?routes(chunk,p.reverse).lower[m.bank]:routes(chunk,p.reverse).upper;
+  const m=p.riverMotion,route=m.mode==='stairs'?m.route:m.mode==='lower'?routes(chunk,p.reverse,m.lane).lower[m.bank]:routes(chunk,p.reverse,m.lane).upper;
   const at=sample(route,m.s,m.mode!=='stairs');
   if(m.mode!=='stairs'){
     at.x+=(m.offset??0)*BLOCK;
@@ -73,7 +73,7 @@ function nextEvent(route,m){
 function eventOffset(chunk,p,event){
   const m=p.riverMotion;
   if(m.mode!=='lower')return m.offset??0;
-  const route=routes(chunk,p.reverse).lower[m.bank];
+  const route=routes(chunk,p.reverse,m.lane).lower[m.bank];
   return (m.offset??0)+Math.round((event.s+STAGING)/route.total)*event.heading*3;
 }
 function stairKey(chunk,p,event){return `${chunk.x+eventOffset(chunk,p,event)}:${chunk.riverStart}:${event.bank}`;}
@@ -88,15 +88,35 @@ function transition(chunk,p,event){
   const landing={x:x+RIVER_STAIRS.landing+1,z:wall+dir*1.5},bottom={x:x+RIVER_STAIRS.end+1,z:wall+dir*1.5};
   const start=riverPerson(chunk,p);
   return {mode:'stairs',bank,direction:down?'down':'up',s:0,
-    key:stairKey(chunk,p,event),
+    key:stairKey(chunk,p,event),entry:{...m,pending:undefined},entryReverse:p.reverse,
     route:path(down?[start,upperPoint,landing,bottom,lowerPoint]:[start,lowerPoint,bottom,landing,upperPoint]),
     exit:{mode:down?'lower':'upper',bank,offset,s:down?lower.s:upper.s,lastDecision:-Infinity},reverse};
+}
+function reverseRiverRoute(m,reverse){
+  return {...m,lane:m.lane??reverse,s:-m.s,pending:undefined,lastDecision:-Infinity,
+    lastIceCreamPass:m.lastIceCreamPass&&{...m.lastIceCreamPass,s:-m.lastIceCreamPass.s}};
+}
+function retreatStep(p,step,actors){
+  const m=p.riverMotion;
+  if(m.mode==='ice-cream'){
+    const retreat=reverseIceCreamVisit(m);
+    return advanceIceCreamVisit({...p,riverMotion:retreat},step,actors);
+  }
+  if(m.mode==='stairs'){
+    const route=path([...m.route.points].reverse());
+    return {...m,route,retreating:true,s:Math.min(route.total,route.total-m.s+p.speed*step),
+      entry:reverseRiverRoute(m.exit,m.reverse),entryReverse:!m.reverse,
+      exit:reverseRiverRoute(m.entry,m.entryReverse),reverse:!m.entryReverse};
+  }
+  const turned=reverseRiverRoute(m,p.reverse);
+  turned.s+=p.speed*step;
+  return turned;
 }
 function sweptNear(a,b,q,clearance){
   if(Math.abs(b.ground-q.ground)>1.5)return false;
   const dx=b.x-a.x,dz=b.z-a.z,old=(a.x-q.x)**2+(a.z-q.z)**2;
   const end=(b.x-q.x)**2+(b.z-q.z)**2;
-  if(old<clearance*clearance&&end>old+1e-9)return false;
+  if(old<clearance*clearance&&end>old&&(a.x-q.x)*dx+(a.z-q.z)*dz>=0)return false;
   const length=dx*dx+dz*dz,t=length?Math.max(0,Math.min(1,((q.x-a.x)*dx+(q.z-a.z)*dz)/length)):0;
   return (a.x+dx*t-q.x)**2+(a.z+dz*t-q.z)**2<clearance*clearance;
 }
@@ -113,13 +133,16 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
     const insert=(p,q)=>{const key=cellKey(q);if(!cells.has(key))cells.set(key,new Map());cells.get(key).set(p,q);positions.set(p,q);};
     for(const person of city.pedestrians(time))insert(person.walker,{...person,ground:person.ground??groundHeight(person.x,person.z)});
     const playerPosition={...player,ground:groundHeight(player.x,player.z,player.riverWalk)};
-    for(const {p} of actors)if(p.riverMotion.mode==='stairs')locks.set(p.riverMotion.key,p.riverMotion.direction);
+    for(const {p} of actors){
+      const m=p.riverMotion;
+      if(m.mode==='stairs'&&locks.get(m.key)!=='closed')locks.set(m.key,m.retreating?'closed':m.direction);
+    }
     for(const {chunk,p} of actors){
       p.walkTime??=0;
       let m=p.riverMotion,before=positions.get(p),next=m;
       if(m.mode==='ice-cream')next=advanceIceCreamVisit(p,step,actors);
       else if(m.mode!=='stairs'){
-        const route=m.mode==='upper'?routes(chunk,p.reverse).upper:routes(chunk,p.reverse).lower[m.bank];
+        const route=m.mode==='upper'?routes(chunk,p.reverse,m.lane).upper:routes(chunk,p.reverse,m.lane).lower[m.bank];
         const event=m.pending??nextEvent(route,m),budget=p.speed*step;
         if(m.pending||event.s-m.s<=budget+1e-7){
           if(!m.pending&&event.s>m.s+1e-7)next={...m,s:event.s};
@@ -130,8 +153,9 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
             }
             if(m.pending){
               const key=stairKey(chunk,p,event),direction=m.mode==='upper'?'down':'up';
-              if(locks.has(key)&&locks.get(key)!==direction)continue;
-              next=transition(chunk,p,event);locks.set(key,direction);
+              if(!locks.has(key)||locks.get(key)===direction){
+                next=transition(chunk,p,event);locks.set(key,direction);
+              }
             }else next={...m,s:m.s+budget};
           }
         }else next={...m,s:m.s+budget};
@@ -143,12 +167,25 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
         if(next.lastIceCreamPass)m.lastIceCreamPass=next.lastIceCreamPass;
         if(visit){next=visit;p.riverMotion=next;after=riverPerson(chunk,p);}
       }
-      const blockedByPlayer=sweptNear(before,after,playerPosition,PERSON_CLEARANCE*1.5)||p===speaker&&Math.abs(before.ground-playerPosition.ground)<1.5&&Math.hypot(before.x-player.x,before.z-player.z)<2.8;
-      let blocked=blockedByPlayer;
-      for(let cx=Math.floor((Math.min(before.x,after.x)-PERSON_CLEARANCE)/2);!blocked&&cx<=Math.floor((Math.max(before.x,after.x)+PERSON_CLEARANCE)/2);cx++)
-        for(let cz=Math.floor((Math.min(before.z,after.z)-PERSON_CLEARANCE)/2);!blocked&&cz<=Math.floor((Math.max(before.z,after.z)+PERSON_CLEARANCE)/2);cz++)
-          for(const [other,q] of cells.get(`${cx},${cz}`)??[])if(other!==p&&sweptNear(before,after,q,PERSON_CLEARANCE)){blocked=true;break;}
-      if(blocked){p.riverMotion=m;if(blockedByPlayer)held.add(p);continue;}
+      const playerBlocks=q=>sweptNear(before,q,playerPosition,PERSON_CLEARANCE*1.5);
+      const peopleBlock=q=>{
+        for(let cx=Math.floor((Math.min(before.x,q.x)-PERSON_CLEARANCE)/2);cx<=Math.floor((Math.max(before.x,q.x)+PERSON_CLEARANCE)/2);cx++)
+          for(let cz=Math.floor((Math.min(before.z,q.z)-PERSON_CLEARANCE)/2);cz<=Math.floor((Math.max(before.z,q.z)+PERSON_CLEARANCE)/2);cz++)
+            for(const [other,position] of cells.get(`${cx},${cz}`)??[])if(other!==p&&sweptNear(before,q,position,PERSON_CLEARANCE))return true;
+        return false;
+      };
+      const speaking=p===speaker&&Math.abs(before.ground-playerPosition.ground)<1.5&&Math.hypot(before.x-player.x,before.z-player.z)<2.8;
+      if(speaking||playerBlocks(after)||peopleBlock(after)||next===m){
+        p.riverMotion=m;
+        if(speaking||playerBlocks(after))held.add(p);
+        if(speaking||!retryBlockedWalker(p,step))continue;
+        next=retreatStep(p,step,actors);
+        const reverse=m.mode==='upper'||m.mode==='lower'?!p.reverse:p.reverse;
+        after=riverPerson(chunk,{...p,reverse,riverMotion:next});
+        if(playerBlocks(after)||peopleBlock(after))continue;
+        p.reverse=reverse;p.riverMotion=next;
+        if(next.mode==='stairs')locks.set(next.key,'closed');
+      }else p.stuckTime=0;
       if(next.mode==='stairs'&&next.s===next.route.total){
         // Do not release the direction reservation until the exit is clear.
         p.riverMotion=next.exit;p.reverse=next.reverse;
@@ -158,7 +195,7 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
       }
       if(next.grantIceCream){p.iceCream={age:0,flavour:Math.abs(Math.floor(p.phase??0))%3};next.grantIceCream=false;}
       cells.get(cellKey(before))?.delete(p);insert(p,after);
-      if(next.mode!=='ice-cream'||next.stage==='approach'||next.stage==='leave')p.walkTime+=step;
+      if(next.mode!=='ice-cream'||next.stage==='approach'||next.stage==='leave'||next.stage==='retreat')p.walkTime+=step;
     }
   }
   return [...held].map(walker=>({walker,place:'river'}));
