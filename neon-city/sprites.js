@@ -63,6 +63,72 @@ export function drawCharacter(type,frame,back=false,variant=0,rect){
     }
     return;
   }
+  if(type>=18&&type<=22){
+    const qipao=type===18,sombrero=type===19,bald=type===20,punk=type===21,crew=type===22;
+    const skin=['#e8b591','#b47a53','#efc1aa','#79472f','#e7b397'][type-18];
+    const shirt=['#ae2438','#388378','#78abc4','#332839','#eb79aa'][type-18];
+    const left=bald?2:qipao||punk?7:5,right=24-left;
+    const pants=punk?'#493349':'#384658';
+    rect(pants,left+1,31,11-left,14+stride);rect(pants,13,31,right-14,14-stride);
+    rect('#292431',left,44+stride,12-left,3);rect('#292431',13,44-stride,right-13,3);
+    rect(shirt,left,17,right-left,15);
+    for(const arm of [left-2,right]){
+      rect(shirt,arm,18,2,6);rect(skin,arm,24,2,8);
+    }
+    rect(skin,8,5,9,10);rect(skin,10,14,5,3);
+    if(!back){
+      rect('#35252a',9,9,1,1);rect('#35252a',15,9,1,1);
+      rect('#955b50',11,13,3,1);
+    }
+    if(qipao){
+      // Silk tunic with a standing collar, gold piping and knotted fasteners.
+      rect('#271f28',8,3,9,back?12:4);rect('#271f28',15,2,4,4);
+      rect('#c63549',10,15,5,3);rect(shirt,6,29,12,8);
+      if(back){
+        // Gold embroidery: 和 (peace), with 禾 on the left and 口 on the right.
+        const gold='#f2c26e';
+        rect(gold,10,20,2,1);rect(gold,8,21,3,1);rect(gold,10,22,1,7);
+        rect(gold,8,23,5,1);rect(gold,9,25,1,1);rect(gold,8,26,1,2);
+        rect(gold,11,25,1,1);rect(gold,12,26,1,1);
+        rect(gold,13,22,4,1);rect(gold,13,23,1,4);
+        rect(gold,16,23,1,4);rect(gold,13,27,4,1);
+      }else{
+        rect('#f2c26e',13,16,2,3);rect('#f2c26e',15,18,1,17);
+        for(const y of [20,23,26])rect('#f2c26e',13,y,4,1);
+      }
+    }else if(sombrero){
+      rect('#50332c',8,6,9,back?7:2);
+      rect('#c68a41',8,2,9,5);rect('#e9b861',10,1,5,2);
+      rect('#aa4140',7,5,11,2);rect('#ebbe71',1,7,22,2);
+      rect('#cc964f',1,6,3,1);rect('#cc964f',20,6,3,1);
+      if(!back){
+        rect('#39282a',9,12,7,1);rect('#39282a',8,13,3,1);rect('#39282a',14,13,3,1);
+        rect('#e8d0a4',8,17,8,2);rect('#e8d0a4',12,19,2,3);
+      }
+    }else if(bald){
+      rect(skin,9,3,7,3);rect('#f8d5bf',10,4,3,1);
+      rect(shirt,1,22,22,5);rect('#527e9b',2,26,20,1);
+      rect(skin,2,27,20,5);rect(skin,4,32,16,1);
+      if(!back)rect('#bd8a78',12,30,2,1);
+    }else if(punk){
+      rect('#322637',8,5,9,back?8:2);
+      rect('#db4691',10,2,5,back?11:5);rect('#fe75b6',12,0,2,4);
+      rect('#211e28',left,28,right-left,2);
+      for(const x of [7,10,13,16])rect('#cabec8',x,28,1,1);
+      if(back){rect('#c23e82',10,20,5,2);rect('#c23e82',12,22,2,3);}
+      else{
+        rect('#847183',8,17,2,3);rect('#847183',10,20,2,2);
+        rect('#d5c6ce',12,22,1,6);rect('#ddd2d6',16,12,2,2);
+      }
+    }else if(crew){
+      rect('#c79854',8,4,9,back?8:3);rect('#f1d078',8,3,9,3);
+      rect('#ffe4a0',9,3,6,1);
+      for(const x of [7,17])rect('#f9d46d',x,11,1,3);
+      rect('#ba5181',9,17,6,1);
+      if(!back)rect('#f5a6c8',15,22,3,3);
+    }
+    return;
+  }
   if(type===16){
     // Pale boy: bowl-cut hair, collared school shirt, shorts and long socks.
     rect('#302c29',7,2,11,12);rect('#d9c5b0',7,7,11,9);

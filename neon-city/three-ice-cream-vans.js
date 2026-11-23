@@ -290,8 +290,8 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
   }));
   const vendorBack=van=>iceCreamVanLocal(van,viewer).z<ICE_CREAM_VENDOR.z;
   const vendors=createStaticInstances(scene,{name:'ice-cream-vendor',boundsVisible,
-    stateFor:v=>[v.x,v.z,v.first,viewer.angle,vendorBack(v)],keyFor:v=>`${vendorBack(v)}`,
-    assetFor:v=>[{geometry:characters.geometry(ICE_CREAM_VENDOR.type,1,vendorBack(v)),material:characters.material}],
+    stateFor:v=>[v.x,v.z,v.first,v.vendorIndex,viewer.angle,vendorBack(v)],keyFor:v=>`${v.vendorIndex}:${vendorBack(v)}`,
+    assetFor:v=>[{geometry:characters.geometry(ICE_CREAM_VENDOR.type+v.vendorIndex,1,vendorBack(v)),material:characters.material}],
     matrixFor(v,matrix){
       const sign=v.first?1:-1,height=ICE_CREAM_VENDOR.height;
       matrix.makeRotationY(-viewer.angle);matrix.scale(new THREE.Vector3(height/2,height,1));

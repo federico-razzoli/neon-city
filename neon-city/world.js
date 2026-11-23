@@ -215,7 +215,8 @@ export function riverIceCreamVan(chunk){
   if(!chunk.river)return null;
   const first=chunk.z===chunk.riverStart;
   if(mod(chunk.x,6)!==(first?1:4))return null;
-  return chunk.iceCreamVan??={x:chunk.x*BLOCK+32,z:chunk.riverStart*BLOCK+(first?16:112),first,w:5.8,d:3};
+  const vendorIndex=mod(Math.floor(chunk.x/3),6);
+  return chunk.iceCreamVan??={vendorIndex,x:chunk.x*BLOCK+32,z:chunk.riverStart*BLOCK+(first?16:112),first,w:5.8,d:3};
 }
 export function riverWalkHeight(x,z){
   const at=riverWalkPosition(x,z);
