@@ -441,14 +441,15 @@ export class City {
     const park=startPark||r()<PARK_CHANCE&&!this.parkNear(x,z)?parkLayout(x,z,r):null;
     if(park){buildings.length=0;this.parkBlocks.add(`${x},${z}`);}
     else this.parkBlocks.delete(`${x},${z}`);
-    const manholes=[],slots=Array.from({length:32},(_,i)=>i),sideCounts=[0,0,0,0];
+    const manholes=[],sides=[0,1,2,3];
+    // A park can turn a door onto either exterior wall after generation.
+    // Along every facade the possible door centres are at 23 and 41.
+    // These slots keep the entire cover clear of both doorway approaches.
+    const slots=park?[16,20,24,28,32,36,40,44]:[16,28,32];
     const count=Math.floor(r()*4);
     for(let i=0;i<count;i++){
-      const available=slots.filter(slot=>sideCounts[Math.floor(slot/8)]<2);
-      const slot=available[Math.floor(r()*available.length)];
-      slots.splice(slots.indexOf(slot),1);
-      sideCounts[Math.floor(slot/8)]++;
-      const side=Math.floor(slot/8),along=16+(slot%8)*4+r()*1.5;
+      const [side]=sides.splice(Math.floor(r()*sides.length),1);
+      const along=slots[Math.floor(r()*slots.length)]+r()*1.5;
       const across=10+r()*2;
       const lx=[along,64-across,along,across][side];
       const lz=[across,along,64-across,along][side];
