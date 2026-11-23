@@ -57,12 +57,19 @@ export function createThreeRoads(scene){
     mesh.scale.set(w,1,Math.hypot(d,y1-y0));
     mesh.rotation.x=Math.atan2(y1-y0,d);
     mesh.position.set(x+w/2,(y0+y1)/2,-z-d/2);
-    group.add(mesh);
+    group.add(mesh);return mesh;
   }
   function kerb(group,x,z,w,height,first){
     const mesh=new THREE.Mesh(plane,pavement);mesh.name='riverside-kerb';
     mesh.scale.set(w,1,height);mesh.rotation.x=first?Math.PI/2:-Math.PI/2;
     mesh.position.set(x+w/2,height/2,-z);group.add(mesh);
+  }
+  // A unit-width vertical kerb. Mirror it horizontally for a falling top
+  // and rotate it to face the road on the opposite bank.
+  const joinKerb=new THREE.PlaneGeometry(1,1);
+  const kerbTop=joinKerb.attributes.position;
+  for(let i=0;i<kerbTop.count;i++){
+    kerbTop.setY(i,kerbTop.getY(i)>0?.0675+.015*kerbTop.getX(i):0);
   }
   function markings(group,name,mat,rectangles){
     const mesh=new THREE.InstancedMesh(plane,mat,rectangles.length);
@@ -97,16 +104,46 @@ export function createThreeRoads(scene){
     const left=hasBridge(chunk.x)?14:0,right=hasBridge(chunk.x+1)?50:BLOCK;
     const grassLeft=hasBridge(chunk.x)?RIVER_STAIRS.start:left;
     surface(group,'riverside-grass',x+grassLeft,bankZ,right-grassLeft,10,.04,.04,grass);
-    surface(group,'riverside-pavement',x+grassLeft,first?bankZ:bankZ+4,right-grassLeft,6,.06,.06,pavement);
-    // Join the bridge footway at its actual .075m elevation, tapering down
-    // across the access strip to meet the .06m riverside pavement seamlessly.
-    if(hasBridge(chunk.x)){
-      const width=RIVER_STAIRS.start-left;
-      surface(group,'riverside-stair-access',x+left,bankZ,width,10,.0675,.0675,pavement);
-      const access=group.children.at(-1);
-      access.scale.x=Math.hypot(width,.015);access.rotation.z=Math.atan2(-.015,width);
+    const pavementZ=first?bankZ:bankZ+4,kerbZ=first?bankZ:bankZ+10;
+    const joinWidth=RIVER_STAIRS.start-14;
+    const pavementRight=hasBridge(chunk.x+1)?right-joinWidth:right;
+    surface(group,'riverside-pavement',x+grassLeft,pavementZ,pavementRight-grassLeft,6,.06,.06,pavement);
+    kerb(group,x+grassLeft,kerbZ,pavementRight-grassLeft,.06,first);
+    // Close the exposed sides of the raised slabs along the grass strip.
+    const grassEdgeZ=first?bankZ+6:bankZ+4;
+    kerb(group,x+grassLeft,grassEdgeZ,pavementRight-grassLeft,.06,!first);
+    function grassEnd(edgeX,height,facing){
+      const face=new THREE.Mesh(plane,pavement);face.name='riverside-kerb';
+      face.scale.set(height-.04,1,4);
+      face.rotation.z=-facing*Math.PI/2;
+      face.position.set(edgeX,(height+.04)/2,-(first?grassEdgeZ+2:grassEdgeZ-2));
+      group.add(face);
     }
-    kerb(group,x+left,first?bankZ:bankZ+10,right-left,.06,first);
+    if(hasBridge(chunk.x))grassEnd(x+grassLeft,.06,1);
+    if(hasBridge(chunk.x+1))grassEnd(x+right,.075,-1);
+    // Both footways meet the bridge at .075m. Only the east side extends
+    // beyond the promenade to provide access to the riverside stairs.
+    function join(startX,side,stairAccess){
+      const z=stairAccess?bankZ:pavementZ,depth=stairAccess?10:6;
+      const rise=side*.015,tilt=Math.atan2(rise,joinWidth);
+      const tile=surface(group,stairAccess?'riverside-stair-access':'riverside-pavement',
+        startX,z,joinWidth,depth,.0675,.0675,pavement);
+      tile.scale.x=Math.hypot(joinWidth,rise);tile.rotation.z=tilt;
+      const face=new THREE.Mesh(joinKerb,pavement);face.name='riverside-kerb';
+      face.position.set(startX+joinWidth/2,0,-kerbZ);
+      face.rotation.y=first?0:Math.PI;
+      face.scale.x=joinWidth*side*(first?1:-1);
+      group.add(face);
+      if(!stairAccess){
+        const grassFace=face.clone();
+        grassFace.position.z=-grassEdgeZ;
+        grassFace.rotation.y+=Math.PI;
+        grassFace.scale.x*=-1;
+        group.add(grassFace);
+      }
+    }
+    if(hasBridge(chunk.x))join(x+left,-1,true);
+    if(hasBridge(chunk.x+1))join(x+pavementRight,1,false);
   }
   function bridge(group,streetIndex,riverRow){
     const x=streetIndex*BLOCK,start=riverRow*BLOCK;
@@ -176,7 +213,7 @@ export function createThreeRoads(scene){
     },
     endFrame(){for(const [key,part] of parts)if(!part.seen){release(part);parts.delete(key);}},
     dispose(){
-      for(const part of parts.values())release(part);parts.clear();plane.dispose();arch.dispose();roundedApproach.dispose();roundedKerb.dispose();
+      for(const part of parts.values())release(part);parts.clear();plane.dispose();arch.dispose();roundedApproach.dispose();roundedKerb.dispose();joinKerb.dispose();
       for(const mat of [asphalt,pavement,grass,dashes,crossings,bridgePaint])mat.dispose();
     }
   };
