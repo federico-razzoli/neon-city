@@ -47,7 +47,8 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene),riverWisps=createThreeRiverWisps(scene);
   const cards=createThreeCharacterCards(),cardMeshes=[],carriedIceCreams=createThreeCarriedIceCreams(scene);
   const seatedCharacters=createThreeSeatedCharacters(),benchLegMeshes=[];
-  let benchLegCount=0;
+  let benchLegCount=0,benchFace=null;
+  const faceRay=new THREE.Raycaster();
   let cash,cashNote;
   let cardCount=0;
   let style={},view;
@@ -96,7 +97,7 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
 drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetainingWalls:(chunk,viewer)=>retainingWalls.draw(chunk,viewer),drawManholes:chunk=>manholes.draw(chunk),drawHotelDoormats:chunk=>doormats.draw(chunk),drawTrees:chunk=>trees.draw(chunk),drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>{
     if(!exteriorVisible||exteriorVisible(car.x-4,surface.base-2,car.z-4,car.x+4,surface.base+4,car.z+4))traffic.draw(car,surface);
   },drawRoad:chunk=>roads.draw(chunk),drawRailings:chunk=>railings.draw(chunk),boundsVisible:(...args)=>culling.boundsVisible(...args)&&(!exteriorVisible||exteriorVisible(...args)),
-    beginFrame(next){carriedIceCreams.beginFrame();cardCount=0;benchLegCount=0;view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
+    beginFrame(next){carriedIceCreams.beginFrame();cardCount=0;benchLegCount=0;benchFace=null;view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
     withStyle(next,draw){const old=style;style={...style,...next};try{return draw();}finally{style=old;}},
     beginPass(){},endPass(){return [];},drawPass(){},drawSky(){},finishStreet(){},
     drawBenchLegs(person,girth){
@@ -120,6 +121,7 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
       if(!mesh){mesh=new THREE.Mesh(geometry,cards.material);mesh.name='street-character-card';cardMeshes.push(mesh);scene.add(mesh);}
       cardCount++;mesh.visible=true;mesh.geometry=geometry;
       mesh.position.set(p.x,p.y+height/2,-p.z);mesh.scale.set(width,height,1);mesh.rotation.y=-view.position.angle;
+      if(seated&&!back)benchFace=mesh;
       carriedIceCreams.draw({position:p,height,width,stage:iceCreamStage,flavour:iceCreamFlavour,angle:view.position.angle,back});
     },
     billboard({position:p,height,width,image,getImage}){
@@ -141,7 +143,17 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     }
     attribute.array.set(values);attribute.needsUpdate=true;
   }
-  return {scene,camera,setBoundsVisible(filter){exteriorFilter=filter;},update(frame){
+  function hitsBenchFace(x,y){
+    if(!benchFace)return false;
+    faceRay.setFromCamera({x,y},camera);
+    const hit=faceRay.intersectObject(benchFace,false)[0];
+    if(!hit)return false;
+    // Locate the face in the shared 24-column, 32-row seated character card.
+    const point=benchFace.worldToLocal(hit.point);
+    const column=(point.x+.5)*24,row=(.5-point.y)*32;
+    return column>=8&&column<18&&row>=4&&row<15;
+  }
+  return {scene,camera,hitsBenchFace,setBoundsVisible(filter){exteriorFilter=filter;},update(frame){
     if(cash)cash.mesh.visible=false;
     iceCreamVans.beginFrame(frame);scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);doormats.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);

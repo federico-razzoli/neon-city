@@ -43,6 +43,7 @@ export class LisaDate extends PlayerFollower{
     // 1 when the nearest river lies at greater z than the pub's block, else -1.
     this.riverDirection=Math.sign(RIVER_ROWS.reduce((a,b)=>Math.abs(b+.5-pubBlock.z)<Math.abs(a+.5-pubBlock.z)?b:a)+.5-pubBlock.z);
   }
+  get benchDialogue(){return ['THIS PLACE IS BEAUTIFUL...', "AND YOU'RE SO FUNNY!"];}
   isFollowing(player){return !this.gone&&this.state==='following'&&Math.hypot(player.x-this.x,player.z-this.z)<=REACH;}
   get visible(){return !this.gone&&this.state!=='seated'&&!this.inDoorway;}
   // Room is 'pub', 'street' or anything else (a place she won't go).

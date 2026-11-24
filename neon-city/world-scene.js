@@ -112,7 +112,8 @@ export function createWorldScene(renderer,{reduced=false}={}){
   function person(p){
     if(p.seated){
       renderer.drawBenchLegs(p,characterGirth(p.type));
-      seatedPatron(p,false,characterHeight(p.type),pedestrianShowsBack(p,player),p.ground+.5);
+      const sharingBench=playerSeat?.bench&&playerSeat.bench===activeCompanion?.benchVisit?.bench;
+      seatedPatron(p,false,characterHeight(p.type),!sharingBench&&pedestrianShowsBack(p,player),p.ground+.5);
       return;
     }
     if(renderer.drawCharacterCard){

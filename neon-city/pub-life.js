@@ -19,7 +19,6 @@ If not, see <https://www.gnu.org/licenses/>.
 
 import {PUB,pubChairs,pubPersonBlocks,choosePubType,pubTypesPresent} from './pub-interior.js?v=bumps-1';
 import {PUNK_GIRL_TYPE} from './world.js?v=bumps-1';
-import {register} from './register.js';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 const sameSeat=(a,b)=>a&&b&&a.tableIndex===b.tableIndex&&a.seat===b.seat;
@@ -116,29 +115,5 @@ export class PubLife{
       if(!this.walker&&this.random()<.5)this.leave(chair,patrons);
     }
     this.touching=touching;
-  }
-}
-// Table talk after the greeting: one line every 3–5 seconds, looping until the player stands.
-export class PubConversation{
-  constructor(lines,random=Math.random,record=register,followup=null){
-    this.followup=followup;this.ready=false;this.opened=false;
-    this.lines=lines;this.random=random;this.record=record;this.index=0;this.wait=this.delay();
-  }
-  delay(){return 3+this.random()*2;}
-  // Returns the line that is due now, if any.
-  update(dt){
-    if(!this.lines.length||this.ready)return null;
-    this.wait-=dt;
-    if(this.wait>0)return null;
-    return this.advance();
-  }
-  advance(){
-    if(!this.lines.length||this.ready)return null;
-    if(this.followup&&this.index===this.lines.length){this.ready=true;return null;}
-    this.wait=this.delay();
-    const line=this.lines[this.index];
-    this.index=this.followup?this.index+1:(this.index+1)%this.lines.length;
-    if(line.sets)this.record[line.sets]=true;
-    return line.say??line;
   }
 }

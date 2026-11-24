@@ -31,7 +31,10 @@ export function installSeatedTouch(canvas,{getSeat,canUse,look,stand,tap=()=>{},
     const current=gesture;gesture=null;
     for(const id of current.fingers.keys())if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);
     if(!cancel&&!current.multiple&&!current.dragged&&canUse()&&getSeat()===current.seat){
-      if(current.seat)stand();
+      if(current.seat){
+        const rect=canvas.getBoundingClientRect();
+        stand(2*(e.clientX-rect.left)/rect.width-1,1-2*(e.clientY-rect.top)/rect.height);
+      }
       else if(!current.held&&now()-current.started<220){
         const rect=canvas.getBoundingClientRect();
         tap((e.clientY-rect.top)/rect.height>=2/3);

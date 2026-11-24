@@ -65,6 +65,7 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
     get cubicleSpatial(){return cubicleSpatial??=createThreeLavatorySpatial('cubicle');},
     get bookshopSpatial(){return bookshopSpatial??=createThreeBookshopSpatial();},
     get pubSpatial(){return pubSpatial??=createThreePubSpatial();},
+    hitsBenchFace(x,y){return destination==='street'&&room.hitsBenchFace(x,y);},
     render(frame){
       const nextDestination=!frame.indoors?'street':frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
       const nextHotel=nextDestination==='street'?null:['arcade','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;

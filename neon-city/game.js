@@ -45,10 +45,11 @@ import {LadiesDoorEvent,LADIES_DOOR_TEXT} from './ladies-door.js';
 import {CubicleKnockEvent,rollCubicleKnock,loadCubicleKnock,KNOCK_EXIT_TEXT} from './cubicle-knock.js';
 import {rollBanshee,bansheeFrame,playBansheeScream} from './banshee.js?v=6';
 import {register} from './register.js';
-import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
+import {PassiveConversation} from './passive-conversation.js';
+import {PubLife} from './pub-life.js?v=npc-followup-1';
 import {LisaDate,LISA_TYPE} from './lisa-date.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {BLOCK,isRiverRow,groundHeight,pubLines,START,riverIceCreamVan} from './world.js?v=start-pub-1';
+import {BLOCK,isRiverRow,groundHeight,characterGirth,pubLines,START,riverIceCreamVan} from './world.js?v=start-pub-1';
 import {Traffic} from './traffic.js?v=junction-priority-2';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=rive-gauche-6';
@@ -248,14 +249,47 @@ function lookFromSeat(seat,yaw,pitch){
   let left=seat.cabVan?Math.PI/3:Math.PI/4,right=left;
   let down=seat.cabVan?-Math.PI/4:0;
   if(seat.bench&&activeCompanion?.benchSeated&&activeCompanion.benchVisit.bench===seat.bench){
-    // Project the companion's position onto the seated player's right axis.
-    const side=(activeCompanion.x-player.x)*Math.cos(seat.angle)-(activeCompanion.z-player.z)*Math.sin(seat.angle);
-    if(side>0)right=2*Math.PI/3;
-    else left=2*Math.PI/3;
-    down=-Math.PI/2;
+    const dx=activeCompanion.x-player.x,dz=activeCompanion.z-player.z;
+    const sin=Math.sin(seat.angle),cos=Math.cos(seat.angle);
+    const side=dx*cos-dz*sin,forward=dx*sin+dz*cos;
+    // Stop at the companion's face so the centre of the view can target it.
+    const bearing=Math.atan2(side,forward);
+    left=Math.max(left,-bearing);right=Math.max(right,bearing);
+    const turn=Math.sign(side)*Math.max(-left,Math.min(right,player.angle+yaw-seat.angle));
+    if(turn>Math.PI/4){
+      // The nearer shoe extends about .3 units sideways from the seat centre.
+      // Allow the floor at its heel to clear the bottom edge of the picture.
+      const shoeSide=Math.abs(side)-.3*characterGirth(activeCompanion.type);
+      const heelForward=forward+.39;
+      const depth=shoeSide*Math.sin(turn)+heelForward*Math.cos(turn);
+      const lowerField=Math.atan2(NATIVE_VIEW.height-NATIVE_VIEW.horizon,NATIVE_VIEW.focal);
+      const tilt=Math.max(0,Math.atan2(SEATED_EYE,depth)-lowerField);
+      const shoeBearing=Math.atan2(shoeSide,heelForward);
+      const blend=Math.min(1,(turn-Math.PI/4)/Math.max(.01,shoeBearing-Math.PI/4));
+      down=-tilt*blend;
+    }
   }
   player.angle=Math.max(seat.angle-left,Math.min(seat.angle+right,player.angle+yaw));
   seat.pitch=Math.max(down,Math.min(Math.PI/2,seat.pitch+pitch));
+}
+// An explicitly started conversation takes priority over ambient talk.
+let foregroundTalk=null;
+function startPassiveDialogue(lines,isPresent){
+  if(!lines?.length||foregroundTalk?.isPresent())return;
+  const conversation=new PassiveConversation(lines,{loop:false,interval:2.5});
+  foregroundTalk={conversation,isPresent};
+  conversation.advance();
+}
+function startBenchDialogue(x=0,y=0){
+  if(playerSeat?.bench&&activeCompanion?.benchSeated&&activeCompanion.benchVisit.bench===playerSeat.bench&&threeRenderer?.hitsBenchFace(x,y)){
+    const seat=playerSeat,companion=activeCompanion;
+    startPassiveDialogue(companion.benchDialogue,()=>playerSeat===seat&&activeCompanion===companion&&companion.benchSeated);
+    return true;
+  }
+  return false;
+}
+function interactWhileSeated(x=0,y=0){
+  if(!startBenchDialogue(x,y))useSeat();
 }
 function useSeat(cabSeat=null){
   if(hotelStairs)return false;
@@ -312,7 +346,7 @@ function useSeat(cabSeat=null){
     eye=SEATED_EYE;
     const partner=pubPatrons[chair.tableIndex]?.[1-chair.seat];
     greet=partner!=null;
-    pubTalk=greet?new PubConversation(pubLines(partner),Math.random,undefined,followupFor(partner,'pub')):null;
+    pubTalk=greet?new PassiveConversation(pubLines(partner),{followup:followupFor(partner,'pub')}):null;
   }
   keys.clear();shiftKeys.clear();startSpaceHeld=true;notice=greet?2.5:0;steps=0;
   if(greet)noticeText='HI THERE!';
@@ -460,11 +494,12 @@ function talkToStaff(script,label,gifts={},carried=inventory){
   staffTalk=new StaffTalk(script,undefined,carried,gifts);talkBox.ariaLabel=label;document.querySelector('#pace').hidden=true;showStaffTalk();
 }
 function passiveConversation(){
+  if(foregroundTalk?.isPresent())return foregroundTalk.conversation;
   return insidePub?pubTalk:insideLavatory?lavatoryTalk.apart===0?lavatoryTalk.conversation:null:!indoors()&&walkerTalk.apart===0?walkerTalk.conversation:null;
 }
 function startFollowup(){
   const conversation=passiveConversation();
-  if(!conversation?.ready||conversation.opened)return false;
+  if(!conversation?.followup||!conversation.ready||conversation.opened)return false;
   conversation.opened=true;
   const {script,label,gifts}=conversation.followup;
   talkToStaff(script,label,gifts);
@@ -848,16 +883,17 @@ function interactTouchGround(){
   if(!indoors()){coverPressed=true;enableSound();}
 }
 function handleWorldInput(k,e){
+  if(e.key==='Enter'&&!e.repeat&&!foregroundTalk?.isPresent()&&startBenchDialogue())return;
   const conversation=e.key==='Enter'&&passiveConversation();
   if(conversation?.lines?.length&&!conversation.ready){
     if(!e.repeat){
       const line=conversation.advance();
       if(startFollowup())return;
-      if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;}
+      if(line&&conversation!==foregroundTalk?.conversation){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;}
     }
     return;
   }
-  if(k===' '&&!e.repeat&&playerSeat){useSeat();return;}
+  if(k===' '&&!e.repeat&&playerSeat){interactWhileSeated();return;}
   if(k===' '&&!e.repeat&&!indoors()){
     for(const chunk of city.chunks.values()){
       const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVan(player,van);
@@ -945,7 +981,7 @@ const touchControls=installSeatedTouch(canvas,{
     if(!playerSeat){player.angle+=yaw;return;}
     lookFromSeat(playerSeat,yaw,pitch);
   },
-  stand:()=>{if(!playerSeat?.cabVan)useSeat();},
+  stand:(x,y)=>{if(!playerSeat?.cabVan)interactWhileSeated(x,y);},
   tap:ground=>{
     if(ground){interactTouchGround();return;}
     handleWorldInput(' ',{key:' ',repeat:false,touch:true});
@@ -1160,6 +1196,12 @@ function tick(now){
     if(line){notice=2.5;noticeText=line;}
     document.querySelector('#message').textContent=notice?noticeText:'';
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
+    }
+    if(foregroundTalk){
+      const {conversation,isPresent}=foregroundTalk;
+      if(isPresent())conversation.update(dt);
+      if(!isPresent()||conversation.ready)foregroundTalk=null;
+      else document.querySelector('#message').textContent=conversation.currentLine;
     }
   }
   // Before the first start the title shows the street living on behind the
