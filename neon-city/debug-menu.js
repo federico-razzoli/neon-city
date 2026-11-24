@@ -38,6 +38,7 @@ export function createDebugMenu(api){
       <button type="button" role="tab" id="debug-tab-events" aria-controls="debug-panel-events" aria-selected="false" tabindex="-1">EVENTS</button>
     </div>
     <section role="tabpanel" id="debug-panel-locations" aria-labelledby="debug-tab-locations">
+    <label>Companion <select id="debug-companion"><option value=""></option><option value="lisa">Lisa</option></select></label>
     <table><caption>Travel to a destination</caption><thead><tr><th>Destination</th><th>Travel</th></tr></thead><tbody></tbody></table>
     </section>
     <section role="tabpanel" id="debug-panel-inventory" aria-labelledby="debug-tab-inventory" hidden>
@@ -69,7 +70,7 @@ export function createDebugMenu(api){
     });
   }
   let park,sequence='',pending=false;
-  const destinationButtons=[];
+  const companion=find('companion'),destinationButtons=[];
   for(const [id,label] of DEBUG_DESTINATIONS){
     const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=label;row.append(name);
     const cell=document.createElement('td'),button=document.createElement('button');button.type='button';button.textContent='Go';button.setAttribute('aria-label',`Go to ${label}`);
@@ -77,14 +78,14 @@ export function createDebugMenu(api){
     button.disabled=!supported;if(!supported)button.title='Renderer not implemented for this destination';
     destinationButtons.push({button,supported});
     button.addEventListener('click',async()=>{
-      if(pending)return;pending=true;
+      if(pending)return;pending=true;companion.disabled=true;
       for(const {button} of destinationButtons)button.disabled=true;
       find('close').disabled=true;dialog.setAttribute('aria-busy','true');
       status('Entering destination…');
-      try{await api.travel(id,park);dialog.close();}
+      try{await api.travel(id,park,companion.value);dialog.close();}
       catch(error){status(error.message);}
       finally{
-        pending=false;find('close').disabled=false;dialog.removeAttribute('aria-busy');
+        pending=false;companion.disabled=false;find('close').disabled=false;dialog.removeAttribute('aria-busy');
         for(const {button,supported} of destinationButtons)button.disabled=!supported;
       }
     });cell.append(button);row.append(cell);
@@ -113,6 +114,7 @@ export function createDebugMenu(api){
       if(sequence!=='qwerty')return false;
       sequence='';event.preventDefault();park=api.nearestPark();api.pause();
       find('money').value=(api.wallet.pence/100).toFixed(2);find('events').value=JSON.stringify(api.register,null,2);status('');
+      companion.value='';
       selectTab(tabs[0]);dialog.showModal();return true;
     }
   };

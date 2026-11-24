@@ -7,7 +7,7 @@ import {PUB,pubChairs,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
 export function createThreePubScene({imageFor}={}){
   return createThreeInteriorScene({name:'pub',imageFor,
-    actorsFor:frame=>[frame.pubLife?.walker,frame.lisa?.visible&&frame.lisa.room==='pub'?frame.lisa:null].filter(Boolean),
+    actorsFor:frame=>[frame.pubLife?.walker,frame.activeCompanion?.visible&&frame.activeCompanion.room==='pub'?frame.activeCompanion:null].filter(Boolean),
     actorView:(person,frame)=>person.seated?{seated:true,back:(frame.player.z-person.z)*person.side>0}:{height:2.4},
     createExtras({scene,room,builder,material}){
       const seated=createThreeSeatedCharacters();

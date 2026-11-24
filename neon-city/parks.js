@@ -168,9 +168,10 @@ export function drawParkStructures(chunk,{face,signTexture,drawTrees,drawFingerp
 // Each bench seats one person at either end. Seated, they face the path.
 export const benchSeats=b=>[-.5,.5].map(u=>({x:b.x+b.tx*u,z:b.z+b.tz*u,bench:b,angle:Math.atan2(-b.nx,-b.nz)}));
 // The same reach and viewing cone as a pub chair.
-export function facingBench(player,chunks){
+export function facingBench(player,chunks,occupied=null){
   let nearest=null,distance=1.5;
   for(const chunk of chunks)for(const b of (player.riverWalk?chunk.riverBenches:chunk.park?.benches)??[])for(const seat of benchSeats(b)){
+    if(occupied&&occupied.x===seat.x&&occupied.z===seat.z)continue;
     const dx=seat.x-player.x,dz=seat.z-player.z,gap=Math.hypot(dx,dz);
     if(gap>distance)continue;
     const radius=.45,halfAngle=.45+Math.asin(Math.min(1,radius/Math.max(gap,.001)));

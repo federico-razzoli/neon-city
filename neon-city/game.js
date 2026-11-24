@@ -123,7 +123,7 @@ async function playCabinet(name,machine){
     closeCabinet();notice=3.5;noticeText='THIS GAME COULD NOT BE LOADED. PLEASE TRY AGAIN.';
   }
 }
-let lisa=null,banshee=null,bansheeMisses=0,staffTalk=null,cubicleKnock=null,ladiesDoorEvent=null;
+let activeCompanion=null,banshee=null,bansheeMisses=0,staffTalk=null,cubicleKnock=null,ladiesDoorEvent=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insideBookshop||insideArcade||insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
@@ -197,7 +197,7 @@ function useDoor(){
       notice=4.5;noticeText=BOOK_EXIT_REPLY;keys.clear();shiftKeys.clear();startSpaceHeld=true;
       document.querySelector('#message').textContent=noticeText;return true;
     }
-    if(insidePub)lisa?.goOutside(player,streetPosition,groundHeight(streetPosition.x,streetPosition.z));
+    if(insidePub)activeCompanion?.goOutside(player,streetPosition,groundHeight(streetPosition.x,streetPosition.z));
     Object.assign(player,streetPosition);insideBookshop=insideArcade=insidePub=insideHotel=false;
     lobbyMusic.choose(null);pubMusic.choose(null);
   }else{
@@ -228,8 +228,8 @@ function enterVenue(venue){
     pubPatrons=pub.pubPatrons??=createPubPatrons();
     const row=Math.floor((pub.z+pub.d/2)/BLOCK);
     const riverside=isRiverRow(row+(pub.j===1?1:-1));
-    if(riverside&&!lisa?.isFollowing(player)){
-      lisa=null;
+    if(riverside&&(activeCompanion?.type!==LISA_TYPE||!activeCompanion.isFollowing(player))){
+      if(activeCompanion?.type===LISA_TYPE)activeCompanion=null;
       if(pubLife.walker?.type!==LISA_TYPE)ensureSeatedPubPatron(pubPatrons,LISA_TYPE,pubLife.walker?.chair);
     }
     pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);
@@ -244,9 +244,19 @@ function enterVenue(venue){
 // position, limited turning, and looking up or down, until Space returns the
 // player to their feet. Getting up from the toilet flushes it.
 const SEATED_EYE=1.5;
-// How far a seated player may turn either side of the seat's heading, and look down.
-// Only the van cab allows a wider view; looking up already reaches straight overhead.
-const seatLook=seat=>seat.cabVan?{yaw:Math.PI/3,down:-Math.PI/4}:{yaw:Math.PI/4,down:0};
+function lookFromSeat(seat,yaw,pitch){
+  let left=seat.cabVan?Math.PI/3:Math.PI/4,right=left;
+  let down=seat.cabVan?-Math.PI/4:0;
+  if(seat.bench&&activeCompanion?.benchSeated&&activeCompanion.benchVisit.bench===seat.bench){
+    // Project the companion's position onto the seated player's right axis.
+    const side=(activeCompanion.x-player.x)*Math.cos(seat.angle)-(activeCompanion.z-player.z)*Math.sin(seat.angle);
+    if(side>0)right=2*Math.PI/3;
+    else left=2*Math.PI/3;
+    down=-Math.PI/2;
+  }
+  player.angle=Math.max(seat.angle-left,Math.min(seat.angle+right,player.angle+yaw));
+  seat.pitch=Math.max(down,Math.min(Math.PI/2,seat.pitch+pitch));
+}
 function useSeat(cabSeat=null){
   if(hotelStairs)return false;
   let greet=false,seatReply=null;
@@ -286,7 +296,7 @@ function useSeat(cabSeat=null){
   }else if(insideLavatory)return false;
   else if(!insidePub){
     // Park benches outside; the sofa in a hotel lobby; the arcade's bridge chairs.
-    const seat=insideBookshop?(bookshopSpatial()?(bookshopTarget()?.type==='chair'?bookshopTarget().data:null):facingBookshopSeat(player)):insideHotel?facingHotelSeat(player):insideArcade?facingArcadeSeat(player):facingBench(player,city.chunks.values());
+    const seat=insideBookshop?(bookshopSpatial()?(bookshopTarget()?.type==='chair'?bookshopTarget().data:null):facingBookshopSeat(player)):insideHotel?facingHotelSeat(player):insideArcade?facingArcadeSeat(player):facingBench(player,city.chunks.values(),activeCompanion?.benchSeated?activeCompanion:null);
     if(!seat)return false;
     if(insideBookshop&&bookshopLife.occupied(BOOKSHOP.chairs.indexOf(seat))){notice=2.5;noticeText='THIS TABLE IS OCCUPIED.';return true;}
     playerSeat={bench:seat.bench,standing:{x:player.x,z:player.z},angle:seat.angle,pitch:0};
@@ -469,10 +479,10 @@ function answerStaff(choice){
 }
 // Lisa said yes: she gets up with the player and walks with them to Night River.
 // Lisa as an obstacle for whoever would walk into her in this room, or null.
-const lisaIn=room=>lisa?.visible&&lisa.room===room?lisa.body():null;
+const companionIn=room=>activeCompanion?.visible&&activeCompanion.room===room?activeCompanion.body():null;
 function startLisaDate(){
   const {tableIndex}=playerSeat,seat=1-playerSeat.seat,venue=currentVenue;
-  lisa=new LisaDate({tableIndex,seat,variant:pubPatrons[tableIndex]?.variants?.[seat]??0,
+  activeCompanion=new LisaDate({tableIndex,seat,variant:pubPatrons[tableIndex]?.variants?.[seat]??0,
     pubBlock:{x:Math.floor((venue.x+venue.w/2)/64),z:Math.floor((venue.z+venue.d/2)/64)}});
 }
 function showStaffTalk(){
@@ -584,10 +594,57 @@ async function prepareRendererAtStartup(){
     start.innerHTML='3D RENDERING UNAVAILABLE';
   }finally{start.removeAttribute('aria-busy');}
 }
-async function selectDebugDestination(id,park,renderer='three'){
-  if(!supportsRenderer(id,renderer))throw new Error('This renderer is not available for that destination.');
+async function selectDebugDestination(id,park,companion){
+  if(!supportsRenderer(id,'three'))throw new Error('This renderer is not available for that destination.');
   await prepareThreeRenderer();
-  await debugTravel(id,park);painted=false;
+  await debugTravel(id,park);
+  activeCompanion=companion==='lisa'?debugLisa():null;
+  painted=false;
+}
+function debugLisa(){
+  const origin=indoors()?streetPosition:player;
+  const pubBlock={x:Math.floor(origin.x/BLOCK),z:Math.floor(origin.z/BLOCK)};
+  const start=playerSeat?.standing??player;
+  const spawn={room:debugScene(),x:start.x,z:start.z};
+  let variant=0;
+  if(insidePub){
+    for(const seats of pubPatrons){
+      const seat=seats.indexOf(LISA_TYPE);
+      if(seat>=0){variant=seats.variants?.[seat]??0;seats[seat]=null;}
+    }
+    if(pubLife.walker?.type===LISA_TYPE){variant=pubLife.walker.variant;pubLife.walker=null;}
+  }
+  const follower=new LisaDate({spawn,variant,pubBlock});
+  follower.riverWalk=player.riverWalk;
+  // Find a nearby standing position using the destination's normal collisions.
+  for(const offset of [0,Math.PI/2,-Math.PI/2,Math.PI]){
+    follower.x=start.x;follower.z=start.z;
+    if(spawn.room==='stairs')follower.stairs={...hotelStairs};
+    const angle=player.angle+offset,dx=.15*Math.sin(angle),dz=.15*Math.cos(angle);
+    for(let step=0;step<10;step++){
+      if(insidePub)moveInPub(follower,dx,dz,pubPatrons,pubLife.walker);
+      else if(indoors())moveIndoorCompanion(follower,dx,dz);
+      else city.move(follower,dx,dz);
+    }
+    if(Math.hypot(follower.x-start.x,follower.z-start.z)>1.3)break;
+  }
+  follower.ground=indoors()?0:groundHeight(follower.x,follower.z,follower.riverWalk);
+  follower.faceMovement(player.x-follower.x,player.z-follower.z);
+  return follower;
+}
+function moveIndoorCompanion(actor,dx,dz){
+  const x=actor.x,z=actor.z;
+  switch(actor.room){
+    case 'hotel': moveInHotel(actor,dx,dz,hotelGuests(),currentHotel);actor.y=hotelFloorHeight(actor.x,actor.z);break;
+    case 'stairs': moveInHotelStairwell(actor,dx,dz,actor.stairs,hotelGuests());actor.y=stairwellHeight(actor,actor.stairs);break;
+    case 'corridor': moveInHotelCorridor(actor,dx,dz,hotelGuests());break;
+    case 'storage': moveInHotelStorage(actor,dx,dz);break;
+    case 'lavatory': moveInLavatory(actor,dx,dz,lavatoryLife?.walker);break;
+    case 'cubicle': moveInCubicle(actor,dx,dz);break;
+    case 'bookshop': moveInBookshop(actor,dx,dz,bookshopLife.seller,bookshopLife.people);break;
+    case 'arcade': moveInArcade(actor,dx,dz,arcadeLife.people);break;
+  }
+  actor.faceMovement(actor.x-x,actor.z-z);
 }
 function selectRenderSurface(useThree){
   if(threeCanvas)threeCanvas.hidden=!useThree;
@@ -613,7 +670,7 @@ function render(){
     insideBookshop,bookshopLife,insideArcade,arcadeLife,
     insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
-    pubPatrons,bartenderType,currentVenue,pubLife,lisa,city,roadTraffic,wallet,
+    pubPatrons,bartenderType,currentVenue,pubLife,activeCompanion,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors(),
     riverWisps:indoors()?null:riverWisps.view,
     dimmed:!overlay.hidden
@@ -886,9 +943,7 @@ const touchControls=installSeatedTouch(canvas,{
   canUse:()=>running&&!windowView&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk&&!debugMenu?.open,
   look:(yaw,pitch)=>{
     if(!playerSeat){player.angle+=yaw;return;}
-    const look=seatLook(playerSeat);
-    player.angle=Math.max(playerSeat.angle-look.yaw,Math.min(playerSeat.angle+look.yaw,player.angle+yaw));
-    playerSeat.pitch=Math.max(look.down,Math.min(Math.PI/2,playerSeat.pitch+pitch));
+    lookFromSeat(playerSeat,yaw,pitch);
   },
   stand:()=>{if(!playerSeat?.cabVan)useSeat();},
   tap:ground=>{
@@ -964,10 +1019,8 @@ function tick(now){
       windowView.pitch=Math.max(-Math.PI/2,Math.min(Math.PI/2,windowView.pitch+tilt*cameraDt*1.65));
     }
     if(playerSeat){
-      const look=seatLook(playerSeat);
-      player.angle=Math.max(playerSeat.angle-look.yaw,Math.min(playerSeat.angle+look.yaw,player.angle));
       const tilt=Number(keys.has('ArrowUp'))-Number(keys.has('ArrowDown'));
-      playerSeat.pitch=Math.max(look.down,Math.min(Math.PI/2,playerSeat.pitch+tilt*cameraDt*1.65));
+      lookFromSeat(playerSeat,0,tilt*cameraDt*1.65);
       // Sideways keys or a two-finger sideways drag slide across the van cab bench to the other seat.
       const across=Math.sign(Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe);
       // From the passenger seat, a fresh move right through the open right-hand door leaves the van.
@@ -994,21 +1047,21 @@ function tick(now){
     }
     const forward=Math.max(-1,Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s'))-touchControls.backward),side=Math.max(-1,Math.min(1,Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe)),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(indoors())hornWarning.update(dt,null,[]);
-    if(lisa){
-      const warning=lisa.update(dt,{room:insidePub?'pub':indoors()?'other':'street',player,seated:!!playerSeat,patrons:pubPatrons,city,
+    if(activeCompanion){
+      const warning=activeCompanion.update(dt,{room:debugScene(),moveIndoors:moveIndoorCompanion,player,seated:!!playerSeat,bench:playerSeat?.bench,patrons:pubPatrons,city,
         ground:indoors()?0:groundHeight(player.x,player.z,player.riverWalk)});
       if(warning){notice=2.5;noticeText=warning;}
-      if(lisa.gone)lisa=null;
+      if(activeCompanion.gone)activeCompanion=null;
     }
     if(insidePub){
-      const lisaBody=lisaIn('pub');
-      pubLife?.update(dt,pubPatrons,playerSeat,lisaBody?[player,lisaBody]:player,lisa?[LISA_TYPE]:[]);
+      const companionBody=companionIn('pub');
+      pubLife?.update(dt,pubPatrons,playerSeat,companionBody?[player,companionBody]:player,activeCompanion?[activeCompanion.type]:[]);
       const line=pubTalk?.update(dt);
       if(line){notice=2.5;noticeText=line;}
       const bumpedSeats=[],bumpedWalkers=[];
       const move=pubSpatial()?.move??moveInPub;
-      const bumpedPerson=!playerSeat&&move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,[pubLife?.walker,lisaBody].filter(Boolean),bumpedSeats,bumpedWalkers);
-      if(lisaBody)lisa.yieldToPlayer(dt,bumpedWalkers.includes(lisaBody),player,(person,dx,dz)=>move(person,dx,dz,pubPatrons,pubLife?.walker));
+      const bumpedPerson=!playerSeat&&move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,[pubLife?.walker,companionBody].filter(Boolean),bumpedSeats,bumpedWalkers);
+      if(companionBody)activeCompanion.yieldToPlayer(dt,bumpedWalkers.includes(companionBody),player,(person,dx,dz)=>move(person,dx,dz,pubPatrons,pubLife?.walker));
       pubLife?.bump(bumpedSeats,pubPatrons);
       if(bumpedPerson){notice=2.5;noticeText='HEY! WATCH OUT!';}
       document.querySelector('#message').textContent=notice?noticeText:'';
@@ -1054,12 +1107,12 @@ function tick(now){
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=hotelCorridor?`HOTEL / FLOOR ${hotelStairs.floor} / CORRIDOR`:hotelStorage?'HOTEL / FLOOR 2 / STORAGE':hotelStairs?`HOTEL / FLOOR ${hotelStairs.floor} / STAIRWELL`:'HOTEL / LOBBY';
     }else{
-    const lisaBody=lisaIn('street'),lisaBlocks=lisaBody?[lisaBody]:[];
-    const people=[...city.pedestrians(time-dt),...lisaBlocks];
+    const companionBody=companionIn('street'),companionBlocks=companionBody?[companionBody]:[];
+    const people=[...city.pedestrians(time-dt),...companionBlocks];
     const bumped=[],bumpedCars=[];
     const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people,bumped,roadTraffic.cars,bumpedCars);
-    if(lisaBody)lisa.yieldToPlayer(dt,bumped.includes(lisaBody),player,(person,dx,dz)=>
-      city.move(person,dx,dz,people.filter(p=>p!==lisaBody),[],roadTraffic.cars));
+    if(companionBody)activeCompanion.yieldToPlayer(dt,bumped.includes(companionBody),player,(person,dx,dz)=>
+      city.move(person,dx,dz,people.filter(p=>p!==companionBody),[],roadTraffic.cars));
     const fallReply=player.riverFall?advanceRiverFall(player,dt):null;
     if(fallReply){notice=2.5;noticeText=fallReply;}
     // On the promenade or a footpath, someone with lines for it answers a bump with them instead.
@@ -1070,7 +1123,7 @@ function tick(now){
     parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
     const streetPlayer=player.riverWalk?null:player;
     // Cars stop for Lisa only on the stripes; elsewhere they pass through her.
-    const cars=roadTraffic.update(city.chunks.values(),time,dt,streetPlayer,[...(city.crossingPeople?.()??[]),...lisaBlocks]);
+    const cars=roadTraffic.update(city.chunks.values(),time,dt,streetPlayer,[...(city.crossingPeople?.()??[]),...companionBlocks]);
     if(hornWarning.update(dt,streetPlayer,cars))playHorn(audioContext);
     // Waiting cars remain solid even while their warning is on cooldown.
     for(const c of cars)if(c.waiting&&!player.riverWalk){
@@ -1102,7 +1155,7 @@ function tick(now){
       playCoverGrunt(audioContext);
     }
     coverPressed=false;
-    const held=city.advancePedestrians(dt,player,time,walkerTalk.apart===0?walkerTalk.walker:null,roadTraffic,lisaBlocks)??[];
+    const held=city.advancePedestrians(dt,player,time,walkerTalk.apart===0?walkerTalk.walker:null,roadTraffic,companionBlocks)??[];
     const line=walkerTalk.update(dt,[...bumped,...held]);
     if(line){notice=2.5;noticeText=line;}
     document.querySelector('#message').textContent=notice?noticeText:'';

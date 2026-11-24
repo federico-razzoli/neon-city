@@ -4,6 +4,7 @@ import * as THREE from './vendor/three/three.module.js';
 import {isSignArtwork} from './sign-artwork.js';
 import {sharpenSignSampling} from './sign-texture-filter.js';
 import {createThreeMoneyNote} from './three-money-note.js';
+import {createThreeSeatedCharacters} from './three-seated-characters.js';
 import {createThreeCharacterCards} from './three-character-cards.js';
 import {createThreeFingerposts} from './three-fingerposts.js';
 import {createThreeRetainingWalls} from './three-retaining-walls.js';
@@ -45,6 +46,8 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const iceCreamVans=createThreeIceCreamVans(scene,{boundsVisible:exteriorVisible});
   const water=createThreeRiverWater(scene),riverWalks=createThreeRiverWalks(scene),riverWisps=createThreeRiverWisps(scene);
   const cards=createThreeCharacterCards(),cardMeshes=[],carriedIceCreams=createThreeCarriedIceCreams(scene);
+  const seatedCharacters=createThreeSeatedCharacters(),benchLegMeshes=[];
+  let benchLegCount=0;
   let cash,cashNote;
   let cardCount=0;
   let style={},view;
@@ -93,9 +96,22 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
 drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetainingWalls:(chunk,viewer)=>retainingWalls.draw(chunk,viewer),drawManholes:chunk=>manholes.draw(chunk),drawHotelDoormats:chunk=>doormats.draw(chunk),drawTrees:chunk=>trees.draw(chunk),drawWater:chunk=>{water.draw(chunk);riverWalks.draw(chunk);},drawCar:(car,surface)=>{
     if(!exteriorVisible||exteriorVisible(car.x-4,surface.base-2,car.z-4,car.x+4,surface.base+4,car.z+4))traffic.draw(car,surface);
   },drawRoad:chunk=>roads.draw(chunk),drawRailings:chunk=>railings.draw(chunk),boundsVisible:(...args)=>culling.boundsVisible(...args)&&(!exteriorVisible||exteriorVisible(...args)),
-    beginFrame(next){carriedIceCreams.beginFrame();cardCount=0;view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
+    beginFrame(next){carriedIceCreams.beginFrame();cardCount=0;benchLegCount=0;view=next;culling.set(next);updateInteriorCamera(camera,next);for(const b of batches.values()){b.positions.length=0;b.uvs.length=0;}},
     withStyle(next,draw){const old=style;style={...style,...next};try{return draw();}finally{style=old;}},
     beginPass(){},endPass(){return [];},drawPass(){},drawSky(){},finishStreet(){},
+    drawBenchLegs(person,girth){
+      const geometry=seatedCharacters.geometry(person.type,person.variant,-1,.24);
+      let mesh=benchLegMeshes[benchLegCount++];
+      if(!mesh){
+        mesh=new THREE.Mesh(geometry,seatedCharacters.material);
+        mesh.name='bench-seated-legs';benchLegMeshes.push(mesh);scene.add(mesh);
+      }
+      mesh.geometry=geometry;mesh.visible=true;
+      mesh.position.set(person.x,person.ground,-person.z);
+      mesh.rotation.y=-Math.atan2(person.facingX,person.facingZ);
+      // The bench seat is .5 high. The chair model's thighs start at .52.
+      mesh.scale.set(girth,.5/.52,1);
+    },
     drawCharacterCard({position:p,height,width,type,frame,back,variant,seated=false,iceCreamStage,iceCreamFlavour}){
       if(exteriorVisible&&!exteriorVisible(p.x-width/2,p.y,p.z-width/2,p.x+width/2,p.y+height,p.z+width/2))return;
       const v=culling.transform(p);if(v.z<.3||v.z>105)return;
@@ -130,6 +146,7 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     iceCreamVans.beginFrame(frame);scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);doormats.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);
     carriedIceCreams.endFrame();
+    for(let i=benchLegCount;i<benchLegMeshes.length;i++)benchLegMeshes[i].visible=false;
     for(let i=cardCount;i<cardMeshes.length;i++)cardMeshes[i].visible=false;
     roads.endFrame();railings.endFrame();traffic.endFrame();water.endFrame();riverWalks.endFrame();
     riverWisps.update(frame.riverWisps);
@@ -138,5 +155,5 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){cash?.dispose();cash=null;cashNote=null;iceCreamVans.dispose();scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();carriedIceCreams.dispose();cards.dispose();cardMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();doormats.dispose();trees.dispose();riverWalks.dispose();riverWisps.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },dispose(){cash?.dispose();cash=null;cashNote=null;iceCreamVans.dispose();scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();carriedIceCreams.dispose();cards.dispose();cardMeshes.length=0;seatedCharacters.dispose();benchLegMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();doormats.dispose();trees.dispose();riverWalks.dispose();riverWisps.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }

@@ -20,6 +20,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import {groundHeight} from './world.js?v=start-pub-1';
 import {pubRoute} from './pub-life.js?v=npc-followup-1';
 
+const BENCH_DELAY=2;
 const WALK_SPEED=1.3,FOLLOW_SPEED=4,GAP=1.6,ROUTE_INTERVAL=.25,HISTORY=240;
 export const STREET_CLEARANCE=1.3;
 const CLEARANCE={street:STREET_CLEARANCE,pub:.85};
@@ -29,14 +30,59 @@ const CLEARANCE={street:STREET_CLEARANCE,pub:.85};
 export class PlayerFollower{
   constructor({type,variant=0,room,x,z,ground=0,chair=null,facingX=0,facingZ=1}){
     Object.assign(this,{type,variant,room,x,z,ground,chair,facingX,facingZ,
-      route:[],history:[],routeTimer:0,pushTime:0,walkTime:0});
+      benchVisit:null,route:[],history:[],routeTimer:0,pushTime:0,walkTime:0});
   }
   // Rendering data for a street pedestrian card.
-  view(){return {x:this.x,z:this.z,ground:this.ground,type:this.type,variant:this.variant,facingX:this.facingX,facingZ:this.facingZ,frame:Math.floor(this.walkTime*WALK_SPEED*5)%4};}
+  get benchSeated(){return this.benchVisit?.seated===true;}
+  view(){return {seated:this.benchSeated,x:this.x,z:this.z,ground:this.ground,type:this.type,variant:this.variant,facingX:this.facingX,facingZ:this.facingZ,frame:Math.floor(this.walkTime*WALK_SPEED*5)%4};}
   // Where she stands, for collisions; below street level means the lower path.
   // As walker, she is a bumped person without lines for the place.
   body(){return {...this.view(),riverWalk:this.riverWalk,walker:this,place:null};}
-  followPlayer(dt,{player,city,ground=0}){
+  // A bench faces away from its normal. Approach the vacant end from the path.
+  updateBench(dt,bench,player,city,ground){
+    let visit=this.benchVisit;
+    if(visit?.seated){
+      if(visit.bench===bench){visit.elapsed=0;return true;}
+      visit.elapsed+=dt;
+      if(visit.elapsed>=BENCH_DELAY){
+        this.x=visit.front.x;this.z=visit.front.z;
+        this.benchVisit=null;
+      }
+      return true;
+    }
+    if(!bench){this.benchVisit=null;return false;}
+    if(bench!==visit?.bench){
+      const side=(player.x-bench.x)*bench.tx+(player.z-bench.z)*bench.tz>0?-.5:.5;
+      const seat={x:bench.x+side*bench.tx,z:bench.z+side*bench.tz};
+      const front={x:seat.x-bench.nx,z:seat.z-bench.nz};
+      visit=this.benchVisit={bench,seat,front,elapsed:0,seated:false};
+    }
+    let target=visit.front;
+    const u=(this.x-bench.x)*bench.tx+(this.z-bench.z)*bench.tz;
+    const v=(this.x-bench.x)*bench.nx+(this.z-bench.z)*bench.nz;
+    // Walk around the nearest armrest when approaching from the back.
+    if(v>-.85){
+      const end=u<0?-1.8:1.8;
+      const depth=v>0&&Math.abs(u)<1.65?Math.max(v,1):-1;
+      target={x:bench.x+end*bench.tx+depth*bench.nx,z:bench.z+end*bench.tz+depth*bench.nz};
+    }
+    const dx=target.x-this.x,dz=target.z-this.z,distance=Math.hypot(dx,dz);
+    if(distance>.04){
+      visit.elapsed=0;
+      const step=Math.min(dt*FOLLOW_SPEED/distance,1);
+      this.moveOnStreet(city,dx*step,dz*step);
+    }else if(target===visit.front&&Math.abs(this.ground-ground)<.5){
+      this.facingX=-bench.nx;this.facingZ=-bench.nz;
+      visit.elapsed+=dt;
+      if(visit.elapsed>=BENCH_DELAY){
+        Object.assign(this,visit.seat);
+        visit.seated=true;visit.elapsed=0;
+      }
+    }
+    return true;
+  }
+  followPlayer(dt,{player,city,ground=0,bench=null}){
+    if(this.room==='street'&&this.updateBench(dt,bench,player,city,ground))return true;
     const room=this.room,distance=Math.hypot(player.x-this.x,player.z-this.z);
     const travel=Math.min(dt*FOLLOW_SPEED,distance-GAP);
     if(travel<=0||(room!=='street'&&room!=='pub'))return false;
@@ -50,20 +96,24 @@ export class PlayerFollower{
       }
       this.walkRoute(travel,player,ground);
     }else{
-      const x=this.x,z=this.z;
-      const last=this.history.at(-1);
-      if(!last||Math.hypot(x-last.x,z-last.z)>=.25){
-        this.history.push({x,z,ground:this.ground});
-        if(this.history.length>HISTORY)this.history.shift();
-      }
-      city.move(this,(player.x-x)/distance*travel,(player.z-z)/distance*travel);
-      this.ground=groundHeight(this.x,this.z,this.riverWalk);
-      delete this.riverFall;
-      this.faceMovement(this.x-x,this.z-z);
+      this.moveOnStreet(city,(player.x-this.x)/distance*travel,(player.z-this.z)/distance*travel);
     }
     return true;
   }
+  moveOnStreet(city,dx,dz){
+    const x=this.x,z=this.z;
+    const last=this.history.at(-1);
+    if(!last||Math.hypot(x-last.x,z-last.z)>=.25){
+      this.history.push({x,z,ground:this.ground});
+      if(this.history.length>HISTORY)this.history.shift();
+    }
+    city.move(this,dx,dz);
+    this.ground=groundHeight(this.x,this.z,this.riverWalk);
+    delete this.riverFall;
+    this.faceMovement(this.x-x,this.z-z);
+  }
   yieldToPlayer(dt,pressed,player,move){
+    if(this.benchVisit)return;
     this.pushTime=pressed?this.pushTime+dt:0;
     if(this.pushTime<.35)return;
     this.pushTime=0;

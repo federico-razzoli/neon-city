@@ -36,20 +36,28 @@ const centre=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
 // waiting (at the river, while the player is on other streets), leaving.
 // Gone once she has walked off; she may then turn up in a pub again.
 export class LisaDate extends PlayerFollower{
-  constructor({tableIndex,seat,variant,pubBlock}){
-    const chair=pubChairs().find(c=>c.tableIndex===tableIndex&&c.seat===seat);
-    super({type:LISA_TYPE,variant,room:'pub',...centre(chair),chair,facingZ:-chair.side});
-    Object.assign(this,{pubBlock,state:'seated',distanceWarned:false,atRiver:false,gone:false,leaveTime:0});
+  constructor({tableIndex,seat,variant,pubBlock,spawn}){
+    const chair=spawn?null:pubChairs().find(c=>c.tableIndex===tableIndex&&c.seat===seat);
+    super({type:LISA_TYPE,variant,...(spawn??{room:'pub',...centre(chair),chair,facingZ:-chair.side})});
+    Object.assign(this,{pubBlock,state:spawn?'following':'seated',distanceWarned:false,atRiver:spawn?.room==='street'&&onRiver(spawn),gone:false,leaveTime:0});
     // 1 when the nearest river lies at greater z than the pub's block, else -1.
     this.riverDirection=Math.sign(RIVER_ROWS.reduce((a,b)=>Math.abs(b+.5-pubBlock.z)<Math.abs(a+.5-pubBlock.z)?b:a)+.5-pubBlock.z);
   }
   isFollowing(player){return !this.gone&&this.state==='following'&&Math.hypot(player.x-this.x,player.z-this.z)<=REACH;}
   get visible(){return !this.gone&&this.state!=='seated'&&!this.inDoorway;}
   // Room is 'pub', 'street' or anything else (a place she won't go).
-  update(dt,{room,player,seated,ground=0,patrons,city}){
+  update(dt,{room,moveIndoors,player,seated,bench,ground=0,patrons,city}){
     if(this.gone)return;
     // Waiting at the river, she stays there wherever the player goes.
     if(room!==this.room){if(this.state!=='waiting')this.gone=true;return;}
+    if(room!=='street'&&room!=='pub'){
+      const dx=player.x-this.x,dz=player.z-this.z,distance=Math.hypot(dx,dz);
+      if(distance>1.6){
+        const step=Math.min(dt*4,distance-1.6)/distance;
+        moveIndoors(this,dx*step,dz*step);
+      }
+      return;
+    }
     if(this.state==='seated'){
       if(seated)return;
       // She stands as the player does, and walks round the table to them.
@@ -65,6 +73,7 @@ export class LisaDate extends PlayerFollower{
     const distance=Math.hypot(player.x-this.x,player.z-this.z);
     // Out of the pub, she steps through the door once the player has made room.
     if(this.inDoorway){if(distance<STREET_CLEARANCE)return;this.inDoorway=false;}
+    if(this.benchSeated){this.updateBench(dt,bench,player,city,ground);return;}
     const playerOff=this.atRiver&&!onRiver(player);
     if(playerOff){this.state='waiting';this.distanceWarned=false;return;}
     if(this.state==='waiting'){
@@ -74,7 +83,7 @@ export class LisaDate extends PlayerFollower{
     if(distance>REACH||room==='street'&&!this.atRiver&&!onRiver(player)&&this.strayed(player)){this.leave();return;}
     const warn=distance>=WARN_DISTANCE&&!this.distanceWarned;
     this.distanceWarned=distance>=WARN_DISTANCE;
-    if(!this.followPlayer(dt,{player,city,ground}))return;
+    if(!this.followPlayer(dt,{player,city,ground,bench}))return;
     if(room==='street'&&!this.atRiver&&onRiver(this))this.atRiver=true;
     if(warn)return 'HEY! WAIT FOR ME!';
   }

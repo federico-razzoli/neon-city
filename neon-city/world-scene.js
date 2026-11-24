@@ -57,7 +57,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     insideBookshop,bookshopLife,insideArcade,arcadeLife,
     insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
-    pubPatrons,bartenderType,currentVenue,pubLife,lisa,city,roadTraffic,wallet,
+    pubPatrons,bartenderType,currentVenue,pubLife,activeCompanion,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView,hotelGuests,itemRoom,indoors;
   function face(vertices,color,texture=null,smooth=false,buildingWall=false){
     renderer.face(vertices,color,texture,smooth,buildingWall);
@@ -110,6 +110,11 @@ export function createWorldScene(renderer,{reduced=false}={}){
     if(player.x>x+w)wall(3);
   }
   function person(p){
+    if(p.seated){
+      renderer.drawBenchLegs(p,characterGirth(p.type));
+      seatedPatron(p,false,characterHeight(p.type),pedestrianShowsBack(p,player),p.ground+.5);
+      return;
+    }
     if(renderer.drawCharacterCard){
       renderer.drawCharacterCard({iceCreamStage:p.iceCreamStage,iceCreamFlavour:p.iceCreamFlavour,position:{x:p.x,y:(p.ground??groundHeight(p.x,p.z))+.075,z:p.z},
         type:p.type,frame:p.frame,back:pedestrianShowsBack(p,player),variant:p.variant,
@@ -151,13 +156,15 @@ export function createWorldScene(renderer,{reduced=false}={}){
     }
   }
   const seatedPixels=new Map();
-  function seatedPatron(p,walking=false,height=48*.05,backView=null){
+  function seatedPatron(p,walking=false,height=48*.05,backView=null,seatBase=null){
     const back=backView??(walking?pedestrianShowsBack(p,player):(player.z-p.z)*p.side>0);
     const frame=walking?Math.floor(p.walkTime*6)%4:1,rows=walking?48:32,key=`${p.type}:${outfit(p.type,p.variant)}:${back}:${frame}:${rows}`;
+    const scale=walking||seatBase!==null?height/48:.0375;
+    const bottom=walking?(p.y??0):(seatBase??(1.87-32*.0375));
     if(renderer.drawCharacterCard){
-      renderer.drawCharacterCard({position:{x:p.x,y:walking?(p.y??0):1.87-32*.0375,z:p.z},
+      renderer.drawCharacterCard({position:{x:p.x,y:bottom,z:p.z},
         type:p.type,frame,back,variant:p.variant,seated:!walking,
-        height:walking?height:32*.0375,width:(walking?height/2:24*.0375)*characterGirth(p.type)});
+        height:rows*scale,width:24*scale*characterGirth(p.type)});
       return;
     }
     if(!seatedPixels.has(key)){
@@ -175,7 +182,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     }
     // Standing patrons use the pub's larger scale, with their feet on the floor
     // (y above it, for a walker on the hotel stairs).
-    const scale=walking?height/48:.0375,headHeight=walking?height+(p.y??0):1.87;
+    const headHeight=bottom+rows*scale;
     for(const run of seatedPixels.get(key)){
       const girth=characterGirth(p.type),left=(run.x-12)*scale*girth,right=(run.end-12)*scale*girth,top=headHeight-run.y*scale,bottom=top-scale;
       const point=(offset,y)=>({x:p.x+Math.cos(player.angle)*offset,y,z:p.z-Math.sin(player.angle)*offset});
@@ -245,7 +252,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     if(insidePub){
       renderer.beginPass();drawPubInterior({face,quad,box,patrons:pubPatrons,seatedPatron,bartenderType,barBeer:currentVenue.barBeer});
       if(pubLife?.walker)seatedPatron(pubLife.walker,true);
-      if(lisa?.visible&&lisa.room==='pub')seatedPatron(lisa,true);
+      if(activeCompanion?.visible&&activeCompanion.room==='pub')seatedPatron(activeCompanion,true);
       drawDroppedItems(city.chunks.values());
       renderer.drawInterior();return;
     }
@@ -287,7 +294,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
       }
       for(const p of chunk.people)person(pedestrian(chunk,p,time));
     }
-    if(lisa?.visible&&lisa.room==='street')person(lisa.view());
+    if(activeCompanion?.visible&&activeCompanion.room==='street')person(activeCompanion.view());
     drawDroppedItems(visible);
     if(renderer.drawMoneyNote)renderer.drawMoneyNote(wallet.note);
     else renderer.withStyle({detail:true,textureSmooth:true,groundTexture:true},()=>drawMoneyNote(wallet.note,face));
@@ -304,7 +311,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
       insideBookshop,bookshopLife,insideArcade,arcadeLife,
       insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
       insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
-      pubPatrons,bartenderType,currentVenue,pubLife,lisa,city,roadTraffic,wallet,
+      pubPatrons,bartenderType,currentVenue,pubLife,activeCompanion,city,roadTraffic,wallet,
       banshee,shake,steps,starfield,moon,shootingStars,skyView,hotelGuests,itemRoom,indoors}=frame);
     renderScene();
   }};

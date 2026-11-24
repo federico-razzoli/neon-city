@@ -114,11 +114,12 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
       scene.remove(mesh);mesh.geometry.dispose();dropped.delete(item);
     }
     const guests=[...(actorsFor(frame)??[]),...(extras?.actors?.()??[])],presentActors=new Set();
+    if(frame.activeCompanion?.visible&&frame.activeCompanion.room===(name==='hall'?'hotel':name)&&name!=='pub')guests.push(frame.activeCompanion);
     for(const guest of guests){
       const key=guest.id??guest;presentActors.add(key);
       let mesh=actors.get(key);
       if(!mesh){mesh=new THREE.Mesh(actorGeometry,material);mesh.name=`${name}-guest`;mesh.userData.actorId=typeof key==='string'?key:null;actors.set(key,mesh);scene.add(mesh);}
-      const view=actorView(guest,frame),seated=!!view.seated;
+      const view=guest===frame.activeCompanion&&name!=='pub'?{}:actorView(guest,frame),seated=!!view.seated;
       mesh.layers.set(view.reflectionOnly?1:0);
       const frameIndex=seated?1:Math.floor(guest.walkTime*6)%4;
       const back=view.back??pedestrianShowsBack(guest,frame.player);
