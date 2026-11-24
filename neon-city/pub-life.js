@@ -17,8 +17,8 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {PUB,pubChairs,pubPersonBlocks} from './pub-interior.js?v=bumps-1';
-import {OTHER_PUB_TYPES,PUNK_GIRL_TYPE} from './world.js?v=bumps-1';
+import {PUB,pubChairs,pubPersonBlocks,choosePubType,pubTypesPresent} from './pub-interior.js?v=bumps-1';
+import {PUNK_GIRL_TYPE} from './world.js?v=bumps-1';
 import {register} from './register.js';
 const entrance={x:PUB.door.x,z:.4};
 const center=c=>({x:c.x+c.w/2,z:c.z+c.d/2});
@@ -79,8 +79,10 @@ export class PubLife{
       this.arrival=this.delay();
       const free=chairs.filter(c=>patrons[c.tableIndex]?.[c.seat]==null&&!sameSeat(c,playerSeat));
       const chair=free[Math.floor(this.random()*free.length)];
+      const type=choosePubType(pubTypesPresent(patrons),this.random);
+      if(type==null)return;
       const route=chair?pubRoute(entrance,center(chair),chair):[{x:entrance.x,z:1},entrance];
-      if(route)this.walker={...entrance,type:OTHER_PUB_TYPES[Math.floor(this.random()*OTHER_PUB_TYPES.length)],variant:this.random(),chair,route,walkTime:0,facingX:0,facingZ:1};
+      if(route)this.walker={...entrance,type,variant:this.random(),chair,route,walkTime:0,facingX:0,facingZ:1};
     }else if(this.departure<=0){
       this.departure=this.delay();
       const occupied=chairs.filter(c=>patrons[c.tableIndex]?.[c.seat]!=null&&c.tableIndex!==playerSeat?.tableIndex);

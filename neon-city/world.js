@@ -84,7 +84,7 @@ const CHARACTER_TRAITS={
   ]},
   9:{goesToPub:false},
   10:{height:1.78},
-  11:{lines:[
+  11:{pubLimit:3,lines:[
     'I WAS CREATED BY AN ADVANCED ALIEN CIVILISATION.',
     'I WAS SENT HERE TO STUDY THE HUMAN BEINGS.',
     "BUT IT'S SUCH A BORING TASK...",
@@ -175,6 +175,8 @@ const walkerPlace=(chunk,p)=>chunk.river?'river':p.detour?'footpath':null;
 export const PUB_TYPES=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>type).filter(goesToPub);
 export const PUNK_GIRL_TYPE=3;
 export const OTHER_PUB_TYPES=PUB_TYPES.filter(type=>type!==PUNK_GIRL_TYPE);
+// How many of a character may be in one pub at once.
+export const pubLimit=type=>CHARACTER_TRAITS[type]?.pubLimit??1;
 // Relative chance of meeting each character on the street; pubs ignore it.
 export const streetWeight=type=>CHARACTER_TRAITS[type]?.weight??1;
 const STREET_WEIGHT_TOTAL=Array.from({length:PEDESTRIAN_TYPES},(_,type)=>streetWeight(type)).reduce((a,b)=>a+b);

@@ -20,7 +20,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import {facesEntrance} from './entrances.js';
 import {drawMagicBoot} from './magic-boot.js';
 import {SHOE_COLORS,TEEN_OUTFITS,outfit} from './sprites.js?v=bumps-1';
-import {OTHER_PUB_TYPES,PUNK_GIRL_TYPE} from './world.js?v=bumps-1';
+import {OTHER_PUB_TYPES,PUNK_GIRL_TYPE,pubLimit} from './world.js?v=bumps-1';
 import {register} from './register.js';
 
 // Interior coordinates are local: the street entrance is centred on the south wall.
@@ -64,14 +64,25 @@ export function facingPubChair(player,patrons=[],reserved){
   }
   return nearest;
 }
+// A random character who would not push their kind over its pub limit, or
+// null when every kind is full. Present lists the types already inside.
+export function choosePubType(present,random=Math.random){
+  const count=new Map();for(const type of present)if(type!=null)count.set(type,(count.get(type)??0)+1);
+  const open=OTHER_PUB_TYPES.filter(type=>(count.get(type)??0)<pubLimit(type));
+  return open.length?open[Math.floor(random()*open.length)]:null;
+}
+export const pubTypesPresent=patrons=>patrons.flatMap(seats=>seats?[seats[0],seats[1]]:[]);
 export function createPubPatrons(random=Math.random){
-  const punkTable=Math.floor(random()*PUB.tables.length);
+  const punkTable=Math.floor(random()*PUB.tables.length),present=[PUNK_GIRL_TYPE];
   return PUB.tables.map((_,index)=>{
     // 10% empty, 45% solo, 45% paired.
     const roll=random(),count=roll<.1?0:roll<.55?1:2,seats=[null,null];
     const first=random()<.5?0:1;
-    for(let i=0;i<count;i++)seats[(first+i)%2]=OTHER_PUB_TYPES[Math.floor(random()*OTHER_PUB_TYPES.length)];
     if(index===punkTable)seats[first]=PUNK_GIRL_TYPE;
+    for(let i=0;i<count;i++){
+      const seat=(first+i)%2;if(seats[seat]!=null)continue;
+      seats[seat]=choosePubType(present,random);present.push(seats[seat]);
+    }
     seats.beerSides=[random()<.5?-1:1,random()<.5?-1:1];
     // Outfit variants follow patrons between the street sprite and their seat.
     seats.variants=[random(),random()];
