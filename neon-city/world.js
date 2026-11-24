@@ -388,6 +388,9 @@ class CrossingPositions {
 }
 
 // Let an actor already inside the collision area retreat without getting stuck.
+// Others are people who block walkers as the player does, without being
+// talked to: Lisa, walking with the player.
+const crossesAny=(a,b,people)=>people.some(person=>crossesPlayer(a,b,person));
 function crossesPlayer(a,b,person){
   if((a.riverWalk||person.riverWalk)&&Math.abs((a.ground??groundHeight(a.x,a.z,a.riverWalk))-(person.ground??groundHeight(person.x,person.z,person.riverWalk)))>1.5)return false;
   const dx=b.x-a.x,dz=b.z-a.z;
@@ -508,7 +511,8 @@ export class City {
   crossingPeople(){
     return [...this.chunks.values()].flatMap(chunk=>chunk.people.filter(p=>p.crossing).map(p=>p.crossing.request));
   }
-  advanceCrossings(dt,player,time,traffic){
+  advanceCrossings(dt,player,time,traffic,others=[]){
+    const blockers=[player,...others];
     const handled=new Set(),transfers=[];
     const people=this.pedestrians(time),positions=new CrossingPositions(people);
     const crossingPeople=people.filter(p=>p.walker.crossing?.started);
@@ -533,7 +537,7 @@ export class City {
           if(remaining>p.speed*dt+1e-8)continue;
           const corner=mod(side+(p.reverse?0:1),4);
           const x=chunk.x*BLOCK+[11,53,53,11][corner],z=chunk.z*BLOCK+[11,11,53,53][corner];
-          if(crossesPlayer(at,{x,z},player)||positions.blocked(p,at,{x,z}))continue;
+          if(crossesAny(at,{x,z},blockers)||positions.blocked(p,at,{x,z}))continue;
           // Only the north and west pavement edges have painted stripes.
           if(at.facingX&&z!==chunk.z*BLOCK+11||at.facingZ&&x!==chunk.x*BLOCK+11)continue;
           // One draw per arrival, including a declined crossing.
@@ -553,7 +557,7 @@ export class City {
           c.started=true;
         }
         const before=pedestrian(chunk,p,time),y=c.yielding;
-        const blocked=after=>crossesPlayer(before,after,player)||positions.blocked(p,before,after);
+        const blocked=after=>crossesAny(before,after,blockers)||positions.blocked(p,before,after);
         const point=(distance,offset)=>({x:c.x+c.dx*distance-c.dz*offset,z:c.z+c.dz*distance-c.dx*offset});
         const direction=c.returning?-1:1,offset=c.offset??0;
         let nextOffset=offset,distance=c.distance;
@@ -598,11 +602,12 @@ export class City {
   }
   // Returns {walker, place} for each walker on the promenade or a footpath
   // that the player is standing in the way of.
-  advancePedestrians(dt,player,time,speaker=null,traffic=null) {
+  advancePedestrians(dt,player,time,speaker=null,traffic=null,others=[]) {
+    const blockers=[player,...others];
     ageCarriedIceCreams(this,dt);
-    const crossingWalkers=traffic?this.advanceCrossings(dt,player,time,traffic):new Set();
+    const crossingWalkers=traffic?this.advanceCrossings(dt,player,time,traffic,others):new Set();
     const crossingPositions=this.pedestrians(time).filter(person=>crossingWalkers.has(person.walker));
-    const heldInPlace=advanceRiverPeople(this,dt,player,time,speaker);
+    const heldInPlace=advanceRiverPeople(this,dt,player,time,speaker,others);
     const riverCells=new Map();
     for(const q of this.pedestrians(time))if(q.walker.riverMotion){
       const key=`${Math.floor(q.x/4)},${Math.floor(q.z/4)}`;
@@ -676,7 +681,7 @@ export class City {
         const {side}=pedestrianRoute(chunk,p,p.walkTime);
         const dx=[0,1,0,-1][side],dz=[-1,0,1,0][side];
         const origin=at(p),target={x:origin.x+dx*1.3,z:origin.z+dz*1.3};
-        if(crossesPlayer(origin,target,player)||people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))continue;
+        if(crossesAny(origin,target,blockers)||people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))continue;
         p.yielding={dx,dz,offset:0,stage:'out',partner,partnerTime:partner.walkTime,passDistance:gap+1.2};
       }
       // Recover interrupted sidesteps too: their route clocks are deliberately
@@ -694,7 +699,7 @@ export class City {
         }
         if(y.stage==='escape'){
           const origin=at(p),target=pedestrian(chunk,{...p,yielding:undefined},time);
-          if(!crossesPlayer(origin,target,player)&&!people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))y.stage='back';
+          if(!crossesAny(origin,target,blockers)&&!people.some(q=>q!==p&&crossesPerson(origin,target,at(q))))y.stage='back';
         }
         if(y.stage==='back'&&y.offset===0){delete p.yielding;p.stuckTime=0;}
       }
@@ -710,7 +715,7 @@ export class City {
         const route=!y&&!waitingForSideStep&&chunk.park?this.footpathStep(chunk,p,dt):null;
         const after=pedestrian(chunk,{...p,...route,walkTime:p.walkTime+((y&&y.stage!=='escape')||waitingForSideStep?0:dt),yielding:y?{...y,offset}:undefined},time);
         const held=waiters.has(p)||crossesPlayer(before,after,player);
-        return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||this.solid(after.x,after.z)||crossingPositions.some(q=>crossesPerson(before,after,q))||riverBlocked(before,after)};
+        return {p,before,after,offset,waitingForSideStep,route,held,blocked:held||crossesAny(before,after,others)||this.solid(after.x,after.z)||crossingPositions.some(q=>crossesPerson(before,after,q))||riverBlocked(before,after)};
       });
       // Walkers with lines for their place stay to talk while the player blocks them.
       const talking=new Set();
@@ -772,7 +777,7 @@ export class City {
         const turned=p.detour?{detour:reverseDetour(p.detour,p)}:{phase:mod(p.phase+2*p.walkTime*p.speed*(p.reverse?-1:1),chunk.river?552:168),reverse:!p.reverse};
         const origin=at(p);
         const next=pedestrian(chunk,{...p,...turned,walkTime:p.walkTime+.2},time);
-        if(this.solid(next.x,next.z)||riverBlocked(origin,next)||crossingPositions.some(q=>crossesPerson(origin,next,q))||crossesPlayer(origin,next,player)||people.some(q=>q!==p&&crossesPerson(origin,next,at(q))))return false;
+        if(this.solid(next.x,next.z)||riverBlocked(origin,next)||crossingPositions.some(q=>crossesPerson(origin,next,q))||crossesAny(origin,next,blockers)||people.some(q=>q!==p&&crossesPerson(origin,next,at(q))))return false;
         Object.assign(p,turned);positions.delete(p);p.stuckTime=0;p.turnCooldown=3;delete p.footpathChoice;
         return true;
       };

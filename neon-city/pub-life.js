@@ -55,7 +55,8 @@ export function pubRoute(start,end,chair){
 export class PubLife{
   constructor(random=Math.random){this.random=random;this.arrival=this.delay();this.departure=this.delay();this.walker=null;this.bumps=new Map();this.touching=new Set();}
   delay(){return 30+this.random()*30;}
-  update(dt,patrons,playerSeat,player){
+  // Present lists types inside who are not seated, such as Lisa walking with the player.
+  update(dt,patrons,playerSeat,player,present=[]){
     this.arrival-=dt;this.departure-=dt;
     if(this.walker){
       const w=this.walker;let travel=dt*1.3;
@@ -79,7 +80,7 @@ export class PubLife{
       this.arrival=this.delay();
       const free=chairs.filter(c=>patrons[c.tableIndex]?.[c.seat]==null&&!sameSeat(c,playerSeat));
       const chair=free[Math.floor(this.random()*free.length)];
-      const type=choosePubType(pubTypesPresent(patrons),this.random);
+      const type=choosePubType([...pubTypesPresent(patrons),...present],this.random);
       if(type==null)return;
       const route=chair?pubRoute(entrance,center(chair),chair):[{x:entrance.x,z:1},entrance];
       if(route)this.walker={...entrance,type,variant:this.random(),chair,route,walkTime:0,facingX:0,facingZ:1};

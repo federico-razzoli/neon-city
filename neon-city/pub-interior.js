@@ -91,6 +91,15 @@ export function createPubPatrons(random=Math.random){
     return seats;
   });
 }
+export function ensureSeatedPubPatron(patrons,type,reserved){
+  if(pubTypesPresent(patrons).includes(type))return;
+  const chairs=pubChairs().filter(c=>!(c.tableIndex===reserved?.tableIndex&&c.seat===reserved.seat));
+  const occupant=c=>patrons[c.tableIndex][c.seat];
+  const chair=chairs.find(c=>occupant(c)==null&&patrons[c.tableIndex][1-c.seat]==null)
+    ??chairs.find(c=>occupant(c)==null)
+    ??chairs.find(c=>occupant(c)!==PUNK_GIRL_TYPE);
+  if(chair)patrons[chair.tableIndex][chair.seat]=type;
+}
 export function facingDoorway(player,target,halfWidth,reach=3){
   const dz=target.z-player.z,forwardZ=Math.cos(player.angle);
   // Aim at the whole doorway, rather than a shrinking cone around its centre.
@@ -178,14 +187,16 @@ export const BARTENDER_TALK=[
   {ask:'DO YOU HAVE ANY SPARE TICKET FOR THE RADIOCOWS SHOW?',answer:["THEY'RE CALLED THE RADIOACTIVE COWS.","AND NO, I DON'T LIKE WEIRD POLKA METAL."],needs:'RADIOACTIVE_COWS_TICKET_MENTIONED'},
   {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}];
 export class StaffTalk{
-  constructor(script=BARTENDER_TALK,record=register,inventory=null,gifts={}){this.gifts=gifts;this.inventory=inventory;this.giving=false;this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
+  // Marks are what has happened in this conversation only: an option or gift
+  // with marks adds one, and an option with needsMarks waits for all of its.
+  constructor(script=BARTENDER_TALK,record=register,inventory=null,gifts={}){this.marks=new Set();this.gifts=gifts;this.inventory=inventory;this.giving=false;this.blocks=Array.isArray(script[0])?script:[script];this.record=record;this.block=0;this.selected=0;this.answer=[];this.over=false;}
   get script(){
     if(this.giving)return [...this.inventory.items.map(item=>{
       const reply=this.gifts[item.id]??this.gifts.any??['NO, THANK YOU.'];
       const response=typeof reply==='function'?reply(this.record):reply;
       return {ask:item.name,...(Array.isArray(response)?{answer:response}:response)};
     }),{ask:'BACK',action:'back'}];
-    const options=this.blocks[this.block].filter(option=>(option.needs==null||option.needs in this.record)&&(option.unless==null||!(option.unless in this.record)));
+    const options=this.blocks[this.block].filter(option=>(option.needs==null||option.needs in this.record)&&(option.unless==null||!(option.unless in this.record))&&(option.needsMarks??[]).every(mark=>this.marks.has(mark)));
     const giveRule=this.blocks[this.block].giveAfter;
     return this.inventory&&(!giveRule||this.record[giveRule])?[...options,{ask:'GIVE',action:'give',separator:true}]:options;
   }
@@ -204,6 +215,7 @@ export class StaffTalk{
         this.giving=false;
         choice=0;
       }
+      if(option.marks)this.marks.add(option.marks);
       this.selected=choice;this.chosen=option;this.answer=[...(typeof option.answer==='function'?option.answer():option.answer)];
     }
     const line=this.answer[0];
@@ -225,12 +237,16 @@ export function pubPersonBlocks(start,end,person){
   return Math.hypot(start.x+dx*t-person.x,start.z+dz*t-person.z)<clearance;
 }
 // Chair and table bumps report the affected occupied seat once each.
-export function moveInPub(player,dx,dz,patrons=[],walker,bumpedSeats=[]){
+export function moveInPub(player,dx,dz,patrons=[],walker,bumpedSeats=[],bumpedWalkers=[]){
   const radius=.3,obstacles=[...PUB.walls,PUB.bar,PUB.shelves],chairs=pubChairs();
   let bumpedPerson=false;
   const overlaps=(x,z,b)=>x>b.x-radius&&x<b.x+b.w+radius&&z>b.z-radius&&z<b.z+b.d+radius;
   const clear=(x,z)=>{
-    if(pubPersonBlocks(player,{x,z},walker)){bumpedPerson=true;return false;}
+    const hit=(Array.isArray(walker)?walker:[walker]).find(w=>pubPersonBlocks(player,{x,z},w));
+    if(hit){
+      if(!bumpedWalkers.includes(hit))bumpedWalkers.push(hit);
+      bumpedPerson=true;return false;
+    }
     if(x<radius||x>PUB.width-radius||z<radius||z>PUB.depth-radius)return false;
     if(obstacles.some(b=>overlaps(x,z,b)))return false;
     const hitTable=PUB.tables.findIndex(b=>Math.hypot(x-b.x,z-b.z)<b.radius+radius);

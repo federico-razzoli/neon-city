@@ -122,7 +122,8 @@ function sweptNear(a,b,q,clearance){
 }
 // Update all river owners together, so queues and exits see neighbours in other
 // chunks. A small spatial index bounds collision work; no all-pairs scan.
-export function advanceRiverPeople(city,dt,player,time,speaker){
+// Others block walkers as the player does, but are never talked to.
+export function advanceRiverPeople(city,dt,player,time,speaker,others=[]){
   const actors=[];
   for(const chunk of city.chunks.values())for(const p of chunk.people)if(p.riverMotion)actors.push({chunk,p});
   if(!actors.length)return [];
@@ -168,6 +169,7 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
         if(visit){next=visit;p.riverMotion=next;after=riverPerson(chunk,p);}
       }
       const playerBlocks=q=>sweptNear(before,q,playerPosition,PERSON_CLEARANCE*1.5);
+      const othersBlock=q=>others.some(o=>sweptNear(before,q,o,PERSON_CLEARANCE*1.5));
       const peopleBlock=q=>{
         for(let cx=Math.floor((Math.min(before.x,q.x)-PERSON_CLEARANCE)/2);cx<=Math.floor((Math.max(before.x,q.x)+PERSON_CLEARANCE)/2);cx++)
           for(let cz=Math.floor((Math.min(before.z,q.z)-PERSON_CLEARANCE)/2);cz<=Math.floor((Math.max(before.z,q.z)+PERSON_CLEARANCE)/2);cz++)
@@ -175,14 +177,14 @@ export function advanceRiverPeople(city,dt,player,time,speaker){
         return false;
       };
       const speaking=p===speaker&&Math.abs(before.ground-playerPosition.ground)<1.5&&Math.hypot(before.x-player.x,before.z-player.z)<2.8;
-      if(speaking||playerBlocks(after)||peopleBlock(after)||next===m){
+      if(speaking||playerBlocks(after)||othersBlock(after)||peopleBlock(after)||next===m){
         p.riverMotion=m;
         if(speaking||playerBlocks(after))held.add(p);
         if(speaking||!retryBlockedWalker(p,step))continue;
         next=retreatStep(p,step,actors);
         const reverse=m.mode==='upper'||m.mode==='lower'?!p.reverse:p.reverse;
         after=riverPerson(chunk,{...p,reverse,riverMotion:next});
-        if(playerBlocks(after)||peopleBlock(after))continue;
+        if(playerBlocks(after)||othersBlock(after)||peopleBlock(after))continue;
         p.reverse=reverse;p.riverMotion=next;
         if(next.mode==='stairs')locks.set(next.key,'closed');
       }else p.stuckTime=0;

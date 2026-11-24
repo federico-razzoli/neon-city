@@ -42,13 +42,14 @@ export function createThreePubSpatial(){
     }
     person('bartender',PUB.bartender.x,PUB.bartender.z,.32,2.4,'bartender');
     for(const chair of chairs)if(patrons[chair.tableIndex]?.[chair.seat]!=null)person(`seat-${chair.tableIndex}-${chair.seat}`,chair.x+.4,chair.z+.4,.32,1.9,'patron',chair);
-    if(walker)person('walker',walker.x,walker.z,.32,2.4,'walker');
+    // Walker may be one standing person or a list of them.
+    [walker].flat().filter(Boolean).forEach((w,i)=>person(i?`walker-${i}`:'walker',w.x,w.z,.32,2.4,'walker',w));
     // Small counter objects have wider interaction volumes for forgiving aim.
     // These are targeting proxies only; movement colliders stay unchanged.
     person('beer',beer.x,beer.z,beer.radius+.18,.32,'beer',null,1.46);
     PUB.taps.forEach((tap,i)=>person(`tap-${i}`,tap.x,tap.z,tap.radius+.2,.6,'tap',null,1.6));
   }
-  function move(player,dx,dz,patrons,walker,bumpedSeats=[]){
+  function move(player,dx,dz,patrons,walker,bumpedSeats=[],bumpedWalkers=[]){
     sync(patrons,walker);let bumped=false;
     const solids=[...fixed,...dynamic.filter(e=>['bartender','patron','walker'].includes(e.type))];
     // A compact body, with substeps shorter than its radius to prevent tunnelling.
@@ -63,6 +64,7 @@ export function createThreePubSpatial(){
         const nearby=entry.type==='chair'?entry.data:tableChair(entry,position);
         const chair=nearby&&patrons[nearby.tableIndex]?.[nearby.seat]!=null?nearby:entry.type==='patron'?entry.data:null;
         if(chair&&!bumpedSeats.includes(chair))bumpedSeats.push(chair);
+        if(entry.type==='walker'&&!bumpedWalkers.includes(entry.data))bumpedWalkers.push(entry.data);
         if(chair||entry.type==='bartender'||entry.type==='walker')bumped=true;
         return false;
       }return true;

@@ -57,7 +57,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     insideBookshop,bookshopLife,insideArcade,arcadeLife,
     insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
-    pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
+    pubPatrons,bartenderType,currentVenue,pubLife,lisa,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView,hotelGuests,itemRoom,indoors;
   function face(vertices,color,texture=null,smooth=false,buildingWall=false){
     renderer.face(vertices,color,texture,smooth,buildingWall);
@@ -245,6 +245,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     if(insidePub){
       renderer.beginPass();drawPubInterior({face,quad,box,patrons:pubPatrons,seatedPatron,bartenderType,barBeer:currentVenue.barBeer});
       if(pubLife?.walker)seatedPatron(pubLife.walker,true);
+      if(lisa?.visible&&lisa.room==='pub')seatedPatron(lisa,true);
       drawDroppedItems(city.chunks.values());
       renderer.drawInterior();return;
     }
@@ -286,6 +287,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
       }
       for(const p of chunk.people)person(pedestrian(chunk,p,time));
     }
+    if(lisa?.visible&&lisa.room==='street')person(lisa.view());
     drawDroppedItems(visible);
     if(renderer.drawMoneyNote)renderer.drawMoneyNote(wallet.note);
     else renderer.withStyle({detail:true,textureSmooth:true,groundTexture:true},()=>drawMoneyNote(wallet.note,face));
@@ -302,7 +304,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
       insideBookshop,bookshopLife,insideArcade,arcadeLife,
       insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
       insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
-      pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
+      pubPatrons,bartenderType,currentVenue,pubLife,lisa,city,roadTraffic,wallet,
       banshee,shake,steps,starfield,moon,shootingStars,skyView,hotelGuests,itemRoom,indoors}=frame);
     renderScene();
   }};

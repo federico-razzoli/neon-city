@@ -46,8 +46,9 @@ import {CubicleKnockEvent,rollCubicleKnock,loadCubicleKnock,KNOCK_EXIT_TEXT} fro
 import {rollBanshee,bansheeFrame,playBansheeScream} from './banshee.js?v=6';
 import {register} from './register.js';
 import {PubLife,PubConversation} from './pub-life.js?v=npc-followup-1';
+import {LisaDate,LISA_TYPE} from './lisa-date.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {groundHeight,pubLines,START,riverIceCreamVan} from './world.js?v=start-pub-1';
+import {BLOCK,isRiverRow,groundHeight,pubLines,START,riverIceCreamVan} from './world.js?v=start-pub-1';
 import {Traffic} from './traffic.js?v=junction-priority-2';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=rive-gauche-6';
@@ -59,7 +60,7 @@ import {BookshopLife} from './midnite-life.js';
 import {previewBackpack,previewBook} from './bookshop-preview.js';
 import {drawPastisBottle,drawMarijuanaPlant} from './backpack-contents.js';
 import {pubName} from './pub.js?v=park-entrances-1';
-import {PUB,BOTTLES_REPLY,BARTENDER_GIFTS,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
+import {PUB,BOTTLES_REPLY,BARTENDER_GIFTS,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,ensureSeatedPubPatron,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
 import {LAVATORY,CUBICLE,CUBICLE_REPLIES,MIRROR_CHILD_BLACKOUT_TEXT,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
@@ -122,7 +123,7 @@ async function playCabinet(name,machine){
     closeCabinet();notice=3.5;noticeText='THIS GAME COULD NOT BE LOADED. PLEASE TRY AGAIN.';
   }
 }
-let banshee=null,bansheeMisses=0,staffTalk=null,cubicleKnock=null,ladiesDoorEvent=null;
+let lisa=null,banshee=null,bansheeMisses=0,staffTalk=null,cubicleKnock=null,ladiesDoorEvent=null;
 const pubBuildings=()=>[...city.chunks.values()].flatMap(chunk=>chunk.buildings);
 const indoors=()=>insideBookshop||insideArcade||insidePub||insideHotel||insideLavatory||insideCubicle!=null;
 // Space at a pub or hotel door goes in or, from inside, back out to the street.
@@ -196,6 +197,7 @@ function useDoor(){
       notice=4.5;noticeText=BOOK_EXIT_REPLY;keys.clear();shiftKeys.clear();startSpaceHeld=true;
       document.querySelector('#message').textContent=noticeText;return true;
     }
+    if(insidePub)lisa?.goOutside(player,streetPosition,groundHeight(streetPosition.x,streetPosition.z));
     Object.assign(player,streetPosition);insideBookshop=insideArcade=insidePub=insideHotel=false;
     lobbyMusic.choose(null);pubMusic.choose(null);
   }else{
@@ -219,7 +221,20 @@ function enterVenue(venue){
   const pub=venue.sign==='NEON PUB'&&venue,hotel=venue.sign==='HOTEL'&&venue,arcade=venue.sign==='ARCADE'&&venue,bookshop=venue.sign==='MIDNITE BOOKS'&&venue;
   currentVenue=pub||hotel||arcade||bookshop;
   streetPosition={...player,angle:player.angle+Math.PI};
-  if(pub){pubBarBeer(pub);pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);pubPatrons=pub.pubPatrons??=createPubPatrons();pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);Object.assign(player,PUB.spawn);insidePub=true;}
+  if(pub){
+    pubBarBeer(pub);
+    pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);
+    bartenderType=pub.bartenderType??=Math.floor(Math.random()*4);
+    pubPatrons=pub.pubPatrons??=createPubPatrons();
+    const row=Math.floor((pub.z+pub.d/2)/BLOCK);
+    const riverside=isRiverRow(row+(pub.j===1?1:-1));
+    if(riverside&&!lisa?.isFollowing(player)){
+      lisa=null;
+      if(pubLife.walker?.type!==LISA_TYPE)ensureSeatedPubPatron(pubPatrons,LISA_TYPE,pubLife.walker?.chair);
+    }
+    pubMusic.choose(PUB_PIECES[Math.floor(Math.random()*PUB_PIECES.length)]);
+    Object.assign(player,PUB.spawn);insidePub=true;
+  }
   // Each hotel keeps the receptionist first seen on duty there.
   else if(bookshop){bookshopLife=bookshop.bookshopLife??=new BookshopLife(Math.random,bookshopBackpack);bookshopLife.enter();Object.assign(player,BOOKSHOP.spawn);insideBookshop=true;}
   else if(arcade){Object.assign(player,ARCADE.spawn);insideArcade=true;arcadeLife=new ArcadeLife();currentArcadeName=arcadeName(arcade);}
@@ -447,9 +462,18 @@ function startFollowup(){
 }
 function answerStaff(choice){
   staffTalk.confirm(choice);
+  if(staffTalk.over&&staffTalk.chosen?.starts==='lisa-date'&&insidePub&&playerSeat)startLisaDate();
   moneyDisplay.textContent=wallet.balance;
   if(staffTalk.over){staffTalk=null;canvas.focus();}
   showStaffTalk();
+}
+// Lisa said yes: she gets up with the player and walks with them to Night River.
+// Lisa as an obstacle for whoever would walk into her in this room, or null.
+const lisaIn=room=>lisa?.visible&&lisa.room===room?lisa.body():null;
+function startLisaDate(){
+  const {tableIndex}=playerSeat,seat=1-playerSeat.seat,venue=currentVenue;
+  lisa=new LisaDate({tableIndex,seat,variant:pubPatrons[tableIndex]?.variants?.[seat]??0,
+    pubBlock:{x:Math.floor((venue.x+venue.w/2)/64),z:Math.floor((venue.z+venue.d/2)/64)}});
 }
 function showStaffTalk(){
   const talk=staffTalk;
@@ -589,7 +613,7 @@ function render(){
     insideBookshop,bookshopLife,insideArcade,arcadeLife,
     insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
-    pubPatrons,bartenderType,currentVenue,pubLife,city,roadTraffic,wallet,
+    pubPatrons,bartenderType,currentVenue,pubLife,lisa,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors(),
     riverWisps:indoors()?null:riverWisps.view,
     dimmed:!overlay.hidden
@@ -970,12 +994,21 @@ function tick(now){
     }
     const forward=Math.max(-1,Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s'))-touchControls.backward),side=Math.max(-1,Math.min(1,Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe)),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(indoors())hornWarning.update(dt,null,[]);
+    if(lisa){
+      const warning=lisa.update(dt,{room:insidePub?'pub':indoors()?'other':'street',player,seated:!!playerSeat,patrons:pubPatrons,city,
+        ground:indoors()?0:groundHeight(player.x,player.z,player.riverWalk)});
+      if(warning){notice=2.5;noticeText=warning;}
+      if(lisa.gone)lisa=null;
+    }
     if(insidePub){
-      pubLife?.update(dt,pubPatrons,playerSeat,player);
+      const lisaBody=lisaIn('pub');
+      pubLife?.update(dt,pubPatrons,playerSeat,lisaBody?[player,lisaBody]:player,lisa?[LISA_TYPE]:[]);
       const line=pubTalk?.update(dt);
       if(line){notice=2.5;noticeText=line;}
-      const bumpedSeats=[];
-      const bumpedPerson=!playerSeat&&(pubSpatial()?.move??moveInPub)(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,pubLife?.walker,bumpedSeats);
+      const bumpedSeats=[],bumpedWalkers=[];
+      const move=pubSpatial()?.move??moveInPub;
+      const bumpedPerson=!playerSeat&&move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,pubPatrons,[pubLife?.walker,lisaBody].filter(Boolean),bumpedSeats,bumpedWalkers);
+      if(lisaBody)lisa.yieldToPlayer(dt,bumpedWalkers.includes(lisaBody),player,(person,dx,dz)=>move(person,dx,dz,pubPatrons,pubLife?.walker));
       pubLife?.bump(bumpedSeats,pubPatrons);
       if(bumpedPerson){notice=2.5;noticeText='HEY! WATCH OUT!';}
       document.querySelector('#message').textContent=notice?noticeText:'';
@@ -1021,9 +1054,12 @@ function tick(now){
       document.querySelector('#message').textContent=notice?noticeText:'';
       document.querySelector('#location').textContent=hotelCorridor?`HOTEL / FLOOR ${hotelStairs.floor} / CORRIDOR`:hotelStorage?'HOTEL / FLOOR 2 / STORAGE':hotelStairs?`HOTEL / FLOOR ${hotelStairs.floor} / STAIRWELL`:'HOTEL / LOBBY';
     }else{
-    const people=city.pedestrians(time-dt);
+    const lisaBody=lisaIn('street'),lisaBlocks=lisaBody?[lisaBody]:[];
+    const people=[...city.pedestrians(time-dt),...lisaBlocks];
     const bumped=[],bumpedCars=[];
     const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people,bumped,roadTraffic.cars,bumpedCars);
+    if(lisaBody)lisa.yieldToPlayer(dt,bumped.includes(lisaBody),player,(person,dx,dz)=>
+      city.move(person,dx,dz,people.filter(p=>p!==lisaBody),[],roadTraffic.cars));
     const fallReply=player.riverFall?advanceRiverFall(player,dt):null;
     if(fallReply){notice=2.5;noticeText=fallReply;}
     // On the promenade or a footpath, someone with lines for it answers a bump with them instead.
@@ -1033,7 +1069,8 @@ function tick(now){
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
     parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
     const streetPlayer=player.riverWalk?null:player;
-    const cars=roadTraffic.update(city.chunks.values(),time,dt,streetPlayer,city.crossingPeople?.()??[]);
+    // Cars stop for Lisa only on the stripes; elsewhere they pass through her.
+    const cars=roadTraffic.update(city.chunks.values(),time,dt,streetPlayer,[...(city.crossingPeople?.()??[]),...lisaBlocks]);
     if(hornWarning.update(dt,streetPlayer,cars))playHorn(audioContext);
     // Waiting cars remain solid even while their warning is on cooldown.
     for(const c of cars)if(c.waiting&&!player.riverWalk){
@@ -1065,7 +1102,7 @@ function tick(now){
       playCoverGrunt(audioContext);
     }
     coverPressed=false;
-    const held=city.advancePedestrians(dt,player,time,walkerTalk.apart===0?walkerTalk.walker:null,roadTraffic)??[];
+    const held=city.advancePedestrians(dt,player,time,walkerTalk.apart===0?walkerTalk.walker:null,roadTraffic,lisaBlocks)??[];
     const line=walkerTalk.update(dt,[...bumped,...held]);
     if(line){notice=2.5;noticeText=line;}
     document.querySelector('#message').textContent=notice?noticeText:'';

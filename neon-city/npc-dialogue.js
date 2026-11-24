@@ -93,7 +93,33 @@ const LAVATORY_ROBOT={
     {ask:'BYE!',answer:['BYE!'],ends:true},
   ],
 };
+// Lisa, the tall girl. A flower and the talk about love, in one conversation,
+// let the player ask her to Night River; her yes starts the walk there.
+const LISA={
+  label:'Talk to the tall girl',
+  script:[
+    [
+      {ask:"WHAT'S YOUR NAME?",unless:'LISA_NAME_ASKED',answer:[{say:'LISA.',sets:'LISA_NAME_ASKED'}]},
+      {ask:'I THOUGHT THAT NEON CITY WAS A WELCOMING PLACE...',answer:["IT'S BETTER THAN MANY OTHER PLACES.",'BUT TROGLODYTES ARE EVERYWHERE.']},
+      {ask:"I DON'T JUDGE PEOPLE BASED ON THOSE THINGS.",answer:['THANK YOU.','AND I LOVE PEOPLE OF BOTH GENDERS...','AS LONG AS THEY DESERVE LOVE.'],next:1,marks:'LISA_LOVE_TALK'},
+      {ask:'WHICH MUSIC DO YOU LIKE?',answer:['ROCK. DISCO. FUNKY. EVERYTHING.',"MUSIC TALKS TO PEOPLE'S HEART."]},
+      {ask:'WOULD YOU LIKE TO GO TO NIGHT RIVER WITH ME?',needsMarks:['LISA_FLOWER','LISA_LOVE_TALK'],
+        answer:['YOU MEAN.. YOU AND I?',"WELL, I DON'T REALLY KNOW YOU...","BUT... YES, LET'S GO."],ends:true,starts:'lisa-date'},
+      {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true},
+    ],
+    [
+      {ask:"DOESN'T EVERYONE DESERVE LOVE?",answer:['MAYBE.'],next:0},
+      {ask:"DOESN'T EVERYONE NEED LOVE?",answer:['YES... EVERYBODY NEEDS SOMEBODY.'],next:0},
+      {ask:'SAME HERE.',answer:["I'M GLAD YOU SEE WHAT I MEAN."],next:0},
+    ],
+  ],
+  gifts:{
+    ticket:['THANK YOU, BUT... I KNOW SOMEONE WHO WOULD APPRECIATE THIS GIFT MORE THAN I DO.'],
+    flower:{accept:true,marks:'LISA_FLOWER',answer:['THIS IS BEAUTIFUL!']},
+  },
+};
 const FOLLOWUPS={
+  15:{pub:LISA},
   11:{lavatory:LAVATORY_ROBOT},
   3:PUNK_GIRL,
   5:{pub:TATTOOED_MAN,river:TATTOOED_MAN,footpath:TATTOOED_MAN},
