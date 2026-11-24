@@ -17,11 +17,19 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {BLOCK,RIVER_ROWS,isRiverRow} from './world.js?v=start-pub-1';
+import {BLOCK,RIVER_ROWS,RIVER_WALK_WIDTH,RIVER_STAIRS,isRiverRow,riverWalkPosition,groundHeight,hasBridge,vanAtStreetPosition} from './world.js?v=start-pub-1';
+import {ICE_CREAM_VAN,iceCreamVanFloor} from './ice-cream-vans.js';
+import {facingRiverGrate} from './river-grates.js';
 import {PUB,pubChairs} from './pub-interior.js?v=bar-taps-1';
 import {pubRoute} from './pub-life.js?v=npc-followup-1';
 
 import {PlayerFollower,STREET_CLEARANCE} from './player-follower.js';
+
+const choose=lines=>lines[Math.floor(Math.random()*lines.length)];
+const railLines=["LOOK! A SHOOTING STAR!","THANKS FOR COMING HERE WITH ME."];
+const waterLines=["IF YOU PAY ATTENTION, YOU CAN SEE SOME FISHES.","DID YOU KNOW THAT THIS WATER IS ALWAYS WARM?"];
+const bridgeLines=["HOW BEAUTIFUL...","SOME SAY NIGHT RIVER IS ENDLESS.","SHALL WE GO DOWN?"];
+const gateLines=["I HEAR STRANGE NOISES...","I SEE STRANGE LIGHTS...","THIS ANCIENT GATE GIVES ME THE FEAR..."];
 
 // Lisa, the tall girl, walking with the player to Night River.
 export const LISA_TYPE=15;
@@ -44,10 +52,31 @@ export class LisaDate extends PlayerFollower{
     this.riverDirection=Math.sign(RIVER_ROWS.reduce((a,b)=>Math.abs(b+.5-pubBlock.z)<Math.abs(a+.5-pubBlock.z)?b:a)+.5-pubBlock.z);
   }
   get benchDialogue(){return ['THIS PLACE IS BEAUTIFUL...', "AND YOU'RE SO FUNNY!"];}
+  sharedViewReply({player}){
+    if(this.room==='street'&&facingRiverGrate(player))return choose(gateLines);
+  }
+  standingReply({player,city}){
+    const bank=this.room==='street'&&riverWalkPosition(player.x,player.z);
+    if(bank){
+      const van=vanAtStreetPosition(city,player);
+      if(van&&iceCreamVanFloor(van,player)===ICE_CREAM_VAN.floor)return "WE SHOULDN'T BE HERE...";
+      // The player can turn toward Lisa while she is still facing the gate.
+      if(this.riverWalk&&facingRiverGrate({...this,angle:Math.atan2(this.facingX,this.facingZ)}))return choose(gateLines);
+      if(player.riverWalk){
+        if(Math.abs(bank.d-RIVER_WALK_WIDTH)<=2)return choose(waterLines);
+      }else{
+        if(groundHeight(player.x,player.z)>0)return choose(bridgeLines);
+        const street=block(player.x);
+        if(Math.abs(bank.d)<=2&&(!hasBridge(street)||bank.lx>=RIVER_STAIRS.start)&&
+          (!hasBridge(street+1)||bank.lx<=BLOCK-14))return choose(railLines);
+      }
+    }
+    return super.standingReply();
+  }
   isFollowing(player){return !this.gone&&this.state==='following'&&Math.hypot(player.x-this.x,player.z-this.z)<=REACH;}
   get visible(){return !this.gone&&this.state!=='seated'&&!this.inDoorway;}
   // Room is 'pub', 'street' or anything else (a place she won't go).
-  update(dt,{room,moveIndoors,player,seated,bench,ground=0,patrons,city}){
+  update(dt,{room,moveIndoors,player,seated,bench,gate,ground=0,patrons,city}){
     if(this.gone)return;
     // Waiting at the river, she stays there wherever the player goes.
     if(room!==this.room){if(this.state!=='waiting')this.gone=true;return;}
@@ -84,7 +113,7 @@ export class LisaDate extends PlayerFollower{
     if((distance>REACH&&!(player.riverWalk&&this.riverStairs))||room==='street'&&!this.atRiver&&!onRiver(player)&&this.strayed(player)){this.leave();return;}
     const warn=distance>=WARN_DISTANCE&&!this.distanceWarned;
     this.distanceWarned=distance>=WARN_DISTANCE;
-    if(!this.followPlayer(dt,{player,city,ground,bench}))return;
+    if(!this.followPlayer(dt,{player,city,ground,bench,gate}))return;
     if(room==='street'&&!this.atRiver&&onRiver(this))this.atRiver=true;
     if(warn)return 'HEY! WAIT FOR ME!';
   }

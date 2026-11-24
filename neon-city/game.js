@@ -1,4 +1,4 @@
-import {LEFT_CAB_DOOR_REPLY,iceCreamVanCabTarget,iceCreamVanCabExit,iceCreamVanCabSeat,iceCreamVanFloor,interactIceCreamVan} from './ice-cream-vans.js';
+import {LEFT_CAB_DOOR_REPLY,iceCreamVanCabTarget,iceCreamVanCabExit,iceCreamVanCabSeat,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
@@ -49,7 +49,7 @@ import {PassiveConversation} from './passive-conversation.js';
 import {PubLife} from './pub-life.js?v=npc-followup-1';
 import {LisaDate,LISA_TYPE} from './lisa-date.js';
 import {CoverAttempt,loadCoverGrunt,playCoverGrunt} from './manholes.js?v=reach-4';
-import {BLOCK,isRiverRow,groundHeight,characterGirth,pubLines,START,riverIceCreamVan} from './world.js?v=start-pub-1';
+import {BLOCK,isRiverRow,groundHeight,characterGirth,pubLines,START,riverIceCreamVan,streetFloorHeight} from './world.js?v=start-pub-1';
 import {Traffic} from './traffic.js?v=junction-priority-2';
 import {RiverLook} from './river-look.js?v=parks-4';
 import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=rive-gauche-6';
@@ -288,6 +288,18 @@ function startBenchDialogue(x=0,y=0){
   }
   return false;
 }
+function talkToStandingCompanion(requireFacing){
+  const companion=activeCompanion;
+  if(playerSeat||!companion?.visible||companion.room!==debugScene())return false;
+  const dx=companion.x-player.x,dz=companion.z-player.z,distance=Math.hypot(dx,dz);
+  if(distance>3||(!indoors()&&Math.abs(companion.ground-streetFloorHeight(city,player))>1.6))return false;
+  const context={player,city};
+  const sharedViewReply=companion.sharedViewReply?.(context);
+  if(!sharedViewReply&&requireFacing&&dx*Math.sin(player.angle)+dz*Math.cos(player.angle)<distance*.9)return false;
+  startPassiveDialogue([sharedViewReply??companion.standingReply(context)],
+    ()=>activeCompanion===companion&&companion.visible&&companion.room===debugScene()&&!playerSeat);
+  return true;
+}
 function interactWhileSeated(x=0,y=0){
   if(!startBenchDialogue(x,y))useSeat();
 }
@@ -381,7 +393,7 @@ function itemRoom(){
 }
 // Where something dropped here comes to rest, and the height it rests at.
 function dropSpot(){
-  if(!indoors())return {x:player.x,z:player.z,ground:outdoorGroundHeight()+.085};
+  if(!indoors())return {x:player.x,z:player.z,ground:streetFloorHeight(city,player)+.085};
   if(hotelCorridor)return {x:player.x,z:player.z,ground:.015};
   if(insideHotel&&!hotelStorage)return hotelStairs?stairwellDropSpot(player,hotelStairs):hotelDropSpot(player);
   return {x:player.x,z:player.z,ground:0};
@@ -686,17 +698,11 @@ function selectRenderSurface(useThree){
   canvas.classList.toggle('webgl-active',useThree);
   if(!useThree)threeRenderer?.leave();
 }
-function outdoorGroundHeight(){
-  const ground=groundHeight(player.x,player.z,player.riverWalk);
-  if(player.riverWalk)return ground;
-  for(const chunk of city.chunks.values()){const van=riverIceCreamVan(chunk);if(van){const height=iceCreamVanFloor(van,player);if(height)return Math.max(ground,height);}}
-  return ground;
-}
 function render(){
   syncArcadeDisplay();
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running,!overlay.hidden);}return;}
-  if(!indoors())eye=playerSeat?.cabVan?playerSeat.eye+(playerSeat.slide?.lift??0):(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??outdoorGroundHeight());
+  if(!indoors())eye=playerSeat?.cabVan?playerSeat.eye+(playerSeat.slide?.lift??0):(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??streetFloorHeight(city,player));
   else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
@@ -884,6 +890,7 @@ function interactTouchGround(){
 }
 function handleWorldInput(k,e){
   if(e.key==='Enter'&&!e.repeat&&!foregroundTalk?.isPresent()&&startBenchDialogue())return;
+  if(k===' '&&!e.repeat&&talkToStandingCompanion(e.key!=='Enter'))return;
   const conversation=e.key==='Enter'&&passiveConversation();
   if(conversation?.lines?.length&&!conversation.ready){
     if(!e.repeat){
@@ -1083,8 +1090,9 @@ function tick(now){
     }
     const forward=Math.max(-1,Number(touchWalking||keys.has('ArrowUp')||keys.has('w'))-Number(keys.has('ArrowDown')||keys.has('s'))-touchControls.backward),side=Math.max(-1,Math.min(1,Number(keys.has('d'))-Number(keys.has('a'))+touchControls.strafe)),speed=dt*5.8*pace/Math.max(1,Math.hypot(forward,side));
     if(indoors())hornWarning.update(dt,null,[]);
+    if(!indoors())riverWisps.update(dt,player);
     if(activeCompanion){
-      const warning=activeCompanion.update(dt,{room:debugScene(),moveIndoors:moveIndoorCompanion,player,seated:!!playerSeat,bench:playerSeat?.bench,patrons:pubPatrons,city,
+      const warning=activeCompanion.update(dt,{room:debugScene(),moveIndoors:moveIndoorCompanion,player,seated:!!playerSeat,bench:playerSeat?.bench,gate:indoors()?null:riverWisps.gate,patrons:pubPatrons,city,
         ground:indoors()?0:groundHeight(player.x,player.z,player.riverWalk)});
       if(warning){notice=2.5;noticeText=warning;}
       if(activeCompanion.gone)activeCompanion=null;
@@ -1148,7 +1156,7 @@ function tick(now){
     const bumped=[],bumpedCars=[];
     const bumpedPedestrian=!playerSeat&&city.move(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,people,bumped,roadTraffic.cars,bumpedCars);
     if(companionBody)activeCompanion.yieldToPlayer(dt,bumped.includes(companionBody),player,(person,dx,dz)=>
-      city.move(person,dx,dz,people.filter(p=>p!==companionBody),[],roadTraffic.cars));
+      city.move(person,dx,dz,people.filter(p=>p!==companionBody),[],roadTraffic.cars),city);
     const fallReply=player.riverFall?advanceRiverFall(player,dt):null;
     if(fallReply){notice=2.5;noticeText=fallReply;}
     // On the promenade or a footpath, someone with lines for it answers a bump with them instead.
@@ -1181,7 +1189,6 @@ function tick(now){
         break collision;
       }
     }
-    riverWisps.update(dt,player);
     if(player.riverWalk&&coverPressed&&facingRiverGrate(player)){
       notice=4.5;noticeText=RIVER_GRATE_MESSAGE;
     }else if(riverLook.try(player,coverPressed||keys.has(' '),coverPressed)){

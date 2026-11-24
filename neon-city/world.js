@@ -1,5 +1,5 @@
 import {ageCarriedIceCreams} from './river-ice-cream.js';
-import {iceCreamVanSolid} from './ice-cream-vans.js';
+import {iceCreamVanSolid,iceCreamVanFloor} from './ice-cream-vans.js';
 /*
 Browser Games — standalone browser games, including Neon City.
 Copyright (C) 2026 Federico Razzoli <federico.razzoli@vettabase.com>
@@ -219,6 +219,17 @@ export function riverIceCreamVan(chunk){
   if(mod(chunk.x,6)!==(first?1:4))return null;
   const vendorIndex=mod(Math.floor(chunk.x/3),6);
   return chunk.iceCreamVan??={vendorIndex,x:chunk.x*BLOCK+32,z:chunk.riverStart*BLOCK+(first?16:112),first,w:5.8,d:3};
+}
+// Vans and their ramps lie entirely within the owning river chunk.
+export function vanAtStreetPosition(city,actor){
+  if(actor.riverWalk)return null;
+  const chunk=city.chunks.get(`${Math.floor(actor.x/BLOCK)},${Math.floor(actor.z/BLOCK)}`);
+  return chunk?riverIceCreamVan(chunk):null;
+}
+export function streetFloorHeight(city,actor){
+  const ground=groundHeight(actor.x,actor.z,actor.riverWalk);
+  const van=vanAtStreetPosition(city,actor);
+  return van?Math.max(ground,iceCreamVanFloor(van,actor)):ground;
 }
 export function riverWalkHeight(x,z){
   const at=riverWalkPosition(x,z);

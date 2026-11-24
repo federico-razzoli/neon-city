@@ -43,11 +43,13 @@ export class RiverWisps{
     this.dancing+=Math.max(0,dt);
     if(this.dancing>=RIVER_WISPS.dance){this.dancing=null;this.spent=true;}
   }
-  // The gate's wall position and the seconds the wisps have danced, or null.
-  get view(){
-    if(this.dancing===null)return null;
+  get gate(){
+    if(!this.target)return null;
     const [street,row,dir]=this.target.split(',').map(Number);
-    return {x:street*BLOCK,bank:row*BLOCK+(dir===1?18:110),dir,t:this.dancing};
+    return {x:street*BLOCK,bank:row*BLOCK+(dir===1?18:110),dir};
+  }
+  get view(){
+    return this.dancing===null?null:{...this.gate,t:this.dancing};
   }
 }
 

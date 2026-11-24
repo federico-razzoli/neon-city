@@ -17,7 +17,9 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,groundHeight,hasRiverStairs,riverWalkPosition} from './world.js?v=start-pub-1';
+import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,hasRiverStairs,riverWalkPosition,streetFloorHeight,vanAtStreetPosition} from './world.js?v=start-pub-1';
+import {ICE_CREAM_VAN,iceCreamVanFloor,iceCreamVanLocal} from './ice-cream-vans.js';
+import {RIVER_GRATE} from './river-grates.js';
 import {pubRoute} from './pub-life.js?v=npc-followup-1';
 
 const BENCH_DELAY=2;
@@ -32,6 +34,7 @@ export class PlayerFollower{
     Object.assign(this,{type,variant,room,x,z,ground,chair,facingX,facingZ,
       benchVisit:null,route:[],history:[],routeTimer:0,pushTime:0,walkTime:0});
   }
+  standingReply(){return "GO AHEAD. I'LL FOLLOW YOU."; }
   // Rendering data for a street pedestrian card.
   get benchSeated(){return this.benchVisit?.seated===true;}
   view(){return {seated:this.benchSeated,x:this.x,z:this.z,ground:this.ground,type:this.type,variant:this.variant,facingX:this.facingX,facingZ:this.facingZ,frame:Math.floor(this.walkTime*WALK_SPEED*5)%4};}
@@ -131,9 +134,74 @@ export class PlayerFollower{
     if(step>0)this.moveOnStreet(city,dx*step,dz*step);
     return true;
   }
-  followPlayer(dt,{player,city,ground=0,bench=null}){
+  joinAtGate(dt,player,city,gate){
+    // Choose a place alongside the player that still faces the opening.
+    // Keep the chosen side until the player leaves too little room there.
+    const edge=RIVER_GRATE.width/2-.1;
+    const offset=player.x-gate.x;
+    if(!this.gateSide)this.gateSide=this.x<player.x?-1:1;
+    if(offset*this.gateSide>.15)this.gateSide=-Math.sign(offset);
+    const beside=Math.max(-edge,Math.min(edge,offset+this.gateSide*STREET_CLEARANCE));
+    const playerDepth=(player.z-gate.bank)*gate.dir;
+    const depth=Math.max(.55,Math.min(.85,playerDepth));
+    let targetX=gate.x+beside,targetZ=gate.bank+depth*gate.dir;
+    // When crossing from the other side, pass behind the player first.
+    // Re-evaluate from the actual positions, including after a shove.
+    const lateral=(this.x-player.x)*this.gateSide;
+    const behind=(this.z-player.z)*gate.dir;
+    if(lateral<0&&behind<STREET_CLEARANCE-.04){
+      targetX=this.x;targetZ=player.z+gate.dir*STREET_CLEARANCE;
+    }else if(lateral<Math.min(.65,Math.abs(targetX-player.x))-.04&&behind>=STREET_CLEARANCE-.04){
+      targetZ=this.z;
+    }
+    const dx=targetX-this.x,dz=targetZ-this.z;
+    const distance=Math.hypot(dx,dz);
+    if(distance>.04){
+      const step=Math.min(1,dt*FOLLOW_SPEED/distance);
+      this.moveOnStreet(city,dx*step,dz*step);
+      return;
+    }
+    const gx=gate.x-this.x,gz=gate.bank-this.z,length=Math.hypot(gx,gz);
+    this.facingX=gx/length;this.facingZ=gz/length;
+  }
+  followIntoVan(dt,player,city){
+    const van=vanAtStreetPosition(city,player);
+    const boarding=van&&iceCreamVanFloor(van,player)>0;
+    const vehicle=boarding?van:vanAtStreetPosition(city,this);
+    if(!vehicle||(!boarding&&!iceCreamVanFloor(vehicle,this)))return false;
+    const p=iceCreamVanLocal(vehicle,this),rear=ICE_CREAM_VAN.rear;
+    const sign=vehicle.first?1:-1;
+    // Align behind the open door leaf before walking straight up the ramp.
+    const approach=rear-2*ICE_CREAM_VAN.doorHalf-.55;
+    let x=p.x,z=0;
+    if(!boarding){
+      x=approach;
+    }else if(p.x>=ICE_CREAM_VAN.front&&p.z<2.75){
+      // Clear the nose and any open cab door on the way around to the rear.
+      if(p.z<-.32&&p.x<3.5){x=3.55;z=p.z;}
+      else z=2.8;
+    }else if(p.x>=ICE_CREAM_VAN.front||Math.abs(p.z)>.6&&p.x>approach+.04){
+      x=approach;z=p.z;
+    }else if(Math.abs(p.z)<=.08){
+      const leader=iceCreamVanLocal(vehicle,player);
+      x=Math.min(leader.x-GAP,ICE_CREAM_VAN.front-GAP);
+    }
+    const dx=(x-p.x)*sign,dz=(p.z-z)*sign,distance=Math.hypot(dx,dz);
+    if(distance>.04){
+      const step=Math.min(1,dt*FOLLOW_SPEED/distance);
+      this.moveOnStreet(city,dx*step,dz*step);
+    }
+    return true;
+  }
+  followPlayer(dt,{player,city,ground=0,bench=null,gate=null}){
+    if(!gate)this.gateSide=0;
     if(this.room==='street'&&!this.benchSeated&&this.followRiverStairs(dt,player,city))return true;
     if(this.room==='street'&&this.updateBench(dt,bench,player,city,ground))return true;
+    if(gate&&this.room==='street'&&this.riverWalk){
+      this.joinAtGate(dt,player,city,gate);
+      return true;
+    }
+    if(this.room==='street'&&!this.riverWalk&&this.followIntoVan(dt,player,city))return true;
     const room=this.room,distance=Math.hypot(player.x-this.x,player.z-this.z);
     const travel=Math.min(dt*FOLLOW_SPEED,distance-GAP);
     if(travel<=0||(room!=='street'&&room!=='pub'))return false;
@@ -159,7 +227,7 @@ export class PlayerFollower{
       if(this.history.length>HISTORY)this.history.shift();
     }
     this.moveWithoutFalling((person,x,z)=>city.move(person,x,z),dx,dz);
-    this.ground=groundHeight(this.x,this.z,this.riverWalk);
+    this.ground=streetFloorHeight(city,this);
     this.faceMovement(this.x-x,this.z-z);
   }
   moveWithoutFalling(move,dx,dz){
@@ -170,7 +238,7 @@ export class PlayerFollower{
       delete this.riverFall;
     }
   }
-  yieldToPlayer(dt,pressed,player,move){
+  yieldToPlayer(dt,pressed,player,move,city){
     if(this.benchVisit)return;
     this.pushTime=pressed?this.pushTime+dt:0;
     if(this.pushTime<.35)return;
@@ -181,7 +249,7 @@ export class PlayerFollower{
     this.faceMovement(this.x-x,this.z-z);
     this.routeTimer=0;
     if(this.room==='street'){
-      this.ground=groundHeight(this.x,this.z,this.riverWalk);
+      this.ground=streetFloorHeight(city,this);
       delete this.riverFall;
     }
   }
