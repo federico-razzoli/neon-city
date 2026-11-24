@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {groundHeight} from './world.js?v=start-pub-1';
+import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,groundHeight,hasRiverStairs,riverWalkPosition} from './world.js?v=start-pub-1';
 import {pubRoute} from './pub-life.js?v=npc-followup-1';
 
 const BENCH_DELAY=2;
@@ -81,7 +81,58 @@ export class PlayerFollower{
     }
     return true;
   }
+  // Enter through the upper landing. Stay on the treads even when the player
+  // cuts across their open side and lands directly on the lower path.
+  followRiverStairs(dt,player,city){
+    if(!player.riverWalk){this.riverStairs=null;return false;}
+    const at=riverWalkPosition(player.x,player.z);
+    if(!at)return false;
+    const here=riverWalkPosition(this.x,this.z);
+    if(!this.riverStairs){
+      if(this.riverWalk&&this.ground<=RIVER_WALK_HEIGHT+.01)return false;
+      // Use the staircase the companion is on, or the one nearest the player.
+      const reference=this.riverWalk?this.x:player.x;
+      const block=Math.floor(reference/BLOCK);
+      const bases=[block-1,block,block+1].map(b=>b*BLOCK).filter(hasRiverStairs);
+      const base=bases[0];
+      const landing=base+(RIVER_STAIRS.landing+RIVER_STAIRS.start)/2;
+      const lane=at.bank+at.dir*RIVER_STAIRS.width/2;
+      const approach=[];
+      if(!this.riverWalk){
+        const inland=at.bank-at.dir;
+        if(here&&here.d>0)approach.push({x:this.x,z:inland});
+        approach.push({x:landing,z:inland},{x:landing,z:lane});
+      }
+      this.riverStairs={base,lane,approach};
+    }
+    const {base,lane,approach}=this.riverStairs;
+    const toe=base+RIVER_STAIRS.end+.5;
+    const rear=base+RIVER_STAIRS.landing-.6;
+    let target=approach[0],gap=0;
+    if(!target){
+      const playerOnTreads=player.x>=base+RIVER_STAIRS.landing&&player.x<toe&&at.d<=RIVER_STAIRS.width;
+      if(playerOnTreads){
+        target={x:player.x,z:lane};gap=GAP;
+      }else if(!this.riverStairs.pastToe&&this.x<toe-.04){
+        target={x:toe,z:lane};
+      }else if(player.x<toe&&(at.d>RIVER_STAIRS.width||player.x<rear)){
+        this.riverStairs.pastToe=true;
+        const outside=at.bank+at.dir*(RIVER_STAIRS.width+.6);
+        if(here.d<RIVER_STAIRS.width+.5&&this.x>rear+.04)target={x:this.x,z:outside};
+        else if(player.x<rear&&this.x>rear+.04)target={x:rear,z:outside};
+        else{this.riverStairs=null;return false;}
+      }else{
+        this.riverStairs=null;return false;
+      }
+    }
+    const dx=target.x-this.x,dz=target.z-this.z,distance=Math.hypot(dx,dz);
+    if(distance<=.04){if(approach.length)approach.shift();return true;}
+    const step=Math.min(dt*FOLLOW_SPEED,Math.max(0,distance-gap))/distance;
+    if(step>0)this.moveOnStreet(city,dx*step,dz*step);
+    return true;
+  }
   followPlayer(dt,{player,city,ground=0,bench=null}){
+    if(this.room==='street'&&!this.benchSeated&&this.followRiverStairs(dt,player,city))return true;
     if(this.room==='street'&&this.updateBench(dt,bench,player,city,ground))return true;
     const room=this.room,distance=Math.hypot(player.x-this.x,player.z-this.z);
     const travel=Math.min(dt*FOLLOW_SPEED,distance-GAP);
@@ -107,10 +158,17 @@ export class PlayerFollower{
       this.history.push({x,z,ground:this.ground});
       if(this.history.length>HISTORY)this.history.shift();
     }
-    city.move(this,dx,dz);
+    this.moveWithoutFalling((person,x,z)=>city.move(person,x,z),dx,dz);
     this.ground=groundHeight(this.x,this.z,this.riverWalk);
-    delete this.riverFall;
     this.faceMovement(this.x-x,this.z-z);
+  }
+  moveWithoutFalling(move,dx,dz){
+    const {x,z,riverWalk}=this;
+    move(this,dx,dz);
+    if(this.riverFall){
+      Object.assign(this,{x,z,riverWalk});
+      delete this.riverFall;
+    }
   }
   yieldToPlayer(dt,pressed,player,move){
     if(this.benchVisit)return;
@@ -119,7 +177,7 @@ export class PlayerFollower{
     this.pushTime=0;
     const x=this.x,z=this.z,dx=x-player.x,dz=z-player.z,distance=Math.hypot(dx,dz);
     if(!distance)return;
-    move(this,.35*dx/distance,.35*dz/distance);
+    this.moveWithoutFalling(move,.35*dx/distance,.35*dz/distance);
     this.faceMovement(this.x-x,this.z-z);
     this.routeTimer=0;
     if(this.room==='street'){
