@@ -39,13 +39,15 @@ export function interactIceCreamVanDoor(player,van){
   return ''; // Handled silently; null means there was no interaction.
 }
 
-export function interactIceCreamVendor(player,van){
+export function interactIceCreamVendor(player,van,companion=null){
   if(player.riverWalk)return null;
   const p=iceCreamVanLocal(van,player),v=ICE_CREAM_VAN;
   if(p.x<v.rear+.35||p.x>v.front-.35||Math.abs(p.z)>v.halfWidth-.3)return null;
   const sign=van.first?1:-1,dx=(ICE_CREAM_VENDOR.x-p.x)*sign,dz=-(ICE_CREAM_VENDOR.z-p.z)*sign;
   const distance=Math.hypot(dx,dz);
   if(distance>1.8||distance<.01||(Math.sin(player.angle)*dx+Math.cos(player.angle)*dz)/distance<.6)return null;
+  if(companion&&!companion.riverWalk&&iceCreamVanFloor(van,companion)===v.floor)
+    return 'HOPE YOU GUYS ENJOY MY VAN...';
   return 'CLIENTS ON THE OTHER SIDE, PLEASE.';
 }
 
@@ -114,7 +116,7 @@ export function iceCreamVanCabExit(van){
   const sign=van.first?1:-1;
   return {x:van.x+2.05*sign,z:van.z-1.75*sign};
 }
-export function interactIceCreamVan(player,van){
+export function interactIceCreamVan(player,van,companion=null){
   if(player.riverWalk)return null;
   const v=ICE_CREAM_VAN,p=iceCreamVanLocal(van,player),targets=[];
   const add=(kind,...bounds)=>{const distance=vanTargetDistance(player,van,...bounds);if(Number.isFinite(distance))targets.push({kind,distance});};
@@ -145,7 +147,7 @@ export function interactIceCreamVan(player,van){
       if(side===-1)return LEFT_CAB_DOOR_REPLY;van.cabDoorOpen??={};van.cabDoorOpen[side]=!van.cabDoorOpen[side];return '';
     }
     if(target.kind==='food')return 'DO NOT TOUCH, PLEASE.';
-    const reply=target.kind==='door'?interactIceCreamVanDoor(player,van):interactIceCreamVendor(player,van);
+    const reply=target.kind==='door'?interactIceCreamVanDoor(player,van):interactIceCreamVendor(player,van,companion);
     if(reply!==null)return reply;
   }
   return null;

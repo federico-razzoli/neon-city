@@ -61,7 +61,7 @@ import {BookshopLife} from './midnite-life.js';
 import {previewBackpack,previewBook} from './bookshop-preview.js';
 import {drawPastisBottle,drawMarijuanaPlant} from './backpack-contents.js';
 import {pubName} from './pub.js?v=park-entrances-1';
-import {PUB,BOTTLES_REPLY,BARTENDER_GIFTS,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,ensureSeatedPubPatron,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
+import {PUB,BOTTLES_REPLY,BARTENDER_GIFTS,BARTENDER_TALK,BARTENDER_REPLY,BAR_BEER_REPLY,pubBarBeer,pubTapReply,StaffTalk,behindBar,facingCounterObject,facingBartender,facingBartenderAcrossBar,facingPubChair,createPubPatrons,ensureSeatedPubPatron,facingToiletDoor,facingStaffDoor,facingBottles,facingPubDoor,facingClosedShopDoor,facingPubExit,moveInPub} from './pub-interior.js?v=bar-taps-1';
 import {LAVATORY,CUBICLE,CUBICLE_REPLIES,MIRROR_CHILD_BLACKOUT_TEXT,LavatoryLife,facingLavatoryExit,facingSink,tapVolume,facingVacantCubicle,facingCubicle,facingCubicleExit,facingToilet,outsideCubicle,rollOccupancy,lavatoryReply,moveInLavatory,moveInCubicle} from './lavatory.js?v=staff-room-1';
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
@@ -300,6 +300,13 @@ function talkToStandingCompanion(requireFacing){
     ()=>activeCompanion===companion&&companion.visible&&companion.room===debugScene()&&!playerSeat);
   return true;
 }
+function bartenderBehindBarReply(){
+  const companion=activeCompanion;
+  if(companion?.visible&&companion.room==='pub'&&behindBar(companion)&&behindBar(player)){
+    startPassiveDialogue(['YOU CAN GIVE A PARTY WITH A LOT OF PEOPLE, IF YOU LIKE.','BUT ON THE OTHER SIDE!'],
+      ()=>insidePub&&activeCompanion===companion&&companion.visible&&behindBar(player));
+  }else{notice=2.5;noticeText=BARTENDER_REPLY;}
+}
 function interactWhileSeated(x=0,y=0){
   if(!startBenchDialogue(x,y))useSeat();
 }
@@ -528,9 +535,8 @@ function answerStaff(choice){
 // Lisa as an obstacle for whoever would walk into her in this room, or null.
 const companionIn=room=>activeCompanion?.visible&&activeCompanion.room===room?activeCompanion.body():null;
 function startLisaDate(){
-  const {tableIndex}=playerSeat,seat=1-playerSeat.seat,venue=currentVenue;
-  activeCompanion=new LisaDate({tableIndex,seat,variant:pubPatrons[tableIndex]?.variants?.[seat]??0,
-    pubBlock:{x:Math.floor((venue.x+venue.w/2)/64),z:Math.floor((venue.z+venue.d/2)/64)}});
+  const {tableIndex}=playerSeat,seat=1-playerSeat.seat;
+  activeCompanion=new LisaDate({tableIndex,seat,variant:pubPatrons[tableIndex]?.variants?.[seat]??0});
 }
 function showStaffTalk(){
   const talk=staffTalk;
@@ -649,8 +655,6 @@ async function selectDebugDestination(id,park,companion){
   painted=false;
 }
 function debugLisa(){
-  const origin=indoors()?streetPosition:player;
-  const pubBlock={x:Math.floor(origin.x/BLOCK),z:Math.floor(origin.z/BLOCK)};
   const start=playerSeat?.standing??player;
   const spawn={room:debugScene(),x:start.x,z:start.z};
   let variant=0;
@@ -661,7 +665,7 @@ function debugLisa(){
     }
     if(pubLife.walker?.type===LISA_TYPE){variant=pubLife.walker.variant;pubLife.walker=null;}
   }
-  const follower=new LisaDate({spawn,variant,pubBlock});
+  const follower=new LisaDate({spawn,variant});
   follower.riverWalk=player.riverWalk;
   // Find a nearby standing position using the destination's normal collisions.
   for(const offset of [0,Math.PI/2,-Math.PI/2,Math.PI]){
@@ -890,7 +894,7 @@ function interactTouchGround(){
 }
 function handleWorldInput(k,e){
   if(e.key==='Enter'&&!e.repeat&&!foregroundTalk?.isPresent()&&startBenchDialogue())return;
-  if(k===' '&&!e.repeat&&talkToStandingCompanion(e.key!=='Enter'))return;
+  if(k===' '&&!e.repeat&&!foregroundTalk?.isPresent()&&talkToStandingCompanion(e.key!=='Enter'))return;
   const conversation=e.key==='Enter'&&passiveConversation();
   if(conversation?.lines?.length&&!conversation.ready){
     if(!e.repeat){
@@ -903,7 +907,7 @@ function handleWorldInput(k,e){
   if(k===' '&&!e.repeat&&playerSeat){interactWhileSeated();return;}
   if(k===' '&&!e.repeat&&!indoors()){
     for(const chunk of city.chunks.values()){
-      const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVan(player,van);
+      const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVan(player,van,companionIn('street'));
       if(reply!==null){if(reply?.cabVan){useSeat(reply);return;}if(reply){notice=2.5;noticeText=reply;}return;}
     }
     const line=walkerTalk.interact(player,city.pedestrians(time));
@@ -951,13 +955,13 @@ function handleWorldInput(k,e){
     }const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];lavatoryLife.triggerMirrorChild(register);}return;}if(insideCubicle)return;if(insidePub){if(pubSpatial()){
       const target=pubTarget();
       if(target?.type==='bartender'){
-        if(player.z>PUB.bar.z+PUB.bar.d){notice=2.5;noticeText=BARTENDER_REPLY;}
+        if(player.z>PUB.bar.z+PUB.bar.d)bartenderBehindBarReply();
         else talkToStaff(BARTENDER_TALK,'Talk to the bartender',BARTENDER_GIFTS);
       }else{
         const reply=target?.type==='staff'?"IT'S LOCKED...":target?.type==='beer'?BAR_BEER_REPLY:target?.type==='bottles'?BOTTLES_REPLY:target?.type==='tap'?(player.z<PUB.bar.z?"I CAN'T REACH IT.":"HEY! YOU CAN'T SERVE YOURSELF!"):null;
         if(reply){notice=2.5;noticeText=reply;}
       }return;
-    }const tapReply=pubTapReply(player);if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingCounterObject(player,currentVenue.barBeer??PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(tapReply){notice=2.5;noticeText=tapReply;}else if(facingBartender(player)){notice=2.5;noticeText=BARTENDER_REPLY;}else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender',BARTENDER_GIFTS);else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
+    }const tapReply=pubTapReply(player);if(facingStaffDoor(player)){notice=2.5;noticeText="IT'S LOCKED...";}else if(facingCounterObject(player,currentVenue.barBeer??PUB.barBeer)){notice=2.5;noticeText=BAR_BEER_REPLY;}else if(tapReply){notice=2.5;noticeText=tapReply;}else if(facingBartender(player))bartenderBehindBarReply();else if(facingBartenderAcrossBar(player))talkToStaff(BARTENDER_TALK,'Talk to the bartender',BARTENDER_GIFTS);else if(facingBottles(player)){notice=2.5;noticeText=BOTTLES_REPLY;}return;}if(nearPubMenu()){togglePubMenu();return;}const cash=wallet.takeNote(player);if(cash){moneyDisplay.textContent=wallet.balance;notice=2.5;noticeText=cash;return;}const bush=bushReply(player,city.chunks.values(),inventory);if(bush){notice=6;noticeText=bush;return;}const reply=takeOutdoorItem(player,city.chunks.values(),inventory)??treeReply(player,city.chunks.values())??signReply(player,city.chunks.values());if(reply){notice=2.5;noticeText=reply;return;}coverPressed=true;enableSound();}
   if(!e.touch){keys.add(k);syncShift(e);}
 }
 function syncShift(e){

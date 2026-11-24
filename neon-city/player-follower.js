@@ -20,6 +20,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import {groundHeight,BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,hasRiverStairs,riverWalkPosition,streetFloorHeight,vanAtStreetPosition} from './world.js?v=start-pub-1';
 import {ICE_CREAM_VAN,iceCreamVanFloor,iceCreamVanLocal} from './ice-cream-vans.js';
 import {RIVER_GRATE} from './river-grates.js';
+import {behindBar} from './pub-interior.js?v=bar-taps-1';
 import {pubRoute} from './pub-life.js?v=npc-followup-1';
 
 const BENCH_DELAY=2;
@@ -34,7 +35,10 @@ export class PlayerFollower{
     Object.assign(this,{type,variant,room,x,z,ground,chair,facingX,facingZ,
       benchVisit:null,route:[],history:[],routeTimer:0,pushTime:0,walkTime:0});
   }
-  standingReply(){return "GO AHEAD. I'LL FOLLOW YOU."; }
+  standingReply({player}){
+    if(this.room==='pub'&&behindBar(player)&&behindBar(this))return "WE SHOULDN'T BE HERE...";
+    return "GO AHEAD. I'LL FOLLOW YOU.";
+  }
   // Rendering data for a street pedestrian card.
   get benchSeated(){return this.benchVisit?.seated===true;}
   view(){return {seated:this.benchSeated,x:this.x,z:this.z,ground:this.ground,type:this.type,variant:this.variant,facingX:this.facingX,facingZ:this.facingZ,frame:Math.floor(this.walkTime*WALK_SPEED*5)%4};}
