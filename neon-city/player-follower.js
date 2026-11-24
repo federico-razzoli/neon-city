@@ -17,7 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,hasRiverStairs,riverWalkPosition,streetFloorHeight,vanAtStreetPosition} from './world.js?v=start-pub-1';
+import {groundHeight,BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,hasRiverStairs,riverWalkPosition,streetFloorHeight,vanAtStreetPosition} from './world.js?v=start-pub-1';
 import {ICE_CREAM_VAN,iceCreamVanFloor,iceCreamVanLocal} from './ice-cream-vans.js';
 import {RIVER_GRATE} from './river-grates.js';
 import {pubRoute} from './pub-life.js?v=npc-followup-1';
@@ -84,13 +84,60 @@ export class PlayerFollower{
     }
     return true;
   }
+  climbRiverStairs(dt,player,city,here){
+    if(!this.riverStairs?.ascending){
+      // The player exits at the landing. Keep that staircase as the target
+      // even if they immediately turn away on the upper promenade.
+      const block=Math.floor((player.x-RIVER_STAIRS.landing)/BLOCK);
+      const base=[block,block+1,block-1].map(b=>b*BLOCK).find(hasRiverStairs);
+      const toe=base+RIVER_STAIRS.end+.6;
+      const lane=here.bank+here.dir*RIVER_STAIRS.width/2;
+      const approach=[];
+      const onTreads=this.x>=base+RIVER_STAIRS.landing&&this.x<toe&&here.d<=RIVER_STAIRS.width;
+      if(!onTreads){
+        const outside=here.bank+here.dir*(RIVER_STAIRS.width+.7);
+        approach.push({x:this.x,z:outside},{x:toe,z:outside},{x:toe,z:lane});
+      }else approach.push({x:this.x,z:lane});
+      this.riverStairs={ascending:true,base,lane,approach,bank:here.bank,dir:here.dir};
+    }
+    const {base,lane,approach}=this.riverStairs;
+    const landing=base+(RIVER_STAIRS.landing+RIVER_STAIRS.start)/2;
+    let target=approach[0],gap=0;
+    if(!this.riverWalk){
+      // Crossing the bank changes layers before the actor clears the railing.
+      // Finish the exit inland, then round the end of the rail onto the deck.
+      const {bank,dir}=this.riverStairs;
+      const inland=bank-dir;
+      if((this.z-inland)*dir>.04)target={x:landing,z:inland};
+      else if(player.x<base+RIVER_STAIRS.landing&&
+        this.x>base+RIVER_STAIRS.landing-1+.04)
+        target={x:base+RIVER_STAIRS.landing-1,z:inland};
+      else{this.riverStairs=null;return false;}
+    }else if(!target){
+      if(player.riverWalk){
+        target={x:player.x,z:lane};gap=GAP;
+      }else if(Math.abs(this.x-landing)>.04)target={x:landing,z:lane};
+      else target={x:landing,z:here.bank-here.dir};
+    }
+    const dx=target.x-this.x,dz=target.z-this.z,distance=Math.hypot(dx,dz);
+    if(distance<=.04){if(approach.length)approach.shift();return true;}
+    const step=Math.min(dt*FOLLOW_SPEED,Math.max(0,distance-gap))/distance;
+    if(step>0)this.moveOnStreet(city,dx*step,dz*step);
+    return true;
+  }
   // Enter through the upper landing. Stay on the treads even when the player
   // cuts across their open side and lands directly on the lower path.
   followRiverStairs(dt,player,city){
-    if(!player.riverWalk){this.riverStairs=null;return false;}
     const at=riverWalkPosition(player.x,player.z);
-    if(!at)return false;
     const here=riverWalkPosition(this.x,this.z);
+    const playerClimbing=player.riverWalk&&at&&hasRiverStairs(player.x)&&
+      at.lx>=RIVER_STAIRS.landing&&at.lx<RIVER_STAIRS.end&&at.d<=RIVER_STAIRS.width&&
+      (this.riverStairs?.ascending||groundHeight(player.x,player.z,true)>this.ground+.01);
+    const finishingAscent=!player.riverWalk&&(this.riverWalk||this.riverStairs?.ascending);
+    if(here&&(finishingAscent||this.riverWalk&&playerClimbing))
+      return this.climbRiverStairs(dt,player,city,here);
+    if(!player.riverWalk||this.riverStairs?.ascending)this.riverStairs=null;
+    if(!player.riverWalk||!at)return false;
     if(!this.riverStairs){
       if(this.riverWalk&&this.ground<=RIVER_WALK_HEIGHT+.01)return false;
       // Use the staircase the companion is on, or the one nearest the player.

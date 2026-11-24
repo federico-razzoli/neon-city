@@ -110,7 +110,8 @@ export class LisaDate extends PlayerFollower{
       if(distance>REACH)return;
       this.state='following';
     }
-    if((distance>REACH&&!(player.riverWalk&&this.riverStairs))||room==='street'&&!this.atRiver&&!onRiver(player)&&this.strayed(player)){this.leave();return;}
+    const catchingUpOnStairs=this.riverWalk&&!player.riverWalk||this.riverStairs&&(player.riverWalk||this.riverStairs.ascending);
+    if((distance>REACH&&!catchingUpOnStairs)||room==='street'&&!this.atRiver&&!onRiver(player)&&this.strayed(player)){this.leave();return;}
     const warn=distance>=WARN_DISTANCE&&!this.distanceWarned;
     this.distanceWarned=distance>=WARN_DISTANCE;
     if(!this.followPlayer(dt,{player,city,ground,bench,gate}))return;
