@@ -1,6 +1,6 @@
 // Kongy Kong, level one: sloping girders, ladders, rolling barrels and hammers.
 const LEFT=32,RIGHT=608;
-const LADDER_DROP_CHANCE=.2; // chance a barrel takes a ladder it rolls over
+const LADDER_DROP_CHANCE=.25; // chance a barrel takes a ladder it rolls over
 // Middle girders stop short of the wall at their downhill end, leaving an edge to fall from.
 const EDGE_GAP=40;
 export const floorSpan=floor=>floor===6?[460,590]:floor===0?[LEFT,RIGHT]:floor%2?[LEFT,RIGHT-EDGE_GAP]:[LEFT+EDGE_GAP,RIGHT];
