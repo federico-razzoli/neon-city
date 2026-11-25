@@ -962,7 +962,16 @@ function handleWorldInput(k,e){
     }
     if(useDoor())return;
     const plantReply=stairwellPlantReply(player,hotelStairs);
-    if(plantReply){notice=2.5;noticeText=plantReply;return;}
+    if(plantReply){
+      notice=2.5;noticeText=plantReply;
+      if(!register.HOTEL_PLANT_POUND_FOUND){
+        wallet.pence+=100;
+        register.HOTEL_PLANT_POUND_FOUND=true;
+        moneyDisplay.textContent=wallet.balance;
+        noticeText='I FOUND £1!';
+      }
+      return;
+    }
     const lightReply=interactStairwellLight(player,hotelStairs);
     if(lightReply){notice=4.5;noticeText=lightReply;document.querySelector('#message').textContent=lightReply;}
     return;
