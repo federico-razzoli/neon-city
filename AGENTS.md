@@ -13,3 +13,11 @@ dependency installation for that site. The offending installation was in
 `/tmp/vettacloud-edit/.sites-checkout`; that temporary directory was removed by
 the restart. This was a project dependency installation, not a single global npm
 module. Preserve this restriction for future work unless the user revokes it.
+
+# Tests
+
+Never create or run tests.
+
+# Acknowledgement
+
+I have no idea how long a meter is. When I mention meters, I am always epically wrong.
