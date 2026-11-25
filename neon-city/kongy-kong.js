@@ -1,6 +1,8 @@
 // Kongy Kong, level one: sloping girders, ladders, rolling barrels and hammers.
 const LEFT=32,RIGHT=608;
 const LADDER_DROP_CHANCE=.25; // chance a barrel takes a ladder it rolls over
+const FIRE_BARREL_CHANCE=.1;
+const FIRE_BARREL_HEIGHT=28;
 // Middle girders stop short of the wall at their downhill end, leaving an edge to fall from.
 const EDGE_GAP=40;
 export const floorSpan=floor=>floor===6?[460,590]:floor===0?[LEFT,RIGHT]:floor%2?[LEFT,RIGHT-EDGE_GAP]:[LEFT+EDGE_GAP,RIGHT];
@@ -24,6 +26,7 @@ function drawCharacter(ctx,name,x,y,scale=1,facing=1){
   }));
 }
 export class KongyKong{
+  ordinaryBarrelsDue=0;
   kind='kong';lives=3;score=0;over=false;won=false;victoryTime=0;time=90;barrels=[];spawnIn=0;clock=0;stomp=0;hammer=0;delay=0;jumpHeld=false;
   hammers=[{floor:1,x:185,taken:false},{floor:3,x:335,taken:false}];
   constructor(){this.resetPlayer();}
@@ -122,7 +125,13 @@ export class KongyKong{
     for(const item of this.hammers)if(!item.taken&&!p.climb&&!p.dropped&&item.floor===p.floor&&Math.abs(item.x-p.x)<14){item.taken=true;this.hammer=8;}
     if(p.floor===6&&p.x>=500){this.won=true;this.victoryTime=0;this.score+=1000+Math.ceil(this.time)*10;return;}
     this.spawnIn-=dt;
-    if(this.spawnIn<=0){this.barrels.push({x:100,y:girderY(5,100),floor:5,falling:false,jumped:false});this.spawnIn=2.5;}
+    if(this.spawnIn<=0){
+      const burning=this.ordinaryBarrelsDue===0&&Math.random()<FIRE_BARREL_CHANCE;
+      if(burning)this.ordinaryBarrelsDue=2;
+      else if(this.ordinaryBarrelsDue>0)this.ordinaryBarrelsDue--;
+      this.barrels.push({x:100,y:girderY(5,100),floor:5,falling:false,jumped:false,burning});
+      this.spawnIn=2.5;
+    }
     for(const b of this.barrels){
       if(b.falling){
         b.y+=(b.onLadder?60:110)*dt;
@@ -137,8 +146,9 @@ export class KongyKong{
       }
       if(b.floor<0){b.gone=true;continue;}
       if(this.hammerHits(b)){b.gone=true;this.score+=300;continue;}
-      if(Math.abs(b.x-p.x)<11&&p.y>b.y-10&&p.y-15<b.y){this.die();return;}
-      if(p.air&&!b.jumped&&Math.abs(b.x-p.x)<10&&p.y<=b.y-10&&p.y>b.y-38){b.jumped=true;this.score+=100;}
+      const height=b.burning?FIRE_BARREL_HEIGHT:10;
+      if(Math.abs(b.x-p.x)<11&&p.y>b.y-height&&p.y-15<b.y){this.die();return;}
+      if(!b.burning&&p.air&&!b.jumped&&Math.abs(b.x-p.x)<10&&p.y<=b.y-10&&p.y>b.y-38){b.jumped=true;this.score+=100;}
     }
     this.barrels=this.barrels.filter(b=>!b.gone);
   }
@@ -183,7 +193,18 @@ export class KongyKong{
     rect(46,91,10,14,'#b86b18');rect(34,91,10,14,'#b86b18');
     const hammer=(x,y,side=1)=>{rect(x,y-14,3,14,'#ffbd80');rect(x+(side<0?-9:-3),y-19,12,7,'#00dfff');};
     for(const h of this.hammers)if(!h.taken)hammer(h.x,girderY(h.floor,h.x)-7);
-    for(const b of this.barrels){rect(b.x-6,b.y-10,12,10,'#b86b18');rect(b.x-4,b.y-9,2,8,'#ffbd80');rect(b.x+2,b.y-9,2,8,'#ffbd80');rect(b.x-3,b.y-6,6,2,'#702800');}
+    for(const b of this.barrels){
+      if(b.burning){
+        const sway=Math.floor(this.clock*8)%2?2:-2;
+        const top=b.y-FIRE_BARREL_HEIGHT;
+        rect(b.x+sway-1,top,3,10,'#ff5420');
+        rect(b.x-4,top+7,8,12,'#ff5420');
+        rect(b.x-6,top+11,12,8,'#ff5420');
+        rect(b.x-sway-1,top+10,3,9,'#ffde40');
+        rect(b.x-3,top+15,6,4,'#ffde40');
+      }
+      rect(b.x-6,b.y-10,12,10,'#b86b18');rect(b.x-4,b.y-9,2,8,'#ffbd80');rect(b.x+2,b.y-9,2,8,'#ffbd80');rect(b.x-3,b.y-6,6,2,'#702800');
+    }
     const p=this.player;
     if(this.stomp<.3&&(!this.delay||Math.floor(this.clock*10)%2))drawCharacter(ctx,'player',p.x-6,p.y-14,1,p.facing);
     if(this.hammer){
