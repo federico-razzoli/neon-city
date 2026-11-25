@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {randomReply} from './random-reply.js';
 import {drawPineConeGeometry as pineCone} from './pine-cone-geometry.js';
 import {drawTreeGeometry} from './tree-geometry.js';
 import {signBoardGeometry,signPoleGeometry,drawSignGeometry} from './sign-geometry.js';
@@ -191,7 +192,7 @@ function facingParkObject(player,object){
 }
 export function treeReply(player,chunks,random=Math.random){
   for(const chunk of chunks)for(const tree of chunk.park?.trees??[]){
-    if(facingParkObject(player,tree))return TREE_REPLIES[Math.floor(random()*TREE_REPLIES.length)];
+    if(facingParkObject(player,tree))return randomReply(TREE_REPLIES,random);
   }
   return null;
 }
@@ -201,7 +202,7 @@ export function signReply(player,chunks,random=Math.random){
   // Allow the same targeting area as a tree trunk, despite the narrow pole.
   const sign=signs.find(sign=>facingParkObject(player,{...sign,radius:.5}));
   // A sign with its own reply always says it; the rest pick a stock line.
-  if(sign)return sign.reply??SIGN_REPLIES[Math.floor(random()*SIGN_REPLIES.length)];
+  if(sign)return sign.reply??randomReply(SIGN_REPLIES,random);
   return null;
 }
 

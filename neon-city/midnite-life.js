@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import {randomReply} from './random-reply.js';
 import {BOOKSHOP,BOOKSHOP_BOOKS,BOOKSELLER_GIFTS,BOOK_READING_REPLY,BACKPACK_WARNING,bookshopWalkable} from './midnite-interior.js';
 import {BACKPACK} from './backpack.js';
 import {TICKET} from './inventory.js';
@@ -198,7 +199,7 @@ export class BookshopLife{
       return reply;
     }
     const visitor=spatialTarget===undefined?facingNearest(player,this.people.filter(p=>p.replies||p.book)):spatialTarget?.type==='visitor'?spatialTarget.data:null;
-    if(visitor?.replies)return visitor.replies[Math.floor(this.random()*visitor.replies.length)];
+    if(visitor?.replies)return randomReply(visitor.replies,this.random);
     if(visitor)return visitor.book.name;
     const leftBook=spatialTarget===undefined?facingNearest(player,this.visitorBooks.filter(b=>b.state==='reading').map(b=>({...BOOKSHOP.readingTables[b.seat],name:b.name,reach:1.4}))):spatialTarget?.type==='leftBook'?spatialTarget.data:null;
     if(leftBook)return leftBook.name;

@@ -1,3 +1,4 @@
+import {randomReply} from './random-reply.js';
 import {sprite} from './sprites.js?v=bumps-1';
 /*
 Browser Games — standalone browser games, including Neon City.
@@ -120,7 +121,7 @@ export const facingSink=player=>facingNearest(player,sinkSpots())?.index??null;
 // Null where there is nothing to say, or the door opens.
 export function lavatoryReply(player,occupied,random=Math.random){
   const cubicle=facingCubicle(player);
-  if(cubicle)return isOccupied(cubicle,occupied)?CUBICLE_REPLIES[Math.floor(random()*CUBICLE_REPLIES.length)]:null;
+  if(cubicle)return isOccupied(cubicle,occupied)?randomReply(CUBICLE_REPLIES,random):null;
   return null;
 }
 // Where each tap's water falls: under the end of its spout, into the basin.

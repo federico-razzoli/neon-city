@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {randomReply} from './random-reply.js';
 import {dropCarriedIceCream} from './carried-ice-cream.js';
 import {groundHeight,RIVER_WALK_HEIGHT,RIVER_STAIRS} from './world.js';
 
@@ -15,5 +16,5 @@ export function advanceRiverFall(player,dt,random=Math.random){
   const dropped=dropCarriedIceCream(player);
   if(dropped)return dropped;
   const step=Math.abs(RIVER_WALK_HEIGHT)/RIVER_STAIRS.steps;
-  return fall.start-ground>3*step+1e-9?replies[Math.floor(random()*replies.length)]:null;
+  return fall.start-ground>3*step+1e-9?randomReply(replies,random):null;
 }

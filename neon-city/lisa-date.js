@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {randomReply} from './random-reply.js';
 import {BLOCK,RIVER_WALK_WIDTH,RIVER_STAIRS,riverWalkPosition,groundHeight,hasBridge,vanAtStreetPosition} from './world.js?v=start-pub-1';
 import {ICE_CREAM_VAN,iceCreamVanFloor} from './ice-cream-vans.js';
 import {facingRiverGrate} from './river-grates.js';
@@ -25,7 +26,6 @@ import {pubChairs} from './pub-interior.js?v=bar-taps-1';
 import {register} from './register.js';
 import {PlayerFollower} from './player-follower.js';
 
-const choose=lines=>lines[Math.floor(Math.random()*lines.length)];
 const iceCreamThanks=[{say:'THANK YOU FOR THIS ICE CREAM!',sets:'LISA_ICE_CREAM'},"YOU'RE SO SWEET..."];
 const invitation=[
   'YOU... YOU MAKE ME FEEL NORMAL.',
@@ -64,7 +64,7 @@ export class LisaDate extends PlayerFollower{
     return {lines:this.iceCream?iceCreamThanks:['THIS PLACE IS BEAUTIFUL...', "AND YOU'RE SO FUNNY!"]};
   }
   sharedViewReply({player}){
-    if(!this.iceCream&&this.room==='street'&&facingRiverGrate(player))return choose(gateLines);
+    if(!this.iceCream&&this.room==='street'&&facingRiverGrate(player))return randomReply(gateLines);
   }
   standingReply({player,city}){
     if(this.iceCream)return iceCreamThanks;
@@ -73,14 +73,14 @@ export class LisaDate extends PlayerFollower{
       const van=vanAtStreetPosition(city,player);
       if(van&&iceCreamVanFloor(van,player)===ICE_CREAM_VAN.floor)return "WE SHOULDN'T BE HERE...";
       // The player can turn toward Lisa while she is still facing the gate.
-      if(this.riverWalk&&facingRiverGrate({...this,angle:Math.atan2(this.facingX,this.facingZ)}))return choose(gateLines);
+      if(this.riverWalk&&facingRiverGrate({...this,angle:Math.atan2(this.facingX,this.facingZ)}))return randomReply(gateLines);
       if(player.riverWalk){
-        if(Math.abs(bank.d-RIVER_WALK_WIDTH)<=2)return choose(waterLines);
+        if(Math.abs(bank.d-RIVER_WALK_WIDTH)<=2)return randomReply(waterLines);
       }else{
-        if(groundHeight(player.x,player.z)>0)return choose(bridgeLines);
+        if(groundHeight(player.x,player.z)>0)return randomReply(bridgeLines);
         const street=block(player.x);
         if(Math.abs(bank.d)<=2&&(!hasBridge(street)||bank.lx>=RIVER_STAIRS.start)&&
-          (!hasBridge(street+1)||bank.lx<=BLOCK-14))return choose(railLines);
+          (!hasBridge(street+1)||bank.lx<=BLOCK-14))return randomReply(railLines);
       }
     }
     return super.standingReply({player,city});

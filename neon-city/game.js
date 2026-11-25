@@ -1,3 +1,4 @@
+import {randomReply} from './random-reply.js';
 import {ageCarriedIceCream,dropCarriedIceCream} from './carried-ice-cream.js';
 import {iceCreamVendorTalk,LEFT_CAB_DOOR_REPLY,iceCreamVanCabTarget,iceCreamVanCabExit,iceCreamVanCabSeat,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
@@ -979,7 +980,7 @@ function handleWorldInput(k,e){
   if(k===' '&&!e.repeat&&insideCubicle&&lavatoryLife?.cubicleBlackout){useDoor();return;}
   if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){bookshopLife?.resetBookInteraction();notice=2.5;noticeText=pickedUp;return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){if(arcadeLife?.occupied(machine)){notice=2.5;noticeText='SOMEONE IS ALREADY PLAYING THIS CABINET.';return;}const reply=tryArcadeGame(machine,inventory,false);if(reply==='PINBALL'||reply==='BYKER'||reply==='GHOST'||reply==='PUNCH'||reply==='PING'||reply==='GROG'||reply==='KONGY KONG'||reply==='AMIGOS'||reply==='METEORS'||reply==='BRICKS'||reply==='SUPER'){playCabinet(reply,machine);}else{notice=3.5;noticeText=reply;}return;}}if(useSeat()){bookshopLife?.resetBookInteraction();return;}if(useDoor()){bookshopLife?.resetBookInteraction();return;}if(insideBookshop){const target=bookshopSpatial()?bookshopTarget():undefined;const reply=bookshopLife.interact(player,inventory,target)??(target===undefined?bookshopReply(player,bookshopLife):target?.type==='reply'?target.data:null);if(reply){notice=4;noticeText=reply;}else if(bookshopLife.atDesk&&(target===undefined?facingBookseller(player):target?.type==='seller'))talkToStaff(booksellerTalk(bookshopLife.backpack),'Talk to the bookseller',bookshopLife.booksellerGifts(inventory));return;}if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(!arcadeLife?.deskBusy&&facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(facingHotelLamp(player,currentHotel)){const complaint=switchHotelLamp(currentHotel,inventory);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player,hotelLife.guest()?.receptionWait>0,currentHotel);if(reply){notice=2.5;noticeText=reply;}else if(!(hotelLife.guest()?.receptionWait>0)&&facingReceptionistAcrossDesk(player,currentHotel))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){if(washroomSpatial()){
       const target=washroomTarget();
-      if(target?.type==='cubicle'&&lavatoryOccupied[LAVATORY.cubicles.indexOf(target.data)]!==false){notice=2.5;noticeText=CUBICLE_REPLIES[Math.floor(Math.random()*CUBICLE_REPLIES.length)];}
+      if(target?.type==='cubicle'&&lavatoryOccupied[LAVATORY.cubicles.indexOf(target.data)]!==false){notice=2.5;noticeText=randomReply(CUBICLE_REPLIES);}
       else if(target?.type==='sink'){enableSound();lavatoryTaps[target.data]=!lavatoryTaps[target.data];lavatoryLife.triggerMirrorChild(register);}
       return;
     }const reply=lavatoryReply(player,lavatoryOccupied);if(reply){notice=2.5;noticeText=reply;return;}const sink=facingSink(player);if(sink!=null){enableSound();lavatoryTaps[sink]=!lavatoryTaps[sink];lavatoryLife.triggerMirrorChild(register);}return;}if(insideCubicle)return;if(insidePub){if(pubSpatial()){
@@ -1165,7 +1166,7 @@ function tick(now){
       bookshopLife.update(dt,player,playerSeat?.bookshopChair);
       const bumpedTable=!playerSeat&&(bookshopSpatial()?.move??moveInBookshop)(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,bookshopLife.seller,bookshopLife.people);
       if(pace>1&&bumpedTable&&!bookshopLife.bumpedReadingTable){
-        notice=2.5;noticeText=Math.random()<.5?'OUCH! MY KNEE!':'OUCH! I THINK I LOST 1 HP!';
+        notice=2.5;noticeText=randomReply(['OUCH! MY KNEE!','OUCH! I THINK I LOST 1 HP!']);
       }
       bookshopLife.bumpedReadingTable=pace>1&&bumpedTable;
       document.querySelector('#message').textContent=notice?noticeText:'';
