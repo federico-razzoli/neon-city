@@ -8,6 +8,11 @@ export function ageCarriedIceCream(person,dt){
   person.iceCream.age+=dt;
   if(!carriedIceCreamStage(person.iceCream))delete person.iceCream;
 }
+export function dropCarriedIceCream(person){
+  if(!person.iceCream)return null;
+  delete person.iceCream;
+  return 'OH, NO! I DROPPED MY ICE CREAM!';
+}
 export function iceCreamView(person){
   return {iceCreamStage:carriedIceCreamStage(person.iceCream),iceCreamFlavour:person.iceCream?.flavour??0};
 }

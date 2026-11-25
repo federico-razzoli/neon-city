@@ -1,4 +1,4 @@
-import {ageCarriedIceCream} from './carried-ice-cream.js';
+import {ageCarriedIceCream,dropCarriedIceCream} from './carried-ice-cream.js';
 import {iceCreamVendorTalk,LEFT_CAB_DOOR_REPLY,iceCreamVanCabTarget,iceCreamVanCabExit,iceCreamVanCabSeat,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
@@ -1210,7 +1210,7 @@ function tick(now){
       if(c.waiting)continue;
       if(Math.abs(player.x-c.x)<(c.axis?2.8:1.5)&&Math.abs(player.z-c.z)<(c.axis?1.5:2.8)){
         const side=c.axis?(player.z>=c.z?1:-1):(player.x>=c.x?1:-1);
-        city.move(player,c.axis?c.dir*2.5:side*7,c.axis?side*7:c.dir*2.5,people,[],cars);shake=7;notice=2.5;noticeText='HEY! WATCH THE TRAFFIC.';hitCooldown=1.5;playOuch();
+        city.move(player,c.axis?c.dir*2.5:side*7,c.axis?side*7:c.dir*2.5,people,[],cars);shake=7;notice=2.5;noticeText=dropCarriedIceCream(player)??'HEY! WATCH THE TRAFFIC.';hitCooldown=1.5;playOuch();
         break collision;
       }
     }
