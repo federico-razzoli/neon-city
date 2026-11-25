@@ -26,7 +26,7 @@ export function createThreeBookshopSpatial(){
   function sync(life){
     dynamic.length=0;
     round(dynamic,{...B.bookseller,...life?.seller},2.4,'seller',null);
-    for(const p of life?.people??[])round(dynamic,{...p,radius:.3},p.state==='reading'?1.9:2.4,p.book?'visitor':null,p);
+    for(const p of life?.people??[])round(dynamic,{...p,radius:.3},p.state==='reading'?1.9:2.4,p.replies||p.book?'visitor':null,p);
     if(!life?.backpackTaken)round(dynamic,B.backpack,.8,'backpack',null,.4,false);
     for(const b of BOOKSHOP_BOOKS)if(!life||life.onDisplay(b))round(dynamic,b,.16,'book',b,1.08,false);
     for(const b of life?.visitorBooks??[])if(b.state==='reading')round(dynamic,{...B.readingTables[b.seat],radius:.3},.16,'leftBook',b,.76,false);

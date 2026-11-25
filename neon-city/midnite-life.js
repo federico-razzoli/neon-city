@@ -48,10 +48,19 @@ export function bookshopVisitorShowsBack(person,viewer){
   return (viewer.x-person.x)*Math.sin(person.angle)+(viewer.z-person.z)*Math.cos(person.angle)<0;
 }
 export const BOOKSHOP_VISITORS=[
-  {id:'math-girl',type:4,shelf:0,titles:['HISTORY OF NUMBERS','THE SECRET PROPERTIES OF SUBTRACTIONS','FRACTIONS OF FRACTIONS']},
+  {id:'math-girl',replies:[
+    'DO YOU KNOW THAT AN INFINITY CAN BE BIGGER THAN ANOTHER?',
+    'DO YOU KNOW THAT A MATH OPERATOR CAN BE AN OPERAND?',
+    "THE GOVERNMENT SAYS THAT 2 + 2 = 4. I THINK IT'S 4. ONE DAY I'LL PROVE IT."
+  ],type:4,shelf:0,titles:['HISTORY OF NUMBERS','THE SECRET PROPERTIES OF SUBTRACTIONS','FRACTIONS OF FRACTIONS']},
   {id:'punk-girl',type:3,shelf:3,titles:['RADIOACTIVE COWS LYRICS','POLKA METAL HALL OF FAME','TRIBAL TANGO HEROES']},
   {id:'smart-woman',type:8},
-  {id:'gay-man',type:6,shelf:4,leavesAfterBrowsing:true}
+  {id:'gay-man',type:6,shelf:4,leavesAfterBrowsing:true,replies:[
+    "THIS BOOK IS ABOUT AN OPEN, INCLUSIVE SOCIETY. I WISH IT WASN'T IN THE SCI-FI SECTION.",
+    'SCI-FI IMAGINES POSSIBLE FUTURES. WE SHOULD READ IT MORE... AND PREVENT THOSE FUTURES.',
+    "THERE'S A BOOK FOR EVERY SUBJECT. EVERY VIEW. EVERY PLACE.",
+    'IN THIS BOOK THE ROBOTS KIDNAP HUMAN BEINGS TO "UPGRADE" US. THIS MAKES ME THINK...'
+  ]}
 ];
 const entrance={x:BOOKSHOP.door.x,z:.5};
 const shelfSpots=[{x:2,z:8,angle:-Math.PI/2},{x:16,z:8,angle:Math.PI/2},{x:8,z:16,angle:0},{x:5.8,z:10,angle:-Math.PI/2},{x:11.2,z:10,angle:Math.PI/2}];
@@ -188,7 +197,8 @@ export class BookshopLife{
       if(reply==='TAKEN')this.backpack.taken=true;
       return reply;
     }
-    const visitor=spatialTarget===undefined?facingNearest(player,this.people.filter(p=>p.book)):spatialTarget?.type==='visitor'?spatialTarget.data:null;
+    const visitor=spatialTarget===undefined?facingNearest(player,this.people.filter(p=>p.replies||p.book)):spatialTarget?.type==='visitor'?spatialTarget.data:null;
+    if(visitor?.replies)return visitor.replies[Math.floor(this.random()*visitor.replies.length)];
     if(visitor)return visitor.book.name;
     const leftBook=spatialTarget===undefined?facingNearest(player,this.visitorBooks.filter(b=>b.state==='reading').map(b=>({...BOOKSHOP.readingTables[b.seat],name:b.name,reach:1.4}))):spatialTarget?.type==='leftBook'?spatialTarget.data:null;
     if(leftBook)return leftBook.name;
