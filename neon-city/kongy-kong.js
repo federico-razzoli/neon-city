@@ -1,5 +1,6 @@
 // Kongy Kong alternates the barrel and rivet stages.
 const LEFT=32,RIGHT=608;
+const LAUGH_DURATION=2.7;
 const LADDER_DROP_CHANCE=.25; // chance a barrel takes a ladder it rolls over
 const FIRE_BARREL_CHANCE=.1;
 const FIRE_BARREL_HEIGHT=28;
@@ -50,6 +51,7 @@ export class KongyKong{
   hammers=[{floor:1,x:185,taken:false},{floor:3,x:335,taken:false}];
   constructor(){this.resetPlayer();}
   resetPlayer(){this.player={x:this.rivetStage?rivetSpan(0)[0]+14:58,y:this.rivetStage?rivetY(0):girderY(0,58),floor:0,vy:0,air:false,climb:null,facing:1};this.hammer=0;
+    this.laughAt=this.clock+7+Math.random()*8;
     if(this.rivetStage){
       this.rivets=Array.from({length:4},(_,i)=>RIVET_X.map(x=>({floor:i+1,x,removed:false}))).flat();
       this.bonuses=[
@@ -88,6 +90,20 @@ export class KongyKong{
     const lift=this.stomp?Math.sin(Math.PI*Math.min(1,this.stomp/.3))*14:0;
     return {x:60,y:girderY(5,90)-51-lift,scale:3};
   }
+  drawMonkey(ctx,x,y,scale,footLift=0,footSide=0){
+    drawCharacter(ctx,'monkey',x,y,scale,1,footLift,footSide);
+    const elapsed=this.clock-this.laughAt;
+    if(this.won||this.stomp||elapsed<0||elapsed>=LAUGH_DURATION)return;
+    const beat=Math.min(2,Math.floor(elapsed/.9));
+    if(elapsed%.9<.57){
+      ctx.fillStyle='#502000';
+      ctx.fillRect(x+7*scale,y+6*scale,6*scale,2*scale);
+      ctx.fillStyle='#ff8280';
+      ctx.fillRect(x+9*scale,y+7*scale,3*scale,scale);
+    }
+    ctx.fillStyle='#ffe050';ctx.font='bold 11px monospace';
+    ctx.fillText(['HA!','HA HA!','HA HA HA!'][beat],x+20*scale+28,y+12);
+  }
   escapePose(){
     const t=this.victoryTime,carrying=t>=2;
     const x=t<2?100+175*t:450+Math.max(0,t-2.6)*100;
@@ -121,6 +137,7 @@ export class KongyKong{
       if(this.stomp>=.45){this.stomp=0;this.die();}
       return;
     }
+    if(this.clock>=this.laughAt+LAUGH_DURATION)this.laughAt=this.clock+7+Math.random()*8;
     this.time-=dt;if(this.time<=0){this.die();return;}
     this.hammer=Math.max(0,this.hammer-dt);
     const p=this.player;
@@ -347,11 +364,11 @@ export class KongyKong{
         ctx.rotate(Math.PI*Math.min(1,elapsed/.38));
         sprite('monkey',-30,-25.5,3);
         ctx.restore();
-      }else drawCharacter(ctx,'monkey',290,rivetY(4)-51,3,1,lift,side);
+      }else this.drawMonkey(ctx,290,rivetY(4)-51,3,lift,side);
       if(this.stomp>=.3)rect(this.player.x-7,rivetY(4)-3,14,3,'#ff3030');
     }else{
       const monkey=this.monkeyPose();
-      sprite('monkey',monkey.x,monkey.y,monkey.scale);sprite('girl',540,48);
+      this.drawMonkey(ctx,monkey.x,monkey.y,monkey.scale);sprite('girl',540,48);
       if(this.stomp>=.3){
         rect(54,girderY(5,90)-3,72,3,'#ffff00');
         rect(this.player.x-7,this.player.y-4,14,4,'#ff3030');
