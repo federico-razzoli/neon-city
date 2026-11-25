@@ -49,6 +49,19 @@ export function createThreeStreetScene({boundsVisible:exteriorVisible}={}){
   const seatedCharacters=createThreeSeatedCharacters(),benchLegMeshes=[];
   let benchLegCount=0,benchFace=null;
   const faceRay=new THREE.Raycaster();
+  const shape=new THREE.Shape();
+  shape.moveTo(0,-.30);
+  shape.bezierCurveTo(-.10,-.18,-.35,-.02,-.35,.14);
+  shape.bezierCurveTo(-.35,.33,-.10,.36,0,.19);
+  shape.bezierCurveTo(.10,.36,.35,.33,.35,.14);
+  shape.bezierCurveTo(.35,-.02,.10,-.18,0,-.30);
+  const heart=new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshBasicMaterial({color:0xff3868,depthTest:false,depthWrite:false}));
+  heart.name='bench-dialogue-heart';
+  const heartOverlay=new THREE.Scene(),faceAnchor=new THREE.Group();
+  faceAnchor.matrixAutoUpdate=false;
+  heartOverlay.add(faceAnchor);faceAnchor.add(heart);
+  heart.position.set(.035,.20,.025);
+  let heartStarted=null;
   let cash,cashNote;
   let cardCount=0;
   let style={},view;
@@ -157,6 +170,11 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     if(cash)cash.mesh.visible=false;
     iceCreamVans.beginFrame(frame);scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);doormats.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);
+    if(frame.benchHeart){
+      heartStarted??=frame.time;
+      const progress=Math.min(1,(frame.time-heartStarted)/.8);
+      heart.scale.setScalar(.12+.88*progress*(2-progress));
+    }else heartStarted=null;
     carriedIceCreams.endFrame();
     for(let i=benchLegCount;i<benchLegMeshes.length;i++)benchLegMeshes[i].visible=false;
     for(let i=cardCount;i<cardMeshes.length;i++)cardMeshes[i].visible=false;
@@ -167,5 +185,12 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
       upload(b.geometry,'position',b.positions,3);upload(b.geometry,'uv',b.uvs,2);
       b.geometry.setDrawRange(0,b.positions.length/3);
     }
-  },dispose(){cash?.dispose();cash=null;cashNote=null;iceCreamVans.dispose();scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();carriedIceCreams.dispose();cards.dispose();cardMeshes.length=0;seatedCharacters.dispose();benchLegMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();doormats.dispose();trees.dispose();riverWalks.dispose();riverWisps.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
+  },renderOverlay(renderer){
+    if(heartStarted===null||!benchFace)return;
+    faceAnchor.matrix.copy(benchFace.matrixWorld);
+    faceAnchor.matrixWorldNeedsUpdate=true;
+    const autoClear=renderer.autoClear;
+    renderer.autoClear=false;
+    try{renderer.render(heartOverlay,camera);}finally{renderer.autoClear=autoClear;}
+  },dispose(){heart.geometry.dispose();heart.material.dispose();cash?.dispose();cash=null;cashNote=null;iceCreamVans.dispose();scenery.dispose();buildings.dispose();cones.dispose();flowers.dispose();newspapers.dispose();carriedIceCreams.dispose();cards.dispose();cardMeshes.length=0;seatedCharacters.dispose();benchLegMeshes.length=0;fingerposts.dispose();retainingWalls.dispose();manholes.dispose();doormats.dispose();trees.dispose();riverWalks.dispose();riverWisps.dispose();water.dispose();traffic.dispose();roads.dispose();railings.dispose();sky.dispose();for(const b of batches.values()){b.geometry.dispose();b.material.dispose();b.texture?.dispose();}batches.clear();scene.clear();}};
 }

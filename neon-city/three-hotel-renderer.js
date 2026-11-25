@@ -88,7 +88,7 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
       }
       profilePhase('neon:three:update',()=>room.update(frame));
       profilePhase('neon:three:render',()=>{
-        renderer.render(room.scene,room.camera);room.renderOverlay?.(renderer,frame);
+        renderer.render(room.scene,room.camera);
         const stage=carriedIceCreamStage(frame.player.iceCream);
         if(stage){
           heldCones.beginFrame();
@@ -96,6 +96,7 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
           renderer.clearDepth();
           composite(heldScene,heldCamera);
         }
+        room.renderOverlay?.(renderer,frame);
         if(['hotel','stairs','corridor','storage'].includes(destination))composite(shadeScene);
         if(frame.dimmed)composite(dimScene);
       });

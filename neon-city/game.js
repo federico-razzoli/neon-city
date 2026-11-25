@@ -282,31 +282,32 @@ function lookFromSeat(seat,yaw,pitch){
 }
 // An explicitly started conversation takes priority over ambient talk.
 let foregroundTalk=null;
-function startPassiveDialogue(lines,isPresent){
+function startPassiveDialogue(lines,isPresent,onFinish){
   if(!lines?.length||foregroundTalk?.isPresent())return;
   const conversation=new PassiveConversation(lines,{loop:false,interval:2.5});
-  foregroundTalk={conversation,isPresent};
+  foregroundTalk={conversation,isPresent,onFinish};
   conversation.advance();
 }
 function startBenchDialogue(x=0,y=0){
   if(playerSeat?.bench&&activeCompanion?.benchSeated&&activeCompanion.benchVisit.bench===playerSeat.bench&&threeRenderer?.hitsBenchFace(x,y)){
     const seat=playerSeat,companion=activeCompanion;
-    const lines=companion.benchDialogue;
-    if(!lines?.length)return false;
-    startPassiveDialogue(lines,()=>playerSeat===seat&&activeCompanion===companion&&companion.benchSeated);
+    const dialogue=companion.benchDialogue?.();
+    if(!dialogue?.lines.length)return false;
+    startPassiveDialogue(dialogue.lines,()=>playerSeat===seat&&activeCompanion===companion&&companion.benchSeated,dialogue.onFinish);
     return true;
   }
   return false;
 }
 function talkToStandingCompanion(requireFacing){
   const companion=activeCompanion;
-  if(playerSeat||!companion?.visible||companion.room!==debugScene())return false;
+  if(playerSeat||!companion?.visible||companion.state==='leaving'||companion.room!==debugScene())return false;
   const dx=companion.x-player.x,dz=companion.z-player.z,distance=Math.hypot(dx,dz);
   if(distance>3||(!indoors()&&Math.abs(companion.ground-streetFloorHeight(city,player))>1.6))return false;
   const context={player,city};
   const sharedViewReply=companion.sharedViewReply?.(context);
   if(!sharedViewReply&&requireFacing&&dx*Math.sin(player.angle)+dz*Math.cos(player.angle)<distance*.9)return false;
-  startPassiveDialogue([sharedViewReply??companion.standingReply(context)],
+  const reply=sharedViewReply??companion.standingReply(context);
+  startPassiveDialogue(Array.isArray(reply)?reply:[reply],
     ()=>activeCompanion===companion&&companion.visible&&companion.room===debugScene()&&!playerSeat);
   return true;
 }
@@ -729,6 +730,7 @@ function render(){
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
     pubPatrons,bartenderType,currentVenue,pubLife,activeCompanion,city,roadTraffic,wallet,
     banshee,shake,steps,starfield,moon,shootingStars,skyView:skyView(),hotelGuests:hotelGuests(),itemRoom:itemRoom(),indoors:indoors(),
+    benchHeart:foregroundTalk?.isPresent()&&foregroundTalk.conversation.currentCue?.heart,
     riverWisps:indoors()?null:riverWisps.view,
     dimmed:!overlay.hidden
   };
@@ -1230,10 +1232,13 @@ function tick(now){
     document.querySelector('#location').textContent=`MIDNIGHT DISTRICT / ${Math.floor(player.x/64)}, ${Math.floor(player.z/64)}`;
     }
     if(foregroundTalk){
-      const {conversation,isPresent}=foregroundTalk;
-      if(isPresent())conversation.update(dt);
-      if(!isPresent()||conversation.ready)foregroundTalk=null;
-      else document.querySelector('#message').textContent=conversation.currentLine;
+      const {conversation,isPresent,onFinish}=foregroundTalk;
+      if(!isPresent())foregroundTalk=null;
+      else{
+        conversation.update(dt);
+        if(conversation.ready){foregroundTalk=null;onFinish?.();}
+        else document.querySelector('#message').textContent=conversation.currentLine;
+      }
     }
   }
   // Before the first start the title shows the street living on behind the

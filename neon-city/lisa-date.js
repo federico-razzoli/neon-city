@@ -22,9 +22,19 @@ import {ICE_CREAM_VAN,iceCreamVanFloor} from './ice-cream-vans.js';
 import {facingRiverGrate} from './river-grates.js';
 import {pubChairs} from './pub-interior.js?v=bar-taps-1';
 
+import {register} from './register.js';
 import {PlayerFollower} from './player-follower.js';
 
 const choose=lines=>lines[Math.floor(Math.random()*lines.length)];
+const iceCreamThanks=[{say:'THANK YOU FOR THIS ICE CREAM!',sets:'LISA_ICE_CREAM'},"YOU'RE SO SWEET..."];
+const invitation=[
+  'YOU... YOU MAKE ME FEEL NORMAL.',
+  'NO, BETTER THAN NORMAL. SPECIAL.',
+  'I... YOU... I MEAN...',
+  {say:'',heart:true},
+  'I WORK AT THE NAVY HOTEL.',
+  'MEET ME IN THE ROOM 666.'
+];
 const railLines=["LOOK! A SHOOTING STAR!","THANKS FOR COMING HERE WITH ME."];
 const waterLines=["IF YOU PAY ATTENTION, YOU CAN SEE SOME FISHES.","DID YOU KNOW THAT THIS WATER IS ALWAYS WARM?"];
 const bridgeLines=["HOW BEAUTIFUL...","SOME SAY NIGHT RIVER IS ENDLESS.","SHALL WE GO DOWN?"];
@@ -40,11 +50,24 @@ export class LisaDate extends PlayerFollower{
     const chair=spawn?null:pubChairs().find(c=>c.tableIndex===tableIndex&&c.seat===seat);
     super({type:LISA_TYPE,variant,allowedRooms:['street'],...(spawn??{room:'pub',...centre(chair),chair,facingZ:-chair.side})});
   }
-  get benchDialogue(){return ['THIS PLACE IS BEAUTIFUL...', "AND YOU'RE SO FUNNY!"];}
+  benchDialogue(){
+    const visit=this.benchVisit;
+    if(visit.bench.riverWalk&&register.LISA_ICE_CREAM){
+      return {lines:invitation,onFinish:()=>{
+        // Step out from the bench, then walk along the path away from the player.
+        const {bench,front,seat}=visit;
+        const side=Math.sign((seat.x-bench.x)*bench.tx+(seat.z-bench.z)*bench.tz);
+        const ground=this.ground;
+        this.startLeaving([{...front,ground},{x:front.x+6*side*bench.tx,z:front.z+6*side*bench.tz,ground}],4);
+      }};
+    }
+    return {lines:this.iceCream?iceCreamThanks:['THIS PLACE IS BEAUTIFUL...', "AND YOU'RE SO FUNNY!"]};
+  }
   sharedViewReply({player}){
-    if(this.room==='street'&&facingRiverGrate(player))return choose(gateLines);
+    if(!this.iceCream&&this.room==='street'&&facingRiverGrate(player))return choose(gateLines);
   }
   standingReply({player,city}){
+    if(this.iceCream)return iceCreamThanks;
     const bank=this.room==='street'&&riverWalkPosition(player.x,player.z);
     if(bank){
       const van=vanAtStreetPosition(city,player);

@@ -53,6 +53,13 @@ export class PlayerFollower{
       routeTimer:0,pushTime:0,distanceWarned:false,inDoorway:true});
     if(room==='street'&&onRiver(this.z))this.atRiver=true;
   }
+  startLeaving(route,seconds=LEAVE_TIME){
+    this.benchVisit=null;
+    this.state='leaving';
+    this.leaveTime=seconds;
+    this.route=route;
+    if(!route.length)this.gone=true;
+  }
   update(dt,context){
     const {room,player,seated,patrons,bench,city,ground=0,door,moveIndoors}=context;
     if(this.gone)return;
@@ -84,12 +91,9 @@ export class PlayerFollower{
       this.inDoorway=false;
     }
     if(distance>=LEAVE_DISTANCE){
-      this.benchVisit=null;
-      this.state='leaving';this.leaveTime=LEAVE_TIME;
-      if(room==='street')this.route=this.history.slice().reverse();
-      else if(room==='pub')this.route=pubRoute(this,{x:PUB.door.x,z:.4},this.chair)??[];
-      else this.route=[this.entryDoor??door];
-      if(!this.route.length)this.gone=true;
+      if(room==='street')this.startLeaving(this.history.slice().reverse());
+      else if(room==='pub')this.startLeaving(pubRoute(this,{x:PUB.door.x,z:.4},this.chair)??[]);
+      else this.startLeaving([this.entryDoor??door]);
       return;
     }
     const warn=distance>WARN_DISTANCE&&!this.distanceWarned;

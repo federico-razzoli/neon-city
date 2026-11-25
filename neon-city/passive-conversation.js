@@ -39,6 +39,7 @@ export class PassiveConversation{
     const line=this.lines[this.index];
     this.index=this.loop?(this.index+1)%this.lines.length:this.index+1;
     if(line.sets)this.record[line.sets]=true;
+    this.currentCue=line;
     this.currentLine=line.say??line;
     return this.currentLine;
   }
