@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {carriedIceCreamStage} from './carried-ice-cream.js';
+import {createThreeCarriedIceCreams} from './three-carried-ice-creams.js';
 import {createThreeArtwork} from './three-artwork.js';
 import {NATIVE_VIEW} from './render-camera.js';
 import {drawDroppedObject} from './dropped-object.js';
@@ -83,6 +85,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
     }
     return entry.material;
   }
+  const carriedCones=createThreeCarriedIceCreams(scene);
   function update(frame){
     if(disposed)throw new Error('Interior scene has been disposed.');
     updateInteriorCamera(camera,{position:frame.player,eye:frame.eye,pitch:frame.windowView?.pitch??frame.playerSeat?.pitch??0});
@@ -115,6 +118,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
     }
     const guests=[...(actorsFor(frame)??[]),...(extras?.actors?.()??[])],presentActors=new Set();
     if(frame.activeCompanion?.visible&&frame.activeCompanion.room===(name==='hall'?'hotel':name)&&name!=='pub')guests.push(frame.activeCompanion);
+    carriedCones.beginFrame();
     for(const guest of guests){
       const key=guest.id??guest;presentActors.add(key);
       let mesh=actors.get(key);
@@ -135,11 +139,15 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
       const drawnHeight=seated?32*.0375:height;
       mesh.scale.set((seated?24*.0375:height/2)*characterGirth(guest.type),drawnHeight,1);
       mesh.position.set(guest.x,seated?1.87-drawnHeight/2:(guest.y??0)+height/2,-guest.z);mesh.rotation.y=-frame.player.angle;
+      if(guest.iceCream)carriedCones.draw({position:{x:guest.x,y:mesh.position.y-drawnHeight/2,z:guest.z},
+        height:drawnHeight,width:mesh.scale.x,stage:carriedIceCreamStage(guest.iceCream),
+        flavour:guest.iceCream.flavour,angle:frame.player.angle,back});
     }
+    carriedCones.endFrame();
     for(const [guest,mesh] of actors)if(!presentActors.has(guest)){scene.remove(mesh);actors.delete(guest);}
   }
   function dispose(){
-    if(disposed)return;disposed=true;
+    if(disposed)return;disposed=true;carriedCones.dispose();
     room.geometry?.dispose();extras?.dispose();cones?.dispose();flowers?.dispose();
     for(const mesh of dropped.values())mesh.geometry.dispose();
     dropped.clear();actors.clear();actorGeometry.dispose();seatedGeometry.dispose();

@@ -39,6 +39,26 @@ export function interactIceCreamVanDoor(player,van){
   return ''; // Handled silently; null means there was no interaction.
 }
 
+export function iceCreamVendorTalk(wallet,player,companion){
+  const price=companion?200:100;
+  const order={ask:companion?'2 ICE CREAM, PLEASE (2£)':'1 ICE CREAM, PLEASE (1£).',answer:buy};
+  function buy(){
+    if(wallet.pence<price)return ["YOU DON'T HAVE ENOUGH MONEY."];
+    wallet.pence-=price;
+    const serve=person=>{person.iceCream={age:0,flavour:Math.floor(Math.random()*ICE_CREAM_TRAYS.length)};};
+    serve(player);
+    if(companion)serve(companion);
+    order.ends=true;
+    return [companion?'ENJOY YOUR ICE CREAMS!':'ENJOY YOUR ICE CREAM!'];
+  }
+  return [
+    {ask:'HI!',answer:['HELLO THERE!']},
+    order,
+    {ask:'I LOVE THIS RIVER!',answer:['WHICH RIVER?', "I CAN'T SEE ANY RIVER..."]},
+    {ask:'BYE!',answer:['SEE YOU LATER!'],ends:true}
+  ];
+}
+
 export function interactIceCreamVendor(player,van,companion=null){
   if(player.riverWalk)return null;
   const p=iceCreamVanLocal(van,player),v=ICE_CREAM_VAN;
@@ -134,7 +154,8 @@ export function interactIceCreamVan(player,van,companion=null){
   }
   if(p.x>=v.rear+.1&&p.x<=v.front-.1&&Math.abs(p.z)<v.halfWidth)
     add('food',-2.3,-.95,-.9,-.55);
-  if(p.x>=v.rear+.35&&p.x<=v.front-.35&&Math.abs(p.z)<=v.halfWidth-.3)
+  const atHatch=p.z>v.halfWidth&&p.x>=v.rear&&p.x<=v.front;
+  if(atHatch||(p.x>=v.rear+.35&&p.x<=v.front-.35&&Math.abs(p.z)<=v.halfWidth-.3))
     add('vendor',ICE_CREAM_VENDOR.x-.35,ICE_CREAM_VENDOR.z-.2,ICE_CREAM_VENDOR.x+.35,ICE_CREAM_VENDOR.z+.2);
   targets.sort((a,b)=>a.distance-b.distance);
   for(const target of targets){
@@ -146,6 +167,7 @@ export function interactIceCreamVan(player,van,companion=null){
       const side=Number(target.kind.slice(4));
       if(side===-1)return LEFT_CAB_DOOR_REPLY;van.cabDoorOpen??={};van.cabDoorOpen[side]=!van.cabDoorOpen[side];return '';
     }
+    if(target.kind==='vendor'&&atHatch)return {vendorTalk:true};
     if(target.kind==='food')return 'DO NOT TOUCH, PLEASE.';
     const reply=target.kind==='door'?interactIceCreamVanDoor(player,van):interactIceCreamVendor(player,van,companion);
     if(reply!==null)return reply;

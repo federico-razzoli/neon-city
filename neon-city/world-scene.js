@@ -163,7 +163,7 @@ export function createWorldScene(renderer,{reduced=false}={}){
     const scale=walking||seatBase!==null?height/48:.0375;
     const bottom=walking?(p.y??0):(seatBase??(1.87-32*.0375));
     if(renderer.drawCharacterCard){
-      renderer.drawCharacterCard({position:{x:p.x,y:bottom,z:p.z},
+      renderer.drawCharacterCard({iceCreamStage:p.iceCreamStage,iceCreamFlavour:p.iceCreamFlavour,position:{x:p.x,y:bottom,z:p.z},
         type:p.type,frame,back,variant:p.variant,seated:!walking,
         height:rows*scale,width:24*scale*characterGirth(p.type)});
       return;

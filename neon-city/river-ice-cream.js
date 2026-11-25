@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {ageCarriedIceCream,iceCreamView} from './carried-ice-cream.js';
 import {riverIceCreamVan} from './world.js';
+export {carriedIceCreamStage} from './carried-ice-cream.js';
 export const ICE_CREAM_STOP_CHANCE=1/3;
-export function carriedIceCreamStage(iceCream){
-  if(!iceCream||iceCream.age>=30)return null;
-  return iceCream.age<10?'full':iceCream.age<20?'bitten':'cone';
-}
 export function ageCarriedIceCreams(city,dt){
-  for(const chunk of city.chunks.values())for(const p of chunk.people)if(p.iceCream){
-    p.iceCream.age+=dt;if(p.iceCream.age>=30)delete p.iceCream;
-  }
+  for(const chunk of city.chunks.values())for(const p of chunk.people)ageCarriedIceCream(p,dt);
 }
 const active=m=>m?.mode==='ice-cream'&&m.stage!=='leave'&&m.stage!=='retreat';
 export function startIceCreamVisit(city,p,before,after,resume,actors){
@@ -34,7 +30,7 @@ export function iceCreamVisitPerson(p){
   const m=p.riverMotion;
   return {...m.at,ground:0,riverWalk:false,type:p.type,variant:p.variant,
     frame:m.stage==='talk'||m.stage==='wait'?1:Math.floor((p.walkTime??0)*p.speed*5+p.phase)%4,
-    iceCreamStage:carriedIceCreamStage(p.iceCream),iceCreamFlavour:p.iceCream?.flavour??0};
+    ...iceCreamView(p)};
 }
 export function advanceIceCreamVisit(p,step,actors){
   const m=p.riverMotion,next={...m,at:{...m.at},grantIceCream:false};

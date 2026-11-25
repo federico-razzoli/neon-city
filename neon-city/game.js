@@ -1,4 +1,5 @@
-import {LEFT_CAB_DOOR_REPLY,iceCreamVanCabTarget,iceCreamVanCabExit,iceCreamVanCabSeat,interactIceCreamVan} from './ice-cream-vans.js';
+import {ageCarriedIceCream} from './carried-ice-cream.js';
+import {iceCreamVendorTalk,LEFT_CAB_DOOR_REPLY,iceCreamVanCabTarget,iceCreamVanCabExit,iceCreamVanCabSeat,interactIceCreamVan} from './ice-cream-vans.js';
 import {WorkerCity} from './worker-city.js';
 import {preloadSignArtwork} from './sign-artwork.js';
 import {installSeatedTouch} from './seated-touch.js';
@@ -228,6 +229,7 @@ function enterVenue(venue){
   const pub=venue.sign==='NEON PUB'&&venue,hotel=venue.sign==='HOTEL'&&venue,arcade=venue.sign==='ARCADE'&&venue,bookshop=venue.sign==='MIDNITE BOOKS'&&venue;
   currentVenue=pub||hotel||arcade||bookshop;
   streetPosition={...player,angle:player.angle+Math.PI};
+  delete streetPosition.iceCream;
   if(pub){
     pubBarBeer(pub);
     pubLife=pub.pubLife??=new PubLife();currentPubName=pubName(pub);
@@ -904,6 +906,17 @@ function interactTouchGround(){
 }
 function handleWorldInput(k,e){
   if(e.key==='Enter'&&!e.repeat&&!foregroundTalk?.isPresent()&&startBenchDialogue())return;
+  if(k===' '&&!e.repeat&&!playerSeat&&!indoors()){
+    for(const chunk of city.chunks.values()){
+      const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVan(player,van,companionIn('street'));
+      if(reply?.vendorTalk){
+        const companion=activeCompanion?.state==='following'?activeCompanion:null;
+        talkToStaff(iceCreamVendorTalk(wallet,player,companion),'Talk to the ice cream vendor',{},null);
+        return;
+      }
+      if(reply!==null){if(reply?.cabVan){useSeat(reply);return;}if(reply){notice=2.5;noticeText=reply;}return;}
+    }
+  }
   if(k===' '&&!e.repeat&&!foregroundTalk?.isPresent()&&talkToStandingCompanion(e.key!=='Enter'))return;
   const conversation=e.key==='Enter'&&passiveConversation();
   if(conversation?.lines?.length&&!conversation.ready){
@@ -916,10 +929,6 @@ function handleWorldInput(k,e){
   }
   if(k===' '&&!e.repeat&&playerSeat){interactWhileSeated();return;}
   if(k===' '&&!e.repeat&&!indoors()){
-    for(const chunk of city.chunks.values()){
-      const van=riverIceCreamVan(chunk),reply=van&&interactIceCreamVan(player,van,companionIn('street'));
-      if(reply!==null){if(reply?.cabVan){useSeat(reply);return;}if(reply){notice=2.5;noticeText=reply;}return;}
-    }
     const line=walkerTalk.interact(player,city.pedestrians(time));
     if(startFollowup())return;
     if(line){notice=2.5;noticeText=line;document.querySelector('#message').textContent=line;return;}
@@ -1062,6 +1071,7 @@ function tick(now){
   if(ping?.crossed||ping?.won)keys.clear();
   if(running&&!ping&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk){
     shootingStars.update(cameraDt,Boolean(hotelCorridor&&windowView)||!indoors()&&(onRiverWalk(player)||Boolean(playerSeat?.cabVan)),skyView());
+    ageCarriedIceCream(player,dt);ageCarriedIceCream(activeCompanion,dt);
     time+=dt;hitCooldown=Math.max(0,hitCooldown-dt);shake=Math.max(0,shake-dt*12);notice=Math.max(0,notice-dt);
     if(hotelCorridor&&!windowView&&keys.has('ArrowUp')){
       windowView=corridorWindowView(player,corridorWindowState(currentHotel,hotelStairs.floor));

@@ -17,6 +17,7 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {iceCreamView} from './carried-ice-cream.js';
 import {groundHeight,BLOCK,isRiverRow,RIVER_STAIRS,RIVER_WALK_HEIGHT,hasRiverStairs,riverWalkPosition,streetFloorHeight,vanAtStreetPosition} from './world.js?v=start-pub-1';
 import {ICE_CREAM_VAN,iceCreamVanFloor,iceCreamVanLocal} from './ice-cream-vans.js';
 import {RIVER_GRATE} from './river-grates.js';
@@ -106,7 +107,7 @@ export class PlayerFollower{
   }
   // Rendering data for a street pedestrian card.
   get benchSeated(){return this.benchVisit?.seated===true;}
-  view(){return {seated:this.benchSeated,x:this.x,z:this.z,ground:this.ground,type:this.type,variant:this.variant,facingX:this.facingX,facingZ:this.facingZ,frame:Math.floor(this.walkTime*WALK_SPEED*5)%4};}
+  view(){return {...iceCreamView(this),seated:this.benchSeated,x:this.x,z:this.z,ground:this.ground,type:this.type,variant:this.variant,facingX:this.facingX,facingZ:this.facingZ,frame:Math.floor(this.walkTime*WALK_SPEED*5)%4};}
   // Where she stands, for collisions; below street level means the lower path.
   // As walker, she is a bumped person without lines for the place.
   body(){return {...this.view(),riverWalk:this.riverWalk,walker:this,place:null};}

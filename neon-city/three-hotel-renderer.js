@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
+import {carriedIceCreamStage} from './carried-ice-cream.js';
+import {createThreeCarriedIceCreams} from './three-carried-ice-creams.js';
 import {createThreeLavatorySpatial} from './three-lavatory-spatial.js';
 import {createThreeBookshopSpatial} from './three-bookshop-spatial.js';
 import {createThreePubSpatial} from './three-pub-spatial.js';
@@ -53,9 +55,13 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
   const dimMaterial=new THREE.MeshBasicMaterial({color:OVERLAY_DIM.color,vertexColors:true,transparent:true,
     depthTest:false,depthWrite:false,toneMapped:false});
   const dim=new THREE.Mesh(dimGeometry,dimMaterial);dim.name='overlay-dim';dimScene.add(dim);
-  function composite(scene){
+  const heldScene=new THREE.Scene(),heldCones=createThreeCarriedIceCreams(heldScene);
+  const aspect=NATIVE_VIEW.width/NATIVE_VIEW.height;
+  const heldCamera=new THREE.OrthographicCamera(-aspect/2,aspect/2,.5,-.5,.01,2);
+  heldCamera.position.z=1;
+  function composite(scene,camera=shadeCamera){
     const autoClear=renderer.autoClear;renderer.autoClear=false;
-    try{renderer.render(scene,shadeCamera);}finally{renderer.autoClear=autoClear;}
+    try{renderer.render(scene,camera);}finally{renderer.autoClear=autoClear;}
   }
   let bookshopSpatial=null,pubSpatial=null,lavatorySpatial=null,cubicleSpatial=null;
   let room=null,hotel=null,destination=null,floor=null;
@@ -83,12 +89,19 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
       profilePhase('neon:three:update',()=>room.update(frame));
       profilePhase('neon:three:render',()=>{
         renderer.render(room.scene,room.camera);room.renderOverlay?.(renderer,frame);
+        const stage=carriedIceCreamStage(frame.player.iceCream);
+        if(stage){
+          heldCones.beginFrame();
+          heldCones.drawHeld(stage,frame.player.iceCream.flavour);
+          renderer.clearDepth();
+          composite(heldScene,heldCamera);
+        }
         if(['hotel','stairs','corridor','storage'].includes(destination))composite(shadeScene);
         if(frame.dimmed)composite(dimScene);
       });
     },
     leave,
-    dispose(){leave();shadeGeometry.dispose();shadeMaterial.dispose();dimGeometry.dispose();dimMaterial.dispose();renderer.dispose();},
+    dispose(){leave();heldCones.dispose();shadeGeometry.dispose();shadeMaterial.dispose();dimGeometry.dispose();dimMaterial.dispose();renderer.dispose();},
     get info(){return renderer.info;}
   };
 }

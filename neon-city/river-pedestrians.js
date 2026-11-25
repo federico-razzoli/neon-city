@@ -1,4 +1,5 @@
-import {carriedIceCreamStage,startIceCreamVisit,iceCreamVisitPerson,advanceIceCreamVisit,reverseIceCreamVisit} from './river-ice-cream.js';
+import {iceCreamView} from './carried-ice-cream.js';
+import {startIceCreamVisit,iceCreamVisitPerson,advanceIceCreamVisit,reverseIceCreamVisit} from './river-ice-cream.js';
 // SPDX-License-Identifier: AGPL-3.0-only
 import {BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,PERSON_CLEARANCE,groundHeight,riverWalkHeight,mod,retryBlockedWalker} from './world.js';
 
@@ -58,7 +59,7 @@ export function riverPerson(chunk,p){
     const wall=chunk.riverStart*BLOCK+(m.bank?110:18),d=(at.z-wall)*(m.bank?-1:1);
     ground=d<0?0:riverWalkHeight(at.x,at.z);
   }
-  return {...at,iceCreamStage:carriedIceCreamStage(p.iceCream),iceCreamFlavour:p.iceCream?.flavour??0,ground,riverWalk:m.mode!=='upper',type:p.type,variant:p.variant,frame:Math.floor((p.walkTime??0)*p.speed*5+p.phase)%4};
+  return {...at,...iceCreamView(p),ground,riverWalk:m.mode!=='upper',type:p.type,variant:p.variant,frame:Math.floor((p.walkTime??0)*p.speed*5+p.phase)%4};
 }
 function nextEvent(route,m){
   let best=null;

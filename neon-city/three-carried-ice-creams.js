@@ -26,11 +26,19 @@ export function createThreeCarriedIceCreams(scene){
     }
     const result=new THREE.BufferGeometry();result.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));result.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));result.computeBoundingSphere();assets.set(key,result);return result;
   }
-  return {beginFrame(){count=0;},draw({position,height,width,stage,flavour=0,angle,back=false}){
-    if(!stage||back)return;
+  function nextMesh(stage,flavour){
     let mesh=meshes[count];
     if(!mesh){mesh=new THREE.Mesh(undefined,material);mesh.name='pedestrian-ice-cream';scene.add(mesh);meshes.push(mesh);}
     count++;mesh.geometry=geometry(stage,flavour);mesh.visible=true;
+    return mesh;
+  }
+  return {beginFrame(){count=0;},drawHeld(stage,flavour){
+    const mesh=nextMesh(stage,flavour);
+    mesh.position.set(.46,-.51,0);
+    mesh.rotation.z=-.12;
+  },draw({position,height,width,stage,flavour=0,angle,back=false}){
+    if(!stage||back)return;
+    const mesh=nextMesh(stage,flavour);
     const hand=width*.36;
     mesh.position.set(position.x+Math.cos(angle)*hand,position.y+height*.43,-position.z+Math.sin(angle)*hand);
   },endFrame(){for(let i=count;i<meshes.length;i++)meshes[i].visible=false;},dispose(){
