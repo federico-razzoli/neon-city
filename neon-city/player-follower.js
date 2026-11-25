@@ -17,10 +17,10 @@ along with this program (see LICENSE in the repository root).
 If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {groundHeight,BLOCK,RIVER_STAIRS,RIVER_WALK_HEIGHT,hasRiverStairs,riverWalkPosition,streetFloorHeight,vanAtStreetPosition} from './world.js?v=start-pub-1';
+import {groundHeight,BLOCK,isRiverRow,RIVER_STAIRS,RIVER_WALK_HEIGHT,hasRiverStairs,riverWalkPosition,streetFloorHeight,vanAtStreetPosition} from './world.js?v=start-pub-1';
 import {ICE_CREAM_VAN,iceCreamVanFloor,iceCreamVanLocal} from './ice-cream-vans.js';
 import {RIVER_GRATE} from './river-grates.js';
-import {behindBar} from './pub-interior.js?v=bar-taps-1';
+import {PUB,behindBar} from './pub-interior.js?v=bar-taps-1';
 import {pubRoute} from './pub-life.js?v=npc-followup-1';
 
 const BENCH_DELAY=2;
@@ -28,12 +28,77 @@ const WALK_SPEED=1.3,FOLLOW_SPEED=4,GAP=1.6,ROUTE_INTERVAL=.25,HISTORY=240;
 export const STREET_CLEARANCE=1.3;
 const CLEARANCE={street:STREET_CLEARANCE,pub:.85};
 
-// Events own the follower's lifecycle and call followPlayer while active.
+const WARN_DISTANCE=16,LEAVE_DISTANCE=20,LEAVE_TIME=12;
+const onRiver=z=>isRiverRow(Math.floor(z/BLOCK));
+
 // Pass a chair when starting in a pub seat so pubRoute can plan a way out.
 export class PlayerFollower{
-  constructor({type,variant=0,room,x,z,ground=0,chair=null,facingX=0,facingZ=1}){
+  constructor({type,variant=0,room,x,z,ground=0,chair=null,facingX=0,facingZ=1,allowedRooms=['street']}){
     Object.assign(this,{type,variant,room,x,z,ground,chair,facingX,facingZ,
-      benchVisit:null,route:[],history:[],routeTimer:0,pushTime:0,walkTime:0});
+      allowedRooms,state:chair?'seated':'following',gone:false,distanceWarned:false,
+      atRiver:room==='street'&&onRiver(z),benchVisit:null,route:[],history:[],routeTimer:0,pushTime:0,walkTime:0});
+  }
+  get visible(){return !this.gone&&this.state!=='seated'&&!this.inDoorway;}
+  isFollowing(player){
+    return !this.gone&&this.state==='following'&&Math.hypot(player.x-this.x,player.z-this.z)<LEAVE_DISTANCE;
+  }
+  // Subclasses can also use the venue when deciding whether to cross a door.
+  canEnter(room,venue){return this.allowedRooms.includes(room);}
+  enterRoom(room,venue,previousPlayer,player,ground,stairs){
+    if(!this.canEnter(room,venue)||!this.isFollowing(previousPlayer)){this.gone=true;return;}
+    Object.assign(this,{room,x:player.x,z:player.z,ground,chair:null,stairs,
+      entryDoor:{x:player.x,z:player.z},
+      route:[],history:[],benchVisit:null,riverStairs:null,riverWalk:false,gateSide:0,
+      routeTimer:0,pushTime:0,distanceWarned:false,inDoorway:true});
+    if(room==='street'&&onRiver(this.z))this.atRiver=true;
+  }
+  update(dt,context){
+    const {room,player,seated,patrons,bench,city,ground=0,door,moveIndoors}=context;
+    if(this.gone)return;
+    if(room!==this.room){this.gone=true;return;}
+    if(this.state==='seated'){
+      if(seated)return;
+      patrons[this.chair.tableIndex][this.chair.seat]=null;
+      this.state='following';
+    }
+    if(this.state==='leaving'){
+      const travel=WALK_SPEED*Math.min(dt,this.leaveTime);
+      this.leaveTime-=dt;
+      if(room==='street'||room==='pub')this.walkRoute(travel,player,ground);
+      else{
+        const target=this.route[0],dx=target.x-this.x,dz=target.z-this.z;
+        const distance=Math.hypot(dx,dz);
+        if(distance>.04){
+          const step=Math.min(1,travel/distance);
+          moveIndoors(this,dx*step,dz*step);
+        }
+        if(Math.hypot(target.x-this.x,target.z-this.z)<=.04)this.route.shift();
+      }
+      if(!this.route.length||this.leaveTime<=0)this.gone=true;
+      return;
+    }
+    const distance=Math.hypot(player.x-this.x,player.z-this.z);
+    if(this.inDoorway){
+      if(distance<(CLEARANCE[room]??.85))return;
+      this.inDoorway=false;
+    }
+    if(distance>=LEAVE_DISTANCE){
+      this.benchVisit=null;
+      this.state='leaving';this.leaveTime=LEAVE_TIME;
+      if(room==='street')this.route=this.history.slice().reverse();
+      else if(room==='pub')this.route=pubRoute(this,{x:PUB.door.x,z:.4},this.chair)??[];
+      else this.route=[this.entryDoor??door];
+      if(!this.route.length)this.gone=true;
+      return;
+    }
+    const warn=distance>WARN_DISTANCE&&!this.distanceWarned;
+    this.distanceWarned=distance>WARN_DISTANCE;
+    if(this.benchSeated)this.updateBench(dt,bench,player,city,ground);
+    else if(room!=='street'||!this.atRiver||onRiver(player.z)){
+      this.followPlayer(dt,context);
+      if(room==='street'&&onRiver(this.z))this.atRiver=true;
+    }
+    if(warn)return 'HEY! WAIT FOR ME!';
   }
   standingReply({player}){
     if(this.room==='pub'&&behindBar(player)&&behindBar(this))return "WE SHOULDN'T BE HERE...";
@@ -244,7 +309,7 @@ export class PlayerFollower{
     }
     return true;
   }
-  followPlayer(dt,{player,city,ground=0,bench=null,gate=null}){
+  followPlayer(dt,{player,city,moveIndoors,ground=0,bench=null,gate=null}){
     if(!gate)this.gateSide=0;
     if(this.room==='street'&&!this.benchSeated&&this.followRiverStairs(dt,player,city))return true;
     if(this.room==='street'&&this.updateBench(dt,bench,player,city,ground))return true;
@@ -253,11 +318,10 @@ export class PlayerFollower{
       return true;
     }
     if(this.room==='street'&&!this.riverWalk&&this.followIntoVan(dt,player,city))return true;
-    const room=this.room,distance=Math.hypot(player.x-this.x,player.z-this.z);
+    const room=this.room,dx=player.x-this.x,dz=player.z-this.z,distance=Math.hypot(dx,dz);
     const travel=Math.min(dt*FOLLOW_SPEED,distance-GAP);
-    if(travel<=0||(room!=='street'&&room!=='pub'))return false;
+    if(travel<=0)return false;
     if(room==='pub'){
-      const dx=player.x-this.x,dz=player.z-this.z;
       const target={x:player.x-dx/distance*GAP,z:player.z-dz/distance*GAP};
       this.routeTimer-=dt;
       if(this.routeTimer<=0){
@@ -266,7 +330,9 @@ export class PlayerFollower{
       }
       this.walkRoute(travel,player,ground);
     }else{
-      this.moveOnStreet(city,(player.x-this.x)/distance*travel,(player.z-this.z)/distance*travel);
+      const step=travel/distance;
+      if(room==='street')this.moveOnStreet(city,dx*step,dz*step);
+      else moveIndoors(this,dx*step,dz*step);
     }
     return true;
   }

@@ -137,6 +137,7 @@ function pubFacing(type,legacy){return pubSpatial()?pubTarget()?.type===type:leg
 function washroomSpatial(){const id=insideCubicle?'cubicle':'lavatory';return threeRenderer?.[`${id}Spatial`];}
 function washroomTarget(){return washroomSpatial()?.target(player,insideLavatory?lavatoryLife?.walker:null);}
 function useDoor(){
+  const previousRoom=debugScene(),previousPlayer={x:player.x,z:player.z};
   let exitReaction='';
   if(insideHotel&&hotelCorridor){
     if(!facingCorridorExit(player))return false;
@@ -198,7 +199,6 @@ function useDoor(){
       notice=4.5;noticeText=BOOK_EXIT_REPLY;keys.clear();shiftKeys.clear();startSpaceHeld=true;
       document.querySelector('#message').textContent=noticeText;return true;
     }
-    if(insidePub)activeCompanion?.goOutside(player,streetPosition,groundHeight(streetPosition.x,streetPosition.z));
     Object.assign(player,streetPosition);insideBookshop=insideArcade=insidePub=insideHotel=false;
     lobbyMusic.choose(null);pubMusic.choose(null);
   }else{
@@ -212,6 +212,12 @@ function useDoor(){
     const bookshop=!pub&&!hotel&&!arcade&&facingBookshopDoor(player,pubBuildings());
     if(!pub&&!hotel&&!arcade&&!bookshop)return false;
     enterVenue(pub||hotel||arcade||bookshop);
+  }
+  const room=debugScene();
+  if(activeCompanion&&room!==previousRoom){
+    activeCompanion.enterRoom(room,currentVenue,previousPlayer,player,
+      indoors()?0:streetFloorHeight(city,player),room==='stairs'?{...hotelStairs}:null);
+    if(activeCompanion.gone)activeCompanion=null;
   }
   keys.clear();shiftKeys.clear();coverPressed=false;startSpaceHeld=true;notice=exitReaction?5:0;shake=0;steps=0;
   if(exitReaction){noticeText=exitReaction;document.querySelector('#message').textContent=exitReaction;}
@@ -283,7 +289,9 @@ function startPassiveDialogue(lines,isPresent){
 function startBenchDialogue(x=0,y=0){
   if(playerSeat?.bench&&activeCompanion?.benchSeated&&activeCompanion.benchVisit.bench===playerSeat.bench&&threeRenderer?.hitsBenchFace(x,y)){
     const seat=playerSeat,companion=activeCompanion;
-    startPassiveDialogue(companion.benchDialogue,()=>playerSeat===seat&&activeCompanion===companion&&companion.benchSeated);
+    const lines=companion.benchDialogue;
+    if(!lines?.length)return false;
+    startPassiveDialogue(lines,()=>playerSeat===seat&&activeCompanion===companion&&companion.benchSeated);
     return true;
   }
   return false;
@@ -531,8 +539,7 @@ function answerStaff(choice){
   if(staffTalk.over){staffTalk=null;canvas.focus();}
   showStaffTalk();
 }
-// Lisa said yes: she gets up with the player and walks with them to Night River.
-// Lisa as an obstacle for whoever would walk into her in this room, or null.
+// Collision body for the companion visible in this room.
 const companionIn=room=>activeCompanion?.visible&&activeCompanion.room===room?activeCompanion.body():null;
 function startLisaDate(){
   const {tableIndex}=playerSeat,seat=1-playerSeat.seat;
@@ -683,6 +690,9 @@ function debugLisa(){
   follower.faceMovement(player.x-follower.x,player.z-follower.z);
   return follower;
 }
+// Debug spawns have no previous doorway. Use the room entrance for their departure.
+const companionRooms={hotel:HOTEL,stairs:HOTEL_STAIRWELL,corridor:HOTEL_CORRIDOR,
+  storage:HOTEL_STORAGE,lavatory:LAVATORY,cubicle:CUBICLE,bookshop:BOOKSHOP,arcade:ARCADE};
 function moveIndoorCompanion(actor,dx,dz){
   const x=actor.x,z=actor.z;
   switch(actor.room){
@@ -1096,7 +1106,8 @@ function tick(now){
     if(indoors())hornWarning.update(dt,null,[]);
     if(!indoors())riverWisps.update(dt,player);
     if(activeCompanion){
-      const warning=activeCompanion.update(dt,{room:debugScene(),moveIndoors:moveIndoorCompanion,player,seated:!!playerSeat,bench:playerSeat?.bench,gate:indoors()?null:riverWisps.gate,patrons:pubPatrons,city,
+      const room=debugScene(),layout=companionRooms[room];
+      const warning=activeCompanion.update(dt,{room,door:layout?.spawn,moveIndoors:moveIndoorCompanion,player,seated:!!playerSeat,bench:playerSeat?.bench,gate:indoors()?null:riverWisps.gate,patrons:pubPatrons,city,
         ground:indoors()?0:groundHeight(player.x,player.z,player.riverWalk)});
       if(warning){notice=2.5;noticeText=warning;}
       if(activeCompanion.gone)activeCompanion=null;
@@ -1170,7 +1181,7 @@ function tick(now){
     arcadeAmbience.update(audioContext,arcadeVolume(player,[...city.chunks.values()].flatMap(chunk=>chunk.buildings)),dt);
     parkBirds.update(audioContext,parkVolume(player,city.chunks.values()),dt);
     const streetPlayer=player.riverWalk?null:player;
-    // Cars stop for Lisa only on the stripes; elsewhere they pass through her.
+    // Companions stop traffic only on crossings.
     const cars=roadTraffic.update(city.chunks.values(),time,dt,streetPlayer,[...(city.crossingPeople?.()??[]),...companionBlocks]);
     if(hornWarning.update(dt,streetPlayer,cars))playHorn(audioContext);
     // Waiting cars remain solid even while their warning is on cooldown.
