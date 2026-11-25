@@ -89,7 +89,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
   function update(frame){
     if(disposed)throw new Error('Interior scene has been disposed.');
     updateInteriorCamera(camera,{position:frame.player,eye:frame.eye,pitch:frame.windowView?.pitch??frame.playerSeat?.pitch??0});
-    extras?.update(frame);
+    extras?.update?.(frame);
     // Native collectible renderers are created lazily and share templates and
     // instance buffers across matching drops. Natural outdoor objects stay out
     // of the room even though the city chunks also contain parks and rivers.

@@ -129,7 +129,7 @@ export function facingPubDoor(player,buildings){
     return facesEntrance(player,b,facingDoorway);
   });
 }
-export function facingClosedShopDoor(player,buildings){
+export function facingBlueNoteDoor(player,buildings){
   return buildings.find(b=>b.sign==='BLUE NOTE'&&facesEntrance(player,b,facingDoorway));
 }
 export const facingPubExit=player=>player.z>PUB.door.z&&facingDoorway(player,PUB.door,.7);
@@ -301,11 +301,12 @@ export function drawStaff({face,box},at,type){
   const staffBox=(px,py,pz,w,h,d,...colors)=>box(x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,w*staffScale,h*staffScale,d*staffScale,...colors);
   const staffCylinder=(px,py,pz,r,h,color,top=color,rTop=r)=>drawCylinder(face,x+(px-x)*staffScale,py*staffScale,z+(pz-z)*staffScale,r*staffScale,h*staffScale,color,top,rTop*staffScale);
   const staffFace=(points,...args)=>face(points.map(p=>({x:x+(p.x-x)*staffScale,y:p.y*staffScale,z:z+(p.z-z)*staffScale})),...args);
+  const rocker=type==='rocker';
   const nurse=type===NURSE_JOY,large=type===2,blonde=type===BLONDE_RECEPTIONIST;
-  const skin=type===0?'#94624e':nurse?'#f4bdab':blonde?'#efc3a4':'#e2aa8c';
-  const hair=type===0?'#201e26':nurse?'#ee7c9e':blonde?'#d9b45a':large?'#88553d':'#49352c';
+  const skin=(rocker||type===0)?'#94624e':nurse?'#f4bdab':blonde?'#efc3a4':'#e2aa8c';
+  const hair=(rocker||type===0)?'#201e26':nurse?'#ee7c9e':blonde?'#d9b45a':large?'#88553d':'#49352c';
   const width=large?.86:.56,depth=large?.5:.34,head=large?.23:.19;
-  const shirt=nurse?'#f29bb7':blonde?'#2b3150':large?'#729083':'#eee5cf';
+  const shirt=rocker?'#23252b':nurse?'#f29bb7':blonde?'#2b3150':large?'#729083':'#eee5cf';
   if(blonde){
     // Trousers over high-heeled court shoes that match her blazer: the toe
     // on the floor in front, the heel raised on a thin stiletto behind.
@@ -315,6 +316,15 @@ export function drawStaff({face,box},at,type){
       staffBox(x+dx+.01,.04,z-.12,.14,.07,.08,'#2b3150');
       staffBox(x+dx+.01,.08,z-.06,.14,.03,.16,'#2b3150');
       staffBox(x+dx+.055,0,z+.06,.05,.08,.04,'#2b3150');
+    }
+  }else if(rocker){
+    for(const dx of [-.16,.08]){
+      staffBox(x+dx,.35,z-.1,.16,.47,.22,'#282731');
+      staffBox(x+dx-.012,.05,z-.12,.184,.31,.25,'#232427');
+      staffBox(x+dx-.012,.04,z-.225,.184,.095,.20,'#303136');
+      staffBox(x+dx-.018,0,z-.23,.196,.045,.37,'#151519');
+      staffBox(x+dx-.014,.22,z-.13,.188,.04,.025,'#39393e');
+      staffBox(x+dx+.09,.222,z-.139,.045,.035,.012,'#acafb3');
     }
   }else for(const dx of [-.16,.08])staffBox(x+dx,0,z-.1,.16,.82,.22,nurse?'#f5eee5':'#282731');
   staffBox(x-width/2,.8,z-depth/2,width,.57,depth,shirt);
@@ -326,6 +336,44 @@ export function drawStaff({face,box},at,type){
     // A navy blazer open over a white blouse, with a brass name badge.
     staffBox(x-.07,1.06,z-depth/2-.03,.14,.31,.04,'#f3ece0');
     staffBox(x+.12,1.17,z-depth/2-.03,.09,.04,.03,'#cfad6b');
+  }else if(rocker){
+    const beltFront=z-depth/2-.025;
+    staffBox(x-width/2-.008,.80,beltFront,width+.016,.065,depth+.04,'#423934');
+    staffBox(x-.048,.805,beltFront-.012,.096,.055,.014,'#c5c8ca');
+    staffBox(x-.032,.817,beltFront-.015,.064,.031,.005,'#423934');
+    staffBox(x-.006,.829,beltFront-.02,.044,.009,.006,'#c5c8ca');
+    // Tailor the jacket front in horizontal bands, tapering into the waist.
+    const levels=[[.82,0],[.98,.025],[1.08,.08],[1.18,.11],[1.27,.08],[1.36,.01]];
+    const profile=[[0,.7],[.12,1],[.21,.80],[width/2,0]];
+    const point=(dx,y,projection,offset=0)=>{
+      const i=profile.findIndex(([edge])=>edge>=Math.abs(dx));
+      const [edge,fullness]=profile[i], [prev,base]=profile[Math.max(0,i-1)];
+      const blend=i?(Math.abs(dx)-prev)/(edge-prev):0;
+      return {x:x+dx,y,z:z-depth/2-.002-projection*(base+(fullness-base)*blend)-offset};
+    };
+    for(let row=1;row<levels.length;row++){
+      const [low,lower]=levels[row-1],[high,upper]=levels[row];
+      for(const side of [-1,1]){
+        for(let col=1;col<profile.length;col++){
+          const left=side*profile[col-1][0],right=side*profile[col][0];
+          staffFace([point(left,low,lower),point(right,low,lower),
+            point(right,high,upper),point(left,high,upper)],
+            ['#303239','#363940','#27292f'][col-1]);
+        }
+        if(low>=1.08){
+          const lapel=y=>side*(.035+(y-1.08)*.52);
+          staffFace([point(lapel(low),low,lower,.008),point(lapel(low)+side*.035,low,lower,.008),
+            point(lapel(high)+side*.035,high,upper,.008),point(lapel(high),high,upper,.008)],'#59606b');
+        }
+      }
+      const zipper=y=>-.16+(y-.82)*.48;
+      staffFace([point(zipper(low),low,lower,.012),point(zipper(low)+.014,low,lower,.012),
+        point(zipper(high)+.014,high,upper,.012),point(zipper(high),high,upper,.012)],'#d3d6d9');
+    }
+    for(const side of [-1,1]){
+      const stud=point(side*.15,1.27,.08,.025);
+      staffBox(stud.x-.012,stud.y-.012,stud.z,.024,.024,.012,'#d3d6d9');
+    }
   }else{
     staffBox(x-.23,.83,z-.195,.46,.48,.04,'#25232b');
     // White shirt front, pointed collar, black bow tie and brass vest buttons.
@@ -346,6 +394,17 @@ export function drawStaff({face,box},at,type){
     const armX=x+side*(width/2+.065)-.065;
     staffBox(armX,.98,z-.14,.13,.36,.23,shirt);
     staffBox(armX,.98,z-.37,.13,.12,.27,skin);
+  }
+  if(rocker){
+    const lensZ=z-head-.035;
+    staffBox(x-.17,1.717,lensZ,.34,.014,.018,'#babfc6');
+    for(const side of [-1,1]){
+      staffFace([{x:x+side*.015,y:1.715,z:lensZ},{x:x+side*.18,y:1.72,z:lensZ+.005},
+        {x:x+side*.15,y:1.635,z:lensZ+.004},{x:x+side*.052,y:1.623,z:lensZ}], '#101722');
+      staffBox(x+side*.17-.008,1.7,lensZ+.005,.016,.018,.22,'#989fa8');
+      staffBox(x+side*.167-.035,1.41,z-.06,.07,.39,.16,hair);
+    }
+    staffBox(x-.026,1.69,lensZ-.002,.052,.018,.012,'#babfc6');
   }
   if(large){
     staffCylinder(x,1.76,z+.15,.22,.22,hair);

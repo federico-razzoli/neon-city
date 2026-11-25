@@ -8,7 +8,7 @@ import {BLOCK,RIVER_ROWS} from './world.js?v=start-pub-1';
 export const DEBUG_MODE=true;
 // Clear promenade between the road and river, away from the signposts.
 export const DEBUG_RIVERSIDE_SPAWN={x:32,z:RIVER_ROWS[0]*BLOCK+16,angle:0};
-export const DEBUG_DESTINATIONS=[['initial','Initial street'],['river','Riverside'],['park','Nearest park'],['pub','Pub'],['lavatory','Pub lavatory'],['cubicle','Pub cubicle'],['hotel','Hotel lobby'],['stairs','Hotel stairwell'],['storage','Hotel storage room'],['corridor','Hotel corridor'],['arcade','Arcade'],['bookshop','Midnite Books']];
+export const DEBUG_DESTINATIONS=[['initial','Initial street'],['river','Riverside'],['park','Nearest park'],['pub','Pub'],['lavatory','Pub lavatory'],['cubicle','Pub cubicle'],['hotel','Hotel lobby'],['stairs','Hotel stairwell'],['storage','Hotel storage room'],['corridor','Hotel corridor'],['arcade','Arcade'],['bookshop','Midnite Books'],['blue-note','Blue Note']];
 export function parseEvents(text){
   const value=JSON.parse(text);
   if(value===null||Array.isArray(value)||typeof value!=='object')throw new Error('The event register must be a JSON object.');

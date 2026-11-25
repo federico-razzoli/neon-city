@@ -10,6 +10,7 @@ import {NATIVE_VIEW,OVERLAY_DIM} from './render-camera.js';
 import {createThreeStorageScene} from './three-storage-scene.js';
 import {createThreeStairwellScene} from './three-stairwell-scene.js';
 import {createThreeCorridorScene} from './three-corridor-scene.js';
+import {createBlueNoteScene} from './three-blue-note-scene.js';
 import {createThreeArcadeScene} from './three-arcade-scene.js';
 import {createThreeBookshopScene} from './three-bookshop-scene.js';
 import {createThreePubScene} from './three-pub-scene.js';
@@ -28,6 +29,7 @@ function createScene(destination,hotel,floor,streetScene){
   if(destination==='lavatory')return createThreeLavatoryScene();
   if(destination==='cubicle')return createThreeCubicleScene();
   if(destination==='pub')return createThreePubScene();
+  if(destination==='blue-note')return createBlueNoteScene();
   if(destination==='arcade')return createThreeArcadeScene();
   if(destination==='hotel')return createThreeHallScene(hotel);
   if(destination==='corridor')return createThreeCorridorScene(hotel,floor);
@@ -73,8 +75,8 @@ export function createThreeHotelRenderer(canvas,{createRenderer=options=>new THR
     get pubSpatial(){return pubSpatial??=createThreePubSpatial();},
     hitsBenchFace(x,y){return destination==='street'&&room.hitsBenchFace(x,y);},
     render(frame){
-      const nextDestination=!frame.indoors?'street':frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
-      const nextHotel=nextDestination==='street'?null:['arcade','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
+      const nextDestination=!frame.indoors?'street':frame.insideCubicle?'cubicle':frame.insideLavatory?'lavatory':frame.insidePub?'pub':frame.insideBookshop?'bookshop':frame.insideBlueNote?'blue-note':frame.insideArcade?'arcade':frame.hotelCorridor?'corridor':frame.hotelStorage?'storage':frame.hotelStairs?'stairs':'hotel';
+      const nextHotel=nextDestination==='street'?null:['arcade','blue-note','bookshop','pub','lavatory','cubicle'].includes(nextDestination)?frame.currentVenue:frame.currentHotel;
       const nextFloor=nextDestination==='corridor'?frame.hotelStairs.floor:null;
       if(!room||hotel!==nextHotel||destination!==nextDestination||floor!==nextFloor){
         // Registered window venues inherit outdoor resources. Their extras
