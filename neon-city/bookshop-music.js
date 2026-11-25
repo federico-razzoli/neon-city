@@ -40,9 +40,8 @@ const bars=[
   [[50,57,62,65],[[74,2.5],[0,.5]]]
 ];
 const beat=60/54;
-const loopSeconds=()=>bars.length*3*beat;
 
-function renderScore(piece,rate,samples){
+function renderSarabande(rate,samples){
   function note(start,pitch,beats,flute,level){
     const offset=Math.round(start*beat*rate),hold=beats*beat;
     const omega=2*Math.PI*440*2**((pitch-69)/12);
@@ -73,7 +72,83 @@ function renderScore(piece,rate,samples){
   });
 }
 
+// Lamplight, in 6/8. Durations are eighth notes, with zero pitch for a rest.
+const lamplightBars=[
+  [[36,3],[43,2],[45,1]], [[47,2],[43,1],[40,3]],
+  [[41,3],[45,1],[48,2]], [[43,4],[0,2]],
+  [[45,2],[48,1],[52,3]], [[50,3],[47,2],[43,1]],
+  [[41,2],[45,1],[38,3]], [[43,4],[47,1],[50,1]],
+  [[48,3],[43,2],[40,1]], [[38,3],[41,2],[45,1]],
+  [[43,2],[50,1],[47,2],[43,1]], [[36,5],[0,1]]
+];
+const eighth=60/48/3;
+
+function renderLamplight(rate,samples){
+  function bass(start,pitch,length){
+    const offset=Math.round(start*eighth*rate);
+    const duration=length*eighth;
+    const omega=2*Math.PI*440*2**((pitch-69)/12);
+    for(let i=0;i<Math.floor(duration*rate);i++){
+      const t=i/rate,phase=omega*t+.014*Math.sin(2*Math.PI*4*t);
+      const bow=Math.min(1,t/.16,(duration-t)/.14);
+      const body=Math.sin(phase)+.56*Math.sin(2*phase)+.28*Math.sin(3*phase)+.12*Math.sin(4*phase);
+      samples[offset+i]+=.22*bow*(.8+.2*Math.sin(Math.PI*t/duration))*body;
+    }
+  }
+  // A felt mallet striking a wooden bar, with a short, inharmonic overtone.
+  function mallet(start,pitch,level){
+    const offset=Math.round(start*eighth*rate),omega=2*Math.PI*440*2**((pitch-69)/12);
+    for(let i=0;i<rate*.82;i++){
+      const t=i/rate,phase=omega*t;
+      const tone=Math.exp(-6*t)*Math.sin(phase)+.32*Math.exp(-17*t)*Math.sin(3.96*phase);
+      samples[(offset+i)%samples.length]+=level*Math.min(1,t/.009)*Math.min(1,(.82-t)/.04)*tone;
+    }
+  }
+  function triangle(start){
+    const offset=Math.round(start*eighth*rate);
+    for(let i=0;i<rate*1.4;i++){
+      const t=i/rate,phase=2*Math.PI*t;
+      const ring=Math.sin(phase*2410)+.64*Math.sin(phase*3167)+.38*Math.sin(phase*4531);
+      const envelope=Math.min(1,t/.003,(1.4-t)/.05)*Math.exp(-3.6*t);
+      samples[(offset+i)%samples.length]+=.042*ring*envelope;
+    }
+  }
+  // Xylophone strikes as [eighth-note offset, MIDI pitch, level].
+  // The E–G–F pickup returns higher midway and descends at the close.
+  const xylophoneBars=[
+    [[1.5,64,.12],[2,67,.15],[3,65,.17],[4.5,64,.13],[5,62,.11]],
+    [[0,62,.16],[2,67,.12],[3.5,71,.15],[5,67,.11]],
+    [[0,69,.17],[1.5,67,.12],[2,65,.14],[3,64,.15],[4,65,.12],[5,69,.13]],
+    [[0,67,.17],[3.5,62,.13]],
+    [[1.5,67,.12],[2,71,.15],[3,69,.17],[4,72,.14],[5.5,74,.12]],
+    [[0,77,.17],[1,76,.13],[2,74,.14],[3.5,71,.15],[5,67,.11]],
+    [[0,69,.16],[2,72,.12],[2.5,71,.10],[3,69,.15],[4.5,65,.13]],
+    [[0,66,.11],[.5,67,.16],[3,74,.15],[5,71,.12]],
+    [[0,72,.17],[1.5,64,.12],[2,67,.15],[3,65,.17],[4.5,64,.13],[5,62,.11]],
+    [[0,65,.16],[2,69,.12],[3,72,.16],[4.5,71,.13],[5,69,.11]],
+    [[0,67,.16],[1.5,74,.14],[3,65,.16],[4,64,.13],[5,62,.11]],
+    [[0,60,.17]]
+  ];
+  lamplightBars.forEach((phrase,bar)=>{
+    let start=bar*6;
+    for(const [pitch,length] of phrase){
+      if(pitch)bass(start,pitch,length);
+      start+=length;
+    }
+    for(const [offset,pitch,level] of xylophoneBars[bar])mallet(bar*6+offset,pitch,level);
+    if(bar%2===1)triangle(bar*6+3);
+  });
+}
+
+const pieces=[
+  {name:'Sarabande',seconds:bars.length*3*beat,render:renderSarabande},
+  {name:'Lamplight',seconds:lamplightBars.length*6*eighth,render:renderLamplight}
+];
+
 export class BookshopMusic extends MusicLoop{
-  constructor(){super({pieces:['Sarabande'],samples:renderScore,loopSeconds,rate:22050,lowpass:4800});}
-  enter(){this.choose(this.pieces[0]);}
+  constructor(){
+    super({pieces,samples:(piece,rate,samples)=>piece.render(rate,samples),
+      loopSeconds:piece=>piece.seconds,rate:22050,lowpass:4800});
+  }
+  enter(){this.choose(this.pieces[Math.floor(Math.random()*this.pieces.length)]);}
 }
