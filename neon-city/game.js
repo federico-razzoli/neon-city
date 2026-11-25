@@ -68,6 +68,7 @@ import {LAVATORY,CUBICLE,CUBICLE_REPLIES,MIRROR_CHILD_BLACKOUT_TEXT,LavatoryLife
 import {playFlush} from './flush.js?v=toilet-2';
 import {TapWater} from './water.js?v=taps-1';
 import {LobbyMusic,LOBBY_MUSIC,LOBBY_PIECES} from './lobby-music.js?v=visit-buffer-1';
+import {BookshopMusic} from './bookshop-music.js';
 import {PubMusic,PUB_PIECES,pubMusicHeard} from './pub-music.js?v=visit-buffer-1';
 import {HOTEL,HOTEL_STAIR_DOOR,hotelDropSpot,facingHotelStairDoor,RECEPTIONISTS,RECEPTIONIST_TALK,RECEPTIONIST_GIFTS,ROBOT_TALK,BUSINESSMAN_TALK,BUSINESSWOMAN_TALK,COMPANION_TALK,BELL_ANSWER,HotelLife,facingHotelRobot,facingHotelDoor,facingHotelExit,facingHotelBell,facingHotelLamp,facingHotelSeat,facingReceptionistAcrossDesk,hotelFloorHeight,hotelReply,moveInHotel,switchHotelLamp,advanceHotelReceptionist,drawHotelLamp} from './hotel-interior.js?v=receptionist-lamp-2';
 import {playDeskBell} from './desk-bell.js?v=bell-2';
@@ -202,7 +203,7 @@ function useDoor(){
       document.querySelector('#message').textContent=noticeText;return true;
     }
     Object.assign(player,streetPosition);insideBookshop=insideArcade=insidePub=insideHotel=false;
-    lobbyMusic.choose(null);pubMusic.choose(null);
+    lobbyMusic.choose(null);pubMusic.choose(null);bookshopMusic.choose(null);
   }else{
     if(facingClosedShopDoor(player,pubBuildings())){
       notice=4.5;noticeText='NOT YET AVAILABLE. TRY ANOTHER VENUE.';
@@ -246,7 +247,7 @@ function enterVenue(venue){
     Object.assign(player,PUB.spawn);insidePub=true;
   }
   // Each hotel keeps the receptionist first seen on duty there.
-  else if(bookshop){bookshopLife=bookshop.bookshopLife??=new BookshopLife(Math.random,bookshopBackpack);bookshopLife.enter();Object.assign(player,BOOKSHOP.spawn);insideBookshop=true;}
+  else if(bookshop){bookshopLife=bookshop.bookshopLife??=new BookshopLife(Math.random,bookshopBackpack);bookshopLife.enter();bookshopMusic.enter();Object.assign(player,BOOKSHOP.spawn);insideBookshop=true;}
   else if(arcade){Object.assign(player,ARCADE.spawn);insideArcade=true;arcadeLife=new ArcadeLife();currentArcadeName=arcadeName(arcade);}
   else{currentHotel=hotel;hotel.receptionist??=RECEPTIONISTS[Math.floor(Math.random()*RECEPTIONISTS.length)];Object.assign(player,HOTEL.spawn);insideHotel=true;hotelLife=new HotelLife(Math.random,hotel);lobbyMusic.choose(LOBBY_PIECES[Math.floor(Math.random()*LOBBY_PIECES.length)]);}
 }
@@ -593,7 +594,7 @@ const walkerTalk=new WalkerTalk(),lavatoryTalk=new WalkerTalk();
 const arcadeAmbience=new ArcadeAmbience();
 const parkBirds=new ParkBirds();
 const tapWater=new TapWater();
-const lobbyMusic=new LobbyMusic(),pubMusic=new PubMusic();
+const lobbyMusic=new LobbyMusic(),pubMusic=new PubMusic(),bookshopMusic=new BookshopMusic();
 function enableSound(){
   try{
     const AudioContext=window.AudioContext||window.webkitAudioContext;
@@ -755,7 +756,7 @@ async function debugTravel(id,park){
   if(playerSeat?.bookshopChair)bookshopLife.stand(playerSeat.bookshopChair,inventory);
   playerSeat=null;windowView=null;pubTalk=null;eye=1.65;delete player.riverWalk;
   insideBookshop=insideArcade=insideHotel=insidePub=insideLavatory=false;insideCubicle=null;hotelStorage=hotelCorridor=false;hotelStairs=null;
-  lobbyMusic.choose(null);pubMusic.choose(null);
+  lobbyMusic.choose(null);pubMusic.choose(null);bookshopMusic.choose(null);
   if(venue){
     const wall=entranceWall(venue);
     Object.assign(player,{x:wall.x+wall.nx,z:wall.z+wall.nz,angle:Math.atan2(-wall.nx,-wall.nz)});
@@ -791,7 +792,7 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
 // The header button shows what it will do: pause while playing, play otherwise.
 const pauseButton=document.querySelector('#pause');
 function syncPauseButton(){pauseButton.textContent=running?'Ⅱ':'▶\uFE0E';pauseButton.setAttribute('aria-label',running?'Pause game':'Resume game');}
-function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();lobbyMusic.mute();pubMusic.mute();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';syncPauseButton();start.focus();}
+function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();muteBackgroundMusic();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';syncPauseButton();start.focus();}
 function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;started=true;overlay.hidden=true;syncPauseButton();keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);pauseButton.addEventListener('click',()=>running?pause():play());syncPauseButton();
 let hotelEventPresses=0,hotelEventKey=null;
@@ -1000,7 +1001,7 @@ function syncShift(e){
   if(e.shiftKey||shiftKeys.size)keys.add('Shift');else keys.delete('Shift');
 }
 window.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '||e.key==='Enter')startSpaceHeld=false;keys.delete(e.code==='Space'||e.key==='Enter'?' ':e.key.length===1?e.key.toLowerCase():e.key);if(running&&!pubMenu.open&&!inventoryBox.open&&!banshee&&!staffTalk)syncShift(e);});
-function muteBackgroundMusic(){lobbyMusic.mute();pubMusic.mute();}
+function muteBackgroundMusic(){lobbyMusic.mute();pubMusic.mute();bookshopMusic.mute();}
 window.addEventListener('blur',()=>{browserFocused=false;muteBackgroundMusic();if(running)pause();});
 window.addEventListener('focus',()=>{browserFocused=true;});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){muteBackgroundMusic();if(running)pause();}});
@@ -1266,6 +1267,7 @@ function tick(now){
   // Ambient music plays throughout the hotel lobby, and boogie-woogie in the
   // pub, heard faintly from the lavatory but not from inside a cubicle.
   if(running&&browserFocused&&!document.hidden){
+    bookshopMusic.update(audioContext,insideBookshop?.36:0);
     lobbyMusic.update(audioContext,insideHotel?LOBBY_MUSIC.volume:0);
     const pubHeard=pubMusicHeard(insidePub?'pub':insideLavatory?'lavatory':insideCubicle?'cubicle':'street');
     pubMusic.update(audioContext,pubHeard.volume,pubHeard.lowpass);
