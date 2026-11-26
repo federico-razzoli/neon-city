@@ -174,14 +174,35 @@ function drawInstrumentShop({box,quad,face}){
     for(let n=0;n<(bass?4:6);n++)
       box(x-.04+n*(bass?.027:.016),y+.23,.345,.004,neck+.38,.008,'#c5c1ae');
   }
-  for(const {x,z,w,d} of keyboardTables){
-    box(x,floor+.84,z,w,.18,d,'#242a33');
-    for(const leg of [x+.14,x+w-.22])box(leg,floor,z+.15,.08,.84,d-.3,'#49474a');
+  for(const [index,{x,z,w,d}] of keyboardTables.entries()){
+    box(x,floor+.84,z,w,.18,d,index===0?'#242a33':'#454443');
+    const panelZ=z+d-.10;
+    const buttonCount=index===0?6:8;
+    for(let button=0;button<buttonCount;button++)
+      box(x+w/2-.36+button*.12,floor+1.02,panelZ-.035,.095,.025,.07,'#54585c','#92979a');
+    drawCylinder(face,x+w-.16,floor+1.02,panelZ,.034,.014,'#27292b');
+    drawCylinder(face,x+w-.16,floor+1.034,panelZ,.023,.012,'#cc1725','#ff5054');
+    const left=x+w*.23,right=x+w*.77,middle=z+d/2,steel='#474b50';
+    for(const [foot,top,offset] of [[left,right,-.026],[right,left,.026]]){
+      drawRod(face,{x:foot,y:floor+.033,z:middle+offset},{x:top,y:floor+.81,z:middle+offset},.026,steel);
+      for(const [support,y] of [[foot,floor+.033],[top,floor+.81]]){
+        drawRod(face,{x:support,y,z:z+.06},{x:support,y,z:z+d-.06},.031,steel);
+        for(const end of [z+.06,z+d-.14])
+          drawRod(face,{x:support,y,z:end},{x:support,y,z:end+.08},.033,'#26282b');
+      }
+    }
+    drawRod(face,{x:x+w/2,y:floor+.4215,z:middle-.06},{x:x+w/2,y:floor+.4215,z:middle+.06},.047,'#6d7275');
     const key=(w-.16)/28;
     for(let i=0;i<28;i++){
-      const left=x+.08+i*key;
-      box(left,floor+1.02,z+.2,key-.006,.04,.52,'#e9e4cf');
-      if(![2,6].includes(i%7))box(left+key*.7,floor+1.06,z+.2,key*.55,.045,.32,'#26272a');
+      const right=x+w-.08-i*key,back=z+d-.2;
+      const left=right-key+.006;
+      const hasSharp=![2,6].includes(i%7);
+      const followsSharp=i%7!==0&&i%7!==3;
+      const rearLeft=hasSharp?right-key*.70:left;
+      const rearRight=followsSharp?right-key*.25:right;
+      box(left,floor+1.02,back-.52,right-left,.04,.20,'#e9e4cf');
+      box(rearLeft,floor+1.02,back-.32,rearRight-rearLeft,.04,.32,'#e9e4cf');
+      if(hasSharp)box(right-key*1.25,floor+1.02,back-.32,key*.55,.04,.32,'#26272a');
     }
   }
   const {x,z,w,d}=instrumentDesk;
