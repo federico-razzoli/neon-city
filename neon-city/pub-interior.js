@@ -320,9 +320,20 @@ export function drawStaff({face,box},at,type){
   }else if(rocker){
     for(const dx of [-.16,.08]){
       staffBox(x+dx,.35,z-.1,.16,.47,.22,'#282731');
-      staffBox(x+dx-.012,.05,z-.12,.184,.31,.25,'#232427');
+      staffBox(x+dx-.012,.14,z-.11,.184,.22,.24,'#232427');
       staffBox(x+dx-.012,.04,z-.225,.184,.095,.20,'#303136');
-      staffBox(x+dx-.018,0,z-.23,.196,.045,.37,'#151519');
+      staffBox(x+dx-.018,0,z-.23,.196,.045,.15,'#151519');
+      // The instep rises from the grounded toe to a narrow heel.
+      for(const side of [-.012,.172]){
+        const px=x+dx+side;
+        staffFace([{x:px,y:.04,z:z-.09},{x:px,y:.13,z:z+.09},
+          {x:px,y:.18,z:z+.09},{x:px,y:.13,z:z-.09}],'#232427');
+      }
+      for(const [toeY,heelY] of [[.04,.13],[.13,.18]]){
+        staffFace([{x:x+dx-.012,y:toeY,z:z-.09},{x:x+dx+.172,y:toeY,z:z-.09},
+          {x:x+dx+.172,y:heelY,z:z+.09},{x:x+dx-.012,y:heelY,z:z+.09}],'#232427');
+      }
+      staffBox(x+dx+.045,0,z+.07,.07,.15,.055,'#151519');
       staffBox(x+dx-.014,.22,z-.13,.188,.04,.025,'#39393e');
       staffBox(x+dx+.09,.222,z-.139,.045,.035,.012,'#acafb3');
     }
@@ -338,12 +349,12 @@ export function drawStaff({face,box},at,type){
     staffBox(x+.12,1.17,z-depth/2-.03,.09,.04,.03,'#cfad6b');
   }else if(rocker){
     const beltFront=z-depth/2-.025;
-    staffBox(x-width/2-.008,.80,beltFront,width+.016,.065,depth+.04,'#423934');
+    staffBox(x-width/2-.008,.80,beltFront,width+.016,.065,depth+.04,'#111114');
     staffBox(x-.048,.805,beltFront-.012,.096,.055,.014,'#c5c8ca');
-    staffBox(x-.032,.817,beltFront-.015,.064,.031,.005,'#423934');
+    staffBox(x-.032,.817,beltFront-.015,.064,.031,.005,'#111114');
     staffBox(x-.006,.829,beltFront-.02,.044,.009,.006,'#c5c8ca');
     // Tailor the jacket front in horizontal bands, tapering into the waist.
-    const levels=[[.82,0],[.98,.025],[1.08,.08],[1.18,.11],[1.27,.08],[1.36,.01]];
+    const levels=[[.82,0],[.98,.025],[1.08,.085],[1.18,.145],[1.27,.10],[1.36,.01]];
     const profile=[[0,.7],[.12,1],[.21,.80],[width/2,0]];
     const point=(dx,y,projection,offset=0)=>{
       const i=profile.findIndex(([edge])=>edge>=Math.abs(dx));
@@ -371,7 +382,7 @@ export function drawStaff({face,box},at,type){
         point(zipper(high)+.014,high,upper,.012),point(zipper(high),high,upper,.012)],'#d3d6d9');
     }
     for(const side of [-1,1]){
-      const stud=point(side*.15,1.27,.08,.025);
+      const stud=point(side*.15,1.27,.10,.025);
       staffBox(stud.x-.012,stud.y-.012,stud.z,.024,.024,.012,'#d3d6d9');
     }
   }else{

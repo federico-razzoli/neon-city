@@ -63,15 +63,19 @@ const coverSilhouettes=[
 ];
 let silhouettePaths;
 
-function recordBay(genre,offset){
+function recordBayLayout(width){
+  const columns=Math.floor((width-13)/83);
+  return {width,columns,left:Math.floor((width-(columns-1)*83-76)/2)};
+}
+function recordBay(genre,offset,{width,columns,left}=recordBayLayout(512)){
   silhouettePaths??=coverSilhouettes.map(path=>new Path2D(path));
   const colors=['#df8059','#d8b857','#71a5aa','#bd7583','#8587b5','#99ac79'];
-  return panel(512,336,cabinet,g=>{
+  return panel(width,336,cabinet,g=>{
     lettering(g,genre,12,27,21,cream);
     for(let row=0;row<3;row++){
       const top=40+row*97;
-      for(let col=0;col<6;col++){
-        const n=offset+row*6+col,x=10+col*83;
+      for(let col=0;col<columns;col++){
+        const n=offset+row*(columns===9?10:columns)+col,x=left+col*83;
         g.save();g.translate(x,top);g.fillStyle=colors[(n*5+row)%6];g.fillRect(0,0,76,76);
         g.fillStyle=ink;
         const design=n%(4+coverSilhouettes.length);
@@ -88,8 +92,8 @@ function recordBay(genre,offset){
         }else g.fill(silhouettePaths[design-4],'evenodd');
         lettering(g,titles[n%titles.length],4,69,10,ink);g.restore();
       }
-      g.fillStyle=trim;g.fillRect(0,top+76,512,4);
-      g.fillStyle=ink;g.fillRect(0,top+80,512,4);
+      g.fillStyle=trim;g.fillRect(0,top+76,width,4);
+      g.fillStyle=ink;g.fillRect(0,top+80,width,4);
     }
   });
 }
@@ -140,17 +144,19 @@ function drawRoom({box,quad,face}){
     box(x,0,z,w,counterBaseHeight,d,cabinet);
     topEdges(x,z,w,d);
     const bayLength=d/genres[index].length;
+    const panelLength=bayLength-(rightWall?.02:.05),panelHeight=rightWall?2.15:1.72;
+    const layout=recordBayLayout(rightWall?Math.round(336*panelLength/panelHeight):512);
     genres[index].forEach((genre,i)=>{
       const start=z+i*bayLength;
-      const image=recordBay(genre,index*31+i*7);
-      if(rightWall)hanging(15.91,top+.16,start+bayLength-.01,0,-bayLength+.02,2.15,image);
-      else hanging(.12,top+.16,start,0,bayLength-.05,1.72,image);
+      const image=recordBay(genre,index*31+i*7,layout);
+      if(rightWall)hanging(15.91,top+.16,start+bayLength-.01,0,-panelLength,panelHeight,image);
+      else hanging(.12,top+.16,start,0,panelLength,panelHeight,image);
       const slots=Math.floor(bayLength/.52),spacing=bayLength/slots,size=spacing-.065;
       const width=256,height=Math.round(width*bayLength/w);
       const lid=panel(width,height,surface,g=>{
         const coverWidth=size*width/w,coverHeight=size*height/bayLength;
         for(let slot=0;slot<slots;slot++){
-          const u=10+(slot%6)*83,v=40+((1+Math.floor(slot/6))%3)*97;
+          const u=layout.left+(slot%layout.columns)*83,v=40+((1+Math.floor(slot/layout.columns))%3)*97;
           const near=(slot*spacing+.03)*height/bayLength;
           g.save();
           g.translate(width/2,height-near-coverHeight/2);
@@ -162,7 +168,8 @@ function drawRoom({box,quad,face}){
       topFace(x,start,w,bayLength,lid);
     });
   });
-  hanging(.32,1.2,13.95,3.3,0,2.17,recordBay('FRESH SINGLES',47));
+  const singlesArtwork=recordBay('FRESH SINGLES',47);
+  hanging(.32,1.2,13.95,3.3,0,2.17,singlesArtwork);
   hanging(4.7,2.22,13.94,4.85,0,1.94,neonGuitar());
   blueNoteBins.forEach(({x,z,w,d},i)=>{
     box(x+.1,0,z+.1,w-.2,.64,d-.2,cabinet);
@@ -177,10 +184,17 @@ function drawRoom({box,quad,face}){
   topEdges(x,z-counterOverhang,w+.06,d+2*counterOverhang);
   topFace(x,z-counterOverhang,w+.06,d+2*counterOverhang);
   for(let i=0;i<6;i++)box(x+.1+i*w/6,.12,z-.016,w/6-.17,.74,.016,'#39566c');
-  // Till, customer display, and a small stack of paper record bags.
+  // Till, customer display, and four stacked records in album sleeves.
   box(x+.36,1.13,z+.15,.76,.17,.55,'#485154');box(x+.42,1.30,z+.39,.64,.30,.18,'#273438');
   box(x+.48,1.42,z+.38,.52,.12,.025,'#a1c3a1');
-  for(let i=0;i<4;i++)box(x+w-.94+i*.012,1.13+i*.013,z+.18,.65,.013,.63,'#be9f72');
+  const recordColors=['#bd404f','#438f98','#9975b0','#dba249'];
+  recordColors.forEach((color,i)=>{
+    const left=x+w-.94+i*.012,base=1.13+i*.013,front=z+.18;
+    box(left,base,front,.65,.013,.63,color);
+    const y=base+.0131,u=10+i*83,v=40;
+    face([{x:left,y,z:front+.63,u,v},{x:left+.65,y,z:front+.63,u:u+76,v},
+      {x:left+.65,y,z:front,u:u+76,v:v+76},{x:left,y,z:front,u,v:v+76}],color,singlesArtwork);
+  });
   drawStaff({box,face},clerk,'rocker');
   const metal='#384851',steel='#adb9ba',plaster='#718489';
   box(upper.x,0,upper.z-stairWallThickness,upper.w,6.2,stairWallThickness,plaster);
