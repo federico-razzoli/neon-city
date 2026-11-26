@@ -58,7 +58,7 @@ import {facingBench,pineCone,treeReply,bushReply,signReply} from './parks.js?v=r
 import {WalkerTalk,talksHere} from './walker-talk.js?v=punk-girl-1';
 import {ParkBirds,parkVolume} from './park-birds.js?v=parks-4';
 import {arcadeName,arcadeVolume,ArcadeAmbience} from './arcade.js?v=park-entrances-1';
-import {blueNoteSpawn,moveInBlueNote,facingBlueNoteExit,blueNoteStairFacing,blueNoteReply} from './blue-note-interior.js';
+import {blueNoteSpawn,blueNoteFloor,moveInBlueNote,facingBlueNoteExit,blueNoteStairFacing,blueNoteReply} from './blue-note-interior.js';
 import {BOOKSHOP,facingBookshopDoor,facingBookshopExit,facingBookshopSeat,facingBookseller,booksellerTalk,BOOK_EXIT_REPLY,bookshopReply,moveInBookshop} from './midnite-interior.js';
 import {BookshopLife} from './midnite-life.js';
 import {previewBackpack,previewBook} from './bookshop-preview.js';
@@ -412,6 +412,7 @@ function itemRoom(){
 // Where something dropped here comes to rest, and the height it rests at.
 function dropSpot(){
   if(!indoors())return {x:player.x,z:player.z,ground:streetFloorHeight(city,player)+.085};
+  if(insideBlueNote)return {x:player.x,z:player.z,ground:blueNoteFloor(player)};
   if(hotelCorridor)return {x:player.x,z:player.z,ground:.015};
   if(insideHotel&&!hotelStorage)return hotelStairs?stairwellDropSpot(player,hotelStairs):hotelDropSpot(player);
   return {x:player.x,z:player.z,ground:0};
@@ -721,7 +722,7 @@ function render(){
   document.querySelector('#game').classList.toggle('amigos-pointer',Boolean(ping?.kind==='amigos'&&ping.pointerColor&&ping.pointerVisible&&!ping.over));
   if(ping){if(cabinetRenderer){selectRenderSurface(false);cabinetRenderer.draw(ping,running,!overlay.hidden);}return;}
   if(!indoors())eye=playerSeat?.cabVan?playerSeat.eye+(playerSeat.slide?.lift??0):(playerSeat?SEATED_EYE:1.65)+(player.riverFall?.height??streetFloorHeight(city,player));
-  else if(!playerSeat)eye=1.65+(insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
+  else if(!playerSeat)eye=1.65+(insideBlueNote?blueNoteFloor(player):insideHotel&&!hotelStorage&&!hotelCorridor?(hotelStairs?stairwellHeight(player,hotelStairs):hotelFloorHeight(player.x,player.z)):0);
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
   const frame={
@@ -1171,7 +1172,7 @@ function tick(now){
     }else if(insideBlueNote){
       moveInBlueNote(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed);
       const stair=blueNoteStairFacing(player);
-      document.querySelector('#message').textContent=notice?noticeText:stair?stair.label+' STAIRS CLOSED':'';
+      document.querySelector('#message').textContent=notice?noticeText:stair?.direction===1?'1ST FLOOR STAIRS CLOSED':'';
       document.querySelector('#location').textContent='BLUE NOTE';
     }else if(insideBookshop){
       bookshopLife.update(dt,player,playerSeat?.bookshopChair);

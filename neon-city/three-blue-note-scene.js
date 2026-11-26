@@ -2,9 +2,9 @@
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createStorefrontStreet} from './three-storefront-street.js';
-import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk} from './blue-note-interior.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,keyboardTables} from './blue-note-interior.js';
 
-import {drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
+import {drawRod,drawStaff,BLONDE_RECEPTIONIST} from './pub-interior.js?v=bar-taps-1';
 
 
 const storefront={
@@ -17,6 +17,11 @@ const cream='#f5dcac',ink='#141c28',brass='#d7a268';
 const cabinet='#253b50',surface='#61949b',trim='#94b9bf';
 const counterBaseHeight=1.02,countertopThickness=.11;
 const fixtureTop=counterBaseHeight+countertopThickness;
+function drawTill(box,x,y,z){
+  box(x,y,z,.76,.17,.55,'#485154');
+  box(x+.06,y+.17,z+.24,.64,.30,.18,'#273438');
+  box(x+.12,y+.29,z+.23,.52,.12,.025,'#a1c3a1');
+}
 function panel(width,height,background,paint){
   const image=document.createElement('canvas');
   image.width=width;image.height=height;
@@ -97,6 +102,49 @@ function recordBay(genre,offset,{width,columns,left}=recordBayLayout(512)){
     }
   });
 }
+const basementSideWall='#375153',basementEndWall='#354849';
+function drawInstrumentShop({box,quad,face}){
+  const floor=basementFloor;
+  quad(0,floor,0,16,14,'#706258');
+  box(-.1,floor,0,.1,-floor,14,basementSideWall);
+  box(16,floor,0,.1,-floor,14,basementSideWall);
+  box(0,floor,-.1,16,-floor,.1,basementEndWall);
+  box(0,floor,14,16,-floor,.1,basementEndWall);
+  const colors=['#ad4936','#e0ad55','#438781','#67394b'];
+  for(let i=0;i<12;i++){
+    const x=1+i*1.25,bass=i>=6,y=floor+1;
+    const outline=[[-.10,.64],[-.22,.70],[-.25,.48],[-.16,.33],[-.28,.18],[-.27,.03],
+      [-.16,-.08],[.13,-.08],[.27,.02],[.28,.18],[.16,.35],[.24,.53],[.22,.64],[.10,.53]];
+    // Fan triangles keep the cutaways on either side of the neck.
+    const point=([dx,dy])=>({x:x+dx,y:y+dy,z:.31});
+    for(let n=0;n<outline.length;n++)
+      face([point([0,.30]),point(outline[n]),point(outline[(n+1)%outline.length])],colors[i%4]);
+    const neck=bass?1.12:.85;
+    box(x-.055,y+.48,.26,.11,neck,.07,'#aa7950');
+    box(x-.08,y+.48+neck,.26,.16,.21,.07,'#d6ad70');
+    box(x-.11,y+.2,.31,.22,.06,.03,'#e1d9cb');
+    for(let n=0;n<(bass?4:6);n++)
+      box(x-.04+n*(bass?.027:.016),y+.23,.345,.004,neck+.38,.008,'#c5c1ae');
+  }
+  for(const {x,z,w,d} of keyboardTables){
+    box(x,floor+.84,z,w,.18,d,'#242a33');
+    for(const leg of [x+.14,x+w-.22])box(leg,floor,z+.15,.08,.84,d-.3,'#49474a');
+    const key=(w-.16)/28;
+    for(let i=0;i<28;i++){
+      const left=x+.08+i*key;
+      box(left,floor+1.02,z+.2,key-.006,.04,.52,'#e9e4cf');
+      if(![2,6].includes(i%7))box(left+key*.7,floor+1.06,z+.2,key*.55,.045,.32,'#26272a');
+    }
+  }
+  const {x,z,w,d}=instrumentDesk;
+  box(x,floor,z,w,counterBaseHeight,d,cabinet);
+  box(x,floor+counterBaseHeight,z-counterOverhang,w+counterOverhang,countertopThickness,d+2*counterOverhang,trim,surface);
+  drawTill(box,instrumentClerk.x-.85,floor+fixtureTop,z+.2);
+  drawStaff({
+    box:(x,y,z,...rest)=>box(x,y+floor,z,...rest),
+    face:(points,...rest)=>face(points.map(p=>({...p,y:p.y+floor})),...rest)
+  },instrumentClerk,BLONDE_RECEPTIONIST);
+}
 function drawRoom({box,quad,face}){
   function hanging(x,y,z,dx,dz,h,image){
     const w=image.width,v=image.height;
@@ -105,10 +153,27 @@ function drawRoom({box,quad,face}){
   }
   const wood='#684737',oak='#ab805c',wall='#41575a';
   const [upper,lower]=blueNoteStairs;
+  drawInstrumentShop({box,quad,face});
+  // A separate soffit hides the undersides of the upstairs fixtures.
+  // Its two panels meet at the stairwell corner and leave both flights clear.
+  const ceiling=-.24,frontOfStairs=upper.z-stairWallThickness;
+  quad(0,ceiling,0,16,frontOfStairs,'#464e50');
+  quad(0,ceiling,frontOfStairs,upper.x,14-frontOfStairs,'#464e50');
+  for(const [x,z] of [[2,3],[10,3],[2,7],[10,7],[2,11]]){
+    box(x,ceiling-.07,z,4,.07,.18,'#778486');
+    box(x+.06,ceiling-.10,z+.025,3.88,.03,.13,'#ffe3aa');
+  }
+  for(const [x,label] of [[5.4,'GUITARS'],[12.9,'BASSES']]){
+    const sign=panel(224,48,ink,g=>lettering(g,label,10,37,38,cream));
+    hanging(x,basementFloor+3.05,.04,-2.8,0,.6,sign);
+  }
+  box(upper.x,basementFloor,upper.z-stairWallThickness,upper.w,-basementFloor,stairWallThickness,basementEndWall);
+  box(upper.x,basementFloor,upper.z+upper.d,stairRun,-basementFloor,lower.z-upper.z-upper.d,basementEndWall);
+  box(lower.x,basementFloor,lower.z,.08,ceiling-basementFloor,lower.d,basementSideWall);
   const concrete='#73797b';
   quad(0,0,0,16,lower.z,concrete);quad(0,0,lower.z,lower.x,lower.d,concrete);
-  box(-.1,0,0,.1,4.5,14,wall);box(16,-3.2,0,.1,9.8,14,wall);
-  box(0,-3.2,14,16,9.8,.1,wall);
+  box(-.1,0,0,.1,4.5,14,wall);box(16,0,0,.1,6.6,14,wall);
+  box(0,0,14,16,6.6,.1,wall);
   quad(0,4.5,0,16,upper.z,'#383d3c');quad(0,4.5,upper.z,upper.x,14-upper.z,'#383d3c');
   quad(upper.x,6.2,upper.z,16-upper.x,14-upper.z,'#343d40');
   for(const z of [3,7,11])box(1,4.43,z,8,.04,.08,'#ffe3aa');
@@ -184,9 +249,7 @@ function drawRoom({box,quad,face}){
   topEdges(x,z-counterOverhang,w+.06,d+2*counterOverhang);
   topFace(x,z-counterOverhang,w+.06,d+2*counterOverhang);
   for(let i=0;i<6;i++)box(x+.1+i*w/6,.12,z-.016,w/6-.17,.74,.016,'#39566c');
-  // Till, customer display, and four stacked records in album sleeves.
-  box(x+.36,1.13,z+.15,.76,.17,.55,'#485154');box(x+.42,1.30,z+.39,.64,.30,.18,'#273438');
-  box(x+.48,1.42,z+.38,.52,.12,.025,'#a1c3a1');
+  drawTill(box,x+.36,fixtureTop,z+.15);
   const recordColors=['#bd404f','#438f98','#9975b0','#dba249'];
   recordColors.forEach((color,i)=>{
     const left=x+w-.94+i*.012,base=1.13+i*.013,front=z+.18;
@@ -198,7 +261,7 @@ function drawRoom({box,quad,face}){
   drawStaff({box,face},clerk,'rocker');
   const metal='#384851',steel='#adb9ba',plaster='#718489';
   box(upper.x,0,upper.z-stairWallThickness,upper.w,6.2,stairWallThickness,plaster);
-  box(upper.x,-3.2,upper.z+upper.d,upper.w,9.4,lower.z-upper.z-upper.d,plaster);
+  box(upper.x,0,upper.z+upper.d,stairRun,6.2,lower.z-upper.z-upper.d,plaster);
   box(upper.x,2.65,upper.z,.12,3.55,14-upper.z,wall);
   for(const {x,z,w,d,direction} of blueNoteStairs){
     const run=.29,rise=.18,steps=17;
@@ -215,6 +278,7 @@ function drawRoom({box,quad,face}){
       const y=.93+direction*i*rise,depth=x+i*run;
       drawRod(face,{x:depth,y,z:railZ},{x:depth,y:y-.07,z:z+d},.022,metal);
     }
+    if(direction<0)continue;
     for(const post of [z,z+d-.05])box(x,0,post,.07,2.65,.05,metal);
     box(x,2.60,z,.07,.05,d,metal);box(x,.01,z,.07,.04,d,metal);
     const handle=z+d-.17;
@@ -222,12 +286,21 @@ function drawRoom({box,quad,face}){
     for(const y of [.90,1.26])box(x-.03,y,handle,.07,.03,.028,steel);
     box(x+w-.04,height,z+.12,.04,2.1,d-.24,'#485d65');
   }
+  const end=upper.x+stairRun;
+  box(end,-flightDrop-.18,upper.z,16-end,.18,lower.z-upper.z,metal);
+  for(let i=0;i<17;i++){
+    const x=end-(i+1)*.29,top=-flightDrop-(i+1)*.18;
+    box(x,top-.21,upper.z,.29,.21,upper.d,'#49575e','#899497');
+    box(x+.265,top+.002,upper.z,.025,.008,upper.d,'#c3ccc8');
+  }
+  drawRod(face,{x:end,y:-flightDrop+.93,z:upper.z+.12},
+    {x:upper.x,y:basementFloor+.93,z:upper.z+.12},.036,steel);
 }
 function stairGlazing({scene}){
   const geometry=new THREE.PlaneGeometry(1,1);
   const material=new THREE.MeshBasicMaterial({color:0xa1d6de,transparent:true,opacity:.10,
     depthWrite:false,side:THREE.DoubleSide});
-  for(const {x,z,d} of blueNoteStairs){
+  for(const {x,z,d} of blueNoteStairs.slice(0,1)){
     const glass=new THREE.Mesh(geometry,material);
     glass.rotation.y=Math.PI/2;glass.scale.set(d,2.6,1);
     glass.position.set(x+.025,1.3,-z-d/2);scene.add(glass);

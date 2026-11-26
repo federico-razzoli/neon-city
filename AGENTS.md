@@ -1,3 +1,7 @@
+# In-game messages
+
+Only introduce in-game messages when the user explicitly requests them.
+
 # Tool execution
 
 Never run tools in parallel. Wait for each tool operation to finish before starting the next.
