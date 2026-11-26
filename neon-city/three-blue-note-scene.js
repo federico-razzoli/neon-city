@@ -238,6 +238,21 @@ export function createBlueNoteScene({streetScene}={}){
   return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene}){
     const stairs=stairGlazing({scene}),street=createStorefrontStreet(scene,storefront,{streetScene});
     const geometry=new THREE.PlaneGeometry(1,1);
+    const loader=new THREE.TextureLoader();
+    const posters=[];
+    const [upper]=blueNoteStairs;
+    let left=upper.x+.24;
+    for(const [band,aspect] of [['fault-choir',2/3],['paper-satellites',2/3],['radioactive-cows',3/4]]){
+      const texture=loader.load(new URL(`./assets/blue-note-${band}.png`,import.meta.url).href);
+      texture.colorSpace=THREE.SRGBColorSpace;
+      const poster=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({map:texture,toneMapped:false}));
+      const height=2.3,width=height*aspect;
+      poster.scale.set(width,height,1);
+      poster.position.set(left+width/2,2.95,-upper.z+stairWallThickness+.012);
+      scene.add(poster);
+      posters.push(poster);
+      left+=width+.20;
+    }
     const material=new THREE.MeshBasicMaterial({color:'#7295aa',transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide,toneMapped:false});
     for(const {x,y,z,w,h} of storefront.panes){
       const pane=new THREE.Mesh(geometry,material);
@@ -246,7 +261,10 @@ export function createBlueNoteScene({streetScene}={}){
     return {
       prepare:(renderer,frame)=>street.prepare(renderer,frame),
       update:frame=>street.update(frame),
-      dispose(){street.dispose();stairs.dispose();geometry.dispose();material.dispose();}
+      dispose(){
+        for(const poster of posters){poster.material.map.dispose();poster.material.dispose();}
+        street.dispose();stairs.dispose();geometry.dispose();material.dispose();
+      }
     };
   },actorsFor:()=>[]});
 }

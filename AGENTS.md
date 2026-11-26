@@ -1,3 +1,7 @@
+# Tool execution
+
+Never run tools in parallel. Wait for each tool operation to finish before starting the next.
+
 # Browser preference
 
 The user explicitly requires that Firefox never be installed again. Do not install
