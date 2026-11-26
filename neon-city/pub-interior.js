@@ -318,8 +318,20 @@ export function drawStaff({face,box},at,type){
       staffBox(x+dx+.055,0,z+.06,.05,.08,.04,'#2b3150');
     }
   }else if(rocker){
+    // A slightly flared skirt meets the existing belt at the waist.
+    const skirtCorner=(side,end,y,w,d)=>({x:x+side*w/2,y,z:z+end*d/2});
+    const corners=[[-1,-1],[1,-1],[1,1],[-1,1]];
+    const hem=corners.map(([side,end])=>skirtCorner(side,end,.59,.64,.40));
+    const waist=corners.map(([side,end])=>skirtCorner(side,end,.815,width,depth));
+    staffFace(hem,'#211d25');
+    for(let i=0;i<4;i++){
+      const next=(i+1)%4;
+      staffFace([hem[i],hem[next],waist[next],waist[i]],i%2?'#302935':'#3b323f');
+    }
     for(const dx of [-.16,.08]){
-      staffBox(x+dx,.35,z-.1,.16,.47,.22,'#282731');
+      const legX=x+dx+.08,tights='#413332';
+      staffCylinder(legX,.35,z+.01,.074,.12,tights,tights,.069);
+      staffCylinder(legX,.47,z+.01,.069,.16,tights,tights,.091);
       staffBox(x+dx-.012,.14,z-.11,.184,.22,.24,'#232427');
       staffBox(x+dx-.012,.04,z-.225,.184,.095,.20,'#303136');
       staffBox(x+dx-.018,0,z-.23,.196,.045,.15,'#151519');
