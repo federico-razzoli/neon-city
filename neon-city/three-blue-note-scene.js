@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
-import {blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk} from './blue-note-interior.js';
+import {createStorefrontStreet} from './three-storefront-street.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk} from './blue-note-interior.js';
 
 import {drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
+
+const storefront={
+  doorX:blueNoteDoor.x,
+  panes:[1.2,3.7,9.4,11.9].map(x=>({x:x+.09,y:.96,z:.09,w:2.27,h:1.83})),
+  preparationPoints:[[3.7,2.4],[11.9,2.4],[8,6]]
+};
 
 const cream='#f5dcac',ink='#141c28',brass='#d7a268';
 const cabinet='#253b50',surface='#61949b',trim='#94b9bf';
@@ -77,21 +84,25 @@ function drawRoom({box,quad,face}){
   }
   const wood='#684737',oak='#ab805c',wall='#41575a';
   const [upper,lower]=blueNoteStairs;
-  quad(0,0,0,16,lower.z,'#756350');quad(0,0,lower.z,lower.x,lower.d,'#756350');
-  for(let x=0;x<16;x+=.42)quad(x,.002,0,.012,x<lower.x?14:lower.z,'#534737');
+  const concrete='#73797b';
+  quad(0,0,0,16,lower.z,concrete);quad(0,0,lower.z,lower.x,lower.d,concrete);
   box(-.1,0,0,.1,4.5,14,wall);box(16,-3.2,0,.1,9.8,14,wall);
-  box(0,-3.2,14,16,9.8,.1,wall);box(0,0,-.1,16,4.5,.1,wall);
+  box(0,-3.2,14,16,9.8,.1,wall);
   quad(0,4.5,0,16,upper.z,'#383d3c');quad(0,4.5,upper.z,upper.x,14-upper.z,'#383d3c');
   quad(upper.x,6.2,upper.z,16-upper.x,14-upper.z,'#343d40');
   for(const z of [3,7,11])box(1,4.43,z,8,.04,.08,'#ffe3aa');
-  // Glazed storefront and a recessed entrance mat mark the return to the street.
-  for(const x of [1.2,3.7,9.4,11.9]){
-    box(x,.85,.02,2.45,2.05,.06,wood);box(x+.09,.96,.09,2.27,1.83,.03,'#293f50');
-    box(x+.1,1.55,.13,2.25,.05,.04,oak);
+  let edge=0;
+  for(const {x,y,w,h} of storefront.panes){
+    box(edge,0,-.1,x-edge,4.5,.1,wall);
+    box(x,0,-.1,w,y,.1,wall);
+    box(x,y+h,-.1,w,4.5-y-h,.1,wall);
+    edge=x+w;
+    for(const jamb of [x-.09,x+w])box(jamb,.85,.02,.09,2.05,.06,wood);
+    for(const rail of [.85,y+h])box(x,rail,.02,w,.11,.06,wood);
   }
+  box(edge,0,-.1,16-edge,4.5,.1,wall);
   box(7,0,.02,2,2.75,.12,wood);box(7.12,.14,.15,1.76,2.48,.04,'#375364');
   box(7.12,.14,.2,1.76,.57,.035,oak);box(8.62,1,.24,.045,.42,.08,brass);
-  quad(6.86,.01,.29,2.28,1.12,'#373b38');
   function topEdges(x,z,w,d){
     for(const [ax,az,bx,bz] of [[x,z,x+w,z],[x+w,z,x+w,z+d],
       [x+w,z+d,x,z+d],[x,z+d,x,z]]){
@@ -192,6 +203,19 @@ function stairGlazing({scene}){
   }
   return {dispose(){geometry.dispose();material.dispose();}};
 }
-export function createBlueNoteScene(){
-  return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras:stairGlazing,actorsFor:()=>[]});
+export function createBlueNoteScene({streetScene}={}){
+  return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene}){
+    const stairs=stairGlazing({scene}),street=createStorefrontStreet(scene,storefront,{streetScene});
+    const geometry=new THREE.PlaneGeometry(1,1);
+    const material=new THREE.MeshBasicMaterial({color:'#7295aa',transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide,toneMapped:false});
+    for(const {x,y,z,w,h} of storefront.panes){
+      const pane=new THREE.Mesh(geometry,material);
+      pane.position.set(x+w/2,y+h/2,-z);pane.scale.set(w,h,1);scene.add(pane);
+    }
+    return {
+      prepare:(renderer,frame)=>street.prepare(renderer,frame),
+      update:frame=>street.update(frame),
+      dispose(){street.dispose();stairs.dispose();geometry.dispose();material.dispose();}
+    };
+  },actorsFor:()=>[]});
 }

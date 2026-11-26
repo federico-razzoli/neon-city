@@ -396,6 +396,16 @@ export function drawStaff({face,box},at,type){
     staffBox(armX,.98,z-.37,.13,.12,.27,skin);
   }
   if(rocker){
+    // Sweep the back hair down to a tie at the nape.
+    const hairline=(angle,radius,y)=>({x:x+Math.cos(angle)*radius,y,z:z+Math.sin(angle)*radius});
+    for(let i=0;i<12;i++){
+      const a=i*Math.PI/12,b=(i+1)*Math.PI/12;
+      staffFace([hairline(a,head+.012,1.79),hairline(b,head+.012,1.79),
+        hairline(b,head+.012,1.56-.06*Math.sin(b)),hairline(a,head+.012,1.56-.06*Math.sin(a))],hair);
+    }
+    staffCylinder(x,1.49,z+.21,.06,.055,'#74535e');
+    staffCylinder(x,1.34,z+.25,.085,.16,hair,hair,.052);
+    staffCylinder(x,1.13,z+.25,.025,.21,hair,hair,.085);
     const lensZ=z-head-.035;
     staffBox(x-.17,1.717,lensZ,.34,.014,.018,'#babfc6');
     for(const side of [-1,1]){

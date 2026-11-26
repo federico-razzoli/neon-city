@@ -1134,6 +1134,10 @@ function tick(now){
       if(warning){notice=2.5;noticeText=warning;}
       if(activeCompanion.gone)activeCompanion=null;
     }
+    if(insideBookshop||insideBlueNote){
+      roadTraffic.update(city.chunks.values(),time,dt,null,city.crossingPeople?.()??[]);
+      city.advancePedestrians(dt,{x:currentVenue.x+currentVenue.w/2,z:currentVenue.z+currentVenue.d/2},time,null,roadTraffic);
+    }
     if(insidePub){
       const companionBody=companionIn('pub');
       pubLife?.update(dt,pubPatrons,playerSeat,companionBody?[player,companionBody]:player,activeCompanion?[activeCompanion.type]:[]);
@@ -1166,8 +1170,6 @@ function tick(now){
       document.querySelector('#message').textContent=notice?noticeText:stair?stair.label+' STAIRS CLOSED':'';
       document.querySelector('#location').textContent='BLUE NOTE';
     }else if(insideBookshop){
-      roadTraffic.update(city.chunks.values(),time,dt,null,city.crossingPeople?.()??[]);
-      city.advancePedestrians(dt,{x:currentVenue.x+currentVenue.w/2,z:currentVenue.z+currentVenue.d/2},time,null,roadTraffic);
       bookshopLife.update(dt,player,playerSeat?.bookshopChair);
       const bumpedTable=!playerSeat&&(bookshopSpatial()?.move??moveInBookshop)(player,(Math.sin(player.angle)*forward+Math.cos(player.angle)*side)*speed,(Math.cos(player.angle)*forward-Math.sin(player.angle)*side)*speed,bookshopLife.seller,bookshopLife.people);
       if(pace>1&&bumpedTable&&!bookshopLife.bumpedReadingTable){

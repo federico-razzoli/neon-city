@@ -20,7 +20,7 @@ import {createThreeHallScene} from './three-hall-scene.js';
 import {createThreeStreetScene} from './three-street-scene.js';
 
 // Venues opt into one-way street ownership by registering their scene factory.
-const streetWindowVenues=new Map([['bookshop',createThreeBookshopScene]]);
+const streetWindowVenues=new Map([['bookshop',createThreeBookshopScene],['blue-note',createBlueNoteScene]]);
 
 function createScene(destination,hotel,floor,streetScene){
   const windowVenue=streetWindowVenues.get(destination);
@@ -29,7 +29,6 @@ function createScene(destination,hotel,floor,streetScene){
   if(destination==='lavatory')return createThreeLavatoryScene();
   if(destination==='cubicle')return createThreeCubicleScene();
   if(destination==='pub')return createThreePubScene();
-  if(destination==='blue-note')return createBlueNoteScene();
   if(destination==='arcade')return createThreeArcadeScene();
   if(destination==='hotel')return createThreeHallScene(hotel);
   if(destination==='corridor')return createThreeCorridorScene(hotel,floor);
