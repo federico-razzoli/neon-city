@@ -42,7 +42,7 @@ import {ARBRE_MAGIQUE,drawArbreMagique} from './arbre-magique.js';
 import {HOTEL_STAIRWELL,stairwellNote,createHotelStairwell,stairwellHeight,stairwellDropSpot,facingStairwellExit,facingHotelCorridor,facingStorageDoor,STORAGE_EXIT,stairwellPlantReply,interactStairwellLight,moveInHotelStairwell} from './hotel-stairwell.js?v=hotel-guests-3';
 import {HOTEL_STORAGE,facingStorageExit,interactStorage,moveInHotelStorage,drawDroppedNote} from './hotel-storage.js?v=hotel-note-3';
 import {ARCADE,facingArcadeGame,tryArcadeGame,arcadeTalk,facingArcadeAttendant,arcadeReply,facingArcadeDoor,facingArcadeExit,facingArcadeSeat,moveInArcade} from './arcade-interior.js?v=bricks-2';
-import {ArcadeLife} from './arcade-life.js?v=bricks-2';
+import {ArcadeLife} from './arcade-life.js?v=side-queue-1';
 import {LadiesDoorEvent,LADIES_DOOR_TEXT} from './ladies-door.js';
 import {CubicleKnockEvent,rollCubicleKnock,loadCubicleKnock,KNOCK_EXIT_TEXT} from './cubicle-knock.js';
 import {rollBanshee,bansheeFrame,playBansheeScream} from './banshee.js?v=6';

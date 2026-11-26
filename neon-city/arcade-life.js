@@ -17,19 +17,28 @@ for(const cabinet of ARCADE.cabinets){
   }else cabinetRows.push({...cabinet});
 }
 const obstacles=[ARCADE.bridgeConsole,ARCADE.desk,...cabinetRows,...ARCADE.pinballs];
-export function arcadeWalkable(p,people=[]){
+// Keep through traffic in the aisle. Only the approach and departure legs
+// enter the space in front of a cabinet.
+const aisleSetback=2.2;
+const aisleObstacles=obstacles.map(b=>cabinetRows.includes(b)?
+  {...b,z:b.z-aisleSetback,d:b.d+aisleSetback}:b);
+function aislePoint(p){
+  const row=cabinetRows.find(b=>p.x>b.x-.3&&p.x<b.x+b.w+.3&&p.z<b.z&&p.z>b.z-aisleSetback-.3);
+  return row?{x:p.x,z:row.z-aisleSetback-.4}:p;
+}
+export function arcadeWalkable(p,people=[],boxes=obstacles){
   const r=.3;
   return p.x>=r&&p.x<=ARCADE.width-r&&p.z>=r&&p.z<=ARCADE.depth-r&&
-    !obstacles.some(b=>p.x>b.x-r&&p.x<b.x+b.w+r&&p.z>b.z-r&&p.z<b.z+b.d+r)&&
+    !boxes.some(b=>p.x>b.x-r&&p.x<b.x+b.w+r&&p.z>b.z-r&&p.z<b.z+b.d+r)&&
     [ARCADE.attendant,...ARCADE.bridgeChairs].every(c=>Math.hypot(p.x-c.x,p.z-c.z)>=r+c.radius)&&
     people.every(c=>Math.hypot(p.x-c.x,p.z-c.z)>=.6);
 }
 // Grid routes keep visitors out of the furniture and away from other players.
-export function arcadeRoute(start,end,people=[]){
+export function arcadeRoute(start,end,people=[],boxes=obstacles){
   const segment=(a,b)=>{
-    if(!arcadeWalkable(a,people)||!arcadeWalkable(b,people))return false;
+    if(!arcadeWalkable(a,people,boxes)||!arcadeWalkable(b,people,boxes))return false;
     const dx=b.x-a.x,dz=b.z-a.z,length2=dx*dx+dz*dz;
-    for(const box of obstacles){
+    for(const box of boxes){
       let low=0,high=1;
       for(const [value,delta,min,max] of [[a.x,dx,box.x-.3,box.x+box.w+.3],[a.z,dz,box.z-.3,box.z+box.d+.3]]){
         if(Math.abs(delta)<1e-10){if(value<=min||value>=max){high=-1;break;}}
@@ -65,85 +74,148 @@ export function arcadeRoute(start,end,people=[]){
 
 export class ArcadeLife{
   constructor(random=Math.random){this.random=random;this.people=[];this.arrival=5+random()*5;this.lastDepartedType=null;this.playedCabinets=new Set();}
-  get busy(){return this.people.some(p=>p.state!=='playing');}
+  get busy(){return this.people.some(p=>p.state!=='playing'&&p.state!=='waiting');}
   get deskBusy(){return this.people.some(p=>p.state==='desk');}
   occupied(machine,except=null){return this.people.some(p=>p!==except&&sameMachine(p.machine,machine));}
   delay(){return 10+this.random()*10;}
-  travel(p,state,target){
-    const route=arcadeRoute(p,target,this.people.filter(other=>other!==p));
-    if(!route)return false;
+  travel(p,state,target,player){
+    const blockers=this.people.filter(other=>other!==p);
+    if(player)blockers.push({x:player.x,z:player.z});
+    const from=aislePoint(p),to=aislePoint(target);
+    const route=[];
+    for(const [a,b,boxes] of [[p,from,obstacles],[from,to,aisleObstacles],[to,target,obstacles]]){
+      if(a===b)continue;
+      const leg=arcadeRoute(a,b,blockers,boxes);
+      if(!leg)return false;
+      route.push(...leg);
+    }
     p.state=state;p.route=route;p.machine=null;return true;
   }
-  play(p,playerMachine){
-    const free=ARCADE.cabinets.filter(b=>!sameMachine(b,p.machine)&&!sameMachine(b,playerMachine)&&!this.occupied(b));
+  joinQueue(p,machine,player){
+    if(!player||this.people.some(other=>other!==p&&['waiting','to-queue','to-controls'].includes(other.state)))return false;
+    const controls=cabinetSpot(machine);
+    // Stay alongside the player, within this cabinet's frontage and out of the aisle.
+    const z=Math.min(machine.z-.35,player.z);
+    if(z<machine.z-aisleSetback+.3)return false;
+    const sides=[machine.x,machine.x+machine.w].sort((a,b)=>Math.abs(b-player.x)-Math.abs(a-player.x));
+    for(const x of sides){
+      if(Math.abs(x-player.x)<.7||Math.abs(x-player.x)>1.4)continue;
+      if(this.travel(p,'to-queue',{x,z},player)){
+        p.machine=machine;
+        p.watchAngle=Math.atan2(controls.x-x,machine.z-z);
+        return true;
+      }
+    }
+    return false;
+  }
+  play(p,playerMachine,player){
+    const free=ARCADE.cabinets.filter(b=>!sameMachine(b,p.machine)&&!this.occupied(b));
     // Share a random rotation across visitors, so a small crowd does not keep
     // returning to the same few games. Occupied games remain eligible later.
     const fresh=free.filter(machine=>!this.playedCabinets.has(machineKey(machine)));
     const repeated=free.filter(machine=>this.playedCabinets.has(machineKey(machine)));
     for(const [cycle,candidates] of [fresh,repeated].entries())while(candidates.length){
       const [machine]=candidates.splice(Math.floor(this.random()*candidates.length),1);
-      if(this.travel(p,'to-cabinet',cabinetSpot(machine))){
+      const reachable=sameMachine(machine,playerMachine)
+        ?this.joinQueue(p,machine,player)
+        :this.travel(p,'to-cabinet',cabinetSpot(machine),player);
+      if(reachable){
         if(cycle===1)this.playedCabinets.clear();
         this.playedCabinets.add(machineKey(machine));p.machine=machine;return true;
       }
     }
     return false;
   }
+  advanceVisitor(p,dt,player,playerMachine,deskTalking){
+    if(p.state==='to-cabinet'&&(sameMachine(p.machine,playerMachine)||this.occupied(p.machine,p))){
+      // Reservations normally prevent this; also handle a player taking the
+      // target while the visitor approaches, or independently restored state.
+      if(!sameMachine(p.machine,playerMachine)||!this.joinQueue(p,p.machine,player)){
+        if(!this.play(p,playerMachine,player))return;
+      }
+    }
+    if(p.state==='desk'){
+      p.wait=Math.max(0,p.wait-dt);
+      if(p.wait===0)this.play(p,playerMachine,player);
+    }else{
+      // Stop before the player, keeping the route ready to resume.
+      let travel=dt*1.4;
+      while(travel>0&&p.route.length){
+        const target=p.route[0],dx=target.x-p.x,dz=target.z-p.z,d=Math.hypot(dx,dz);
+        if(d<.000001){p.route.shift();continue;}
+        const move=Math.min(travel,d,.05),next={x:p.x+dx/d*move,z:p.z+dz/d*move};
+        p.facingX=dx/d;p.facingZ=dz/d;
+        const visitorInWay=this.people.some(other=>other!==p&&Math.hypot(next.x-other.x,next.z-other.z)<.6);
+        if(visitorInWay||(player&&Math.hypot(next.x-player.x,next.z-player.z)<.6)){
+          // The player may have stepped into the aisle since this trip began.
+          p.retryIn=(p.retryIn??0)-dt;
+          if(p.retryIn<=0){
+            const machine=p.machine;
+            if(p.state==='to-controls')p.state='waiting';
+            else this.travel(p,p.state,p.route[p.route.length-1],player);
+            p.machine=machine;
+            p.retryIn=.5;
+          }
+          break;
+        }
+        p.retryIn=0;
+        // The player's own desk conversation takes priority.
+        if(p.state==='to-desk'&&deskTalking&&Math.hypot(next.x-desk.x,next.z-desk.z)<1)break;
+        p.x=next.x;p.z=next.z;p.walkTime+=move/1.4;travel-=move;
+        if(d<=move+.000001)p.route.shift();
+      }
+      if(!p.route.length){
+        p.walkTime=1/6;
+        if(p.state==='to-exit'){
+          this.people.splice(this.people.indexOf(p),1);
+          this.lastDepartedType=p.type;
+          this.arrival=5+this.random()*5;
+        }
+        else if(p.state==='to-queue'){p.state='waiting';p.facingX=Math.sin(p.watchAngle);p.facingZ=Math.cos(p.watchAngle);}
+        else if(p.state==='to-desk'){p.state='desk';p.wait=5;p.facingX=0;p.facingZ=1;}
+        else{p.state='playing';p.wait=5+this.random()*5;p.facingX=0;p.facingZ=1;}
+      }
+    }
+  }
   update(dt,player=null,playerMachine=null,deskTalking=false){
     this.arrival-=dt;
     for(const p of this.people)if(p.state==='playing')p.wait=Math.max(0,p.wait-dt);
-    const active=this.people.find(p=>p.state!=='playing');
+    const waiter=this.people.find(p=>p.state==='waiting');
+    if(waiter&&!sameMachine(waiter.machine,playerMachine)){
+      const controls=cabinetSpot(waiter.machine);
+      if(!player||Math.hypot(player.x-controls.x,player.z-controls.z)>=.6){
+        const blockers=this.people.filter(p=>p!==waiter);
+        if(player)blockers.push({x:player.x,z:player.z});
+        const route=arcadeRoute(waiter,controls,blockers);
+        if(route){
+          waiter.route=route;
+          waiter.state='to-controls';
+        }
+      }
+    }
+    // The short walk from the side of a cabinet to its controls can
+    // run alongside the arcade's one ordinary visitor movement.
+    const handoff=this.people.find(p=>p.state==='to-controls');
+    const active=this.people.find(p=>p!==handoff&&p.state!=='playing'&&p.state!=='waiting');
+    if(handoff)this.advanceVisitor(handoff,dt,player,playerMachine,deskTalking);
     if(active){
-      const p=active;
-      if(p.state==='to-cabinet'&&(sameMachine(p.machine,playerMachine)||this.occupied(p.machine,p))){
-        // Reservations normally prevent this; also handle a player taking the
-        // target while the visitor approaches, or independently restored state.
-        if(!this.play(p,playerMachine))return;
-      }
-      if(p.state==='desk'){
-        p.wait=Math.max(0,p.wait-dt);
-        if(p.wait===0)this.play(p,playerMachine);
-      }else{
-        // Stop before the player, keeping the route ready to resume.
-        let travel=dt*1.4;
-        while(travel>0&&p.route.length){
-          const target=p.route[0],dx=target.x-p.x,dz=target.z-p.z,d=Math.hypot(dx,dz);
-          if(d<.000001){p.route.shift();continue;}
-          const move=Math.min(travel,d,.05),next={x:p.x+dx/d*move,z:p.z+dz/d*move};
-          p.facingX=dx/d;p.facingZ=dz/d;
-          if(player&&Math.hypot(next.x-player.x,next.z-player.z)<.6)break;
-          // The player's own desk conversation takes priority.
-          if(p.state==='to-desk'&&deskTalking&&Math.hypot(next.x-desk.x,next.z-desk.z)<1)break;
-          p.x=next.x;p.z=next.z;p.walkTime+=move/1.4;travel-=move;
-          if(d<=move+.000001)p.route.shift();
-        }
-        if(!p.route.length){
-          p.walkTime=1/6;
-          if(p.state==='to-exit'){
-            this.people.splice(this.people.indexOf(p),1);
-            this.lastDepartedType=p.type;
-            this.arrival=5+this.random()*5;
-          }
-          else if(p.state==='to-desk'){p.state='desk';p.wait=5;p.facingX=0;p.facingZ=1;}
-          else{p.state='playing';p.wait=5+this.random()*5;p.facingX=0;p.facingZ=1;}
-        }
-      }
+      this.advanceVisitor(active,dt,player,playerMachine,deskTalking);
       return;
     }
     if(this.arrival<=0&&this.people.length<3){
       if(player&&Math.hypot(player.x-entrance.x,player.z-entrance.z)<.6)return;
       const types=ARCADE_VISITOR_TYPES.filter(type=>type!==this.lastDepartedType&&!this.people.some(p=>p.type===type));
       const p={...entrance,type:types[Math.floor(this.random()*types.length)],variant:this.random(),walkTime:0,facingX:0,facingZ:1};
-      if(!this.travel(p,'to-desk',desk))return;
+      if(!this.travel(p,'to-desk',desk,player))return;
       this.people.push(p);this.arrival=this.delay();return;
     }
     // Only one visitor can leave their game or enter on the same update.
-    const finished=this.people.find(p=>p.wait===0);
+    const finished=this.people.find(p=>p.state==='playing'&&p.wait===0);
     if(finished){
       const choice=this.random();
-      if(choice<.35)this.travel(finished,'to-exit',entrance);
-      else if(choice<.5)this.travel(finished,'to-desk',desk);
-      else this.play(finished,playerMachine);
+      if(choice<.35)this.travel(finished,'to-exit',entrance,player);
+      else if(choice<.5)this.travel(finished,'to-desk',desk,player);
+      else this.play(finished,playerMachine,player);
       return;
     }
 
