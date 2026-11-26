@@ -48,7 +48,23 @@ function neonGuitar(){
 // Each wall bay is painted once, including the separate jackets, labels and shelf edges.
 const titles=['Side Street','Low Tide','Night Shift','Open Circuit','Two Steps','Sunday Blue',
   'Daybreak','In Motion','Cross Town','First Light','Small Hours','Out West'];
+// Drawn in jacket coordinates. Interior contours reveal the sleeve color.
+const coverSilhouettes=[
+  // Gaunt undead face with ragged hair, hollow eyes and a broken grin.
+  'M12 45 L17 23 L12 29 L19 13 L25 16 L26 7 L33 11 L40 4 L44 10 L53 6 L53 14 L61 12 L58 23 L65 42 L56 36 L59 51 L49 42 L47 51 L40 57 L31 54 L25 47 L24 41 L16 50 L19 35 Z M23 25 L35 29 L31 34 L24 32 Z M41 29 L53 24 L51 32 L44 34 Z M36 34 L32 41 L40 39 Z M29 43 L34 45 L35 43 L40 45 L45 41 L43 48 L38 50 L32 48 Z',
+  // Raised fist with curled fingers and a thumb across the palm.
+  'M25 56 L25 47 L17 36 L15 23 Q15 18 21 18 L23 28 L23 14 Q24 9 30 11 L32 24 L32 10 Q35 5 40 10 L41 23 L42 12 Q47 8 50 14 L50 25 L52 17 Q58 14 59 21 L58 32 L51 43 L47 47 L47 56 Z M27 32 L39 24 L51 27 L50 30 L40 29 L32 36 Z',
+  // Pump in profile, with an arched sole and narrow heel.
+  'M9 19 L16 13 Q26 23 35 33 Q40 40 47 38 L53 35 Q56 41 65 43 Q70 45 68 50 L44 50 Q38 50 32 41 Q26 30 22 31 Q19 32 18 49 L18 53 L14 53 L14 40 Q15 29 9 19 Z',
+  // Electric guitar, angled from the lower bout to the headstock.
+  'M12 40 Q13 33 22 33 Q29 33 27 24 Q35 21 35 30 L51 14 L52 9 L60 4 L65 9 L59 17 L55 18 L38 35 Q43 38 49 30 Q50 41 39 44 Q35 45 32 52 Q26 60 17 54 Q9 49 12 40 Z M20 41 L22 39 L29 46 L27 48 Z',
+  // Flame tongues curling around a cutout ember.
+  'M37 57 Q17 56 16 43 Q15 34 24 23 Q22 35 29 34 Q36 27 32 19 Q30 12 42 4 Q39 14 47 21 Q56 29 51 37 Q57 35 59 26 Q69 47 52 55 Q46 58 37 57 Z M35 51 Q28 47 34 40 Q37 37 38 32 Q39 38 44 42 Q49 49 41 52 Z'
+];
+let silhouettePaths;
+
 function recordBay(genre,offset){
+  silhouettePaths??=coverSilhouettes.map(path=>new Path2D(path));
   const colors=['#df8059','#d8b857','#71a5aa','#bd7583','#8587b5','#99ac79'];
   return panel(512,336,cabinet,g=>{
     lettering(g,genre,12,27,21,cream);
@@ -58,17 +74,18 @@ function recordBay(genre,offset){
         const n=offset+row*6+col,x=10+col*83;
         g.save();g.translate(x,top);g.fillStyle=colors[(n*5+row)%6];g.fillRect(0,0,76,76);
         g.fillStyle=ink;
-        if(n%4===0){
+        const design=n%(4+coverSilhouettes.length);
+        if(design===0){
           g.beginPath();g.arc(38,33,25,0,Math.PI*2);g.fill();
           g.fillStyle=cream;g.beginPath();g.arc(38,33,6,0,Math.PI*2);g.fill();
-        }else if(n%4===1){
+        }else if(design===1){
           for(let j=0;j<5;j++)g.fillRect(7+j*12,10+j%3*7,7,36-j%3*6);
-        }else if(n%4===2){
+        }else if(design===2){
           g.beginPath();g.moveTo(4,52);g.lineTo(47,9);g.lineTo(70,52);g.fill();
           g.fillStyle=cream;g.fillRect(15,30,47,4);
-        }else{
+        }else if(design===3){
           for(let j=0;j<5;j++){g.beginPath();g.arc(25,24,7+j*6,-1.5,2.2);g.strokeStyle=ink;g.lineWidth=2;g.stroke();}
-        }
+        }else g.fill(silhouettePaths[design-4],'evenodd');
         lettering(g,titles[n%titles.length],4,69,10,ink);g.restore();
       }
       g.fillStyle=trim;g.fillRect(0,top+76,512,4);
@@ -116,7 +133,7 @@ function drawRoom({box,quad,face}){
       {x:x+w,y:fixtureTop,z:z+d,u,v:0},{x,y:fixtureTop,z:z+d,u:0,v:0}],surface,image);
   }
   // The wall stand and its flat display share album artwork.
-  const genres=[['JAZZ','SOUL','BLUES','IMPORTS'],['45 RPM','NEW LPs']];
+  const genres=[['ROCK','SOUL','BLUES','INDIE'],['LIVES & BOOTLEGS','METAL & PUNK']];
   wallRecordRacks.forEach(({x,z,w,d},index)=>{
     const rightWall=x>0;
     const top=fixtureTop;
