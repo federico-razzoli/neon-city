@@ -28,6 +28,6 @@ Measure separation as the straight-line horizontal distance between the player a
 
 ## Lisa
 
-Lisa is the tall girl the player can meet in a riverside pub. To invite her on a date, sit opposite her and, during the same conversation, give her a flower and choose “I DON'T JUDGE PEOPLE BASED ON THOSE THINGS.” This unlocks “WOULD YOU LIKE TO GO TO NIGHT RIVER WITH ME?” Lisa becomes a companion when she accepts. She stays seated until the player stands, then walks around the table to join them.
+To invite [Lisa](CHARACTERS.md#street-pedestrians-and-pub-patrons) on a date at a riverside pub, sit opposite her and, during the same conversation, give her a flower and choose “I DON'T JUDGE PEOPLE BASED ON THOSE THINGS.” This unlocks “WOULD YOU LIKE TO GO TO NIGHT RIVER WITH ME?” Lisa becomes a companion when she accepts. She stays seated until the player stands, then walks around the table to join them.
 
 Lisa's date takes her from the pub where she accepted the invitation onto the street and to Night River. Entering another room or going back inside a venue ends the date. Afterward, the player can meet her in a riverside pub again.

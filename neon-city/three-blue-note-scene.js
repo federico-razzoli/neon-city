@@ -2,9 +2,9 @@
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createStorefrontStreet} from './three-storefront-street.js';
-import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,keyboardTables} from './blue-note-interior.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables} from './blue-note-interior.js';
 
-import {drawRod,drawStaff,BLONDE_RECEPTIONIST} from './pub-interior.js?v=bar-taps-1';
+import {drawCylinder,drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
 
 const storefront={
@@ -103,6 +103,54 @@ function recordBay(genre,offset,{width,columns,left}=recordBayLayout(512)){
   });
 }
 const basementSideWall='#375153',basementEndWall='#354849';
+function drawDora(box,face){
+  const {x,z}=instrumentClerk;
+  const block=(dx,y,dz,...args)=>box(x+dx,basementFloor+y,z+dz,...args);
+  const localFace=(points,color)=>face(points.map(p=>({x:x+p.x,y:basementFloor+p.y,z:z+p.z})),color);
+  const skin='#c58d73',tee='#804653',denim='#37383d',creamPrint='#e4d3b0';
+  for(const side of [-1,1]){
+    const leg=side*.135;
+    block(leg-.09,.16,-.09,.18,.78,.21,denim);
+    block(leg-.095,.19,-.10,.19,.065,.23,'#616067');
+    block(leg-.09,.025,-.17,.18,.16,.28,'#27272c');
+    block(leg-.095,0,-.18,.19,.034,.30,'#88827a');
+    block(leg-.06,.048,-.174,.085,.025,.008,'#726d68');
+    block(side*.29-.063,1.00,-.09,.126,.35,.17,skin);
+    block(side*.29-.083,1.26,-.11,.166,.18,.21,tee);
+    block(side*.29-.085,1.25,-.115,.17,.045,.22,'#985f68');
+  }
+  block(-.235,.89,-.14,.47,.56,.30,tee);
+  // A cream sound-wave print below the pick necklace.
+  for(const [i,height] of [.045,.095,.065,.14,.08,.11,.045].entries())
+    block(-.137+i*.042,1.12-height/2,-.145,.026,height,.008,creamPrint);
+  for(const side of [-1,1])
+    drawRod(localFace,{x:side*.09,y:1.45,z:-.15},{x:0,y:1.30,z:-.156},.008,'#33292b');
+  localFace([{x:-.048,y:1.32,z:-.166},{x:.048,y:1.32,z:-.166},
+    {x:.037,y:1.277,z:-.166},{x:0,y:1.235,z:-.166},{x:-.037,y:1.277,z:-.166}],'#ffd34a');
+  drawCylinder(localFace,0,1.435,0,.082,.13,skin);
+  // Rotate the face, curls and earrings together around the base of the head.
+  const tilt=.12;
+  const headFace=(points,color)=>localFace(points.map(p=>({
+    x:p.x*Math.cos(tilt)-p.y*Math.sin(tilt),
+    y:1.52+p.x*Math.sin(tilt)+p.y*Math.cos(tilt),z:p.z
+  })),color);
+  drawCylinder(headFace,0,0,0,.13,.22,skin,skin,.155);
+  for(const side of [-1,1]){
+    drawCylinder(headFace,side*.059,.115,-.13,.016,.017,'#34292b');
+    const hoop=Array.from({length:10},(_,i)=>{
+      const angle=i*Math.PI/5;
+      return {x:side*.15+.027*Math.cos(angle),y:.058+.034*Math.sin(angle),z:-.03};
+    });
+    hoop.forEach((p,i)=>drawRod(headFace,p,hoop[(i+1)%hoop.length],.006,'#dbdce0'));
+  }
+  drawRod(headFace,{x:-.028,y:.061,z:-.135},{x:.03,y:.064,z:-.135},.006,'#995e58');
+  drawCylinder(headFace,0,.196,0,.16,.086,'#30282a');
+  for(let i=0;i<14;i++){
+    const a=i*Math.PI/7;
+    drawCylinder(headFace,.14*Math.cos(a),.145+.04*Math.max(0,-Math.sin(a))+.012*(i%2),
+      .14*Math.sin(a),.049,.085,i%3?'#30282a':'#443437','#443437',.038);
+  }
+}
 function drawInstrumentShop({box,quad,face}){
   const floor=basementFloor;
   quad(0,floor,0,16,14,'#706258');
@@ -139,11 +187,8 @@ function drawInstrumentShop({box,quad,face}){
   const {x,z,w,d}=instrumentDesk;
   box(x,floor,z,w,counterBaseHeight,d,cabinet);
   box(x,floor+counterBaseHeight,z-counterOverhang,w+counterOverhang,countertopThickness,d+2*counterOverhang,trim,surface);
-  drawTill(box,instrumentClerk.x-.85,floor+fixtureTop,z+.2);
-  drawStaff({
-    box:(x,y,z,...rest)=>box(x,y+floor,z,...rest),
-    face:(points,...rest)=>face(points.map(p=>({...p,y:p.y+floor})),...rest)
-  },instrumentClerk,BLONDE_RECEPTIONIST);
+  drawTill(box,instrumentTill.x-.38,floor+fixtureTop,instrumentTill.z-.275);
+  drawDora(box,face);
 }
 function drawRoom({box,quad,face}){
   function hanging(x,y,z,dx,dz,h,image){

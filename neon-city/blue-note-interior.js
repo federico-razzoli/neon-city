@@ -10,6 +10,11 @@ export const clerk={x:3.55,z:12.1,radius:.5};
 const records={x:counter.x+counter.w-.60,z:counter.z+.495,radius:.35};
 const till={x:counter.x+.74,z:counter.z+.425,radius:.38};
 export function blueNoteReply(player){
+  if(player.blueLevel===2){
+    if(facingCounterObject(player,instrumentTill))return "IT'S A BEAUTIFUL TILL.";
+    if(player.z>instrumentDesk.z+instrumentDesk.d&&facingNearest(player,[instrumentClerk]))return 'CUSTOMERS ON THE OTHER SIDE, PLEASE.';
+    return null;
+  }
   if(player.blueLevel)return null;
   if(facingCounterObject(player,records))return 'SOME INDIE MUSIC.';
   if(facingCounterObject(player,till))return "DON'T TOUCH IT PLEASE.";
@@ -27,7 +32,8 @@ export const wallRecordRacks=[
 ];
 const [upper,lower]=blueNoteStairs;
 export const stairRun=.29*17,flightDrop=.18*17,basementFloor=-2*flightDrop;
-export const instrumentDesk={x:0,z:10,w:7,d:1},instrumentClerk={x:4,z:11.5};
+export const instrumentDesk={x:0,z:10,w:7,d:1},instrumentClerk={x:4,z:11.5,radius:.5};
+export const instrumentTill={x:instrumentDesk.x+.74,z:instrumentDesk.z+.475,radius:.38};
 export const keyboardTables=[3,8].map(x=>({x,z:4,w:2.7,d:.85}));
 const staffFootprint=at=>({x:at.x-.35,z:at.z-.25,w:.7,d:.5});
 const groundFixtures=[...blueNoteBins,...wallRecordRacks,counter,upper,
