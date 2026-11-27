@@ -37,9 +37,14 @@ export function createThreeBuildings(scene,{boundsVisible}={}){
         const group=new THREE.Group();group.name=`building:${x},${z}`;group.matrixAutoUpdate=false;scene.add(group);
         entry={group,walls:new Map(),artwork:new Map(),transform:null};buildings.set(building,entry);
       }
-      const transform=[x,z,w,d,h];
-      if(!entry.transform||transform.some((value,i)=>value!==entry.transform[i])){
-        entry.group.position.set(x,0,-z);entry.group.scale.set(w,h,d);entry.group.updateMatrix();entry.transform=transform;
+      // Previous version, which allocated an array and a callback every frame:
+      // const transform=[x,z,w,d,h];
+      // if(!entry.transform||transform.some((value,i)=>value!==entry.transform[i])){
+      //   entry.group.position.set(x,0,-z);entry.group.scale.set(w,h,d);entry.group.updateMatrix();entry.transform=transform;
+      // }
+      const placed=entry.transform;
+      if(!placed||placed.x!==x||placed.z!==z||placed.w!==w||placed.d!==d||placed.h!==h){
+        entry.group.position.set(x,0,-z);entry.group.scale.set(w,h,d);entry.group.updateMatrix();entry.transform={x,z,w,d,h};
       }
       entry.group.visible=true;
       // Keep side-level visibility checks to avoid empty draw calls and lazy
