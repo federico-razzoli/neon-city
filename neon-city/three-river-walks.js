@@ -46,7 +46,9 @@ export function createThreeRiverWalks(scene){
         transform.position.set(px+w/2,y+h/2,-dir*(d+depth/2)+shift);
         transform.rotation.set(0,0,0);transform.scale.set(w,h,depth);this.push();
       },
-      array(){return new Float32Array(values);}
+      // One read-only attribute per template, shared by every chunk's mesh,
+      // so the renderer uploads it once instead of once per chunk.
+      attribute(){return new THREE.InstancedBufferAttribute(new Float32Array(values),16);}
     };
   }
   function template(first){
@@ -109,10 +111,10 @@ export function createThreeRiverWalks(scene){
     // A round key entrance above a narrow tapered slot, inset in the plate.
     transform.position.set(plateX+.125,leafBottom+1.23,-dir*.263+shift);
     transform.rotation.set(0,0,0);transform.scale.setScalar(1);keyholes.push();
-    result={plain:plain.array(),stairs:stairs.array(),reveal:reveal.array(),grate:[
-      ['river-grate-dark',cube,dark,recess.array()],['river-grate-iron',cube,iron,grate.array()],
-      ['river-grate-hardware',cube,frameIron,aged.array()],['river-grate-lock',cube,lock,locks.array()],
-      ['river-grate-rivets',cube,frameIron,rivets.array()],['river-grate-keyhole',keyholeGeometry,dark,keyholes.array()]
+    result={plain:plain.attribute(),stairs:stairs.attribute(),reveal:reveal.attribute(),grate:[
+      ['river-grate-dark',cube,dark,recess.attribute()],['river-grate-iron',cube,iron,grate.attribute()],
+      ['river-grate-hardware',cube,frameIron,aged.attribute()],['river-grate-lock',cube,lock,locks.attribute()],
+      ['river-grate-rivets',cube,frameIron,rivets.attribute()],['river-grate-keyhole',keyholeGeometry,dark,keyholes.attribute()]
     ]};
     templates.set(first,result);return result;
   }
@@ -120,9 +122,10 @@ export function createThreeRiverWalks(scene){
     const mesh=new THREE.InstancedMesh(geometry,material,count);mesh.name=name;
     mesh.position.set(x,0,-bank);group.add(mesh);return mesh;
   }
-  function copy(group,name,geometry,material,array,x,bank){
-    const mesh=instances(group,name,geometry,material,array.length/16,x,bank);
-    mesh.instanceMatrix.array.set(array);mesh.instanceMatrix.needsUpdate=true;return mesh;
+  // An empty count avoids allocating and filling a per-chunk identity buffer.
+  function share(group,name,geometry,material,attribute,x,bank){
+    const mesh=instances(group,name,geometry,material,0,x,bank);
+    mesh.instanceMatrix=attribute;mesh.count=attribute.count;mesh.userData.sharedInstances=true;return mesh;
   }
   function place(mesh,i,dir,px,y,d,w,h,depth){
     transform.position.set(px+w/2,y+h/2,-dir*(d+depth/2));
@@ -134,10 +137,10 @@ export function createThreeRiverWalks(scene){
     const x=chunk.x*BLOCK,first=chunk.z===chunk.riverStart,bank=chunk.riverStart*BLOCK+(first?18:110),dir=first?1:-1;
     const shapes=template(first),stairs=hasRiverStairs(x);
     if(stairs){
-      copy(group,'river-door-reveal',revealGeometry,revealMaterial,shapes.reveal,x,bank);
-      for(const [name,geometry,material,array] of shapes.grate)copy(group,name,geometry,material,array,x,bank);
+      share(group,'river-door-reveal',revealGeometry,revealMaterial,shapes.reveal,x,bank);
+      for(const [name,geometry,material,attribute] of shapes.grate)share(group,name,geometry,material,attribute,x,bank);
     }
-    const mesh=copy(group,'river-walk-stone',cube,stone,stairs?shapes.stairs:shapes.plain,x,bank);
+    const mesh=share(group,'river-walk-stone',cube,stone,stairs?shapes.stairs:shapes.plain,x,bank);
     for(let i=0;i<mesh.count;i++)mesh.setColorAt(i,shades[i<2?0:(i-2)%shades.length]);
     const benches=chunk.riverBenches??riverBenches(chunk);
     if(benches.length){
@@ -160,11 +163,21 @@ export function createThreeRiverWalks(scene){
     for(const mesh of group.children){mesh.matrixAutoUpdate=false;mesh.updateMatrix();}
     scene.add(group);return group;
   }
-  const release=part=>{scene.remove(part.group);for(const mesh of part.group.children)mesh.dispose();};
+  // Disposing an instanced mesh deletes its instance buffer. While walks stay
+  // loaded, detach the shared template buffer first so other chunks keep it;
+  // the mesh still releases its own renderer state. The final dispose frees it.
+  const detached=new THREE.InstancedBufferAttribute(new Float32Array(0),16);
+  function release(part,keepShared=true){
+    scene.remove(part.group);
+    for(const mesh of part.group.children){
+      if(keepShared&&mesh.userData.sharedInstances)mesh.instanceMatrix=detached;
+      mesh.dispose();
+    }
+  }
   return {
     beginFrame(){for(const part of parts.values())part.seen=false;},
     draw(chunk){const key=`${chunk.x},${chunk.z}`;let part=parts.get(key);if(!part){part={group:build(chunk),seen:true};parts.set(key,part);}part.seen=true;},
     endFrame(){for(const [key,part] of parts)if(!part.seen){release(part);parts.delete(key);}},
-    dispose(){for(const part of parts.values())release(part);parts.clear();cube.dispose();revealGeometry.dispose();revealMaterial.dispose();for(const material of stone)material.dispose();wood.dispose();metal.dispose();iron.dispose();frameIron.dispose();dark.dispose();lock.dispose();keyholeGeometry.dispose();}
+    dispose(){for(const part of parts.values())release(part,false);parts.clear();templates.clear();cube.dispose();revealGeometry.dispose();revealMaterial.dispose();for(const material of stone)material.dispose();wood.dispose();metal.dispose();iron.dispose();frameIron.dispose();dark.dispose();lock.dispose();keyholeGeometry.dispose();}
   };
 }
