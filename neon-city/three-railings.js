@@ -21,42 +21,46 @@ export function createThreeRailings(scene){
     vertices.needsUpdate=true;geometry.computeVertexNormals();
   }
   const parts=new Map(),transform=new THREE.Object3D();
-  function boxes(group,name,color,items){
-    const mesh=new THREE.InstancedMesh(cube,materials[color],items.length);mesh.name=name;
-    for(let i=0;i<items.length;i++){
-      const [x,y,z,w,h,d]=items[i];
-      transform.position.set(x+w/2,y+h/2,-z-d/2);transform.scale.set(w,h,d);transform.updateMatrix();
-      mesh.setMatrixAt(i,transform.matrix);
-    }
-    mesh.instanceMatrix.needsUpdate=true;group.add(mesh);
+  // Instances are written straight into the mesh, without temporary arrays.
+  function boxes(group,name,color,count){
+    const mesh=new THREE.InstancedMesh(cube,materials[color],count);mesh.name=name;
+    group.add(mesh);return mesh;
   }
+  function place(mesh,i,x,y,z,w,h,d){
+    transform.position.set(x+w/2,y+h/2,-z-d/2);transform.scale.set(w,h,d);transform.updateMatrix();
+    mesh.setMatrixAt(i,transform.matrix);
+  }
+  const steps=(from,to,step)=>Math.max(0,Math.ceil((to-from)/step));
   function bank(group,chunk){
     const x=chunk.x*BLOCK,start=chunk.riverStart*BLOCK;
     const z=start+(chunk.z===chunk.riverStart?18:110);
     const left=hasBridge(chunk.x)?14:0,right=hasBridge(chunk.x+1)?50:BLOCK;
-    const bases=[],rails=[],posts=[];
     const spans=hasBridge(chunk.x)?[[left,RIVER_STAIRS.landing],[RIVER_STAIRS.start,right]]:[[left,right]];
-    for(const [from,to] of spans)for(let a=from;a<to;a+=6){
+    let count=0;for(const [from,to] of spans)count+=steps(from,to,6);
+    const bases=boxes(group,'bank-railing-bases',0,count);
+    const rails=boxes(group,'bank-railing-top-rails',1,count);
+    const posts=boxes(group,'bank-railing-posts',2,count);
+    let i=0;
+    for(const [from,to] of spans)for(let a=from;a<to;a+=6,i++){
       const w=Math.min(6,to-a);
-      bases.push([x+a,.06,z-.22,w,.2,.44]);
-      rails.push([x+a,1.05,z-.09,w,.12,.18]);
-      posts.push([x+a,.1,z-.1,.18,1,.2]);
+      place(bases,i,x+a,.06,z-.22,w,.2,.44);
+      place(rails,i,x+a,1.05,z-.09,w,.12,.18);
+      place(posts,i,x+a,.1,z-.1,.18,1,.2);
     }
-    boxes(group,'bank-railing-bases',0,bases);
-    boxes(group,'bank-railing-top-rails',1,rails);
-    boxes(group,'bank-railing-posts',2,posts);
+    for(const mesh of [bases,rails,posts])mesh.instanceMatrix.needsUpdate=true;
   }
   function bridge(group,streetIndex,riverRow){
-    const x=streetIndex*BLOCK,start=riverRow*BLOCK,posts=[];
-    for(const dx of [-14,14]){
+    const x=streetIndex*BLOCK,start=riverRow*BLOCK;
+    for(const dx of [-14,14])
       for(const [geometry,color,name] of [[upper,3,'bridge-railing-top-rail'],[lower,4,'bridge-railing-lower-rail']]){
         const mesh=new THREE.Mesh(geometry,materials[color]);mesh.name=name;
         mesh.position.set(x+dx,0,-start-64);group.add(mesh);
       }
-      for(let a=start+18;a<start+110;a+=4)
-        posts.push([x+dx-.1,bridgeHeight(a)+.2,a,.2,1,.2]);
-    }
-    boxes(group,'bridge-railing-posts',5,posts);
+    const posts=boxes(group,'bridge-railing-posts',5,2*steps(start+18,start+110,4));
+    let i=0;
+    for(const dx of [-14,14])for(let a=start+18;a<start+110;a+=4)
+      place(posts,i++,x+dx-.1,bridgeHeight(a)+.2,a,.2,1,.2);
+    posts.instanceMatrix.needsUpdate=true;
   }
   function use(key,build){
     let entry=parts.get(key);
