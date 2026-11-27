@@ -65,7 +65,11 @@ export function createThreeRailings(scene){
   function use(key,build){
     let entry=parts.get(key);
     if(!entry){
-      const group=new THREE.Group();group.name=key;build(group);scene.add(group);
+      const group=new THREE.Group();group.name=key;build(group);
+      // Railings never move: compose each matrix once instead of every frame.
+      group.matrixAutoUpdate=false;
+      for(const mesh of group.children){mesh.matrixAutoUpdate=false;mesh.updateMatrix();}
+      scene.add(group);
       entry={group,seen:true};parts.set(key,entry);
     }
     entry.seen=true;

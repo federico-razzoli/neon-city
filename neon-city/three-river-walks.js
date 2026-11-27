@@ -155,6 +155,9 @@ export function createThreeRiverWalks(scene){
       }
       timber.instanceMatrix.needsUpdate=true;legs.instanceMatrix.needsUpdate=true;
     }
+    // Walks never move: compose each matrix once instead of every frame.
+    group.matrixAutoUpdate=false;
+    for(const mesh of group.children){mesh.matrixAutoUpdate=false;mesh.updateMatrix();}
     scene.add(group);return group;
   }
   const release=part=>{scene.remove(part.group);for(const mesh of part.group.children)mesh.dispose();};

@@ -5,7 +5,7 @@ import {BLOCK,hasBridge} from './world.js';
 
 // Share complete wall meshes, including doorway cutouts, by bank/bridge layout.
 export function createThreeRetainingWalls(scene,{boundsVisible}={}){
-  const models=new Map(),chunks=new Map();
+  const models=new Map(),chunks=new Map(),loaded=new Set();
   const material=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false});
   function key(chunk){return `${chunk.x},${chunk.z}:${chunk.riverStart}`;}
   function model(chunk){
@@ -25,7 +25,7 @@ export function createThreeRetainingWalls(scene,{boundsVisible}={}){
   }
   return {
     beginFrame(frame){
-      const loaded=new Set([...frame.city.chunks.values()].filter(chunk=>chunk.river).map(key));
+      loaded.clear();for(const chunk of frame.city.chunks.values())if(chunk.river)loaded.add(key(chunk));
       for(const [id,mesh] of chunks){if(!loaded.has(id)){scene.remove(mesh);chunks.delete(id);}else mesh.visible=false;}
     },
     draw(chunk,viewer){
