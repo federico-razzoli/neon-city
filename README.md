@@ -17,7 +17,7 @@ The downstairs cat uses a vendored ES module. See the [plugin guide](neon-city/v
 For plugin development, keep the independent Git checkout at `extra/three-cats/`. The main repository ignores `extra/`. After editing the plugin, refresh the game copy from the main repository root:
 
 ```sh
-cp extra/three-cats/{cat.js,README.md} neon-city/vendor/three-cats/
+cp -R extra/three-cats/{cat.js,README.md,LICENSE,screenshots,skills} neon-city/vendor/three-cats/
 ```
 
 ## Play locally
