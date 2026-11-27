@@ -27,6 +27,7 @@ import {createWorldScene} from './world-scene.js';
 import {createInteriorCamera,updateInteriorCamera} from './three-interior-scene.js';
 import {createCorridorSky} from './three-corridor-sky.js';
 import {createRenderCamera} from './render-camera.js';
+import {RIVER_ROWS} from './world.js';
 
 // The shared street traversal submits world coordinates directly to WebGL.
 // Batch faces by artwork/color and retain GPU buffers across frames.
@@ -166,7 +167,18 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     const column=(point.x+.5)*24,row=(.5-point.y)*32;
     return column>=8&&column<18&&row>=4&&row<15;
   }
-  return {scene,camera,hitsBenchFace,setBoundsVisible(filter){exteriorFilter=filter;},update(frame){
+  // Compile the river and ice cream van shader programs when the street scene
+  // is created; otherwise they all compile on the frame the first river row
+  // arrives. The placeholder chunks are not in the loaded city, so the next
+  // frame's begin and end passes remove them before anything is drawn.
+  function warmRiverShaders(renderer){
+    const row=RIVER_ROWS[0];
+    // Street 0 has a bridge, with stairs and grates; chunk 1 on the first bank has a van.
+    const chunks=[[0,row],[1,row],[0,row+1]].map(([x,z])=>({x,z,river:true,riverStart:row,buildings:[],people:[],manholes:[],newspaperMachines:[]}));
+    for(const chunk of chunks){water.draw(chunk);riverWalks.draw(chunk);railings.draw(chunk);roads.draw(chunk);retainingWalls.draw(chunk);iceCreamVans.draw(chunk);}
+    renderer.compileAsync(scene,camera);
+  }
+  return {scene,camera,hitsBenchFace,setBoundsVisible(filter){exteriorFilter=filter;},prepare(renderer){warmRiverShaders(renderer);},update(frame){
     if(cash)cash.mesh.visible=false;
     iceCreamVans.beginFrame(frame);scenery.beginFrame(frame);buildings.beginFrame(frame);cones.beginFrame(frame);flowers.beginFrame(frame);newspapers.beginFrame(frame);
     fingerposts.beginFrame(frame);retainingWalls.beginFrame(frame);manholes.beginFrame(frame);doormats.beginFrame(frame);trees.beginFrame(frame);water.beginFrame(frame);riverWalks.beginFrame();roads.beginFrame();railings.beginFrame();traffic.beginFrame();sky.update(frame);world.render(frame);
