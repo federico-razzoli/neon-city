@@ -2,7 +2,7 @@
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createStorefrontStreet} from './three-storefront-street.js';
-import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,counterCat,counterCatPose,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
 
 import {drawCylinder,drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
@@ -469,8 +469,109 @@ function stairGlazing({scene}){
   }
   return {dispose(){geometry.dispose();material.dispose();}};
 }
+function createCounterCat(scene){
+  const root=new THREE.Group(),head=new THREE.Group();
+  root.position.set(counterCat.x,basementFloor+fixtureTop,-counterCat.z);
+  root.rotation.y=.83;
+  scene.add(root);
+  root.add(head);
+  const oval=new THREE.SphereGeometry(1,18,12);
+  const wedge=new THREE.ConeGeometry(1,1,3);
+  const coat=color=>new THREE.MeshBasicMaterial({color,toneMapped:false});
+  const fur=coat(0x080809),shadow=coat(0x030304),cheek=coat(0x101011);
+  const amber=coat(0xdaac52),innerEar=coat(0x493438),whisker=coat(0x756e67);
+  function part(parent,shape,material,x,y,z,w,h,d){
+    const mesh=new THREE.Mesh(shape,material);
+    mesh.position.set(x,y,z);
+    mesh.scale.set(w,h,d);
+    parent.add(mesh);
+    return mesh;
+  }
+  const ball=(parent,material,x,y,z,w,h,d)=>part(parent,oval,material,x,y,z,w,h,d);
+  const rump=ball(root,fur,0,0,0,.13024,.132,.1408);
+  const chest=ball(root,fur,0,0,0,.09768,.1056,.1056);
+  const spine=ball(root,fur,0,0,0,.1056,.1056,.1584);
+  ball(head,fur,0,.0088,0,.10736,.09592,.09152);
+  const legs=[],eyes=[];
+  for(const side of [-1,1]){
+    const ear=part(head,wedge,fur,side*.0704,.0968,0,.06512,.1276,.05016);
+    ear.rotation.z=-side*.23;
+    const lining=part(head,wedge,innerEar,side*.07216,.1012,.02728,.0396,.07656,.01408);
+    lining.rotation.z=ear.rotation.z;
+    const eye=ball(head,amber,side*.04664,.02464,.08008,.0264,.01232,.00968);
+    eye.rotation.z=side*.18;
+    ball(eye,shadow,0,0,.87,.17,.94,.35);
+    eyes.push(eye);
+    ball(head,cheek,side*.02288,-.02024,.088,.03432,.02728,.03432);
+    for(const tilt of [-.13,.14]){
+      const hair=ball(head,whisker,side*.07656,-.02024+tilt*.0352,.10736,.0572,.001584,.001584);
+      hair.rotation.z=side*tilt;
+    }
+    legs.push({
+      side,
+      thigh:ball(root,shadow,0,0,0,.07392,.1144,.12056),
+      hindPaw:ball(root,shadow,side*.09856,.02816,0,.04312,.02816,.08184),
+      shin:ball(root,cheek,0,0,0,.03168,.088,.0352),
+      paw:ball(root,cheek,side*.05896,.02288,0,.03872,.02288,.05632)
+    });
+  }
+  const nose=part(head,wedge,innerEar,0,-.01144,.12144,.01936,.0176,.00968);
+  nose.rotation.z=Math.PI;
+  const tailPath=new THREE.CatmullRomCurve3([
+    [0,.0792,-.1672],[.0792,.0484,-.22],[.1672,.02992,-.1496],[.18128,.02552,-.01496],
+    [.15576,.02464,.09328],[.09416,.02464,.1408],[.06336,.03256,.1364]
+  ].map(([x,y,z])=>new THREE.Vector3(x,y,z)));
+  const tailShape=new THREE.TubeGeometry(tailPath,32,.02376,8,false);
+  const vertices=tailShape.attributes.position,vertex=new THREE.Vector3();
+  for(let ring=0;ring<=32;ring++){
+    const centre=tailPath.getPointAt(ring/32);
+    for(let j=0;j<=8;j++){
+      const i=ring*9+j;
+      vertex.fromBufferAttribute(vertices,i).sub(centre).multiplyScalar(1-.92*(ring/32)**3).add(centre);
+      vertices.setXYZ(i,vertex.x,vertex.y,vertex.z);
+    }
+  }
+  const tail=new THREE.Mesh(tailShape,shadow);
+  root.add(tail);
+  // Join the shoulders to the hips and the forelegs to their planted paws.
+  function span(mesh,y1,z1,y2,z2,padding){
+    mesh.position.y=(y1+y2)/2;
+    mesh.position.z=(z1+z2)/2;
+    mesh.rotation.x=Math.atan2(z2-z1,y2-y1);
+    mesh.scale.y=Math.hypot(y2-y1,z2-z1)/2+padding;
+  }
+  function update(){
+    const {sit,stretch}=counterCatPose();
+    const hipY=.09504+.03256*sit+.13728*stretch,hipZ=-.0836-.03168*stretch;
+    const shoulderY=.09152+.20504*sit+.01936*stretch,shoulderZ=.066+.01848*sit+.06512*stretch;
+    rump.position.set(0,hipY,hipZ);
+    rump.scale.y=.09504+.03256*sit+.01144*stretch;
+    chest.position.set(0,shoulderY,shoulderZ);
+    chest.scale.y=.08184+.02376*sit;
+    span(spine,hipY,hipZ,shoulderY,shoulderZ,.05808);
+    head.position.set(.07304*(1-sit-stretch),shoulderY+.01056+.1056*sit+.01408*stretch,shoulderZ+.0484+.022*stretch);
+    head.rotation.set(.44*(1-sit-stretch),1.64*(1-sit-stretch)-.23*sit,-.24*(1-sit-stretch));
+    for(const eye of eyes)eye.scale.y=.00132+.011*sit+.00528*stretch;
+    for(const {side,thigh,hindPaw,shin,paw} of legs){
+      thigh.position.set(side*.07744,hipY-.01232,hipZ+.01232);
+      thigh.scale.y=hipY-.0132;
+      hindPaw.position.z=hipZ+.0704;
+      paw.position.z=.06688+.07392*sit+.21472*stretch;
+      shin.position.x=side*.05896;
+      span(shin,.03344,paw.position.z-.02024,shoulderY,shoulderZ,.01056);
+    }
+    tail.rotation.x=-.77*stretch;
+    tail.position.y=.132*stretch;
+  }
+  update();
+  return {update,dispose(){
+    root.removeFromParent();
+    for(const resource of [oval,wedge,tailShape,fur,shadow,cheek,amber,innerEar,whisker])resource.dispose();
+  }};
+}
 export function createBlueNoteScene({streetScene}={}){
   return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene}){
+    const cat=createCounterCat(scene);
     const stairs=stairGlazing({scene}),street=createStorefrontStreet(scene,storefront,{streetScene});
     const geometry=new THREE.PlaneGeometry(1,1);
     const loader=new THREE.TextureLoader();
@@ -499,10 +600,10 @@ export function createBlueNoteScene({streetScene}={}){
     }
     return {
       prepare:(renderer,frame)=>street.prepare(renderer,frame),
-      update:frame=>street.update(frame),
+      update(frame){cat.update();street.update(frame);},
       dispose(){
         for(const poster of posters){poster.material.map.dispose();poster.material.dispose();}
-        street.dispose();stairs.dispose();geometry.dispose();material.dispose();
+        cat.dispose();street.dispose();stairs.dispose();geometry.dispose();material.dispose();
       }
     };
   },actorsFor:()=>[]});
