@@ -10,6 +10,16 @@ only (`AGPL-3.0-only`). See [LICENSE](LICENSE) for the full license text.
 Third-party assets retain their own licenses; see
 [asset credits](neon-city/assets/CREDITS.md).
 
+## Music shop cat plugin
+
+The downstairs counter cat uses a vendored ES module. See the [plugin guide](neon-city/vendor/three-counter-cat/README.md) for setup, interaction, audio, and disposal.
+
+For plugin development, keep the independent Git checkout at `extra/three-counter-cat/`. The main repository ignores `extra/`. After editing the plugin, refresh the game copy from the main repository root:
+
+```sh
+cp extra/three-counter-cat/{counter-cat.js,README.md} neon-city/vendor/three-counter-cat/
+```
+
 ## Play locally
 
 To test Neon City with the tiny Flask app on Linux, run:

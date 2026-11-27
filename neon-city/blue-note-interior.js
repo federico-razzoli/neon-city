@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {createCatState} from './vendor/three-counter-cat/counter-cat.js';
 import {facingCounterObject,facingDoorway,facingNearest} from './pub-interior.js?v=bar-taps-1';
 
 export const blueNoteDoor={x:8,z:0},blueNoteSpawn={x:8,z:1.2,angle:0,blueLevel:0};
@@ -11,7 +12,7 @@ const records={x:counter.x+counter.w-.60,z:counter.z+.495,radius:.35};
 const till={x:counter.x+.74,z:counter.z+.425,radius:.38};
 export function blueNoteReply(player){
   if(player.blueLevel===2){
-    if(facingCounterObject(player,counterCat))return interactWithCat();
+    if(facingCounterObject(player,counterCat))return catState.pet()?'PURR PURR':null;
     if(facingCounterObject(player,instrumentTill))return "IT'S A BEAUTIFUL TILL.";
     if(player.z>instrumentDesk.z+instrumentDesk.d&&facingNearest(player,[instrumentClerk]))return 'CUSTOMERS ON THE OTHER SIDE, PLEASE.';
     return null;
@@ -36,30 +37,7 @@ export const stairRun=.29*17,flightDrop=.18*17,basementFloor=-2*flightDrop;
 export const instrumentDesk={x:0,z:10,w:7,d:1},instrumentClerk={x:4,z:11.5,radius:.5};
 export const instrumentTill={x:instrumentDesk.x+.74,z:instrumentDesk.z+.475,radius:.38};
 export const counterCat={x:instrumentDesk.x+instrumentDesk.w-.48,z:instrumentDesk.z+.45,radius:.38};
-export let catPurrUntil=0;
-let catWoke=-Infinity,catTouched=-Infinity,catAlertAtTouch=0;
-function easeCat(t){
-  const u=Math.max(0,Math.min(1,t));
-  return u*u*(3-2*u);
-}
-export function counterCatPose(now=performance.now()){
-  const idle=now-catTouched;
-  const alert=catAlertAtTouch+(1-catAlertAtTouch)*easeCat(idle/600);
-  const awake=alert*(1-easeCat((idle-20000)/2500));
-  const age=now-catWoke;
-  const stretch=awake*easeCat(age/650)*(1-easeCat((age-950)/850));
-  return {stretch,sit:awake*easeCat((age-950)/850)};
-}
-function interactWithCat(){
-  const now=performance.now(),idle=now-catTouched;
-  const asleep=idle>=22500;
-  catAlertAtTouch=asleep?0:1-easeCat((idle-20000)/2500);
-  if(asleep)catWoke=now;
-  catTouched=now;
-  if(catPurrUntil>now)catPurrUntil+=20000;
-  else if(!asleep)catPurrUntil=now+10000;
-  return catPurrUntil>now?'PURR PURR':null;
-}
+export const catState=createCatState();
 export const keyboardTables=[3,8].map(x=>({x,z:4,w:2.7,d:.85}));
 export const pedalCase={x:upper.x+.45,z:upper.z-stairWallThickness-.52,w:4.55,d:.52,h:2.12};
 export const amplifiers=[
