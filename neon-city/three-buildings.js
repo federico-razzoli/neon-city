@@ -7,6 +7,8 @@ import {buildingTemplate} from './building-geometry.js';
 // buffers are retained until the building unloads or the street scene closes.
 export function createThreeBuildings(scene,{boundsVisible}={}){
   const models=new Map(),buildings=new Map();let disposed=false;
+  // Which sides face the viewer; overwritten by each draw call and read only within it.
+  const visible=[false,false,false,false];
   function geometry(side){
     if(models.has(side))return models.get(side);
     const source=buildingTemplate(),positions=[],uvs=[];
@@ -52,7 +54,9 @@ export function createThreeBuildings(scene,{boundsVisible}={}){
       entry.group.visible=true;
       // Keep side-level visibility checks to avoid empty draw calls and lazy
       // artwork requests. Individual panels stay on the GPU for face culling.
-      const visible=[viewer.z<z,viewer.z>z+d,viewer.x<x,viewer.x>x+w];
+      // Previous version, which allocated a new array every frame:
+      // const visible=[viewer.z<z,viewer.z>z+d,viewer.x<x,viewer.x>x+w];
+      visible[0]=viewer.z<z;visible[1]=viewer.z>z+d;visible[2]=viewer.x<x;visible[3]=viewer.x>x+w;
       for(const [side,mesh] of entry.walls)mesh.visible=visible[side];
       for(let side=0;side<4;side++)if(visible[side]){
         const image=imageFor(side);let artwork=entry.artwork.get(image);
