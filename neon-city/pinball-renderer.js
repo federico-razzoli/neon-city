@@ -9,6 +9,20 @@ const CLASSIC={
 };
 const theme=()=>CLASSIC;
 const project=(x,y,z=0)=>{const s=.36+y/900*.045;return {x:320+(x-240)*s,y:34+y/900*310-z*.22,s};};
+// Backbox across the top of the screen, drawn at its final size.
+const BEZEL_TOP_LEFT=211.54,BEZEL_TOP_RIGHT=428.46,BEZEL_BOTTOM_LEFT=215.02,BEZEL_BOTTOM_RIGHT=424.98;
+const BEZEL_HEIGHT=29.58,BEZEL_GRADIENT_HEIGHT=30.16,BEZEL_LINE=1.16;
+const GLASS_X=220.24,GLASS_Y=2.9,GLASS_W=199.52,GLASS_H=22.04,GLASS_LINE=.348;
+const GRILLE_LEFT_X=224.3,GRILLE_RIGHT_X=401.78,GRILLE_SLOTS=7,GRILLE_PITCH=1.914,GRILLE_Y=6.96,GRILLE_W=.696,GRILLE_H=13.34;
+const PANEL_X=242.86,PANEL_Y=4.64,PANEL_W=152.54,PANEL_H=17.98;
+const LABEL_FONT='600 3.48px Arial',LABEL_Y=9.86,SCORE_LABEL_X=249.82,BALL_LABEL_X=365.24;
+const REFLECTION_LEFT=243.44,REFLECTION_TOP_RIGHT=309.56,REFLECTION_BOTTOM_RIGHT=295.06,REFLECTION_TOP=4.64,REFLECTION_BOTTOM=22.04;
+const WINDOW_Y=11.6,WINDOW_H=10.44,SCORE_WINDOW_X=248.08,SCORE_WINDOW_W=109.04,BALL_WINDOW_X=362.92,BALL_WINDOW_W=27.84;
+const SCORE_FONT='500 12.18px Arial, sans-serif',SCORE_X=355.38,SCORE_Y=21.46;
+const BALL_FONT='500 10.44px Arial, sans-serif',BALL_X=383.8,BALL_Y=20.88;
+const TILT_FONT='600 6.96px Arial',TILT_X=299.7,TILT_Y=19.72;
+const GAME_OVER_X=244.6,GAME_OVER_Y=4.06,GAME_OVER_W=150.8,GAME_OVER_H=18.56,GAME_OVER_TEXT_X=320;
+const GAME_OVER_FONT='600 5.8px Arial',GAME_OVER_TEXT_Y=11.6,GAME_OVER_HINT_FONT='4.06px Arial',GAME_OVER_HINT_Y=18.56;
 function polygon(g,points,fill,stroke=null,width=1){g.beginPath();points.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();if(fill){g.fillStyle=fill;g.fill();}if(stroke){g.strokeStyle=stroke;g.lineWidth=width;g.stroke();}}
 function plate(g,points,z,fill,stroke=null,width=1){polygon(g,points.map(([x,y])=>project(x,y,z)),fill,stroke,width);}
 function line(g,points,z,color,width=1){g.beginPath();points.forEach(([x,y],i)=>{const p=project(x,y,z);i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y);});g.strokeStyle=color;g.lineWidth=width;g.lineJoin='round';g.lineCap='round';g.stroke();}
@@ -111,15 +125,15 @@ function drawFixed(g,game){
     for(const y of [60,465,850])screw(g,(a+b)/2,y,17);
   }
   // Backbox: score glass, speaker grilles and integrated ball counter.
-  g.save();g.translate(320,0);g.scale(.58,.58);g.translate(-320,0);
-  const bezel=g.createLinearGradient(0,0,0,52);bezel.addColorStop(0,'#cbd0ce');bezel.addColorStop(.1,'#6c7b82');bezel.addColorStop(.9,'#23353e');bezel.addColorStop(1,'#b7c2c4');
-  polygon(g,[{x:133,y:0},{x:507,y:0},{x:501,y:51},{x:139,y:51}],bezel,'#172027',2);
-  g.fillStyle='#080f13';g.fillRect(148,5,344,38);g.strokeStyle='#67767b';g.lineWidth=.6;g.strokeRect(148,5,344,38);
-  for(const x of [155,461])for(let i=0;i<7;i++){g.fillStyle='#435258';g.fillRect(x+i*3.3,12,1.2,23);}
-  g.fillStyle='#152229';g.fillRect(187,8,263,31);
-  g.textAlign='left';g.font='600 6px Arial';g.fillStyle='#b7c0bc';g.fillText('SCORE',199,17);g.fillText('BALL',398,17);
+  g.save();
+  const bezel=g.createLinearGradient(0,0,0,BEZEL_GRADIENT_HEIGHT);bezel.addColorStop(0,'#cbd0ce');bezel.addColorStop(.1,'#6c7b82');bezel.addColorStop(.9,'#23353e');bezel.addColorStop(1,'#b7c2c4');
+  polygon(g,[{x:BEZEL_TOP_LEFT,y:0},{x:BEZEL_TOP_RIGHT,y:0},{x:BEZEL_BOTTOM_RIGHT,y:BEZEL_HEIGHT},{x:BEZEL_BOTTOM_LEFT,y:BEZEL_HEIGHT}],bezel,'#172027',BEZEL_LINE);
+  g.fillStyle='#080f13';g.fillRect(GLASS_X,GLASS_Y,GLASS_W,GLASS_H);g.strokeStyle='#67767b';g.lineWidth=GLASS_LINE;g.strokeRect(GLASS_X,GLASS_Y,GLASS_W,GLASS_H);
+  for(const x of [GRILLE_LEFT_X,GRILLE_RIGHT_X])for(let i=0;i<GRILLE_SLOTS;i++){g.fillStyle='#435258';g.fillRect(x+i*GRILLE_PITCH,GRILLE_Y,GRILLE_W,GRILLE_H);}
+  g.fillStyle='#152229';g.fillRect(PANEL_X,PANEL_Y,PANEL_W,PANEL_H);
+  g.textAlign='left';g.font=LABEL_FONT;g.fillStyle='#b7c0bc';g.fillText('SCORE',SCORE_LABEL_X,LABEL_Y);g.fillText('BALL',BALL_LABEL_X,LABEL_Y);
   // Glass reflection on the score panel only; the playfield stays clear.
-  polygon(g,[{x:188,y:8},{x:302,y:8},{x:277,y:38},{x:188,y:38}],'#ffffff05');g.restore();
+  polygon(g,[{x:REFLECTION_LEFT,y:REFLECTION_TOP},{x:REFLECTION_TOP_RIGHT,y:REFLECTION_TOP},{x:REFLECTION_BOTTOM_RIGHT,y:REFLECTION_BOTTOM},{x:REFLECTION_LEFT,y:REFLECTION_BOTTOM}],'#ffffff05');g.restore();
 }
 function flipper(g,f,t=CLASSIC){
   const tip=(f.length??76)-4;
@@ -172,12 +186,12 @@ export function drawPinball(g,game){
   for(const b of game.bumpers)if(game.ball.y<b.y&&Math.abs(game.ball.x-b.x)<b.r+10)bumper(g,b,b.lit>0,t);
   }
   // The only live score readout is the machine's own display.
-  g.save();g.translate(320,0);g.scale(.58,.58);g.translate(-320,0);
-  g.fillStyle='#132026';g.fillRect(196,20,188,18);g.fillRect(394,20,48,18);
-  g.textAlign='right';g.fillStyle='#f5ead1';g.font='500 21px Arial, sans-serif';g.fillText(String(game.score).padStart(7,'0'),381,37);
-  g.font='500 18px Arial, sans-serif';g.fillText(`${game.lives}`,430,36);
-  if(game.tilted&&!game.over){g.textAlign='center';g.font='600 12px Arial';g.fillStyle='#ff866b';g.fillText('TILT',285,34);}
-  if(game.over){g.fillStyle='#112027';g.fillRect(190,7,260,32);g.textAlign='center';g.font='600 10px Arial';g.fillStyle='#f6e4ba';g.fillText(`GAME OVER    ${game.score}`,320,20);g.font='7px Arial';g.fillText('SPACE / ENTER TO RETURN TO ARCADE',320,32);}
+  g.save();
+  g.fillStyle='#132026';g.fillRect(SCORE_WINDOW_X,WINDOW_Y,SCORE_WINDOW_W,WINDOW_H);g.fillRect(BALL_WINDOW_X,WINDOW_Y,BALL_WINDOW_W,WINDOW_H);
+  g.textAlign='right';g.fillStyle='#f5ead1';g.font=SCORE_FONT;g.fillText(String(game.score).padStart(7,'0'),SCORE_X,SCORE_Y);
+  g.font=BALL_FONT;g.fillText(`${game.lives}`,BALL_X,BALL_Y);
+  if(game.tilted&&!game.over){g.textAlign='center';g.font=TILT_FONT;g.fillStyle='#ff866b';g.fillText('TILT',TILT_X,TILT_Y);}
+  if(game.over){g.fillStyle='#112027';g.fillRect(GAME_OVER_X,GAME_OVER_Y,GAME_OVER_W,GAME_OVER_H);g.textAlign='center';g.font=GAME_OVER_FONT;g.fillStyle='#f6e4ba';g.fillText(`GAME OVER    ${game.score}`,GAME_OVER_TEXT_X,GAME_OVER_TEXT_Y);g.font=GAME_OVER_HINT_FONT;g.fillText('SPACE / ENTER TO RETURN TO ARCADE',GAME_OVER_TEXT_X,GAME_OVER_HINT_Y);}
   g.restore();
   // The lock bar closes the cabinet, leaving the entire table in view.
   const bar=g.createLinearGradient(0,350,0,360);bar.addColorStop(0,'#e0e4e1');bar.addColorStop(.3,'#aab5b6');bar.addColorStop(1,'#3b515b');
