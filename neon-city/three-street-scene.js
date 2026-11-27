@@ -176,7 +176,9 @@ drawFingerpost:(s,boards,texture)=>fingerposts.draw(s,boards,texture),drawRetain
     // Street 0 has a bridge, with stairs and grates; chunk 1 on the first bank has a van.
     const chunks=[[0,row],[1,row],[0,row+1]].map(([x,z])=>({x,z,river:true,riverStart:row,buildings:[],people:[],manholes:[],newspaperMachines:[]}));
     for(const chunk of chunks){water.draw(chunk);riverWalks.draw(chunk);railings.draw(chunk);roads.draw(chunk);retainingWalls.draw(chunk);iceCreamVans.draw(chunk);}
-    renderer.compileAsync(scene,camera);
+    // compileAsync collects the materials synchronously, so the fish can go at once.
+    const removeFish=water.warmFish();
+    renderer.compileAsync(scene,camera);removeFish();
   }
   return {scene,camera,hitsBenchFace,setBoundsVisible(filter){exteriorFilter=filter;},prepare(renderer){warmRiverShaders(renderer);},update(frame){
     if(cash)cash.mesh.visible=false;

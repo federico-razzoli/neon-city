@@ -79,6 +79,12 @@ export function createThreeRiverWater(scene){
       }
       part.seen=true;for(const school of part.schools)school.update(time);material.uniforms.riverStart.value=chunk.riverStart*BLOCK+18;
     },
+    // A temporary school lets the street scene compile the fish shaders
+    // before the river loads; schools only exist where placements fall.
+    warmFish(){
+      const school=createRiverSchool(fishResources,{x:0,z:0,configuration:0,phase:0});
+      scene.add(school.group);return ()=>scene.remove(school.group);
+    },
     endFrame(){for(const [key,part] of parts)if(!part.seen){group.remove(part.mesh);for(const school of part.schools)scene.remove(school.group);parts.delete(key);}},
     dispose(){scene.remove(group);for(const part of parts.values())for(const school of part.schools)scene.remove(school.group);parts.clear();fishResources.dispose();geometry.dispose();material.dispose();}
   };
