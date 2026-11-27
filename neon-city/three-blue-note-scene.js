@@ -2,7 +2,7 @@
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createStorefrontStreet} from './three-storefront-street.js';
-import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables} from './blue-note-interior.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers} from './blue-note-interior.js';
 
 import {drawCylinder,drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
@@ -173,6 +173,66 @@ function drawInstrumentShop({box,quad,face}){
     box(x-.11,y+.2,.31,.22,.06,.03,'#e1d9cb');
     for(let n=0;n<(bass?4:6);n++)
       box(x-.04+n*(bass?.027:.016),y+.23,.345,.004,neck+.38,.008,'#c5c1ae');
+  }
+  for(const {x,z,w,d,h,style} of amplifiers){
+    if(style==='bass'||style==='tower'){
+      const gripX=x+w/2-.14,gripY=floor+h*.58;
+      for(const side of [-1,1]){
+        const sideZ=side<0?z:z+d;
+        for(const mountX of [gripX,gripX+.245])
+          box(mountX,gripY,sideZ+(side<0?-.06:0),.035,.045,.06,'#585b60');
+        box(gripX,gripY,sideZ+(side<0?-.085:.06),.28,.045,.025,'#313338');
+      }
+    }
+    if(style==='compact'||style==='mini'||style==='tower'){
+      box(x,floor,z,w,h,d,'#151619');
+      const grilleHeight=style==='tower'?256:96;
+      const grille=panel(128,grilleHeight,'#232528',g=>{
+        const speakers=style==='tower'?[64,192]:[48];
+        for(const cy of speakers){
+          const radius=style==='tower'?52:39;
+          for(const [scale,color] of [[1,'#64666a'],[.93,'#111214'],[.79,'#383a3c'],[.32,'#1a1b1d']]){
+            g.fillStyle=color;
+            g.beginPath();g.arc(64,cy,radius*scale,0,2*Math.PI);g.fill();
+          }
+        }
+        g.fillStyle='#535457';
+        for(let y=2;y<grilleHeight;y+=5)
+          for(let u=(y%2)*2;u<128;u+=5)g.fillRect(u,y,1,1);
+      });
+      const front=x-.003,low=floor+.05*h,high=floor+.95*h;
+      face([{x:front,y:high,z:z+.035*d,u:0,v:0},{x:front,y:high,z:z+.965*d,u:128,v:0},
+        {x:front,y:low,z:z+.965*d,u:128,v:grilleHeight},{x:front,y:low,z:z+.035*d,u:0,v:grilleHeight}],cream,grille);
+      // Recessed top controls leave the full front available for the grille.
+      box(x+w*.18,floor+h,z+d*.14,w*.30,.008,d*.72,'#37393b');
+      for(let knob=0;knob<3;knob++)
+        drawCylinder(face,x+w*.32,floor+h+.008,z+d*(.28+knob*.2),d*.029,.026,'#1b1c1e','#929396');
+      continue;
+    }
+    const bass=style==='bass';
+    box(x,floor,z,w,h,d,bass?'#24262a':'#3c322b');
+    const grille=panel(128,128,bass?'#313539':'#756857',g=>{
+      const cones=bass?[[36,36],[92,36],[36,92],[92,92]]:[[64,64]];
+      for(const [cx,cy] of cones){
+        const radius=bass?25:49;
+        g.fillStyle=bass?'#202226':'#493e34';
+        g.beginPath();g.arc(cx,cy,radius,0,2*Math.PI);g.fill();
+        g.fillStyle='#302e2c';
+        g.beginPath();g.arc(cx,cy,radius*.36,0,2*Math.PI);g.fill();
+      }
+      g.fillStyle=bass?'#606369':'#ac9778';
+      for(let i=0;i<128;i+=4){g.fillRect(i,0,1,128);g.fillRect(0,i,128,1);}
+    });
+    const front=x-.003,low=floor+.07,high=floor+h-.18;
+    face([{x:front,y:high,z:z+.05,u:0,v:0},{x:front,y:high,z:z+d-.05,u:128,v:0},
+      {x:front,y:low,z:z+d-.05,u:128,v:128},{x:front,y:low,z:z+.05,u:0,v:128}],cream,grille);
+    box(x-.012,high+.025,z+.05,.014,.10,d-.1,bass?'#777c80':'#ac966c');
+    for(let knob=0;knob<5;knob++)
+      box(x-.035,high+.055,z+.13+knob*.115,.025,.047,.047,'#202124');
+    if(!bass){
+      for(const dz of [-.15,.12])box(x+w*.45,floor+h,z+d/2+dz,.075,.045,.03,'#56585a');
+      box(x+w*.45,floor+h+.045,z+d/2-.15,.075,.035,.30,'#28292b');
+    }
   }
   for(const [index,{x,z,w,d}] of keyboardTables.entries()){
     box(x,floor+.84,z,w,.18,d,index===0?'#242a33':'#454443');
