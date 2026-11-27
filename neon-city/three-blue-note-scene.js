@@ -2,7 +2,7 @@
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createStorefrontStreet} from './three-storefront-street.js';
-import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,counterCat,counterCatPose,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,counterCat,counterCatPose,catPurrUntil,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
 
 import {drawCylinder,drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
@@ -469,7 +469,54 @@ function stairGlazing({scene}){
   }
   return {dispose(){geometry.dispose();material.dispose();}};
 }
-function createCounterCat(scene){
+function createCatPurr(context,camera,root){
+  THREE.AudioContext.setContext(context);
+  const listener=new THREE.AudioListener();
+  camera.add(listener);
+  const sound=new THREE.PositionalAudio(listener);
+  root.add(sound);
+  sound.position.y=.12;
+  sound.setDistanceModel('linear');
+  sound.setRefDistance(counterCat.radius+2.2);
+  sound.setMaxDistance(4.5);
+  const volume=.17;
+  const rate=12000,buffer=context.createBuffer(1,rate*2,rate);
+  const samples=buffer.getChannelData(0);
+  for(let i=0;i<samples.length;i++){
+    const t=i/rate,breath=Math.sin(Math.PI*t);
+    const phase=2*Math.PI*26*t+.55*breath;
+    const pulse=.52+.48*Math.cos(phase);
+    const rumble=.21*Math.sin(2*phase)+.19*Math.sin(4*phase);
+    const rasp=pulse*(.33*Math.sin(8*phase)+.17*Math.sin(11*phase)+.09*Math.sin(15*phase));
+    samples[i]=(rumble+rasp)*(.42+.58*Math.abs(breath))*(.9+.1*breath);
+  }
+  sound.setBuffer(buffer);
+  sound.setLoop(true);
+  return {
+    play(seconds){
+      const continuing=sound.isPlaying;
+      if(!continuing)sound.play();
+      const now=context.currentTime,end=now+seconds;
+      const gain=sound.gain.gain;
+      const level=continuing?gain.value:0;
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(level,now);
+      gain.linearRampToValueAtTime(volume,now+Math.min(.08,seconds/3));
+      gain.setValueAtTime(volume,end-Math.min(.2,seconds/3));
+      gain.linearRampToValueAtTime(0,end);
+      sound.source.stop(end);
+    },
+    dispose(){
+      if(sound.isPlaying)sound.stop();
+      sound.disconnect();
+      sound.gain.disconnect();
+      listener.gain.disconnect();
+      listener.removeFromParent();
+    }
+  };
+}
+function createCounterCat(scene,camera){
+  let purr,scheduledUntil=0;
   const root=new THREE.Group(),head=new THREE.Group();
   root.position.set(counterCat.x,basementFloor+fixtureTop,-counterCat.z);
   root.rotation.y=.83;
@@ -488,40 +535,40 @@ function createCounterCat(scene){
     return mesh;
   }
   const ball=(parent,material,x,y,z,w,h,d)=>part(parent,oval,material,x,y,z,w,h,d);
-  const rump=ball(root,fur,0,0,0,.13024,.132,.1408);
-  const chest=ball(root,fur,0,0,0,.09768,.1056,.1056);
-  const spine=ball(root,fur,0,0,0,.1056,.1056,.1584);
-  ball(head,fur,0,.0088,0,.10736,.09592,.09152);
+  const rump=ball(root,fur,0,0,0,.104192,.1056,.11264);
+  const chest=ball(root,fur,0,0,0,.078144,.08448,.08448);
+  const spine=ball(root,fur,0,0,0,.08448,.08448,.12672);
+  ball(head,fur,0,.00704,0,.085888,.076736,.073216);
   const legs=[],eyes=[];
   for(const side of [-1,1]){
-    const ear=part(head,wedge,fur,side*.0704,.0968,0,.06512,.1276,.05016);
+    const ear=part(head,wedge,fur,side*.05632,.07744,0,.052096,.10208,.040128);
     ear.rotation.z=-side*.23;
-    const lining=part(head,wedge,innerEar,side*.07216,.1012,.02728,.0396,.07656,.01408);
+    const lining=part(head,wedge,innerEar,side*.057728,.08096,.021824,.03168,.061248,.011264);
     lining.rotation.z=ear.rotation.z;
-    const eye=ball(head,amber,side*.04664,.02464,.08008,.0264,.01232,.00968);
+    const eye=ball(head,amber,side*.037312,.019712,.064064,.02112,.009856,.007744);
     eye.rotation.z=side*.18;
     ball(eye,shadow,0,0,.87,.17,.94,.35);
     eyes.push(eye);
-    ball(head,cheek,side*.02288,-.02024,.088,.03432,.02728,.03432);
+    ball(head,cheek,side*.018304,-.016192,.0704,.027456,.021824,.027456);
     for(const tilt of [-.13,.14]){
-      const hair=ball(head,whisker,side*.07656,-.02024+tilt*.0352,.10736,.0572,.001584,.001584);
+      const hair=ball(head,whisker,side*.061248,-.016192+tilt*.02816,.085888,.04576,.0012672,.0012672);
       hair.rotation.z=side*tilt;
     }
     legs.push({
       side,
-      thigh:ball(root,shadow,0,0,0,.07392,.1144,.12056),
-      hindPaw:ball(root,shadow,side*.09856,.02816,0,.04312,.02816,.08184),
-      shin:ball(root,cheek,0,0,0,.03168,.088,.0352),
-      paw:ball(root,cheek,side*.05896,.02288,0,.03872,.02288,.05632)
+      thigh:ball(root,shadow,0,0,0,.059136,.09152,.096448),
+      hindPaw:ball(root,shadow,side*.078848,.022528,0,.034496,.022528,.065472),
+      shin:ball(root,cheek,0,0,0,.025344,.0704,.02816),
+      paw:ball(root,cheek,side*.047168,.018304,0,.030976,.018304,.045056)
     });
   }
-  const nose=part(head,wedge,innerEar,0,-.01144,.12144,.01936,.0176,.00968);
+  const nose=part(head,wedge,innerEar,0,-.009152,.097152,.015488,.01408,.007744);
   nose.rotation.z=Math.PI;
   const tailPath=new THREE.CatmullRomCurve3([
-    [0,.0792,-.1672],[.0792,.0484,-.22],[.1672,.02992,-.1496],[.18128,.02552,-.01496],
-    [.15576,.02464,.09328],[.09416,.02464,.1408],[.06336,.03256,.1364]
+    [0,.06336,-.13376],[.06336,.03872,-.176],[.13376,.023936,-.11968],[.145024,.020416,-.011968],
+    [.124608,.019712,.074624],[.075328,.019712,.11264],[.050688,.026048,.10912]
   ].map(([x,y,z])=>new THREE.Vector3(x,y,z)));
-  const tailShape=new THREE.TubeGeometry(tailPath,32,.02376,8,false);
+  const tailShape=new THREE.TubeGeometry(tailPath,32,.019008,8,false);
   const vertices=tailShape.attributes.position,vertex=new THREE.Vector3();
   for(let ring=0;ring<=32;ring++){
     const centre=tailPath.getPointAt(ring/32);
@@ -540,38 +587,45 @@ function createCounterCat(scene){
     mesh.rotation.x=Math.atan2(z2-z1,y2-y1);
     mesh.scale.y=Math.hypot(y2-y1,z2-z1)/2+padding;
   }
-  function update(){
-    const {sit,stretch}=counterCatPose();
-    const hipY=.09504+.03256*sit+.13728*stretch,hipZ=-.0836-.03168*stretch;
-    const shoulderY=.09152+.20504*sit+.01936*stretch,shoulderZ=.066+.01848*sit+.06512*stretch;
+  function update(frame){
+    const now=performance.now();
+    if(catPurrUntil>now&&scheduledUntil!==catPurrUntil&&frame?.audioContext?.state==='running'){
+      purr??=createCatPurr(frame.audioContext,camera,root);
+      purr.play((catPurrUntil-now)/1000);
+      scheduledUntil=catPurrUntil;
+    }
+    const {sit,stretch}=counterCatPose(now);
+    const hipY=.076032+.026048*sit+.109824*stretch,hipZ=-.06688-.025344*stretch;
+    const shoulderY=.073216+.164032*sit+.015488*stretch,shoulderZ=.0528+.014784*sit+.052096*stretch;
     rump.position.set(0,hipY,hipZ);
-    rump.scale.y=.09504+.03256*sit+.01144*stretch;
+    rump.scale.y=.076032+.026048*sit+.009152*stretch;
     chest.position.set(0,shoulderY,shoulderZ);
-    chest.scale.y=.08184+.02376*sit;
-    span(spine,hipY,hipZ,shoulderY,shoulderZ,.05808);
-    head.position.set(.07304*(1-sit-stretch),shoulderY+.01056+.1056*sit+.01408*stretch,shoulderZ+.0484+.022*stretch);
+    chest.scale.y=.065472+.019008*sit;
+    span(spine,hipY,hipZ,shoulderY,shoulderZ,.046464);
+    head.position.set(.058432*(1-sit-stretch),shoulderY+.008448+.08448*sit+.011264*stretch,shoulderZ+.03872+.0176*stretch);
     head.rotation.set(.44*(1-sit-stretch),1.64*(1-sit-stretch)-.23*sit,-.24*(1-sit-stretch));
-    for(const eye of eyes)eye.scale.y=.00132+.011*sit+.00528*stretch;
+    for(const eye of eyes)eye.scale.y=.001056+.0088*sit+.004224*stretch;
     for(const {side,thigh,hindPaw,shin,paw} of legs){
-      thigh.position.set(side*.07744,hipY-.01232,hipZ+.01232);
-      thigh.scale.y=hipY-.0132;
-      hindPaw.position.z=hipZ+.0704;
-      paw.position.z=.06688+.07392*sit+.21472*stretch;
-      shin.position.x=side*.05896;
-      span(shin,.03344,paw.position.z-.02024,shoulderY,shoulderZ,.01056);
+      thigh.position.set(side*.061952,hipY-.009856,hipZ+.009856);
+      thigh.scale.y=hipY-.01056;
+      hindPaw.position.z=hipZ+.05632;
+      paw.position.z=.053504+.059136*sit+.171776*stretch;
+      shin.position.x=side*.047168;
+      span(shin,.026752,paw.position.z-.016192,shoulderY,shoulderZ,.008448);
     }
     tail.rotation.x=-.77*stretch;
-    tail.position.y=.132*stretch;
+    tail.position.y=.1056*stretch;
   }
   update();
   return {update,dispose(){
+    purr?.dispose();
     root.removeFromParent();
     for(const resource of [oval,wedge,tailShape,fur,shadow,cheek,amber,innerEar,whisker])resource.dispose();
   }};
 }
 export function createBlueNoteScene({streetScene}={}){
-  return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene}){
-    const cat=createCounterCat(scene);
+  return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene,camera}){
+    const cat=createCounterCat(scene,camera);
     const stairs=stairGlazing({scene}),street=createStorefrontStreet(scene,storefront,{streetScene});
     const geometry=new THREE.PlaneGeometry(1,1);
     const loader=new THREE.TextureLoader();
@@ -600,7 +654,7 @@ export function createBlueNoteScene({streetScene}={}){
     }
     return {
       prepare:(renderer,frame)=>street.prepare(renderer,frame),
-      update(frame){cat.update();street.update(frame);},
+      update(frame){cat.update(frame);street.update(frame);},
       dispose(){
         for(const poster of posters){poster.material.map.dispose();poster.material.dispose();}
         cat.dispose();street.dispose();stairs.dispose();geometry.dispose();material.dispose();

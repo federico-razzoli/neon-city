@@ -726,7 +726,7 @@ function render(){
   document.querySelector('.scanlines').classList.toggle('pub-shade',insidePub||insideLavatory||insideCubicle!=null);
   document.querySelector('.scanlines').classList.toggle('hotel-shade',insideHotel);
   const frame={
-    player,eye,windowView,playerSeat,running,time,
+    player,eye,windowView,playerSeat,running,time,audioContext,
     insideBlueNote,insideBookshop,bookshopLife,insideArcade,arcadeLife,
     insideHotel,hotelCorridor,hotelStairs,hotelStorage,currentHotel,
     insideCubicle,insideLavatory,insidePub,lavatoryOccupied,lavatoryTaps,lavatoryLife,
@@ -981,6 +981,7 @@ function handleWorldInput(k,e){
   if(k===' '&&!e.repeat&&insideCubicle&&lavatoryLife?.cubicleBlackout){useDoor();return;}
   if(k===' '&&!e.repeat){const pickedUp=takeDroppedItem(player,city.chunks.values(),inventory,itemRoom(),itemGround());if(pickedUp){bookshopLife?.resetBookInteraction();notice=2.5;noticeText=pickedUp;return;}if(insideArcade){const machine=facingArcadeGame(player);if(machine){if(arcadeLife?.occupied(machine)){notice=2.5;noticeText='SOMEONE IS ALREADY PLAYING THIS CABINET.';return;}const reply=tryArcadeGame(machine,inventory,false);if(reply==='PINBALL'||reply==='BYKER'||reply==='GHOST'||reply==='PUNCH'||reply==='PING'||reply==='GROG'||reply==='KONGY KONG'||reply==='AMIGOS'||reply==='METEORS'||reply==='BRICKS'||reply==='SUPER'){playCabinet(reply,machine);}else{notice=3.5;noticeText=reply;}return;}}if(useSeat()){bookshopLife?.resetBookInteraction();return;}if(useDoor()){bookshopLife?.resetBookInteraction();return;}if(insideBlueNote){
     const reply=blueNoteReply(player);
+    if(reply==='PURR PURR'&&audioContext?.state!=='running')enableSound();
     if(reply){notice=2.5;noticeText=reply;}
     return;
   }if(insideBookshop){const target=bookshopSpatial()?bookshopTarget():undefined;const reply=bookshopLife.interact(player,inventory,target)??(target===undefined?bookshopReply(player,bookshopLife):target?.type==='reply'?target.data:null);if(reply){notice=4;noticeText=reply;}else if(bookshopLife.atDesk&&(target===undefined?facingBookseller(player):target?.type==='seller'))talkToStaff(booksellerTalk(bookshopLife.backpack),'Talk to the bookseller',bookshopLife.booksellerGifts(inventory));return;}if(insideArcade){const reply=arcadeReply(player);if(reply){notice=2.5;noticeText=reply;}else if(!arcadeLife?.deskBusy&&facingArcadeAttendant(player))talkToStaff(arcadeTalk(wallet,inventory),'Talk to the arcade desk lady',{},null);return;}if(insideHotel){if(facingHotelLamp(player,currentHotel)){const complaint=switchHotelLamp(currentHotel,inventory);if(complaint){notice=2.5;noticeText=complaint;}return;}if(facingHotelBell(player)){playDeskBell(audioContext);notice=2.5;noticeText=BELL_ANSWER;return;}const reply=hotelReply(player,hotelLife.guest()?.receptionWait>0,currentHotel);if(reply){notice=2.5;noticeText=reply;}else if(!(hotelLife.guest()?.receptionWait>0)&&facingReceptionistAcrossDesk(player,currentHotel))talkToStaff(RECEPTIONIST_TALK,'Talk to the receptionist',RECEPTIONIST_GIFTS);return;}if(insideLavatory){if(washroomSpatial()){

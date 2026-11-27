@@ -36,6 +36,7 @@ export const stairRun=.29*17,flightDrop=.18*17,basementFloor=-2*flightDrop;
 export const instrumentDesk={x:0,z:10,w:7,d:1},instrumentClerk={x:4,z:11.5,radius:.5};
 export const instrumentTill={x:instrumentDesk.x+.74,z:instrumentDesk.z+.475,radius:.38};
 export const counterCat={x:instrumentDesk.x+instrumentDesk.w-.48,z:instrumentDesk.z+.45,radius:.38};
+export let catPurrUntil=0;
 let catWoke=-Infinity,catTouched=-Infinity,catAlertAtTouch=0;
 function easeCat(t){
   const u=Math.max(0,Math.min(1,t));
@@ -55,7 +56,9 @@ function interactWithCat(){
   catAlertAtTouch=asleep?0:1-easeCat((idle-20000)/2500);
   if(asleep)catWoke=now;
   catTouched=now;
-  return asleep?null:'PURR PURR';
+  if(catPurrUntil>now)catPurrUntil+=20000;
+  else if(!asleep)catPurrUntil=now+10000;
+  return catPurrUntil>now?'PURR PURR':null;
 }
 export const keyboardTables=[3,8].map(x=>({x,z:4,w:2.7,d:.85}));
 export const pedalCase={x:upper.x+.45,z:upper.z-stairWallThickness-.52,w:4.55,d:.52,h:2.12};

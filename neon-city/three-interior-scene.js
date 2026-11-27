@@ -68,7 +68,7 @@ export function createThreeInteriorScene({name,drawRoom,createRoomGeometry,creat
   const artworkMeshes=createThreeArtwork();
   const room=createRoomGeometry?new THREE.Mesh(createRoomGeometry(),material):drawRoom?new THREE.Mesh(builder.build(drawRoom,{onTexture(vertices,color,image){scene.add(artworkMeshes.mesh(vertices,image));}}),material):new THREE.Group();
   room.name=`${name}-room`;scene.add(room);
-  const extras=createExtras?.({scene,room,builder,material,artwork:artworkMeshes});
+  const extras=createExtras?.({scene,camera,room,builder,material,artwork:artworkMeshes});
   const dropped=new Map(),actors=new Map(),artwork=new Map(),cards=createThreeCharacterCards();
   const actorGeometry=new THREE.PlaneGeometry(1,1),seatedGeometry=new THREE.PlaneGeometry(1,1);
   const seatedUV=seatedGeometry.attributes.uv;
