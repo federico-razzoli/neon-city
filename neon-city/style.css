@@ -78,3 +78,20 @@ If not, see <https://www.gnu.org/licenses/>.
 
 /* Allow captured camera gestures without browser pan/zoom cancellation. */
 #game canvas{touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+/* First load only: the title screen composes itself out of the dark in about 3.3s.
+   Opacity and transform only, so it stays on the compositor. game.js drops .first-load
+   on the first start, so showing the overlay again on pause never replays it. */
+@keyframes intro-fade{from{opacity:0}}
+@keyframes intro-rise{from{opacity:0;transform:translateY(12px)}}
+@keyframes intro-spread{from{opacity:0;transform:scaleX(1.35)}}
+/* A neon tube striking: off, blink, off, on, sag, on. Steps hold each value. */
+@keyframes intro-strike{0%{opacity:0}12%{opacity:1}18%{opacity:0}28%{opacity:1}34%{opacity:.3}42%,100%{opacity:1}}
+#game.first-load .eyebrow{animation:intro-spread .6s ease-out 1.3s both}
+#game.first-load h1{animation:intro-strike .7s steps(1,end) .2s both}
+#game.first-load h1 span{animation:intro-strike .6s steps(1,end) .65s both}
+#game.first-load #description{animation:intro-rise .5s ease-out 1.55s both}
+#game.first-load #start{animation:intro-rise .5s ease-out 2.3s both}
+#game.first-load .controls,#game.first-load .fine{animation:intro-fade .6s ease-out 2.45s both}
+#game.first-load header,#game.first-load footer{animation:intro-fade .8s ease-out 2.55s both}
+@media(prefers-reduced-motion:reduce){#game.first-load *{animation:none!important}}

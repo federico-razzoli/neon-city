@@ -793,7 +793,7 @@ const debugMenu=DEBUG_MODE?createDebugMenu({
 const pauseButton=document.querySelector('#pause');
 function syncPauseButton(){pauseButton.textContent=running?'Ⅱ':'▶\uFE0E';pauseButton.setAttribute('aria-label',running?'Pause game':'Resume game');}
 function pause(){if(banshee||pubMenu.open||inventoryBox.open||staffTalk)return;cubicleKnock?.stopAudio();startSpaceHeld=false;running=false;ping?.syncInput?.(canvas,false);arcadeAmbience.mute();parkBirds.mute();tapWater.mute();muteBackgroundMusic();keys.clear();shiftKeys.clear();coverPressed=false;document.querySelector('#pace').hidden=true;overlay.hidden=false;start.innerHTML='BACK TO THE NIGHT <span>→</span>';document.querySelector('#description').textContent='The night can wait.';syncPauseButton();start.focus();}
-function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;started=true;overlay.hidden=true;syncPauseButton();keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
+function play(){if(start.disabled||debugMenu?.open)return;if(pubMenu.open||inventoryBox.open||staffTalk)return;enableSound();running=true;started=true;overlay.hidden=true;document.querySelector('#game').classList.remove('first-load');syncPauseButton();keys.clear();shiftKeys.clear();coverPressed=false;canvas.focus();last=performance.now();}
 start.addEventListener('click',play);pauseButton.addEventListener('click',()=>running?pause():play());syncPauseButton();
 let hotelEventPresses=0,hotelEventKey=null;
 const valid=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','Shift','Escape',' ']);
