@@ -311,6 +311,9 @@ export function createThreeIceCreamVans(scene,{boundsVisible}={}){
     stateFor:v=>[v.x,v.z,v.first],keyFor:()=> 'van',assetFor:assets,
     matrixFor(v,matrix){matrix.makeRotationY(v.first?0:Math.PI);matrix.setPosition(v.x,.04,-v.z);}
   });
+  // Build the shared van models with the street scene, not on the frame the
+  // first van appears, where they would add to the river's first-render stall.
+  assets();doorAssets();cabDoorAssets();
   return {beginFrame(frame){
     const seated=Boolean(frame.playerSeat?.cabVan);
     if(cabGlass.transparent!==seated){cabGlass.transparent=seated;cabGlass.opacity=seated ? .22 : 1;cabGlass.depthWrite=!seated;cabGlass.needsUpdate=true;}
