@@ -20,7 +20,7 @@ If not, see <https://www.gnu.org/licenses/>.
 import {facesEntrance} from './entrances.js';
 import {facingDoorway,facingNearest,facingAcrossCounter,BARTENDER_REPLY} from './pub-interior.js';
 
-export const BOOKSHOP={width:18,depth:18,height:4.5,door:{x:9,z:0},spawn:{x:9,z:1.8,angle:0},
+export const BOOKSHOP={width:18,depth:18,height:4.5,door:{x:9,z:0,height:3},spawn:{x:9,z:1.8,angle:0},
   // The left and rear cases meet flush in the far-left corner.
   shelves:[{x:0,z:4,w:1.2,d:14},{x:16.8,z:4,w:1,d:9},
     {x:1.2,z:16.8,w:10.8,d:1.2},{x:4,z:6,w:1,d:7},{x:12,z:6,w:1,d:7}],
@@ -38,6 +38,10 @@ export const BOOKSHOP={width:18,depth:18,height:4.5,door:{x:9,z:0},spawn:{x:9,z:
 BOOKSHOP.readingTables=BOOKSHOP.chairs.map(chair=>({
   x:chair.x+Math.sin(chair.angle)*1.85,z:chair.z+Math.cos(chair.angle)*1.85,radius:.45
 }));
+export const BOOKSHOP_WINDOW_PANES=BOOKSHOP.windowShelves.map(b=>({
+  x:b.x+.12,y:.95,z:.04,w:b.w-.24,h:BOOKSHOP.door.height-.95
+}));
+
 export const BOOK_TITLES=['HOW TO BUILD A ROBOT','LORD OF THE EARRINGS','NEON CITY SECRETS','REGULAR EXPRESSIONS','AUTOBIOGRAPHY OF A MAN WHO DIED ALL OF A SUDD','THE ULTIMATE GUIDE TO TIME PARADOXES','MAKE IT SO, NUMBER ONE!','LOOK OUTSIDE','HOW TO EXIT VIM',"NO, I'M NOT A HUMAN",'NEWSPEAK DICTIONARY','V FOR VINTAGE'];
 export const BOOKSHOP_BOOKS=BOOKSHOP.tables.flatMap((table,i)=>Array.from({length:6},(_,j)=>({
   x:table.x+.5+(j%3)*.9,z:table.z+.425+Math.floor(j/3)*.8,

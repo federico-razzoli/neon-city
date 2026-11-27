@@ -3,7 +3,7 @@ import {Mesh,PlaneGeometry,MeshBasicMaterial,DoubleSide} from './vendor/three/th
 import {createThreeSeatedCharacters} from './three-seated-characters.js';
 import {characterGirth} from './world.js?v=start-pub-1';
 import {createThreeInteriorScene} from './three-interior-scene.js';
-import {BOOKSHOP,BOOKSHOP_BOOKS} from './midnite-interior.js';
+import {BOOKSHOP,BOOKSHOP_WINDOW_PANES,BOOKSHOP_BOOKS} from './midnite-interior.js';
 import {bookshopVisitorShowsBack} from './midnite-life.js';
 import {createBookshopRoomGeometry,createBooksellerGeometry,createBackpackGeometry,createBookGeometry} from './three-bookshop-models.js';
 import {createBookshopStreet} from './three-bookshop-street.js';
@@ -16,9 +16,9 @@ export function createThreeBookshopScene({imageFor,streetScene}={}){
     createExtras({scene,material}){
       const street=createBookshopStreet(scene,{streetScene}),seated=createThreeSeatedCharacters(),legs=new Map();
       const glassGeometry=new PlaneGeometry(1,1),glassMaterial=new MeshBasicMaterial({color:'#8bb9ae',transparent:true,opacity:.22,depthWrite:false,side:DoubleSide,toneMapped:false});
-      for(const [i,b] of BOOKSHOP.windowShelves.entries()){
+      for(const [i,pane] of BOOKSHOP_WINDOW_PANES.entries()){
         const glass=new Mesh(glassGeometry,glassMaterial);glass.name=`bookshop-window-${i}`;
-        glass.position.set(b.x+b.w/2,1.85,-.04);glass.scale.set(b.w-.24,1.8,1);scene.add(glass);
+        glass.position.set(pane.x+pane.w/2,pane.y+pane.h/2,-pane.z);glass.scale.set(pane.w,pane.h,1);scene.add(glass);
       }
       const seller=new Mesh(createBooksellerGeometry(),material);
       seller.name='bookshop-bookseller';scene.add(seller);

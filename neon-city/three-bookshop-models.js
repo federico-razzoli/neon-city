@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
-import {BOOKSHOP,BOOK_CATEGORIES} from './midnite-interior.js';
+import {BOOKSHOP,BOOKSHOP_WINDOW_PANES,BOOK_CATEGORIES} from './midnite-interior.js';
 import {drawTill} from './three-till.js';
 
 export function createBookshopRoomGeometry(){
@@ -13,7 +13,7 @@ export function createBookshopRoomGeometry(){
   panel(0,0,depth,width,height,'#344b3e');
   {
     let left=0;
-    for(const opening of [...BOOKSHOP.windowShelves.map(b=>({x:b.x+.12,w:b.w-.24,y:.95,h:1.8})),{x:door.x-.85,w:1.7,y:0,h:3}].sort((a,b)=>a.x-b.x)){
+    for(const opening of [...BOOKSHOP_WINDOW_PANES,{x:door.x-.85,w:1.7,y:0,h:door.height}].sort((a,b)=>a.x-b.x)){
       if(opening.x>left)panel(left,0,0,opening.x-left,height,'#344b3e');
       if(opening.y)panel(opening.x,0,0,opening.w,opening.y,'#344b3e');
       panel(opening.x,opening.y+opening.h,0,opening.w,height-opening.y-opening.h,'#344b3e');
@@ -23,13 +23,16 @@ export function createBookshopRoomGeometry(){
   }
   for(const x of [0,width])model.side(x,0,0,depth,height,'#344b3e');
   // A solid door closes the shallow reveal between its face and the wall.
-  box(door.x-.85,0,0,1.7,3,.01,'#203c32');
+  box(door.x-.85,0,0,1.7,door.height,.01,'#203c32');
   box(door.x+.55,1.1,.05,.1,.3,.1,'#ddc38a');
-  panel(door.x-.6,3.25,.03,1.2,.4,'#d5c494');label('EXIT',door.x+.45,3.3,.04,.055,true);
+  const frameColor='#a68b5e';
+  for(const x of [door.x-.97,door.x+.85])panel(x,0,.02,.12,door.height,frameColor);
+  panel(door.x-.97,door.height,.02,1.94,.15,frameColor);
   // Street-facing display windows retain their gold frames around the glass.
-  for(const b of BOOKSHOP.windowShelves){
-    panel(b.x,.8,.02,b.w,.15,'#a68b5e');panel(b.x,2.75,.02,b.w,.15,'#a68b5e');
-    panel(b.x,.95,.02,.12,1.8,'#a68b5e');panel(b.x+b.w-.12,.95,.02,.12,1.8,'#a68b5e');
+  for(const [i,b] of BOOKSHOP.windowShelves.entries()){
+    const pane=BOOKSHOP_WINDOW_PANES[i];
+    panel(b.x,.8,.02,b.w,.15,frameColor);panel(b.x,door.height,.02,b.w,.15,frameColor);
+    panel(b.x,pane.y,.02,.12,pane.h,frameColor);panel(b.x+b.w-.12,pane.y,.02,.12,pane.h,frameColor);
     box(b.x,.7,b.z,b.w,.15,b.d,'#9b754e');
   }
   const colors=['#93634e','#ae925c','#526e60','#71617d','#a06b75','#557985'];
@@ -73,6 +76,11 @@ export function createBookshopRoomGeometry(){
     box(b.x,3.13-plaqueHeight,b.z-.015,b.w,plaqueHeight,.03,'#d9c99e');
     const scale=Math.min(.025,(b.w-.1)/(Math.max(...lines.map(line=>line.length))*4));
     lines.forEach((line,row)=>label(line,b.x+.05,3-row*.15,b.z-.02,scale));
+    const rearZ=b.z+b.d;
+    if(rearZ<depth){
+      box(b.x,3.13-plaqueHeight,rearZ-.015,b.w,plaqueHeight,.03,'#d9c99e');
+      lines.forEach((line,row)=>label(line,b.x+b.w-.05,3-row*.15,rearZ+.02,scale,true));
+    }
   }
   for(const b of BOOKSHOP.tables){
     for(const x of [b.x+.15,b.x+b.w-.3])for(const z of [b.z+.15,b.z+b.d-.3])box(x,0,z,.15,.85,.15,'#49372d');
