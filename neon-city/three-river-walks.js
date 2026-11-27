@@ -51,6 +51,13 @@ export function createThreeRiverWalks(scene){
       attribute(){return new THREE.InstancedBufferAttribute(new Float32Array(values),16);}
     };
   }
+  // Stone shades depend only on the instance index, so each template's colour
+  // buffer is shared by every chunk and uploaded once, like its matrices.
+  function shaded(count){
+    const array=new Float32Array(count*3);
+    for(let i=0;i<count;i++)shades[i<2?0:(i-2)%shades.length].toArray(array,i*3);
+    return new THREE.InstancedBufferAttribute(array,3);
+  }
   function template(first){
     let result=templates.get(first);if(result)return result;
     const dir=first?1:-1;
@@ -111,7 +118,8 @@ export function createThreeRiverWalks(scene){
     // A round key entrance above a narrow tapered slot, inset in the plate.
     transform.position.set(plateX+.125,leafBottom+1.23,-dir*.263+shift);
     transform.rotation.set(0,0,0);transform.scale.setScalar(1);keyholes.push();
-    result={plain:plain.attribute(),stairs:stairs.attribute(),reveal:reveal.attribute(),grate:[
+    result={plain:plain.attribute(),stairs:stairs.attribute(),
+      plainColors:shaded(plain.values.length/16),stairsColors:shaded(stairs.values.length/16),reveal:reveal.attribute(),grate:[
       ['river-grate-dark',cube,dark,recess.attribute()],['river-grate-iron',cube,iron,grate.attribute()],
       ['river-grate-hardware',cube,frameIron,aged.attribute()],['river-grate-lock',cube,lock,locks.attribute()],
       ['river-grate-rivets',cube,frameIron,rivets.attribute()],['river-grate-keyhole',keyholeGeometry,dark,keyholes.attribute()]
@@ -141,7 +149,7 @@ export function createThreeRiverWalks(scene){
       for(const [name,geometry,material,attribute] of shapes.grate)share(group,name,geometry,material,attribute,x,bank);
     }
     const mesh=share(group,'river-walk-stone',cube,stone,stairs?shapes.stairs:shapes.plain,x,bank);
-    for(let i=0;i<mesh.count;i++)mesh.setColorAt(i,shades[i<2?0:(i-2)%shades.length]);
+    mesh.instanceColor=stairs?shapes.stairsColors:shapes.plainColors;
     const benches=chunk.riverBenches??riverBenches(chunk);
     if(benches.length){
       const timber=instances(group,'river-bench-wood',cube,wood,benches.length*2,x,bank);
@@ -170,7 +178,7 @@ export function createThreeRiverWalks(scene){
   function release(part,keepShared=true){
     scene.remove(part.group);
     for(const mesh of part.group.children){
-      if(keepShared&&mesh.userData.sharedInstances)mesh.instanceMatrix=detached;
+      if(keepShared&&mesh.userData.sharedInstances){mesh.instanceMatrix=detached;mesh.instanceColor=null;}
       mesh.dispose();
     }
   }
