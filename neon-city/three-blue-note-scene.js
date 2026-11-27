@@ -124,12 +124,10 @@ function drawDora(box,face){
   localFace([{x:-.048,y:1.32,z:-.166},{x:.048,y:1.32,z:-.166},
     {x:.037,y:1.277,z:-.166},{x:0,y:1.235,z:-.166},{x:-.037,y:1.277,z:-.166}],'#ffd34a');
   drawCylinder(localFace,0,1.435,0,.082,.13,skin);
-  // Rotate the face, curls and earrings together around the base of the head.
-  const tilt=.12;
-  const headFace=(points,color)=>localFace(points.map(p=>({
-    x:p.x*Math.cos(tilt)-p.y*Math.sin(tilt),
-    y:1.52+p.x*Math.sin(tilt)+p.y*Math.cos(tilt),z:p.z
-  })),color);
+}
+
+function drawDoraHead({face:headFace}){
+  const skin='#c58d73';
   drawCylinder(headFace,0,0,0,.13,.22,skin,skin,.155);
   for(const side of [-1,1]){
     drawCylinder(headFace,side*.059,.115,-.13,.016,.017,'#34292b');
@@ -146,6 +144,29 @@ function drawDora(box,face){
     drawCylinder(headFace,.14*Math.cos(a),.145+.04*Math.max(0,-Math.sin(a))+.012*(i%2),
       .14*Math.sin(a),.049,.085,i%3?'#30282a':'#443437','#443437',.038);
   }
+}
+function createDoraHead(scene,builder,material){
+  const head=new THREE.Mesh(builder.build(drawDoraHead),material);
+  head.position.set(instrumentClerk.x,basementFloor+1.52,-instrumentClerk.z);
+  scene.add(head);
+  const tilt=.12;
+  const turnDelay=()=>20000+Math.random()*10000;
+  let from=tilt,to=tilt,start=performance.now(),nextTurn=start+turnDelay();
+  head.rotation.z=tilt;
+  return {
+    update(){
+      const now=performance.now();
+      if(now>=nextTurn){
+        from=to;
+        if(from===0)to=Math.random()<.5?-tilt:tilt;
+        else to=Math.random()<.5?-from:0;
+        start=now;
+        nextTurn=now+turnDelay();
+      }
+      head.rotation.z=THREE.MathUtils.lerp(from,to,THREE.MathUtils.smoothstep(now-start,0,800));
+    },
+    dispose(){head.removeFromParent();head.geometry.dispose();}
+  };
 }
 function drawPedalCase(box,face){
   const {x,z,w,d,h}=pedalCase,y=basementFloor,frame='#38464b';
@@ -617,9 +638,9 @@ function createCounterCat(scene,camera){
     head.rotateX(lookPitch*sit);
     const awakeEyes=.0088*sit+.004224*stretch;
     let squint=0;
-    if(awakeEyes>0){
+    if(awakeEyes>0&&attention>0){
       if(!nextBlink||now>=nextBlink+1500)nextBlink=now+4500+Math.random()*5500;
-      if(now>nextBlink)squint=.35*Math.sin(Math.PI*(now-nextBlink)/1500)**2;
+      if(now>nextBlink)squint=.35*attention*Math.sin(Math.PI*(now-nextBlink)/1500)**2;
     }else nextBlink=0;
     for(const eye of eyes)eye.scale.y=.001056+awakeEyes*(1-squint);
     for(const {side,thigh,hindPaw,shin,paw} of legs){
@@ -641,7 +662,8 @@ function createCounterCat(scene,camera){
   }};
 }
 export function createBlueNoteScene({streetScene}={}){
-  return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene,camera}){
+  return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene,camera,builder,material:roomMaterial}){
+    const doraHead=createDoraHead(scene,builder,roomMaterial);
     const cat=createCounterCat(scene,camera);
     const stairs=stairGlazing({scene}),street=createStorefrontStreet(scene,storefront,{streetScene});
     const geometry=new THREE.PlaneGeometry(1,1);
@@ -671,10 +693,10 @@ export function createBlueNoteScene({streetScene}={}){
     }
     return {
       prepare:(renderer,frame)=>street.prepare(renderer,frame),
-      update(frame){cat.update(frame);street.update(frame);},
+      update(frame){doraHead.update();cat.update(frame);street.update(frame);},
       dispose(){
         for(const poster of posters){poster.material.map.dispose();poster.material.dispose();}
-        cat.dispose();street.dispose();stairs.dispose();geometry.dispose();material.dispose();
+        doraHead.dispose();cat.dispose();street.dispose();stairs.dispose();geometry.dispose();material.dispose();
       }
     };
   },actorsFor:()=>[]});
