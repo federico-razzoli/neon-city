@@ -34,100 +34,126 @@ export function createThreeRiverWalks(scene){
   const keyholeGeometry=new THREE.ShapeGeometry(keyholeShape,12);
   // The two banks face opposite directions.
   dark.side=THREE.DoubleSide;
-  const parts=new Map(),transform=new THREE.Object3D();
+  const parts=new Map(),transform=new THREE.Object3D(),templates=new Map();
+  // Bank-local matrices: x runs along the block from its west edge, z is 0 on
+  // the bank face and grows towards the water by dir. Meshes are positioned
+  // at the chunk, so one template serves every chunk on the same bank side.
+  function collect(){
+    const values=[];
+    return {values,
+      push(){transform.updateMatrix();values.push(...transform.matrix.elements);},
+      box(dir,px,y,d,w,h,depth,shift=0){
+        transform.position.set(px+w/2,y+h/2,-dir*(d+depth/2)+shift);
+        transform.rotation.set(0,0,0);transform.scale.set(w,h,depth);this.push();
+      },
+      array(){return new Float32Array(values);}
+    };
+  }
+  function template(first){
+    let result=templates.get(first);if(result)return result;
+    const dir=first?1:-1;
+    const plain=collect();plain.box(dir,0,RIVER_WALK_HEIGHT-.2,0,BLOCK,.2,RIVER_WALK_WIDTH);
+    const stairs=collect();stairs.values.push(...plain.values);
+    stairs.box(dir,RIVER_STAIRS.landing,RIVER_WALK_HEIGHT,0,2,-RIVER_WALK_HEIGHT,RIVER_STAIRS.width);
+    const tread=(RIVER_STAIRS.end-RIVER_STAIRS.start)/RIVER_STAIRS.steps;
+    for(let step=0;step<RIVER_STAIRS.steps;step++){
+      const top=RIVER_WALK_HEIGHT*(step+1)/RIVER_STAIRS.steps;
+      if(top>RIVER_WALK_HEIGHT)stairs.box(dir,RIVER_STAIRS.start+step*tread,RIVER_WALK_HEIGHT,0,tread,top-RIVER_WALK_HEIGHT,RIVER_STAIRS.width);
+    }
+    const {width,height,depth}=RIVER_GRATE,left=-width/2,bottom=RIVER_WALK_HEIGHT;
+    const reveal=collect();
+    for(let side=0;side<2;side++){
+      transform.position.set(left+side*width,bottom+height/2,dir*.16);
+      transform.rotation.set(0,Math.PI/2,0);transform.scale.set(.32,height,1);reveal.push();
+    }
+    transform.position.set(0,bottom+height,dir*.16);
+    transform.rotation.set(Math.PI/2,0,0);transform.scale.set(width,.32,1);reveal.push();
+    // All ironwork sits inside the cut opening, with clearance from the wall.
+    const shift=dir*.34;
+    const recess=collect(),grate=collect(),aged=collect(),locks=collect(),rivets=collect(),keyholes=collect();
+    // The leaf fits from the lower path to the bridge slab's underside.
+    // Hinges fasten directly to the wall, without an outer door frame.
+    recess.box(dir,left,bottom,.025,width,height,.025,shift);
+    const leafLeft=left,leafWidth=width;
+    const leafBottom=bottom+.02,leafHeight=height-.04;
+    for(const edge of [leafLeft,leafLeft+leafWidth-.075])
+      grate.box(dir,edge,leafBottom,depth,.075,leafHeight,.085,shift);
+    for(const y of [0,.42,1.48,leafHeight-.075])
+      grate.box(dir,leafLeft,leafBottom+y,depth,leafWidth,.075,.085,shift);
+    for(let i=1;i<=5;i++){
+      const length=leafHeight-.15,segments=8;
+      for(let j=0;j<segments;j++){
+        const t=j/segments,next=(j+1)/segments;
+        const bend=t=>Math.sin(t*Math.PI)*(i%2?1:-1)*(.025+i*.004);
+        const px=leafLeft+i*leafWidth/6-.024+Math.sin(i*8.1)*.025;
+        const ax=px+bend(t),bx=px+bend(next),h=length/segments;
+        transform.position.set((ax+bx)/2,leafBottom+.075+(j+.5)*h,-dir*(depth+.035)+shift);
+        transform.rotation.set(0,0,-Math.atan2(bx-ax,h));
+        transform.scale.set(.047+Math.sin(i*13+j*7)*.007,Math.hypot(h,bx-ax)+.004,.06);
+        grate.push();
+      }
+    }
+    // Long hinge straps attach the leaf directly to the wall.
+    for(const y of [.43,1.49]){
+      // Tapered strap ends and proud rivet heads resemble blacksmith work.
+      for(let n=0;n<5;n++)aged.box(dir,leafLeft-.055+n*.105,leafBottom+y-.04+n*.006,.215,.108,.12-n*.013,.045,shift);
+      grate.box(dir,leafLeft-.065,leafBottom+y-.075,.21,.07,.19,.10,shift);
+      for(const dx of [.08,.32])rivets.box(dir,leafLeft+dx,leafBottom+y-.006,.275,.055,.055,.03,shift);
+    }
+    for(const rail of [.42,1.48])for(let i=1;i<=5;i++)
+      rivets.box(dir,leafLeft+i*leafWidth/6-.022,leafBottom+rail+.015,.211,.045,.045,.025,shift);
+    // A mortise lock plate belongs to the closing stile; no hanging padlock.
+    const plateX=leafLeft+leafWidth-.28;
+    locks.box(dir,plateX,leafBottom+1.02,.215,.25,.34,.045,shift);
+    aged.box(dir,leafLeft+leafWidth+.015,leafBottom+1.12,.10,.055,.16,.10,shift);
+    // A round key entrance above a narrow tapered slot, inset in the plate.
+    transform.position.set(plateX+.125,leafBottom+1.23,-dir*.263+shift);
+    transform.rotation.set(0,0,0);transform.scale.setScalar(1);keyholes.push();
+    result={plain:plain.array(),stairs:stairs.array(),reveal:reveal.array(),grate:[
+      ['river-grate-dark',cube,dark,recess.array()],['river-grate-iron',cube,iron,grate.array()],
+      ['river-grate-hardware',cube,frameIron,aged.array()],['river-grate-lock',cube,lock,locks.array()],
+      ['river-grate-rivets',cube,frameIron,rivets.array()],['river-grate-keyhole',keyholeGeometry,dark,keyholes.array()]
+    ]};
+    templates.set(first,result);return result;
+  }
+  function instances(group,name,geometry,material,count,x,bank){
+    const mesh=new THREE.InstancedMesh(geometry,material,count);mesh.name=name;
+    mesh.position.set(x,0,-bank);group.add(mesh);return mesh;
+  }
+  function copy(group,name,geometry,material,array,x,bank){
+    const mesh=instances(group,name,geometry,material,array.length/16,x,bank);
+    mesh.instanceMatrix.array.set(array);mesh.instanceMatrix.needsUpdate=true;return mesh;
+  }
+  function place(mesh,i,dir,px,y,d,w,h,depth){
+    transform.position.set(px+w/2,y+h/2,-dir*(d+depth/2));
+    transform.rotation.set(0,0,0);transform.scale.set(w,h,depth);transform.updateMatrix();
+    mesh.setMatrixAt(i,transform.matrix);
+  }
   function build(chunk){
     const group=new THREE.Group();group.name=`river-walk:${chunk.x},${chunk.z}`;
     const x=chunk.x*BLOCK,first=chunk.z===chunk.riverStart,bank=chunk.riverStart*BLOCK+(first?18:110),dir=first?1:-1;
-    const slabs=[],timber=[],legs=[],grate=[],aged=[],recess=[],locks=[],keyholes=[],rivets=[];
-    const box=(items,px,y,d,w,h,depth)=>{
-      transform.position.set(x+px+w/2,y+h/2,-bank-dir*(d+depth/2));
-      transform.rotation.set(0,0,0);transform.scale.set(w,h,depth);transform.updateMatrix();items.push(transform.matrix.clone());
-    };
-    box(slabs,0,RIVER_WALK_HEIGHT-.2,0,BLOCK,.2,RIVER_WALK_WIDTH);
-    if(hasRiverStairs(x)){
-      box(slabs,RIVER_STAIRS.landing,RIVER_WALK_HEIGHT,0,2,-RIVER_WALK_HEIGHT,RIVER_STAIRS.width);
-      const tread=(RIVER_STAIRS.end-RIVER_STAIRS.start)/RIVER_STAIRS.steps;
-      for(let step=0;step<RIVER_STAIRS.steps;step++){
-        const top=RIVER_WALK_HEIGHT*(step+1)/RIVER_STAIRS.steps;
-        if(top>RIVER_WALK_HEIGHT)box(slabs,RIVER_STAIRS.start+step*tread,RIVER_WALK_HEIGHT,0,tread,top-RIVER_WALK_HEIGHT,RIVER_STAIRS.width);
-      }
+    const shapes=template(first),stairs=hasRiverStairs(x);
+    if(stairs){
+      copy(group,'river-door-reveal',revealGeometry,revealMaterial,shapes.reveal,x,bank);
+      for(const [name,geometry,material,array] of shapes.grate)copy(group,name,geometry,material,array,x,bank);
     }
-    if(hasRiverStairs(x)){
-      const {width,height,depth}=RIVER_GRATE,left=-width/2,bottom=RIVER_WALK_HEIGHT;
-      const reveal=new THREE.InstancedMesh(revealGeometry,revealMaterial,3);reveal.name='river-door-reveal';
-      for(let side=0;side<2;side++){
-        transform.position.set(x+left+side*width,bottom+height/2,-bank+dir*.16);
-        transform.rotation.set(0,Math.PI/2,0);transform.scale.set(.32,height,1);transform.updateMatrix();reveal.setMatrixAt(side,transform.matrix);
-      }
-      transform.position.set(x,bottom+height,-bank+dir*.16);
-      transform.rotation.set(Math.PI/2,0,0);transform.scale.set(width,.32,1);transform.updateMatrix();reveal.setMatrixAt(2,transform.matrix);
-      reveal.instanceMatrix.needsUpdate=true;group.add(reveal);
-      // The leaf fits from the lower path to the bridge slab's underside.
-      // Hinges fasten directly to the wall, without an outer door frame.
-      box(recess,left,bottom,.025,width,height,.025);
-      const leafLeft=left,leafWidth=width;
-      const leafBottom=bottom+.02,leafHeight=height-.04;
-      for(const edge of [leafLeft,leafLeft+leafWidth-.075])
-        box(grate,edge,leafBottom,depth,.075,leafHeight,.085);
-      for(const y of [0,.42,1.48,leafHeight-.075])
-        box(grate,leafLeft,leafBottom+y,depth,leafWidth,.075,.085);
-      for(let i=1;i<=5;i++){
-        const length=leafHeight-.15,segments=8;
-        for(let j=0;j<segments;j++){
-          const t=j/segments,next=(j+1)/segments;
-          const bend=t=>Math.sin(t*Math.PI)*(i%2?1:-1)*(.025+i*.004);
-          const px=leafLeft+i*leafWidth/6-.024+Math.sin(i*8.1)*.025;
-          const ax=px+bend(t),bx=px+bend(next),h=length/segments;
-          transform.position.set(x+(ax+bx)/2,leafBottom+.075+(j+.5)*h,-bank-dir*(depth+.035));
-          transform.rotation.set(0,0,-Math.atan2(bx-ax,h));
-          transform.scale.set(.047+Math.sin(i*13+j*7)*.007,Math.hypot(h,bx-ax)+.004,.06);
-          transform.updateMatrix();grate.push(transform.matrix.clone());
+    const mesh=copy(group,'river-walk-stone',cube,stone,stairs?shapes.stairs:shapes.plain,x,bank);
+    for(let i=0;i<mesh.count;i++)mesh.setColorAt(i,shades[i<2?0:(i-2)%shades.length]);
+    const benches=chunk.riverBenches??riverBenches(chunk);
+    if(benches.length){
+      const timber=instances(group,'river-bench-wood',cube,wood,benches.length*2,x,bank);
+      const legs=instances(group,'river-bench-metal',cube,metal,benches.length*4,x,bank);
+      let t=0,l=0;
+      for(const bench of benches){
+        const bx=bench.x-x;
+        place(timber,t++,dir,bx-1,RIVER_WALK_HEIGHT+.42,0,2,.08,.6);
+        place(timber,t++,dir,bx-1,RIVER_WALK_HEIGHT+.56,0,2,.42,.1);
+        for(const end of [-.9,.82]){
+          place(legs,l++,dir,bx+end,RIVER_WALK_HEIGHT,0,.08,.5,.6);
+          place(legs,l++,dir,bx+end,RIVER_WALK_HEIGHT+.5,0,.08,.48,.1);
         }
       }
-      // Long hinge straps attach the leaf directly to the wall.
-      for(const y of [.43,1.49]){
-        // Tapered strap ends and proud rivet heads resemble blacksmith work.
-        for(let n=0;n<5;n++)box(aged,leafLeft-.055+n*.105,leafBottom+y-.04+n*.006,.215,.108,.12-n*.013,.045);
-        box(grate,leafLeft-.065,leafBottom+y-.075,.21,.07,.19,.10);
-        for(const dx of [.08,.32])box(rivets,leafLeft+dx,leafBottom+y-.006,.275,.055,.055,.03);
-      }
-      for(const rail of [.42,1.48])for(let i=1;i<=5;i++)
-        box(rivets,leafLeft+i*leafWidth/6-.022,leafBottom+rail+.015,.211,.045,.045,.025);
-      // A mortise lock plate belongs to the closing stile; no hanging padlock.
-      const plateX=leafLeft+leafWidth-.28;
-      box(locks,plateX,leafBottom+1.02,.215,.25,.34,.045);
-      box(aged,leafLeft+leafWidth+.015,leafBottom+1.12,.10,.055,.16,.10);
-      // A round key entrance above a narrow tapered slot, inset in the plate.
-      transform.position.set(x+plateX+.125,leafBottom+1.23,-bank-dir*.263);
-      transform.rotation.set(0,0,0);transform.scale.setScalar(1);transform.updateMatrix();keyholes.push(transform.matrix.clone());
-
-    }
-    for(const [name,items,material] of [['dark',recess,dark],['iron',grate,iron],['hardware',aged,frameIron],['lock',locks,lock],['rivets',rivets,frameIron]])if(items.length){
-      const mesh=new THREE.InstancedMesh(cube,material,items.length);mesh.name=`river-grate-${name}`;
-      items.forEach((matrix,i)=>{
-        // All ironwork sits inside the cut opening, with clearance from the wall.
-        matrix.elements[14]+=dir*.34;mesh.setMatrixAt(i,matrix);
-      });mesh.instanceMatrix.needsUpdate=true;group.add(mesh);
-    }
-    if(keyholes.length){
-      const mesh=new THREE.InstancedMesh(keyholeGeometry,dark,keyholes.length);mesh.name='river-grate-keyhole';
-      keyholes.forEach((matrix,i)=>{matrix.elements[14]+=dir*.34;mesh.setMatrixAt(i,matrix);});mesh.instanceMatrix.needsUpdate=true;group.add(mesh);
-    }
-    const mesh=new THREE.InstancedMesh(cube,stone,slabs.length);mesh.name='river-walk-stone';
-    slabs.forEach((matrix,i)=>{mesh.setMatrixAt(i,matrix);mesh.setColorAt(i,shades[i<2?0:(i-2)%shades.length]);});
-    mesh.instanceMatrix.needsUpdate=true;group.add(mesh);
-    for(const bench of chunk.riverBenches??riverBenches(chunk)){
-      const bx=bench.x-x;
-      box(timber,bx-1,RIVER_WALK_HEIGHT+.42,0,2,.08,.6);
-      box(timber,bx-1,RIVER_WALK_HEIGHT+.56,0,2,.42,.1);
-      for(const end of [-.9,.82]){
-        box(legs,bx+end,RIVER_WALK_HEIGHT,0,.08,.5,.6);
-        box(legs,bx+end,RIVER_WALK_HEIGHT+.5,0,.08,.48,.1);
-      }
-    }
-    for(const [name,items,material] of [['wood',timber,wood],['metal',legs,metal]])if(items.length){
-      const benches=new THREE.InstancedMesh(cube,material,items.length);benches.name=`river-bench-${name}`;
-      items.forEach((matrix,i)=>benches.setMatrixAt(i,matrix));benches.instanceMatrix.needsUpdate=true;group.add(benches);
+      timber.instanceMatrix.needsUpdate=true;legs.instanceMatrix.needsUpdate=true;
     }
     scene.add(group);return group;
   }
