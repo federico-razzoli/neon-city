@@ -2,7 +2,7 @@
 import * as THREE from './vendor/three/three.module.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createStorefrontStreet} from './three-storefront-street.js';
-import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers} from './blue-note-interior.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
 
 import {drawCylinder,drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
 
@@ -151,6 +151,28 @@ function drawDora(box,face){
       .14*Math.sin(a),.049,.085,i%3?'#30282a':'#443437','#443437',.038);
   }
 }
+function drawPedalCase(box,face){
+  const {x,z,w,d,h}=pedalCase,y=basementFloor,frame='#38464b';
+  box(x,y,z,w,.32,d,frame);
+  box(x,y+.32,z+d-.04,w,h-.32,.04,'#79736c');
+  for(const side of [x,x+w-.06])box(side,y+.32,z,.06,h-.32,d,frame);
+  box(x,y+h-.06,z,w,.06,d,frame);
+  box(x+w/2-.018,y+.32,z,.036,h-.32,.03,frame);
+  box(x+w/2+.05,y+1.02,z-.028,.026,.16,.035,'#c6c9c3');
+  const finishes=['#c65944','#527caa','#c29542','#588163','#8e6097','#bcb7a8','#607477','#c47d48'];
+  for(let row=0;row<3;row++){
+    const top=y+.46+row*.57;
+    box(x+.06,top-.04,z+.035,w-.12,.04,d-.08,'#b1aca0');
+    for(let col=0;col<10;col++){
+      const variant=(col+row*3)%4,width=.18+.05*variant,depth=.20+.032*variant;
+      const cx=x+.28+col*(w-.56)/9,front=z+.09,body=.085+.012*variant;
+      box(cx-width/2,top,front,width,body,depth,finishes[(col+row*3)%finishes.length]);
+      drawCylinder(face,cx,top+body,front+.055,.023,.019,'#909799','#d2d3cb');
+      for(let knob=0;knob<2+variant%2;knob++)
+        drawCylinder(face,cx-width*.28+knob*.057,top+body,front+depth-.052,.021,.028,'#25282a','#46494a');
+    }
+  }
+}
 function drawInstrumentShop({box,quad,face}){
   const floor=basementFloor;
   quad(0,floor,0,16,14,'#706258');
@@ -160,13 +182,26 @@ function drawInstrumentShop({box,quad,face}){
   box(0,floor,14,16,-floor,.1,basementEndWall);
   const colors=['#ad4936','#e0ad55','#438781','#67394b'];
   for(let i=0;i<12;i++){
-    const x=1+i*1.25,bass=i>=6,y=floor+1;
+    // Facing this wall from the shop, the lowest x is on the right.
+    const x=1+i*1.25,bass=i>=8,steel=i===0,y=floor+1;
     const outline=[[-.10,.64],[-.22,.70],[-.25,.48],[-.16,.33],[-.28,.18],[-.27,.03],
       [-.16,-.08],[.13,-.08],[.27,.02],[.28,.18],[.16,.35],[.24,.53],[.22,.64],[.10,.53]];
     // Fan triangles keep the cutaways on either side of the neck.
     const point=([dx,dy])=>({x:x+dx,y:y+dy,z:.31});
     for(let n=0;n<outline.length;n++)
-      face([point([0,.30]),point(outline[n]),point(outline[(n+1)%outline.length])],colors[i%4]);
+      face([point([0,.30]),point(outline[n]),point(outline[(n+1)%outline.length])],steel?'#afbec1':colors[i%4]);
+    if(steel){
+      // Concentric metal rings and grille slots distinguish the resonator.
+      for(const [radius,tint,depth] of [[.178,'#e1e6e4',.312],[.154,'#748589',.314],[.118,'#bcc8c9',.316]]){
+        const disc=Array.from({length:24},(_,j)=>{
+          const a=j*Math.PI/12;
+          return {x:x+radius*Math.cos(a),y:y+.22+radius*Math.sin(a),z:depth};
+        });
+        face(disc,tint);
+      }
+      for(const offset of [-.09,-.045,.045,.09])
+        box(x+offset-.009,y+.15,.317,.018,.14,.002,'#506165');
+    }
     const neck=bass?1.12:.85;
     box(x-.055,y+.48,.26,.11,neck,.07,'#aa7950');
     box(x-.08,y+.48+neck,.26,.16,.21,.07,'#d6ad70');
@@ -280,6 +315,7 @@ function drawRoom({box,quad,face}){
   const wood='#684737',oak='#ab805c',wall='#41575a';
   const [upper,lower]=blueNoteStairs;
   drawInstrumentShop({box,quad,face});
+  drawPedalCase(box,face);
   // A separate soffit hides the undersides of the upstairs fixtures.
   // Its two panels meet at the stairwell corner and leave both flights clear.
   const ceiling=-.24,frontOfStairs=upper.z-stairWallThickness;
@@ -289,7 +325,7 @@ function drawRoom({box,quad,face}){
     box(x,ceiling-.07,z,4,.07,.18,'#778486');
     box(x+.06,ceiling-.10,z+.025,3.88,.03,.13,'#ffe3aa');
   }
-  for(const [x,label] of [[5.4,'GUITARS'],[12.9,'BASSES']]){
+  for(const [x,label] of [[6.775,'GUITARS'],[14.275,'BASSES']]){
     const sign=panel(224,48,ink,g=>lettering(g,label,10,37,38,cream));
     hanging(x,basementFloor+3.05,.04,-2.8,0,.6,sign);
   }
@@ -453,6 +489,10 @@ export function createBlueNoteScene({streetScene}={}){
       left+=width+.20;
     }
     const material=new THREE.MeshBasicMaterial({color:'#7295aa',transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide,toneMapped:false});
+    const cabinetGlass=new THREE.Mesh(geometry,material);
+    cabinetGlass.scale.set(pedalCase.w-.12,pedalCase.h-.38,1);
+    cabinetGlass.position.set(pedalCase.x+pedalCase.w/2,basementFloor+.32+cabinetGlass.scale.y/2,-pedalCase.z-.012);
+    scene.add(cabinetGlass);
     for(const {x,y,z,w,h} of storefront.panes){
       const pane=new THREE.Mesh(geometry,material);
       pane.position.set(x+w/2,y+h/2,-z);pane.scale.set(w,h,1);scene.add(pane);

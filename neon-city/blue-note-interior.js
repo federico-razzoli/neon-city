@@ -35,6 +35,7 @@ export const stairRun=.29*17,flightDrop=.18*17,basementFloor=-2*flightDrop;
 export const instrumentDesk={x:0,z:10,w:7,d:1},instrumentClerk={x:4,z:11.5,radius:.5};
 export const instrumentTill={x:instrumentDesk.x+.74,z:instrumentDesk.z+.475,radius:.38};
 export const keyboardTables=[3,8].map(x=>({x,z:4,w:2.7,d:.85}));
+export const pedalCase={x:upper.x+.45,z:upper.z-stairWallThickness-.52,w:4.55,d:.52,h:2.12};
 export const amplifiers=[
   {z:.65,w:.26,d:.52,h:.41,style:'mini'},
   {z:1.38,w:.42,d:.76,h:.62,style:'compact'},
@@ -48,7 +49,7 @@ export const amplifiers=[
 const staffFootprint=at=>({x:at.x-.35,z:at.z-.25,w:.7,d:.5});
 const groundFixtures=[...blueNoteBins,...wallRecordRacks,counter,upper,
   {x:upper.x,z:upper.z+upper.d,w:upper.w,d:lower.z-upper.z-upper.d},staffFootprint(clerk)];
-const basementFixtures=[instrumentDesk,staffFootprint(instrumentClerk),...keyboardTables,...amplifiers,
+const basementFixtures=[pedalCase,instrumentDesk,staffFootprint(instrumentClerk),...keyboardTables,...amplifiers,
   {x:0,z:0,w:16,d:.45}];
 export function blueNoteFloor(actor){
   if(actor.blueLevel===2)return basementFloor;
