@@ -20,15 +20,15 @@ export function createThreeRailings(scene){
     }
     vertices.needsUpdate=true;geometry.computeVertexNormals();
   }
-  const parts=new Map(),transform=new THREE.Object3D();
+  const parts=new Map(),matrix=new THREE.Matrix4();
   // Instances are written straight into the mesh, without temporary arrays.
+  // Every box is axis-aligned, so its matrix is a scale plus a translation.
   function boxes(group,name,color,count){
     const mesh=new THREE.InstancedMesh(cube,materials[color],count);mesh.name=name;
     group.add(mesh);return mesh;
   }
   function place(mesh,i,x,y,z,w,h,d){
-    transform.position.set(x+w/2,y+h/2,-z-d/2);transform.scale.set(w,h,d);transform.updateMatrix();
-    mesh.setMatrixAt(i,transform.matrix);
+    mesh.setMatrixAt(i,matrix.makeScale(w,h,d).setPosition(x+w/2,y+h/2,-z-d/2));
   }
   const steps=(from,to,step)=>Math.max(0,Math.ceil((to-from)/step));
   function bank(group,chunk){

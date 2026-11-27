@@ -34,7 +34,9 @@ export function createThreeRiverWalks(scene){
   const keyholeGeometry=new THREE.ShapeGeometry(keyholeShape,12);
   // The two banks face opposite directions.
   dark.side=THREE.DoubleSide;
-  const parts=new Map(),transform=new THREE.Object3D(),templates=new Map();
+  // Axis-aligned boxes build their matrix directly; the Object3D is kept for
+  // the few rotated parts, where its Euler-to-quaternion path is needed.
+  const parts=new Map(),transform=new THREE.Object3D(),matrix=new THREE.Matrix4(),templates=new Map();
   // Bank-local matrices: x runs along the block from its west edge, z is 0 on
   // the bank face and grows towards the water by dir. Meshes are positioned
   // at the chunk, so one template serves every chunk on the same bank side.
@@ -43,8 +45,8 @@ export function createThreeRiverWalks(scene){
     return {values,
       push(){transform.updateMatrix();values.push(...transform.matrix.elements);},
       box(dir,px,y,d,w,h,depth,shift=0){
-        transform.position.set(px+w/2,y+h/2,-dir*(d+depth/2)+shift);
-        transform.rotation.set(0,0,0);transform.scale.set(w,h,depth);this.push();
+        matrix.makeScale(w,h,depth).setPosition(px+w/2,y+h/2,-dir*(d+depth/2)+shift);
+        values.push(...matrix.elements);
       },
       // One read-only attribute per template, shared by every chunk's mesh,
       // so the renderer uploads it once instead of once per chunk.
@@ -136,9 +138,7 @@ export function createThreeRiverWalks(scene){
     mesh.instanceMatrix=attribute;mesh.count=attribute.count;mesh.userData.sharedInstances=true;return mesh;
   }
   function place(mesh,i,dir,px,y,d,w,h,depth){
-    transform.position.set(px+w/2,y+h/2,-dir*(d+depth/2));
-    transform.rotation.set(0,0,0);transform.scale.set(w,h,depth);transform.updateMatrix();
-    mesh.setMatrixAt(i,transform.matrix);
+    mesh.setMatrixAt(i,matrix.makeScale(w,h,depth).setPosition(px+w/2,y+h/2,-dir*(d+depth/2)));
   }
   function build(chunk){
     const group=new THREE.Group();group.name=`river-walk:${chunk.x},${chunk.z}`;
