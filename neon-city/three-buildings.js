@@ -31,7 +31,9 @@ export function createThreeBuildings(scene,{boundsVisible}={}){
       // const loaded=new Set([...frame.city.chunks.values()].flatMap(chunk=>chunk.buildings??[]));
       const loaded=new Set();
       for(const chunk of frame.city.chunks.values())for(const building of chunk.buildings??[])loaded.add(building);
-      for(const [building,entry] of buildings){if(!loaded.has(building)){release(entry);buildings.delete(building);}else entry.group.visible=false;}
+      // Previous version, which created a [building,entry] pair for every entry every frame:
+      // for(const [building,entry] of buildings){if(!loaded.has(building)){release(entry);buildings.delete(building);}else entry.group.visible=false;}
+      buildings.forEach((entry,building)=>{if(!loaded.has(building)){release(entry);buildings.delete(building);}else entry.group.visible=false;});
     },
     draw(building,imageFor,viewer){
       const {x,z,w,d,h}=building;
