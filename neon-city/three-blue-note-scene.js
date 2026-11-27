@@ -513,6 +513,9 @@ function createCatPurr(context,camera,root){
 }
 function createCounterCat(scene,camera){
   let purr,scheduledUntil=0;
+  let nextBlink=0;
+  let lookYaw=0,lookPitch=0,lastLookTime=performance.now();
+  const viewer=new THREE.Vector3();
   const root=new THREE.Group(),head=new THREE.Group();
   root.position.set(counterCat.x,basementFloor+fixtureTop,-counterCat.z);
   root.rotation.y=.83;
@@ -599,8 +602,26 @@ function createCounterCat(scene,camera){
     chest.scale.y=.065472+.019008*sit;
     span(spine,hipY,hipZ,shoulderY,shoulderZ,.046464);
     head.position.set(.058432*(1-sit-stretch),shoulderY+.008448+.08448*sit+.011264*stretch,shoulderZ+.03872+.0176*stretch);
-    head.rotation.set(.44*(1-sit-stretch),1.64*(1-sit-stretch)-.23*sit,-.24*(1-sit-stretch));
-    for(const eye of eyes)eye.scale.y=.001056+.0088*sit+.004224*stretch;
+    const resting=1-sit-stretch,baseYaw=1.64*resting-.23*sit,basePitch=.44*resting;
+    camera.getWorldPosition(viewer);
+    root.worldToLocal(viewer).sub(head.position);
+    const attention=1-THREE.MathUtils.smoothstep(viewer.length(),1.2,2.5);
+    const yaw=Math.atan2(viewer.x,viewer.z)-baseYaw;
+    const pitch=-Math.atan2(viewer.y,Math.hypot(viewer.x,viewer.z))-basePitch;
+    const blend=1-Math.exp(-.006*Math.min(now-lastLookTime,100));
+    lastLookTime=now;
+    lookYaw+=(attention*THREE.MathUtils.clamp(Math.atan2(Math.sin(yaw),Math.cos(yaw)),-.65,.65)-lookYaw)*blend;
+    lookPitch+=(attention*THREE.MathUtils.clamp(pitch,-.3,.3)-lookPitch)*blend;
+    head.rotation.set(basePitch,baseYaw,-.24*resting);
+    head.rotateOnWorldAxis(THREE.Object3D.DEFAULT_UP,lookYaw*sit);
+    head.rotateX(lookPitch*sit);
+    const awakeEyes=.0088*sit+.004224*stretch;
+    let squint=0;
+    if(awakeEyes>0){
+      if(!nextBlink||now>=nextBlink+1500)nextBlink=now+4500+Math.random()*5500;
+      if(now>nextBlink)squint=.35*Math.sin(Math.PI*(now-nextBlink)/1500)**2;
+    }else nextBlink=0;
+    for(const eye of eyes)eye.scale.y=.001056+awakeEyes*(1-squint);
     for(const {side,thigh,hindPaw,shin,paw} of legs){
       thigh.position.set(side*.061952,hipY-.009856,hipZ+.009856);
       thigh.scale.y=hipY-.01056;
