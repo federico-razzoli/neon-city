@@ -30,7 +30,8 @@ export function createThreeBuildings(scene,{boundsVisible}={}){
     },
     draw(building,imageFor,viewer){
       const {x,z,w,d,h}=building;
-      if(boundsVisible&&!boundsVisible(x,0,z,x+w,h,z+d))return;
+      // Redundant: world-scene.js already applies the same bounds check before calling draw.
+      // if(boundsVisible&&!boundsVisible(x,0,z,x+w,h,z+d))return;
       let entry=buildings.get(building);
       if(!entry){
         const group=new THREE.Group();group.name=`building:${x},${z}`;group.matrixAutoUpdate=false;scene.add(group);
