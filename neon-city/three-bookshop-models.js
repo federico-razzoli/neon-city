@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
 import {BOOKSHOP,BOOK_CATEGORIES} from './midnite-interior.js';
+import {drawTill} from './three-till.js';
 
 export function createBookshopRoomGeometry(){
   const model=createModel(),{box,quad,panel,cylinder}=model;
@@ -79,31 +80,7 @@ export function createBookshopRoomGeometry(){
   }
 
   box(counter.x,0,counter.z,counter.w,1.15,counter.d,'#614733');box(counter.x-.08,1.15,counter.z-.08,counter.w+.16,.13,counter.d+.16,'#ad8756');
-  const till=BOOKSHOP.till,tx=till.x-.45,tz=till.z-.35;
-  const tillScale=.81;
-  const tillX=x=>till.x+(x-till.x)*tillScale,tillY=y=>1.28+(y-1.28)*tillScale,tillZ=z=>till.z+(z-till.z)*tillScale;
-  const tillBox=(x,y,z,w,h,d,color)=>box(tillX(x),tillY(y),tillZ(z),w*tillScale,h*tillScale,d*tillScale,color);
-  const tillPanel=(x,y,z,w,h,color)=>panel(tillX(x),tillY(y),tillZ(z),w*tillScale,h*tillScale,color);
-  // A broad cash drawer, raised display, keypad and receipt roll distinguish
-  // the register from the books stacked beside it.
-  tillBox(tx,1.28,tz,.9,.18,.7,'#bcc0b4');
-  tillBox(tx+.05,1.3,tz-.015,.8,.105,.025,'#424a45');
-  tillBox(tx+.37,1.33,tz-.035,.16,.035,.025,'#e0d8b5');
-  tillBox(tx+.05,1.46,tz+.07,.8,.12,.55,'#78877b');
-  tillBox(tx+.08,1.58,tz+.08,.35,.16,.4,'#a9b2a0');
-  for(let row=0;row<4;row++)for(let col=0;col<3;col++)tillBox(tx+.11+col*.095,1.74,tz+.1+row*.085,.065,.025,.055,(row===3&&col===2)?'#b07b53':'#e6dfc9');
-  tillBox(tx+.07,1.58,tz+.52,.56,.4,.12,'#424e48');
-  for(const z of [tz+.51,tz+.645]){
-    tillPanel(tx+.12,1.65,z,.46,.23,'#132e29');
-    // Three green seven-segment zeroes, visible from either side.
-    for(let digit=0;digit<3;digit++){
-      const x=tx+.17+digit*.13;
-      for(const y of [1.69,1.8])tillPanel(x,y,z-.002,.075,.018,'#9ee5a0');
-      for(const xx of [x,x+.058])tillPanel(xx,1.69,z-.002,.017,.128,'#9ee5a0');
-    }
-  }
-  tillBox(tx+.55,1.58,tz+.15,.23,.16,.28,'#d2cbb8');
-  tillBox(tx+.59,1.74,tz+.2,.15,.16,.025,'#f4ead1');
+  drawTill(box,BOOKSHOP.till.x-.38,1.28,BOOKSHOP.till.z-.275);
   box(BOOKSHOP.deskBook.x-.325,1.28,BOOKSHOP.deskBook.z-.225,.65,.15,.45,'#8e6178');
 
   for(const chair of chairs){

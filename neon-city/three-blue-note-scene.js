@@ -5,6 +5,7 @@ import {createStorefrontStreet} from './three-storefront-street.js';
 import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,counterCat,counterCatPose,catPurrUntil,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
 
 import {drawCylinder,drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
+import {drawTill} from './three-till.js';
 
 
 const storefront={
@@ -17,11 +18,6 @@ const cream='#f5dcac',ink='#141c28',brass='#d7a268';
 const cabinet='#253b50',surface='#61949b',trim='#94b9bf';
 const counterBaseHeight=1.02,countertopThickness=.11;
 const fixtureTop=counterBaseHeight+countertopThickness;
-function drawTill(box,x,y,z){
-  box(x,y,z,.76,.17,.55,'#485154');
-  box(x+.06,y+.17,z+.24,.64,.30,.18,'#273438');
-  box(x+.12,y+.29,z+.23,.52,.12,.025,'#a1c3a1');
-}
 function panel(width,height,background,paint){
   const image=document.createElement('canvas');
   image.width=width;image.height=height;

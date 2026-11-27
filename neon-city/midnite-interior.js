@@ -27,7 +27,7 @@ export const BOOKSHOP={width:18,depth:18,height:4.5,door:{x:9,z:0},spawn:{x:9,z:
   tables:[{x:7,z:6,w:3,d:1.8},{x:7,z:11,w:3,d:1.8}],
   windowShelves:[{x:1,z:.1,w:6,d:.6},{x:11,z:.1,w:6,d:.6}],
   counter:{x:13.8,z:14,w:4.2,d:1.2},bookseller:{x:15.5,z:16,radius:.55},
-  till:{x:14.525,z:14.425,radius:.2835,reach:1.5},
+  till:{x:14.525,z:14.425,radius:.38,reach:1.5},
   deskBook:{x:16.7,z:14.55,radius:.35,reach:1.5},
   backpack:{x:17.5,z:17.5,radius:.35,reach:1.2},
   // Turn the upholstered backs into the two front corners. The outer back
