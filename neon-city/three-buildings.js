@@ -25,7 +25,10 @@ export function createThreeBuildings(scene,{boundsVisible}={}){
   function release(entry){scene.remove(entry.group);for(const {texture,material} of entry.artwork.values()){texture.dispose();material.dispose();}}
   return {
     beginFrame(frame){
-      const loaded=new Set([...frame.city.chunks.values()].flatMap(chunk=>chunk.buildings??[]));
+      // Previous version, which allocated two arrays and a callback every frame:
+      // const loaded=new Set([...frame.city.chunks.values()].flatMap(chunk=>chunk.buildings??[]));
+      const loaded=new Set();
+      for(const chunk of frame.city.chunks.values())for(const building of chunk.buildings??[])loaded.add(building);
       for(const [building,entry] of buildings){if(!loaded.has(building)){release(entry);buildings.delete(building);}else entry.group.visible=false;}
     },
     draw(building,imageFor,viewer){
