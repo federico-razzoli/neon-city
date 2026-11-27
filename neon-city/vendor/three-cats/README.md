@@ -1,15 +1,15 @@
-# Three.js counter cat
+# Three.js cat
 
 A small black cat for a Three.js scene. It sleeps, stretches awake when petted, follows a nearby camera with its eyes and head while sitting, and purrs when petted again. The model and sound are generated at runtime.
 
 ## Use in a browser
 
-Copy `counter-cat.js` into your application and import it as an ES module. Pass the same Three.js namespace used to create your scene and camera. The plugin needs no external assets or build step.
+Copy `cat.js` into your application and import it as an ES module. Pass the same Three.js namespace used to create your scene and camera. The plugin needs no external assets or build step.
 
 ```js
-import {createCounterCat} from './counter-cat.js';
+import {createCat} from './cat.js';
 
-const cat = createCounterCat(THREE, {
+const cat = createCat(THREE, {
   scene,
   camera,
   position: new THREE.Vector3(0, 1, 0),

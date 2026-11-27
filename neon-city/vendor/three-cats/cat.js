@@ -77,7 +77,7 @@ function createCatPurr(THREE,context,camera,root,refDistance){
     }
   };
 }
-export function createCounterCat(THREE,{scene,camera,position,rotationY=0,purrDurationMs,awakeDurationMs,state=createCatState({purrDurationMs,awakeDurationMs}),refDistance=2.58}){
+export function createCat(THREE,{scene,camera,position,rotationY=0,purrDurationMs,awakeDurationMs,state=createCatState({purrDurationMs,awakeDurationMs}),refDistance=2.58}){
   let purr,scheduledUntil=0;
   let nextBlink=0;
   let lookYaw=0,lookPitch=0,lastLookTime=performance.now();

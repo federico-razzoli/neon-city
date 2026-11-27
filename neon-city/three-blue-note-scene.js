@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import * as THREE from './vendor/three/three.module.js';
-import {createCounterCat} from './vendor/three-counter-cat/counter-cat.js';
+import {createCat} from './vendor/three-cats/cat.js';
 import {createThreeInteriorScene} from './three-interior-scene.js';
 import {createStorefrontStreet} from './three-storefront-street.js';
-import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,counterCat,catState,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
+import {blueNoteDoor,blueNoteBins,wallRecordRacks,blueNoteStairs,counter,counterOverhang,stairWallThickness,clerk,stairRun,flightDrop,basementFloor,shopCat,catState,instrumentDesk,instrumentClerk,instrumentTill,keyboardTables,amplifiers,pedalCase} from './blue-note-interior.js';
 
 import {drawCylinder,drawRod,drawStaff} from './pub-interior.js?v=bar-taps-1';
 import {drawTill} from './three-till.js';
@@ -490,8 +490,8 @@ function stairGlazing({scene}){
 export function createBlueNoteScene({streetScene}={}){
   return createThreeInteriorScene({name:'blue-note',drawRoom,createExtras({scene,camera,builder,material:roomMaterial}){
     const doraHead=createDoraHead(scene,builder,roomMaterial);
-    const cat=createCounterCat(THREE,{scene,camera,state:catState,rotationY:.83,
-      position:new THREE.Vector3(counterCat.x,basementFloor+fixtureTop,-counterCat.z),refDistance:counterCat.radius+2.2});
+    const cat=createCat(THREE,{scene,camera,state:catState,rotationY:.83,
+      position:new THREE.Vector3(shopCat.x,basementFloor+fixtureTop,-shopCat.z),refDistance:shopCat.radius+2.2});
     const stairs=stairGlazing({scene}),street=createStorefrontStreet(scene,storefront,{streetScene});
     const geometry=new THREE.PlaneGeometry(1,1);
     const loader=new THREE.TextureLoader();

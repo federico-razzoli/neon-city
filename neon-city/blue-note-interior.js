@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {createCatState} from './vendor/three-counter-cat/counter-cat.js';
+import {createCatState} from './vendor/three-cats/cat.js';
 import {facingCounterObject,facingDoorway,facingNearest} from './pub-interior.js?v=bar-taps-1';
 
 export const blueNoteDoor={x:8,z:0},blueNoteSpawn={x:8,z:1.2,angle:0,blueLevel:0};
@@ -12,7 +12,7 @@ const records={x:counter.x+counter.w-.60,z:counter.z+.495,radius:.35};
 const till={x:counter.x+.74,z:counter.z+.425,radius:.38};
 export function blueNoteReply(player){
   if(player.blueLevel===2){
-    if(facingCounterObject(player,counterCat))return catState.pet()?'PURR PURR':null;
+    if(facingCounterObject(player,shopCat))return catState.pet()?'PURR PURR':null;
     if(facingCounterObject(player,instrumentTill))return "IT'S A BEAUTIFUL TILL.";
     if(player.z>instrumentDesk.z+instrumentDesk.d&&facingNearest(player,[instrumentClerk]))return 'CUSTOMERS ON THE OTHER SIDE, PLEASE.';
     return null;
@@ -36,7 +36,7 @@ const [upper,lower]=blueNoteStairs;
 export const stairRun=.29*17,flightDrop=.18*17,basementFloor=-2*flightDrop;
 export const instrumentDesk={x:0,z:10,w:7,d:1},instrumentClerk={x:4,z:11.5,radius:.5};
 export const instrumentTill={x:instrumentDesk.x+.74,z:instrumentDesk.z+.475,radius:.38};
-export const counterCat={x:instrumentDesk.x+instrumentDesk.w-.48,z:instrumentDesk.z+.45,radius:.38};
+export const shopCat={x:instrumentDesk.x+instrumentDesk.w-.48,z:instrumentDesk.z+.45,radius:.38};
 export const catState=createCatState();
 export const keyboardTables=[3,8].map(x=>({x,z:4,w:2.7,d:.85}));
 export const pedalCase={x:upper.x+.45,z:upper.z-stairWallThickness-.52,w:4.55,d:.52,h:2.12};

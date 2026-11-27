@@ -12,12 +12,12 @@ Third-party assets retain their own licenses; see
 
 ## Music shop cat plugin
 
-The downstairs counter cat uses a vendored ES module. See the [plugin guide](neon-city/vendor/three-counter-cat/README.md) for setup, interaction, audio, and disposal.
+The downstairs cat uses a vendored ES module. See the [plugin guide](neon-city/vendor/three-cats/README.md) for setup, interaction, audio, and disposal.
 
-For plugin development, keep the independent Git checkout at `extra/three-counter-cat/`. The main repository ignores `extra/`. After editing the plugin, refresh the game copy from the main repository root:
+For plugin development, keep the independent Git checkout at `extra/three-cats/`. The main repository ignores `extra/`. After editing the plugin, refresh the game copy from the main repository root:
 
 ```sh
-cp extra/three-counter-cat/{counter-cat.js,README.md} neon-city/vendor/three-counter-cat/
+cp extra/three-cats/{cat.js,README.md} neon-city/vendor/three-cats/
 ```
 
 ## Play locally
