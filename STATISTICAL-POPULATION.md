@@ -29,7 +29,7 @@ This applies to pedestrians and cars alike, outdoors and in venues.
 
 ## Principles
 
-- **Visibility is not extended.** Characters and cars keep today's limits: the
+- **Visibility limits stay as they are.** Characters and cars keep the
   105-unit character cutoff, the street draw distance and the fog. "Coming out
   of the fog" is shorthand: newcomers appear only where the player cannot see
   them, then walk or drive into view as usual.
@@ -137,24 +137,6 @@ On exit, the manager performs one tidy-up step:
 For venues without windows this replaces resuming the frozen street, so time
 appears to have passed outside.
 
-## Why not an Entity Component System
-
-Adopting an Entity Component System first was considered and rejected:
-
-- It would be a rewrite, not a refactor. Pedestrian logic, traffic, river
-  walkers, companions and the renderers all treat actors as plain objects held
-  in chunk lists.
-- It does not address the problem. Its main benefits are flexible composition
-  and fast iteration over many entities. The game has at most a few hundred
-  actors, and the difficult part is the policy (who exists, where newcomers
-  appear, who is protected), which is the same with or without it.
-- Rewriting risks breaking specific behaviours, such as crossings, stepping
-  aside, conversations and companions yielding to the player, in ways that are
-  hard to notice.
-
-If the actors later clearly need a component structure, the population manager
-is the natural place to introduce one gradually.
-
 ## Implementation order
 
 1. Introduce the population manager and move ownership of pedestrians and cars
@@ -162,13 +144,6 @@ is the natural place to introduce one gradually.
 2. Add the per-actor properties: simulation level, protected and last seen.
 3. Build statistical spawning, the grace period and dropping on top of them.
 4. Apply the same rules to venues, including the tidy-up step on exit.
-
-## Non-goals
-
-- Extending character, car or street visibility.
-- Faithful simulation of anything the player cannot see.
-- Persisting unseen ordinary pedestrians or cars after they are dropped.
-- Converting the game to an Entity Component System.
 
 ## Related
 
